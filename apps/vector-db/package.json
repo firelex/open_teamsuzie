@@ -1,0 +1,33 @@
+{
+  "name": "@teamsuzie/vector-db",
+  "version": "0.1.0",
+  "description": "Scoped Milvus vector search service for Team Suzie",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/shared-auth": "workspace:*",
+    "@teamsuzie/types": "workspace:*",
+    "@teamsuzie/usage-tracker": "workspace:*",
+    "ioredis": "^5.6.1",
+    "@zilliz/milvus2-sdk-node": "^2.6.9",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "openai": "^4.97.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

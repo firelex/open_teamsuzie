@@ -1,0 +1,16 @@
+{
+  "name": "@teamsuzie/types",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types for Team Suzie",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

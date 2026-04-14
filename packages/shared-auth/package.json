@@ -1,0 +1,39 @@
+{
+  "name": "@teamsuzie/shared-auth",
+  "version": "0.1.0",
+  "description": "Multi-tenant auth models and middleware for Team Suzie",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-redis": "^8.0.1",
+    "csrf": "^3.1.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "ioredis": "^5.6.1",
+    "pg": "^8.18.0",
+    "sequelize": "^6.37.7",
+    "sequelize-typescript": "^2.1.6",
+    "umzug": "^3.8.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/express": "^5.0.3",
+    "@types/express-session": "^1.18.1",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

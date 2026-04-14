@@ -1,0 +1,30 @@
+{
+  "name": "teamsuzie",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An open business operating layer for agent systems",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=8"
+  },
+  "scripts": {
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "dev:auth": "pnpm --filter @teamsuzie/auth dev",
+    "dev:llm-proxy": "pnpm --filter @teamsuzie/llm-proxy dev",
+    "dev:vector-db": "pnpm --filter @teamsuzie/vector-db dev",
+    "dev:graph-db": "pnpm --filter @teamsuzie/graph-db dev",
+    "dev:admin": "pnpm --filter @teamsuzie/admin dev",
+    "dev:demo": "pnpm --filter @teamsuzie/demo dev"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}

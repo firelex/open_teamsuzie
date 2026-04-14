@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+.next/
+.turbo/
+
+# Env files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Python (for voice agent / python-tools if added later)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+
+# Runtime
+.dev-pids/
+*.pid
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary
+tmp/
+.tmp/
