@@ -43,6 +43,15 @@ describe('interpolate', () => {
     it('renders explicitly-undefined values as empty strings', () => {
         expect(interpolate('X={{FOO}}Y', { FOO: undefined })).toBe('X=Y');
     });
+
+    it('treats context keys as literal strings, not regex patterns', () => {
+        // Regression: keys were interpolated directly into the placeholder
+        // regex without escaping, so a key like `user.name` matched
+        // `{{userXname}}` as well (the `.` was a wildcard). Keys with regex
+        // metacharacters must match only their literal form.
+        expect(interpolate('{{user.name}}', { 'user.name': 'Ada' })).toBe('Ada');
+        expect(interpolate('{{userXname}}', { 'user.name': 'Ada' })).toBe('{{userXname}}');
+    });
 });
 
 describe('SkillRegistry', () => {

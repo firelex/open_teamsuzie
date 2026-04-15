@@ -14,8 +14,11 @@ export function interpolate(template: string, context: SkillRenderContext): stri
     let output = template;
     for (const [key, raw] of Object.entries(context)) {
         const value = raw ?? '';
-        const escapedUnderscoreKey = key.replace(/_/g, '\\\\_');
-        const pattern = new RegExp(`\\{\\{(?:${key}|${escapedUnderscoreKey})\\}\\}`, 'g');
+        // Escape regex metacharacters so keys are matched as literal strings.
+        // Without this, a key like `user.name` would also match `{{userXname}}`.
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedUnderscoreKey = escapedKey.replace(/_/g, '\\\\_');
+        const pattern = new RegExp(`\\{\\{(?:${escapedKey}|${escapedUnderscoreKey})\\}\\}`, 'g');
         output = output.replace(pattern, value);
     }
     return output;
