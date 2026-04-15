@@ -30,10 +30,12 @@ describe('provider key store', () => {
             OPENAI_API_KEY: 'sk-openai-test',
             DASHSCOPE_API_KEY: 'sk-dashscope-test',
             ANTHROPIC_API_KEY: 'sk-ant-test',
+            GEMINI_API_KEY: 'sk-gemini-test',
         });
         expect(getProviderKey('openai')).toBe('sk-openai-test');
         expect(getProviderKey('dashscope')).toBe('sk-dashscope-test');
         expect(getProviderKey('anthropic')).toBe('sk-ant-test');
+        expect(getProviderKey('gemini')).toBe('sk-gemini-test');
     });
 
     it('unknown provider returns undefined', () => {
@@ -122,6 +124,26 @@ describe('resolveModel', () => {
     it('routes claude models to anthropic', () => {
         const result = resolveModel('claude-sonnet-4-20250514');
         expect(result).toEqual({ provider: 'anthropic', model: 'claude-sonnet-4-20250514' });
+    });
+
+    it('routes bare gemini models to gemini', () => {
+        expect(resolveModel('gemini-2.5-pro')).toEqual({ provider: 'gemini', model: 'gemini-2.5-pro' });
+        expect(resolveModel('gemini-2.0-flash')).toEqual({ provider: 'gemini', model: 'gemini-2.0-flash' });
+        expect(resolveModel('gemini-2.0-flash-exp')).toEqual({ provider: 'gemini', model: 'gemini-2.0-flash-exp' });
+    });
+
+    it('routes explicit gemini/ prefix', () => {
+        const result = resolveModel('gemini/gemini-2.5-pro');
+        expect(result).toEqual({ provider: 'gemini', model: 'gemini-2.5-pro' });
+    });
+
+    it('routes gemini-native embedding ids to gemini (not the OpenAI→dashscope rewrite)', () => {
+        // Regression guard: the text-embedding-* → dashscope rewrite above
+        // only fires for OpenAI-style embedding ids. Provider-native embedding
+        // model names like `gemini-embedding-001` must stay on their owning
+        // provider.
+        const result = resolveModel('gemini-embedding-001');
+        expect(result).toEqual({ provider: 'gemini', model: 'gemini-embedding-001' });
     });
 
     it('routes gpt/o1/o3/o4 to openai', () => {

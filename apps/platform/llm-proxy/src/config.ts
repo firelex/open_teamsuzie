@@ -12,6 +12,10 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
         apiBase: 'https://api.anthropic.com/v1',
         apiKeyEnv: 'ANTHROPIC_API_KEY',
     },
+    gemini: {
+        apiBase: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        apiKeyEnv: 'GEMINI_API_KEY',
+    },
     dashscope: {
         apiBase: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
         apiKeyEnv: 'DASHSCOPE_API_KEY',
@@ -166,6 +170,7 @@ export function resolveModel(model: string): { provider: string; model: string }
     if (lower === 'qwen3.5-local') return { provider: 'local', model };
     if (lower.startsWith('qwen')) return { provider: 'dashscope', model: MODEL_ALIASES[model] ?? model };
     if (lower.startsWith('claude')) return { provider: 'anthropic', model };
+    if (lower.startsWith('gemini')) return { provider: 'gemini', model };
     if (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) {
         return { provider: 'openai', model };
     }

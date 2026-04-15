@@ -5,7 +5,7 @@ Provider-agnostic LLM router with per-agent / per-org usage tracking. **Port 400
 ## What it does
 
 - Accepts LLM requests in OpenAI-compatible format.
-- Routes to the configured provider (OpenAI, Anthropic, others via adapters).
+- Routes to the configured provider (OpenAI, Anthropic, Google Gemini, others via adapters).
 - Emits per-request usage events to a Redis pub/sub channel for downstream aggregation.
 - Handles prompt caching where the provider supports it.
 
