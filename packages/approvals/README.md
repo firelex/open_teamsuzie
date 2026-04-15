@@ -7,24 +7,26 @@ Human-in-the-loop approval queue primitive.
 Agents propose actions that need human review before they dispatch. The queue tracks them through a small state machine:
 
 ```
-           ┌─────────┐
-           │ pending │
-           └────┬────┘
-                │
-      ┌─────────┼──────────┐
-      ▼         ▼          ▼
- ┌─────────┐ ┌────────┐ ┌────────┐
- │ edited  │ │approved│ │rejected│
- └────┬────┘ └───┬────┘ └────────┘
-      │         │
-      └────┬────┘
-           ▼
-     ┌────────────┐
-     │ dispatched │
-     └────────────┘
+        ┌─────────┐
+        │ pending │
+        └────┬────┘
+             │ review()
+      ┌──────┴───────┐
+      ▼              ▼
+ ┌──────────┐   ┌──────────┐
+ │ approved │   │ rejected │
+ └────┬─────┘   └──────────┘
+      │ dispatch()
+ ┌────┴────────┐
+ ▼             ▼
+┌────────────┐ ┌────────┐
+│ dispatched │ │ failed │
+└────────────┘ └────────┘
 ```
 
-Storage is Postgres (via `@teamsuzie/shared-auth` Sequelize connection). Workers run on BullMQ over Redis.
+Terminal states are `rejected`, `dispatched`, and `failed`. A reviewer can optionally supply an `edited_payload` alongside an approve verdict, which replaces the payload before dispatch — this is a parameter of `review()`, not a separate state.
+
+v0.1 ships an in-memory store for tests and demos. A durable Postgres store and a BullMQ worker pattern are tracked in [ROADMAP.md](../../docs/ROADMAP.md) for v0.4.
 
 ## API surface
 
@@ -62,14 +64,6 @@ await queue.review(item.id, {
 
 // Worker / caller: run the dispatcher.
 await queue.dispatch(item.id);
-```
-
-The state machine is:
-
-```
-pending ──► approved ──► dispatched
-      └──► rejected
-                  └──► failed
 ```
 
 ## Pluggable storage

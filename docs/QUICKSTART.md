@@ -1,8 +1,6 @@
 # Quickstart
 
-> **⚠️ v0.1 is a planning skeleton, not runnable code.** The steps below describe the *intended* developer experience at v0.2. Today, `pnpm install` will succeed but none of the services will start — the `apps/` and `packages/` directories contain READMEs, not implementations. If you want to see the code that backs this architecture, check the [private upstream](https://teamsuzie.com) or wait for v0.2 (tracked in [ROADMAP.md](ROADMAP.md)).
->
-> What follows is the target quickstart, left in place so you can see where we're headed.
+> **v0.1 note:** platform services (steps 1–4) build, test, and run today — `pnpm install && pnpm -r build && pnpm -r test` is green, and the dev scripts below start real services. Steps 5–6 describe the admin UI and the demo agent, which land at v0.3 (tracked in [ROADMAP.md](ROADMAP.md)). Until then, build against the REST APIs directly.
 
 Gets you from zero to a running agent hitting a scoped knowledge base with an approval queue in front of it.
 
@@ -55,11 +53,11 @@ pnpm dev:graph-db     # :3007
 pnpm dev:admin        # :3008
 ```
 
-## 5. Create an org and an agent
+## 5. Create an org and an agent *(v0.3)*
 
 Open the admin UI at [http://localhost:3008](http://localhost:3008). Sign up with any email (no email verification in OSS dev mode). Create an org, then create an agent — copy the API key it gives you.
 
-## 6. Run the demo agent
+## 6. Run the demo agent *(v0.3)*
 
 ```bash
 cd apps/starters/demo

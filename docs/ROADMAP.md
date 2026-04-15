@@ -2,17 +2,17 @@
 
 Team Suzie OSS is an extraction from a working private codebase. The roadmap reflects what's already built upstream and what needs refactoring before it can land here.
 
-## v0.1 — Planning skeleton *(current)*
+## v0.1 — Runnable foundations *(current)*
 
-Goal: repo layout and positioning published so the direction is legible. **This is not yet runnable code.** The `apps/` and `packages/` directories contain READMEs describing intent; the actual extraction from the private upstream is in progress. Don't `pnpm install` and expect things to work — come back at v0.2.
+Goal: the pillars ship as runnable, tested TypeScript packages. Ten workspace projects build clean; 66 unit tests pass. The admin UI, demo agent, and first-party application integrations land in later phases — this release is for engineers wiring their own applications on top.
 
 - [x] Repository structure and positioning docs
 - [x] MIT license, contributing guide, security policy
 - [x] Docker Compose for local infrastructure (Postgres, Redis, Milvus, Neo4j)
-- [ ] `packages/types` — shared scope and agent context types
-- [ ] `packages/shared-auth` — org/user/agent models (billing stripped)
-- [ ] `apps/platform/auth` — session-based auth service
-- [ ] `apps/platform/llm-proxy` — provider-agnostic LLM router with usage tracking
+- [x] `packages/types` — shared scope and agent context types
+- [x] `packages/shared-auth` — org/user/agent models (billing stripped)
+- [x] `apps/platform/auth` — session-based auth service
+- [x] `apps/platform/llm-proxy` — provider-agnostic LLM router with usage tracking
 
 ## v0.2 — Runnable end-to-end
 

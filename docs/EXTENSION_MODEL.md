@@ -28,13 +28,35 @@ The ships-by-default email dispatcher (SendGrid) is a reference implementation.
 
 ## 3. LLM providers
 
-The LLM proxy has a provider adapter interface. To add a new provider:
+Providers live in `apps/platform/llm-proxy/src/config.ts`. Each one is a `{ apiBase, apiKeyEnv }` entry in the `PROVIDERS` record, and the `resolveModel()` function routes an incoming model string to a provider — either via an explicit `provider/model-name` prefix or a heuristic branch on the bare model name.
 
-1. Implement `LLMProvider` from `apps/platform/llm-proxy/src/providers/types.ts`.
-2. Register it in `apps/platform/llm-proxy/src/providers/index.ts`.
-3. Configure via env or the admin UI's config panel.
+To add a new OpenAI-compatible provider:
 
-Usage tracking is automatic — it hooks the response stream, not the provider.
+1. Add an entry to `PROVIDERS`:
+
+   ```typescript
+   export const PROVIDERS: Record<string, ProviderConfig> = {
+     // …existing entries…
+     myprovider: {
+       apiBase: 'https://api.myprovider.example/v1',
+       apiKeyEnv: 'MYPROVIDER_API_KEY',
+     },
+   };
+   ```
+
+2. Add a heuristic branch to `resolveModel()` so callers can pass bare model names:
+
+   ```typescript
+   if (lower.startsWith('myprovider-')) return { provider: 'myprovider', model };
+   ```
+
+3. Document `MYPROVIDER_API_KEY` in `.env.example`.
+
+Callers can always bypass the heuristic by sending the explicit prefix form — e.g. `model: "myprovider/some-model"` — so the heuristic branch is a convenience, not a requirement.
+
+Providers are assumed to speak the OpenAI Chat Completions wire format (`POST /chat/completions`, `POST /embeddings`, etc.). Non-OpenAI-compatible providers need a dedicated route handler; that's a larger change and out of scope for a simple provider addition.
+
+Usage tracking is automatic — `completions.ts`, `responses.ts`, and `embeddings.ts` extract `usage` from the upstream response and publish it to Redis via `publishUsage()` regardless of which provider served the request.
 
 ## 4. Vector and graph backends
 

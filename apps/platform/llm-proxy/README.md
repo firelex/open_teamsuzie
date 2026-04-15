@@ -6,7 +6,7 @@ Provider-agnostic LLM router with per-agent / per-org usage tracking. **Port 400
 
 - Accepts LLM requests in OpenAI-compatible format.
 - Routes to the configured provider (OpenAI, Anthropic, others via adapters).
-- Records token usage per agent and per org into Redis-backed counters.
+- Emits per-request usage events to a Redis pub/sub channel for downstream aggregation.
 - Handles prompt caching where the provider supports it.
 
 ## Why a proxy
@@ -21,14 +21,24 @@ Agents shouldn't talk to LLM providers directly. Centralizing through this servi
 
 ```
 POST /v1/chat/completions        (OpenAI-compatible)
-POST /v1/messages                (Anthropic-compatible)
-GET  /usage/agent/:id            (cumulative tokens for an agent)
-GET  /usage/org/:id              (cumulative tokens for an org)
+POST /v1/responses               (OpenAI Responses API → Chat Completions bridge)
+POST /v1/embeddings              (OpenAI-compatible)
+GET  /health
 ```
+
+Admin-only (used by the admin app to hot-reload keys and config):
+
+```
+POST /admin/reload-keys
+POST /admin/sync-org-keys
+POST /admin/sync-agent-configs
+```
+
+Usage is published to Redis pub/sub on the `usage:events` channel (see `src/services/usage.ts`). Consumers aggregate per-agent / per-org totals downstream — the proxy does not expose its own `/usage` endpoints.
 
 ## Configuration
 
-Provider keys go in env or via the admin UI's config panel. See `.env.example`.
+Provider keys go in env (see `.env.example` at the repo root) and can be hot-reloaded via `POST /admin/reload-keys`.
 
 ## What's not here
 
@@ -37,4 +47,4 @@ Provider keys go in env or via the admin UI's config panel. See `.env.example`.
 
 ## Status
 
-v0.1 — being extracted.
+v0.1 — **runnable.** 28 unit tests cover body mutations, config loading, and dotenv bootstrapping.
