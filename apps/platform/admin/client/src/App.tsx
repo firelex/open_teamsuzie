@@ -15,7 +15,6 @@ import { useSession, type SessionUser } from './hooks/use-session.js';
 import { LoginPage } from './pages/login.js';
 import { ChatPage } from './pages/chat.js';
 import { OverviewPage } from './pages/overview.js';
-import { PlaceholderPage } from './pages/placeholder.js';
 import { AgentsPage } from './pages/agents.js';
 import { AgentEditPage } from './pages/agent-edit.js';
 import { SkillsPage } from './pages/skills.js';
@@ -23,6 +22,7 @@ import { ApprovalsPage } from './pages/approvals.js';
 import { ArtifactsPage } from './pages/artifacts.js';
 import { TokensPage } from './pages/tokens.js';
 import { ConfigPage } from './pages/config.js';
+import { ActivityPage } from './pages/activity.js';
 
 interface HealthResponse {
   title: string;
@@ -119,17 +119,7 @@ function AppContent({
           <Route path="/artifacts" element={<ArtifactsPage />} />
           <Route path="/tokens" element={<TokensPage />} />
           <Route path="/config" element={<ConfigPage />} />
-          <Route
-            path="/activity"
-            element={
-              <PlaceholderPage
-                title="Activity"
-                description="Recent sessions, tool calls, and token usage."
-                phase="Phase 7"
-                summary="Event feed with per-agent drill-in, cost breakdown, and daily rollups."
-              />
-            }
-          />
+          <Route path="/activity" element={<ActivityPage />} />
         </Routes>
       </AppShellMain>
     </AppShell>

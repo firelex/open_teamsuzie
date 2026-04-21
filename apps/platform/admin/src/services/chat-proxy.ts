@@ -152,6 +152,19 @@ export class ChatProxyService {
     const sessionKey = this.getOrCreateSession(connectionId);
     const model = await this.resolveModel(agent);
 
+    // Phase 7 — signal liveness so the Activity surface can show "recently
+    // active" agents without needing a separate telemetry channel.
+    // Fire-and-forget; env agents have operator-chosen string ids that aren't
+    // UUIDs, so scope to DB agents only.
+    if (agent.source === 'db') {
+      void Agent.update(
+        { last_active_at: new Date() },
+        { where: { id: agent.id } },
+      ).catch(() => {
+        // Non-fatal — DB blip shouldn't interrupt a live stream.
+      });
+    }
+
     // Inject the agent's system prompt (if any) as the first message for DB agents.
     // Env agents don't carry a system prompt today; they rely on the runtime's own config.
     const preparedMessages: ChatMessage[] =

@@ -66,9 +66,18 @@ This is the thicker successor to the original "chat-only" admin. It ships phase-
 - Ships four seeded definitions: `admin.title`, `chat.default_model`, `approvals.require_by_default`, `integrations.webhook_secret`
 - Config page: category-grouped cards (platform / ai / service / infrastructure / oauth), per-row status badge (`default` / `system` / `agent`…), `requires-restart` flag, inline Edit or Replace (for secrets), Reset to revert to the definition's default
 
+**Phase 7 — activity**
+
+- `/api/activity` surfaces the cross-phase `audit_log` as a paginated event feed with `action_prefix` / `resource_type` / `actor_type` / `actor_id` / `since` / `until` filters and `limit`+`offset` pagination; each row is enriched with the actor's email (for user rows) or agent name (for agent rows)
+- `/api/activity/recent-agents` returns the top-N agents by `last_active_at`
+- `ChatProxyService` bumps `Agent.last_active_at` (fire-and-forget) on every DB-managed agent's chat turn, so "recently active" is a live signal without a separate telemetry channel
+- Overview page grows two live cards: **Recent activity** (latest 8 audit events) and **Recently active agents** (top 5 by `last_active_at`)
+- Activity page: preset filter tabs (All / Agents / Approvals / Tokens / Config), DataTable with time + actor + action + resource, row-click drawer with full `details` JSON
+- **Scope note**: token counts and tool-call timelines aren't captured by admin today — that surface belongs to the llm-proxy's `usage_events` pipeline and will arrive as a follow-on integration
+
 ## Tests
 
-Integration suite lives at `apps/platform/admin/src/__tests__/` — one file per phase, supertest against the real Express app and a throwaway Postgres schema. **46 tests, ~3 seconds.**
+Integration suite lives at `apps/platform/admin/src/__tests__/` — one file per phase, supertest against the real Express app and a throwaway Postgres schema. **52 tests, ~3 seconds.**
 
 ```bash
 pnpm docker:up                          # postgres + redis
@@ -76,12 +85,6 @@ pnpm --filter @teamsuzie/admin test     # or: pnpm -r test
 ```
 
 The harness (`src/__tests__/setup.ts`) auto-creates the `teamsuzie_test` database on first run, drops & recreates schema on each invocation, and routes Redis sessions under a process-scoped prefix so test runs don't trample each other. Override `TEST_POSTGRES_BASE_URI` / `TEST_POSTGRES_DB` / `TEST_REDIS_URI` if your local infra differs from the defaults.
-
-## What's coming
-
-| Phase | Surface   | Summary                                                                     |
-| ----- | --------- | --------------------------------------------------------------------------- |
-| 7     | Activity  | Recent sessions, tool calls, token usage                                    |
 
 ## Run (local)
 

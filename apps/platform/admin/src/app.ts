@@ -30,6 +30,7 @@ import { ApprovalsController } from './controllers/approvals.js';
 import { WorkspaceController } from './controllers/workspace.js';
 import { AgentKeysController } from './controllers/agent-keys.js';
 import { ConfigController } from './controllers/config.js';
+import { ActivityController } from './controllers/activity.js';
 import { createChatRouter } from './routes/chat.js';
 import { createAgentsRouter, createAgentProfilesRouter } from './routes/agents.js';
 import { createSkillsRouter } from './routes/skills.js';
@@ -37,12 +38,14 @@ import { createApprovalsRouter } from './routes/approvals.js';
 import { createWorkspaceRouter } from './routes/workspace.js';
 import { createAgentKeysRouter } from './routes/agent-keys.js';
 import { createConfigRouter } from './routes/config.js';
+import { createActivityRouter } from './routes/activity.js';
 import { ChatProxyService } from './services/chat-proxy.js';
 import { AgentsService } from './services/agents.js';
 import { SkillsService } from './services/skills.js';
 import { WorkspaceService } from './services/workspace.js';
 import { AgentKeysService } from './services/agent-keys.js';
 import { ConfigService, DEFAULT_DEFINITIONS } from './services/config.js';
+import { ActivityService } from './services/activity.js';
 import { createApprovalQueue } from './services/approvals.js';
 import { ensureSeed } from './services/seed.js';
 import { printStartupError } from './services/startup-errors.js';
@@ -200,6 +203,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AdminAp
 
   const configController = new ConfigController(configService);
   app.use('/api/config', createConfigRouter(configController));
+
+  // Activity — Phase 7. Read-only view on audit_log + Agent.last_active_at.
+  const activityService = new ActivityService();
+  const activityController = new ActivityController(activityService);
+  app.use('/api/activity', createActivityRouter(activityController));
 
   app.use('/api/chat', createChatRouter(chatController));
 
