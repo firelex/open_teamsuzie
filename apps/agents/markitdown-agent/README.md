@@ -12,7 +12,16 @@ This service is the conversion layer for agentic document workflows: starter-cha
 
 ## Run
 
-Python 3.10+ recommended. Use a venv:
+Python 3.10+ recommended. The fastest path is the workspace alias, which calls the bundled `dev.sh` — it creates and populates a venv on first run, then just serves on subsequent runs:
+
+```bash
+# From the repo root:
+pnpm dev:markitdown-agent
+```
+
+`dev.sh` is idempotent — safe to call any number of times. It only re-installs requirements when `requirements.txt` is newer than the install marker, so subsequent starts are fast.
+
+Manual setup (if you'd rather drive it yourself):
 
 ```bash
 cd apps/agents/markitdown-agent
@@ -21,14 +30,6 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 3013
 ```
-
-Or via the workspace alias:
-
-```bash
-pnpm dev:markitdown-agent
-```
-
-(That alias resolves to `cd apps/agents/markitdown-agent && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 3013`. The script assumes you've activated a venv with `requirements.txt` installed.)
 
 ## Configuration
 

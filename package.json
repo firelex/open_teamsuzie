@@ -23,7 +23,7 @@
     "test:pptx-agent": "pnpm --filter @teamsuzie/pptx-agent test",
     "dev:xlsx-agent": "cd apps/agents/xlsx-agent && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 3012",
     "test:xlsx-agent": "cd apps/agents/xlsx-agent && python3 -m pytest",
-    "dev:markitdown-agent": "cd apps/agents/markitdown-agent && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 3013",
+    "dev:markitdown-agent": "bash apps/agents/markitdown-agent/dev.sh",
     "dev:starter-chat": "pnpm --filter @teamsuzie/starter-chat dev",
     "dev:starter-chat-vercel": "pnpm --filter @teamsuzie/starter-chat-vercel dev",
     "dev:starter-chat-openclaw": "pnpm --filter @teamsuzie/starter-chat-openclaw dev",
