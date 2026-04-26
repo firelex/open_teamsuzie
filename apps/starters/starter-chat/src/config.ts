@@ -50,7 +50,7 @@ export const config = {
     apiKey: process.env.STARTER_CHAT_VECTOR_DB_API_KEY || undefined,
   },
   tools: {
-    maxIterations: parseInt(process.env.STARTER_CHAT_TOOL_MAX_ITERATIONS || '6', 10),
+    maxIterations: parseInt(process.env.STARTER_CHAT_TOOL_MAX_ITERATIONS || '30', 10),
     /** Hosts the http_request tool may call. Auto-extended with any URL hosts found in skill render-context. */
     allowedHttpHosts: parseList(process.env.STARTER_CHAT_HTTP_ALLOWED_HOSTS),
   },
