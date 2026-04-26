@@ -28,7 +28,10 @@ function PromptCard({
       data-slot="prompt-card"
       type={asChild ? undefined : "button"}
       className={cn(
-        "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors",
+        // w-full: <button> defaults to inline-block — without this, cards
+        // shrink to their content width inside a CSS grid cell, breaking
+        // the otherwise-equal-width grid columns.
+        "group flex h-full w-full flex-col gap-2 rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors",
         "hover:border-foreground/20 hover:bg-accent",
         "focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-card",

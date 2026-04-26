@@ -17,9 +17,12 @@ export interface LoginCredentials {
 }
 
 export interface LoginFormProps {
-  /** App title shown above the form. */
-  title: string
-  /** Optional sub-line. Defaults to "Sign in to continue." */
+  /**
+   * App title shown above the form. Optional — when the brand slot already
+   * carries the wordmark, omit title (and description) to avoid redundancy.
+   */
+  title?: string
+  /** Optional sub-line. Omitted entirely if not set. */
   description?: string
   /**
    * Submit handler. Throw to surface a message in the form. Called only after
@@ -43,7 +46,7 @@ export interface LoginFormProps {
  */
 export function LoginForm({
   title,
-  description = "Sign in to continue.",
+  description,
   onSubmit,
   demo,
   submitLabel = "Sign in",
@@ -70,11 +73,13 @@ export function LoginForm({
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted px-4">
       <Card className="w-full max-w-sm">
-        <CardHeader>
-          {brand && <div className="mb-3">{brand}</div>}
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
+        {(brand || title || description) && (
+          <CardHeader>
+            {brand && <div className="mb-3">{brand}</div>}
+            {title && <CardTitle>{title}</CardTitle>}
+            {description && <CardDescription>{description}</CardDescription>}
+          </CardHeader>
+        )}
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">

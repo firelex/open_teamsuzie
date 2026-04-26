@@ -127,6 +127,18 @@ packages:
 
 ---
 
+## Reference apps built on Team Suzie
+
+Working examples of the sibling-repo pattern in the wild. Clone alongside Team Suzie to study the wiring, or fork to bootstrap a vertical app of your own.
+
+| App | Vertical | What it shows |
+|---|---|---|
+| **[Open Lawyer](https://github.com/firelex/open_lawyer)** | Legal AI (an OSS alternative to Harvey) | Domain-specific chat assistant ("Counsel"), prompt + workflow library by practice area, agentic DOCX drafting with a live read-only artifact panel, document Q&A via `markitdown-agent`, model picker in Settings, stub auth → swap path to `@teamsuzie/shared-auth`. |
+
+Building one of your own? Add it here via PR — the bar is "honest, runnable, and shows a non-trivial extension of the platform."
+
+---
+
 ## What Team Suzie gives you, out of the box
 
 So you don't rebuild any of this:
