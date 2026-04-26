@@ -6,7 +6,6 @@ import {
   PromptCard,
   PromptCardDescription,
   PromptCardTitle,
-  Textarea,
   cn,
 } from '@teamsuzie/ui';
 
@@ -353,10 +352,23 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
   const [uploading, setUploading] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const prevStatus = useRef<'idle' | 'sending'>('idle');
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // After the agent finishes streaming (status: sending → idle), put focus
+  // back on the textarea so the user can keep typing without reaching for
+  // the mouse. useEffect (vs. inline setTimeout) ensures the focus call runs
+  // *after* React has re-rendered the textarea with disabled={false}.
+  useEffect(() => {
+    if (prevStatus.current === 'sending' && status === 'idle') {
+      textareaRef.current?.focus();
+    }
+    prevStatus.current = status;
+  }, [status]);
 
   async function uploadFiles(files: FileList) {
     setUploading(true);
@@ -525,8 +537,8 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
             // relying on reader.read() returning done:true is unreliable.
             // Re-enable the composer eagerly here, then break out of the read
             // loop. Don't await reader.cancel() — that can also hang on a
-            // buffered proxy.
-            console.debug('[chat] received done event — re-enabling composer');
+            // buffered proxy. (Auto-focus is handled by a useEffect that
+            // watches the sending → idle transition.)
             setStatus('idle');
             streamFinished = true;
           }
@@ -606,7 +618,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
               event.target.value = '';
             }}
           />
-          <div className="rounded-2xl border border-border bg-card shadow-sm transition-shadow focus-within:shadow-md">
+          <div className="rounded-2xl border border-border bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-ring/30 focus-within:border-foreground/30 focus-within:shadow-md">
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-b border-border px-3 pb-2 pt-2.5">
                 {attachments.map((att) => (
@@ -629,7 +641,11 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
                 ))}
               </div>
             )}
-            <Textarea
+            {/* Raw <textarea> on purpose — using @teamsuzie/ui's <Textarea>
+                here drags in a default border + bg-background that conflict
+                with the outer card and don't reliably get stripped by twMerge. */}
+            <textarea
+              ref={textareaRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
@@ -640,7 +656,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
               }}
               placeholder={`Message ${agentName}`}
               disabled={isStreaming}
-              className="min-h-16 resize-none border-0 bg-transparent px-4 pt-3 text-[15px] shadow-none focus-visible:ring-0"
+              className="block w-full min-h-16 resize-none border-0 bg-transparent px-4 pt-3 text-[15px] outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
             <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
               <div className="flex items-center gap-2">
