@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
+  ArtifactPanel,
   Button,
+  MarkdownMessage,
   PromptCard,
   PromptCardDescription,
   PromptCardTitle,
+  ToolUseStatus,
   cn,
+  humanSize,
+  type ArtifactSnapshot,
+  type ToolEvent,
 } from '@teamsuzie/ui';
-
-interface ToolEvent {
-  id: string;
-  name: string;
-  args?: unknown;
-  result?: unknown;
-  error?: string;
-  status: 'running' | 'done' | 'error';
-}
 
 interface Message {
   id: string;
@@ -32,88 +27,8 @@ interface Attachment {
   size: number;
 }
 
-/**
- * A read-only snapshot of a document being drafted (or converted from an
- * uploaded binary). Tool results embed this as `_doc_state`; the chat client
- * surfaces it as a live artifact panel.
- */
-interface Artifact {
-  docId: string;
-  title: string;
-  markdown: string;
-}
+// (humanSize, safeFilename, and ArtifactPanel now live in @teamsuzie/ui.)
 
-function humanSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function ArtifactPanel({
-  artifact,
-  onClose,
-}: {
-  artifact: Artifact;
-  onClose: () => void;
-}) {
-  return (
-    <aside
-      aria-label="Document preview"
-      className="hidden h-full w-[44%] shrink-0 flex-col border-l border-border bg-card md:flex"
-    >
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
-        <div className="flex min-w-0 items-center gap-2 text-sm">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-4 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-          </svg>
-          <span className="truncate font-medium">{artifact.title}</span>
-          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Read-only
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Close preview"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {artifact.markdown.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground">
-            Empty document — content will appear here as the agent writes.
-          </p>
-        ) : (
-          <MarkdownMessage content={artifact.markdown} />
-        )}
-      </div>
-    </aside>
-  );
-}
 
 function PaperclipIcon() {
   return (
@@ -169,98 +84,6 @@ function greetingFor(date: Date): string {
   return 'Good evening';
 }
 
-function MarkdownMessage({ content }: { content: string }) {
-  return (
-    <div className="space-y-3 text-[15px] leading-relaxed text-foreground">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          p: ({ children }) => <p className="[&:not(:first-child)]:mt-3">{children}</p>,
-          h1: ({ children }) => (
-            <h3 className="mt-4 text-base font-semibold tracking-tight">{children}</h3>
-          ),
-          h2: ({ children }) => (
-            <h3 className="mt-4 text-base font-semibold tracking-tight">{children}</h3>
-          ),
-          h3: ({ children }) => (
-            <h4 className="mt-4 text-[15px] font-semibold tracking-tight">{children}</h4>
-          ),
-          h4: ({ children }) => (
-            <h4 className="mt-4 text-sm font-semibold tracking-tight">{children}</h4>
-          ),
-          ul: ({ children }) => (
-            <ul className="my-2 list-disc space-y-1 pl-5 marker:text-muted-foreground">
-              {children}
-            </ul>
-          ),
-          ol: ({ children }) => (
-            <ol className="my-2 list-decimal space-y-1 pl-5 marker:text-muted-foreground">
-              {children}
-            </ol>
-          ),
-          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
-            >
-              {children}
-            </a>
-          ),
-          code: ({ className, children, ...rest }) => {
-            const isBlock = (className ?? '').includes('language-');
-            if (isBlock) {
-              return (
-                <code className={cn('font-mono text-[13px]', className)} {...rest}>
-                  {children}
-                </code>
-              );
-            }
-            return (
-              <code
-                className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[13px] text-foreground"
-                {...rest}
-              >
-                {children}
-              </code>
-            );
-          },
-          pre: ({ children }) => (
-            <pre className="my-3 overflow-x-auto rounded-lg border border-border bg-muted p-3 text-[13px] leading-relaxed">
-              {children}
-            </pre>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="my-3 border-l-2 border-border pl-3 text-muted-foreground">
-              {children}
-            </blockquote>
-          ),
-          hr: () => <hr className="my-4 border-border" />,
-          table: ({ children }) => (
-            <div className="my-3 overflow-x-auto">
-              <table className="w-full border-collapse text-sm">{children}</table>
-            </div>
-          ),
-          th: ({ children }) => (
-            <th className="border-b border-border px-3 py-1.5 text-left font-medium">
-              {children}
-            </th>
-          ),
-          td: ({ children }) => (
-            <td className="border-b border-border px-3 py-1.5 align-top">{children}</td>
-          ),
-          strong: ({ children }) => (
-            <strong className="font-semibold text-foreground">{children}</strong>
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  );
-}
 
 function TypingDots() {
   return (
@@ -276,237 +99,6 @@ function TypingDots() {
   );
 }
 
-/** snake_case → "Sentence case" — generic enough for any tool in the registry. */
-function prettyToolName(name: string): string {
-  const spaced = name.replace(/_/g, ' ').trim();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-/**
- * Pull a short, human-readable label out of a tool's arguments — the one thing
- * a user would most want to see at a glance ("Wrote section: Background"
- * rather than just "Wrote section"). Falls back to array-length summaries for
- * tools that pass collections (e.g. set_outline with 5 headings).
- */
-function summarizeArgs(args: unknown): string | null {
-  if (!args || typeof args !== 'object') return null;
-  const obj = args as Record<string, unknown>;
-  const labelKeys = ['title', 'heading', 'name', 'query', 'message', 'path', 'file_id', 'doc_id'];
-  for (const key of labelKeys) {
-    const v = obj[key];
-    if (typeof v === 'string' && v.trim().length > 0) {
-      const trimmed = v.trim();
-      return trimmed.length > 80 ? trimmed.slice(0, 77) + '…' : trimmed;
-    }
-  }
-  for (const [key, v] of Object.entries(obj)) {
-    if (Array.isArray(v) && v.length > 0) {
-      return `${v.length} ${key.replace(/_/g, ' ')}`;
-    }
-  }
-  return null;
-}
-
-function ToolIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-3"
-      aria-hidden="true"
-    >
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn(
-        'size-3.5 text-muted-foreground transition-transform',
-        open && 'rotate-180',
-      )}
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function ToolCallCard({ event }: { event: ToolEvent }) {
-  const [open, setOpen] = useState(false);
-  const statusLabel = {
-    running: 'Running…',
-    done: 'Done',
-    error: 'Failed',
-  }[event.status];
-  const statusColor = {
-    running: 'text-muted-foreground',
-    done: 'text-emerald-600 dark:text-emerald-500',
-    error: 'text-destructive',
-  }[event.status];
-  const summary = summarizeArgs(event.args);
-  const isError = event.status === 'error';
-  const isRunning = event.status === 'running';
-
-  return (
-    <div
-      className={cn(
-        'my-1.5 rounded-lg border bg-card px-3 py-2 text-[13px] transition-colors',
-        isError ? 'border-destructive/30' : 'border-border',
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 text-left"
-      >
-        <span className="flex min-w-0 items-center gap-2.5">
-          <span
-            className={cn(
-              'inline-flex size-5 shrink-0 items-center justify-center rounded-md border',
-              isError
-                ? 'border-destructive/40 text-destructive'
-                : 'border-border text-muted-foreground',
-              isRunning && 'animate-pulse',
-            )}
-            aria-hidden="true"
-          >
-            <ToolIcon />
-          </span>
-          <span className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate font-medium text-foreground">
-              {prettyToolName(event.name)}
-            </span>
-            {summary && (
-              <span className="truncate text-[11px] text-muted-foreground">
-                {summary}
-              </span>
-            )}
-          </span>
-        </span>
-        <span className="flex shrink-0 items-center gap-2">
-          <span className={cn('text-xs font-medium', statusColor)}>{statusLabel}</span>
-          <ChevronIcon open={open} />
-        </span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2 border-t border-border pt-2 text-xs">
-          {event.args !== undefined && (
-            <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-                Arguments
-              </div>
-              <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
-                {JSON.stringify(event.args, null, 2)}
-              </pre>
-            </div>
-          )}
-          {event.result !== undefined && (
-            <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-                Result
-              </div>
-              <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
-                {JSON.stringify(event.result, null, 2)}
-              </pre>
-            </div>
-          )}
-          {event.error && (
-            <div className="text-destructive">
-              <div className="mb-1 text-[11px] uppercase tracking-wider">Error</div>
-              <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
-                {event.error}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Whimsical present-progressive verbs for the live tool-use indicator.
- * One is picked per assistant turn and stays stable until the turn finishes,
- * so the user sees "Flibbertigibbeting…" not a flickering verb-of-the-frame.
- */
-const WHIMSICAL_VERBS = [
-  'Flibbertigibbeting',
-  'Pondering',
-  'Cogitating',
-  'Ruminating',
-  'Sleuthing',
-  'Distilling',
-  'Untangling',
-  'Marshalling',
-  'Whittling',
-  'Concocting',
-  'Calibrating',
-  'Spelunking',
-  'Foraging',
-  'Tinkering',
-  'Bushwhacking',
-  'Triangulating',
-  'Wrangling',
-  'Unspooling',
-  'Hobnobbing',
-  'Conjuring',
-  'Fossicking',
-  'Burnishing',
-  'Reticulating',
-  'Confabulating',
-  'Disambiguating',
-  'Mulling',
-  'Brainstorming',
-  'Wayfinding',
-  'Beavering',
-  'Percolating',
-];
-
-function ToolUseStatus({ events }: { events: ToolEvent[] }) {
-  const verbRef = useRef<string | null>(null);
-  if (verbRef.current === null) {
-    verbRef.current = WHIMSICAL_VERBS[Math.floor(Math.random() * WHIMSICAL_VERBS.length)];
-  }
-  const running = events.find((e) => e.status === 'running');
-  const current = running ?? events[events.length - 1];
-  if (!current) return null;
-  const summary = summarizeArgs(current.args);
-
-  return (
-    <div className="my-2 flex flex-col gap-1.5">
-      <span className="text-sm italic text-muted-foreground">
-        {verbRef.current}…
-      </span>
-      <div
-        className={cn(
-          'inline-flex max-w-fit items-center gap-2 rounded-full border border-border bg-muted px-2.5 py-1 text-xs',
-          'animate-pulse',
-        )}
-      >
-        <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
-        <span className="font-medium text-foreground">{prettyToolName(current.name)}</span>
-        {summary && (
-          <span className="truncate text-muted-foreground" title={summary}>
-            · {summary}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function MessageItem({
   message,
@@ -595,7 +187,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
   const [error, setError] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
+  const [activeArtifact, setActiveArtifact] = useState<ArtifactSnapshot | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -756,14 +348,32 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
             // in their result so the client can render a live read-only
             // artifact panel without polling. If present, surface it.
             if (payload.result && typeof payload.result === 'object') {
-              const ds = (payload.result as { _doc_state?: unknown })._doc_state;
+              const result = payload.result as {
+                _doc_state?: unknown;
+                download_url?: unknown;
+                filename?: unknown;
+              };
+              const ds = result._doc_state;
               if (ds && typeof ds === 'object') {
                 const obj = ds as { doc_id?: string; title?: string; markdown?: string };
                 if (typeof obj.doc_id === 'string' && typeof obj.markdown === 'string') {
-                  setActiveArtifact({
-                    docId: obj.doc_id,
-                    title: typeof obj.title === 'string' ? obj.title : 'Document',
-                    markdown: obj.markdown,
+                  // Pull through the download_url if export_to_docx supplied
+                  // one; otherwise carry over what we already have for this doc.
+                  const docxUrl = typeof result.download_url === 'string'
+                    ? result.download_url
+                    : undefined;
+                  const docxName = typeof result.filename === 'string'
+                    ? result.filename
+                    : undefined;
+                  setActiveArtifact((prev) => {
+                    const carry = prev && prev.docId === obj.doc_id ? prev : null;
+                    return {
+                      docId: obj.doc_id!,
+                      title: typeof obj.title === 'string' ? obj.title : 'Document',
+                      markdown: obj.markdown!,
+                      docxDownloadUrl: docxUrl ?? carry?.docxDownloadUrl,
+                      docxFilename: docxName ?? carry?.docxFilename,
+                    };
                   });
                 }
               }
