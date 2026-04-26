@@ -16,6 +16,21 @@ function parseList(value: string | undefined): string[] {
   return value.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+function parseJsonObject(value: string | undefined): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    console.warn('STARTER_CHAT_AGENT_EXTRA_BODY must be a JSON object; ignoring');
+    return undefined;
+  } catch (err) {
+    console.warn('STARTER_CHAT_AGENT_EXTRA_BODY is not valid JSON; ignoring');
+    return undefined;
+  }
+}
+
 export const config = {
   port: parseInt(process.env.STARTER_CHAT_PORT || '16311', 10),
   publicUrl: (process.env.STARTER_CHAT_PUBLIC_URL || 'http://localhost:16311').replace(/\/$/, ''),
@@ -27,6 +42,8 @@ export const config = {
     baseUrl: (process.env.STARTER_CHAT_AGENT_BASE_URL || 'http://localhost:4000').replace(/\/$/, ''),
     apiKey: process.env.STARTER_CHAT_AGENT_API_KEY || undefined,
     model: process.env.STARTER_CHAT_MODEL || 'openai/gpt-4.1-mini',
+    /** JSON object merged into every chat-completions body. Use for provider-specific knobs (e.g. {"enable_thinking":false} for Qwen). */
+    extraBody: parseJsonObject(process.env.STARTER_CHAT_AGENT_EXTRA_BODY),
   },
   vectorDb: {
     baseUrl: (process.env.STARTER_CHAT_VECTOR_DB_BASE_URL || 'http://localhost:3006').replace(/\/$/, ''),

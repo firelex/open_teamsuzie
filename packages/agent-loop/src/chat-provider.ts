@@ -20,6 +20,14 @@ export interface AgentTarget {
   baseUrl: string;
   apiKey?: string;
   model: string;
+  /**
+   * Provider-specific request-body extensions merged into every chat request.
+   * Useful for knobs that aren't part of the OpenAI-compatible core spec but
+   * are accepted by some providers — e.g. Dashscope/Qwen's `enable_thinking`,
+   * `temperature`, `top_p`, `parallel_tool_calls`, etc. Apps own the contract;
+   * the agent loop just passes it through.
+   */
+  extraBody?: Record<string, unknown>;
 }
 
 type RawStreamEvent =
@@ -58,6 +66,7 @@ export async function streamChatCompletion(
   if (agent.apiKey) headers.Authorization = `Bearer ${agent.apiKey}`;
 
   const body: Record<string, unknown> = {
+    ...(agent.extraBody ?? {}),
     model: agent.model,
     messages,
     stream: true,
