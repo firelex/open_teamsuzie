@@ -87,6 +87,46 @@ Open the repo in your coding assistant — `cd` into the repo, then run `claude`
 
 ---
 
+## Building your app in a separate repo
+
+The starters live inside this monorepo for convenience, but most real apps want their own repo: their own commit history, their own deployment, their own CI. Team Suzie supports that pattern out of the box — keep this repo as the platform layer and put your app code in a sibling repo that consumes the packages.
+
+**Layout.** Clone Team Suzie next to your app:
+
+```
+~/code/
+  teamsuzie/        # this repo, kept clean
+  my-app/           # your app, separate git repo
+```
+
+**`my-app/pnpm-workspace.yaml`** declares one or more local apps:
+
+```yaml
+packages:
+  - apps/*
+```
+
+**`my-app/apps/web/package.json`** consumes Team Suzie packages from the sibling clone via `link:`:
+
+```json
+{
+  "name": "my-app-web",
+  "dependencies": {
+    "@teamsuzie/ui": "link:../../../teamsuzie/packages/ui",
+    "@teamsuzie/agent-loop": "link:../../../teamsuzie/packages/agent-loop",
+    "@teamsuzie/approvals": "link:../../../teamsuzie/packages/approvals"
+  }
+}
+```
+
+**Bootstrap the app.** Copy a starter into your repo as a starting point (`cp -R ../teamsuzie/apps/starters/starter-chat apps/web`), swap in the `link:` references above, then `pnpm install`.
+
+**Why this works.** The `link:` protocol points at a directory — pnpm symlinks it, so changes in `teamsuzie/packages/*` show up immediately in your app. When you upgrade Team Suzie (`git pull` in the sibling clone), your app picks up the new code without a publish step. Your app's repo only contains code that is genuinely yours.
+
+**When to use a published version instead.** If you're shipping the app to teammates who shouldn't need a local clone of Team Suzie, replace the `link:` references with a published version — either the npm registry, a GitHub Packages registry, or your own private registry. The package boundaries don't change.
+
+---
+
 ## What Team Suzie gives you, out of the box
 
 So you don't rebuild any of this:

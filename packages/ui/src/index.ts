@@ -16,6 +16,7 @@ export * from './components/input.js';
 export * from './components/label.js';
 export * from './components/page-header.js';
 export * from './components/pagination.js';
+export * from './components/prompt-card.js';
 export * from './components/select.js';
 export * from './components/sheet.js';
 export * from './components/sidebar.js';
