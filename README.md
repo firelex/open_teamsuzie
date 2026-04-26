@@ -4,7 +4,11 @@
 
 You're a product expert, a domain expert, a founder — someone who knows exactly what the agent should *do* but doesn't want to spend two weeks wiring up auth, chat UIs, approval flows, and knowledge bases before you get there. This repo is for you. Clone it, point your coding assistant at it, and describe what you want to build.
 
-The hosted version lives at [teamsuzie.com](https://teamsuzie.com). This repo is the open-source core — evolving quickly, usable today.
+> ### Want it hosted? → [**teamsuzie.com**](https://teamsuzie.com)
+>
+> The hosted product is a **multi-agent system built on the exact components in this repo** — same `@teamsuzie/*` packages, same skills runtime, same approval queue. We add orchestration, managed providers, billing, and the operations work that an OSS repo doesn't (and shouldn't) ship. Use it when you'd rather not run the platform yourself.
+>
+> This repo is the open-source core — evolving quickly, usable today, and exactly what runs underneath the hosted version.
 
 ---
 
