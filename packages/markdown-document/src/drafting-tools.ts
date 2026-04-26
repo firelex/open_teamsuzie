@@ -2,6 +2,20 @@ import type { AnyToolDefinition } from '@teamsuzie/agent-loop';
 import { MarkdownDocument } from './document.js';
 import type { InMemoryDocumentStore } from './store.js';
 
+/**
+ * Read-only snapshot of a document's current state. Tool implementations
+ * stamp this onto their result as `_doc_state` so the chat client can
+ * present a live "artifact panel" without polling — every mutation surfaces
+ * the updated body inline with the SSE tool_result event.
+ */
+function buildDocState(doc: MarkdownDocument, docId: string) {
+  return {
+    doc_id: docId,
+    title: doc.title,
+    markdown: doc.getMarkdown(),
+  };
+}
+
 interface DraftingToolOptions {
   store: InMemoryDocumentStore;
   /** Resolves the active session id for this turn. */
@@ -53,7 +67,7 @@ export function documentDraftingTools({
       async execute(args: { title: string }) {
         const doc = new MarkdownDocument('', args.title);
         const docId = store.put(getSessionId(), doc);
-        return { doc_id: docId, title: doc.title };
+        return { doc_id: docId, title: doc.title, _doc_state: buildDocState(doc, docId) };
       },
     },
     {
@@ -87,7 +101,11 @@ export function documentDraftingTools({
         if (!doc) throw new Error(`Document not found: ${args.doc_id}`);
         doc.setOutline(args.headings);
         store.touch(sessionId, args.doc_id);
-        return { ok: true, headings: doc.getHeadings() };
+        return {
+          ok: true,
+          headings: doc.getHeadings(),
+          _doc_state: buildDocState(doc, args.doc_id),
+        };
       },
     },
     {
@@ -114,7 +132,7 @@ export function documentDraftingTools({
         const ok = doc.writeSection(args.heading, args.body);
         if (!ok) return { ok: false, error: `Section not found: ${args.heading}` };
         store.touch(sessionId, args.doc_id);
-        return { ok: true };
+        return { ok: true, _doc_state: buildDocState(doc, args.doc_id) };
       },
     },
     {
@@ -138,7 +156,7 @@ export function documentDraftingTools({
         if (!doc) throw new Error(`Document not found: ${args.doc_id}`);
         const heading = doc.appendSection(args.level, args.heading, args.body ?? '');
         store.touch(sessionId, args.doc_id);
-        return { ok: true, path: heading.path };
+        return { ok: true, path: heading.path, _doc_state: buildDocState(doc, args.doc_id) };
       },
     },
     {
@@ -185,7 +203,7 @@ export function documentDraftingTools({
         if (!doc) throw new Error(`Document not found: ${args.doc_id}`);
         const ok = doc.deleteSection(args.heading);
         if (ok) store.touch(sessionId, args.doc_id);
-        return { ok };
+        return { ok, _doc_state: buildDocState(doc, args.doc_id) };
       },
     },
   ];
@@ -213,7 +231,7 @@ export function documentDraftingTools({
           filename,
           docId: args.doc_id,
         });
-        return { ok: true, ...result };
+        return { ok: true, ...result, _doc_state: buildDocState(doc, args.doc_id) };
       },
     });
   }

@@ -90,6 +90,7 @@ export function buildDocumentTools(opts: BuildOptions): AnyToolDefinition[] {
         title: doc.title,
         heading_count: doc.getHeadings().length,
         size: doc.getMarkdown().length,
+        _doc_state: { doc_id: docId, title: doc.title, markdown: doc.getMarkdown() },
       };
     },
   };

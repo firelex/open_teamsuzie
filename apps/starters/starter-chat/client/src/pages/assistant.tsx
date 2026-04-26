@@ -32,10 +32,87 @@ interface Attachment {
   size: number;
 }
 
+/**
+ * A read-only snapshot of a document being drafted (or converted from an
+ * uploaded binary). Tool results embed this as `_doc_state`; the chat client
+ * surfaces it as a live artifact panel.
+ */
+interface Artifact {
+  docId: string;
+  title: string;
+  markdown: string;
+}
+
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function ArtifactPanel({
+  artifact,
+  onClose,
+}: {
+  artifact: Artifact;
+  onClose: () => void;
+}) {
+  return (
+    <aside
+      aria-label="Document preview"
+      className="hidden h-full w-[44%] shrink-0 flex-col border-l border-border bg-card md:flex"
+    >
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
+        <div className="flex min-w-0 items-center gap-2 text-sm">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <span className="truncate font-medium">{artifact.title}</span>
+          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Read-only
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Close preview"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        {artifact.markdown.length === 0 ? (
+          <p className="text-sm italic text-muted-foreground">
+            Empty document — content will appear here as the agent writes.
+          </p>
+        ) : (
+          <MarkdownMessage content={artifact.markdown} />
+        )}
+      </div>
+    </aside>
+  );
 }
 
 function PaperclipIcon() {
@@ -518,6 +595,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
   const [error, setError] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -674,6 +752,22 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
               }),
             );
           } else if (payload.type === 'tool_result') {
+            // Some tools (drafting + conversion) embed a `_doc_state` snapshot
+            // in their result so the client can render a live read-only
+            // artifact panel without polling. If present, surface it.
+            if (payload.result && typeof payload.result === 'object') {
+              const ds = (payload.result as { _doc_state?: unknown })._doc_state;
+              if (ds && typeof ds === 'object') {
+                const obj = ds as { doc_id?: string; title?: string; markdown?: string };
+                if (typeof obj.doc_id === 'string' && typeof obj.markdown === 'string') {
+                  setActiveArtifact({
+                    docId: obj.doc_id,
+                    title: typeof obj.title === 'string' ? obj.title : 'Document',
+                    markdown: obj.markdown,
+                  });
+                }
+              }
+            }
             setMessages((current) =>
               current.map((message) => {
                 if (message.id !== assistantId) return message;
@@ -733,6 +827,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
     setMessages([]);
     setInput('');
     setAttachments([]);
+    setActiveArtifact(null);
     setError('');
   }
 
@@ -740,7 +835,8 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-14 items-center justify-between border-b border-border px-5">
         <div className="text-sm font-medium text-foreground">{agentName}</div>
         {messages.length > 0 && (
@@ -857,6 +953,13 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
           </div>
         </div>
       </div>
+      </div>
+      {activeArtifact && (
+        <ArtifactPanel
+          artifact={activeArtifact}
+          onClose={() => setActiveArtifact(null)}
+        />
+      )}
     </div>
   );
 }
