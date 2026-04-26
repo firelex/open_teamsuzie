@@ -79,19 +79,6 @@ Authorization: Bearer <token>
 
 Open the admin UI at [http://localhost:3008](http://localhost:3008). Sign up with any email (no email verification in OSS dev mode). Create an org, then create an agent — copy the API key it gives you.
 
-## 6. Run the demo agent *(v0.3)*
-
-```bash
-cd apps/starters/demo
-cp .env.example .env   # paste the agent API key into AGENT_API_KEY
-pnpm dev
-```
-
-The demo agent:
-1. Connects to the LLM proxy with its API key.
-2. Queries the vector and graph DBs using its scope hierarchy.
-3. Proposes actions to the approval queue for human review.
-
 ## Troubleshooting
 
 **Milvus fails to start:** give Docker more memory (≥6 GB).
