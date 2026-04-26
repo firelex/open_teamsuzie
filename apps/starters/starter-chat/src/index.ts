@@ -191,7 +191,13 @@ app.post('/api/chat', async (req, res) => {
 
   const send = (event: object) => res.write(`data: ${JSON.stringify(event)}\n\n`);
   const abort = new AbortController();
-  req.on('close', () => abort.abort());
+  // res.close (not req.close): fires when the response stream ends — i.e.,
+  // the client actually disconnected. req.close in Express 5 / Node 22+ can
+  // fire as soon as the request body is fully consumed by middleware, which
+  // would abort the upstream LLM call before it ever runs.
+  res.on('close', () => {
+    if (!res.writableEnded) abort.abort();
+  });
 
   const attachmentRecords =
     sessionId && attachmentIds.length > 0
