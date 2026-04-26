@@ -360,19 +360,91 @@ function ToolCallCard({ event }: { event: ToolEvent }) {
   );
 }
 
+/**
+ * Whimsical present-progressive verbs for the live tool-use indicator.
+ * One is picked per assistant turn and stays stable until the turn finishes,
+ * so the user sees "Flibbertigibbeting…" not a flickering verb-of-the-frame.
+ */
+const WHIMSICAL_VERBS = [
+  'Flibbertigibbeting',
+  'Pondering',
+  'Cogitating',
+  'Ruminating',
+  'Sleuthing',
+  'Distilling',
+  'Untangling',
+  'Marshalling',
+  'Whittling',
+  'Concocting',
+  'Calibrating',
+  'Spelunking',
+  'Foraging',
+  'Tinkering',
+  'Bushwhacking',
+  'Triangulating',
+  'Wrangling',
+  'Unspooling',
+  'Hobnobbing',
+  'Conjuring',
+  'Fossicking',
+  'Burnishing',
+  'Reticulating',
+  'Confabulating',
+  'Disambiguating',
+  'Mulling',
+  'Brainstorming',
+  'Wayfinding',
+  'Beavering',
+  'Percolating',
+];
+
+function ToolUseStatus({ events }: { events: ToolEvent[] }) {
+  const verbRef = useRef<string | null>(null);
+  if (verbRef.current === null) {
+    verbRef.current = WHIMSICAL_VERBS[Math.floor(Math.random() * WHIMSICAL_VERBS.length)];
+  }
+  const running = events.find((e) => e.status === 'running');
+  const current = running ?? events[events.length - 1];
+  if (!current) return null;
+  const summary = summarizeArgs(current.args);
+
+  return (
+    <div className="my-2 flex flex-col gap-1.5">
+      <span className="text-sm italic text-muted-foreground">
+        {verbRef.current}…
+      </span>
+      <div
+        className={cn(
+          'inline-flex max-w-fit items-center gap-2 rounded-full border border-border bg-muted px-2.5 py-1 text-xs',
+          'animate-pulse',
+        )}
+      >
+        <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+        <span className="font-medium text-foreground">{prettyToolName(current.name)}</span>
+        {summary && (
+          <span className="truncate text-muted-foreground" title={summary}>
+            · {summary}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MessageItem({
   message,
   agentName,
-  isStreaming,
+  isActive,
 }: {
   message: Message;
   agentName: string;
-  isStreaming: boolean;
+  /** True only for the message currently being streamed. */
+  isActive: boolean;
 }) {
   const isUser = message.role === 'user';
   const hasToolEvents = !!message.toolEvents && message.toolEvents.length > 0;
   const showTyping =
-    !isUser && isStreaming && message.content.length === 0 && !hasToolEvents;
+    !isUser && isActive && message.content.length === 0 && !hasToolEvents;
 
   if (isUser) {
     return (
@@ -389,13 +461,6 @@ function MessageItem({
       <div className="text-[11px] font-medium text-muted-foreground">
         {agentName}
       </div>
-      {hasToolEvents && (
-        <div>
-          {message.toolEvents!.map((event) => (
-            <ToolCallCard key={event.id} event={event} />
-          ))}
-        </div>
-      )}
       {showTyping ? (
         <div className="text-[15px] leading-relaxed">
           <TypingDots />
@@ -403,6 +468,10 @@ function MessageItem({
       ) : (
         message.content.length > 0 && <MarkdownMessage content={message.content} />
       )}
+      {/* Live tool-use indicator: appears below the message content while the
+          turn is still streaming, disappears once the agent yields 'done'.
+          Past messages don't show tool history — keeps the transcript clean. */}
+      {isActive && hasToolEvents && <ToolUseStatus events={message.toolEvents!} />}
     </div>
   );
 }
@@ -690,12 +759,13 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
           />
         ) : (
           <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-8">
-            {messages.map((message) => (
+            {messages.map((message, idx) => (
               <MessageItem
                 key={message.id}
                 message={message}
                 agentName={agentName}
-                isStreaming={isStreaming}
+                // Only the last message is "active" (currently streaming).
+                isActive={isStreaming && idx === messages.length - 1}
               />
             ))}
             <div ref={endRef} />
