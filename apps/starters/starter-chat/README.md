@@ -6,6 +6,7 @@ Minimal full-stack chatbot starter for OpenAI-compatible backends, with a built-
 
 - Express backend that proxies to a configured OpenAI-compatible chat backend
 - React client with streaming chat (SSE) and a **multi-page shell** built on `@teamsuzie/ui` (`AppShell`, `Sidebar`, `PageHeader`) and `react-router` — Assistant / Library / History pages, ready to extend
+- **File attachments** — paperclip in the composer accepts any file (configurable cap; default 25MB). Text-like files are read as UTF-8 and prepended to the user message; binaries are surfaced as metadata only ("`report.docx` — DOCX, 14KB; no extraction tool wired"). Per-session, in-memory; resets on restart.
 - **Tool-use loop**: when the model emits `tool_calls`, the backend dispatches them, feeds results back, and re-calls the model — no second runtime needed
 - **Three built-in tools** wired to Team Suzie pillars:
   - `vector_search` — calls `vector-db` (`:3006`)

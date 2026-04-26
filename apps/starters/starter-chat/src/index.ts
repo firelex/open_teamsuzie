@@ -17,11 +17,17 @@ import {
   type ToolContext,
 } from '@teamsuzie/agent-loop';
 import { config } from './config.js';
+import {
+  buildAttachmentContext,
+  createFilesRouter,
+  InMemoryFileStore,
+} from './files.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientDistDir = path.resolve(__dirname, '../client/dist');
 
 const approvals = new ApprovalQueue({ store: new InMemoryApprovalStore() });
+const fileStore = new InMemoryFileStore();
 
 let skillState: SkillLoadResult = { skills: [], systemPrompt: '', derivedHosts: [] };
 let mcp: McpManager = { tools: [], status: [], shutdown: async () => {} };
@@ -90,6 +96,10 @@ function rebuildToolCtx(): void {
 const app = express();
 app.use(cors({ origin: config.allowedOrigin, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
+app.use(
+  '/api',
+  createFilesRouter({ store: fileStore, maxUploadBytes: config.files.maxUploadBytes }),
+);
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -161,6 +171,10 @@ app.get('/api/health', async (_req, res) => {
 app.post('/api/chat', async (req, res) => {
   const message = String(req.body?.message || '').trim();
   const history = Array.isArray(req.body?.history) ? (req.body.history as ChatMessage[]) : [];
+  const sessionId = String(req.body?.sessionId || '').trim();
+  const attachmentIds = Array.isArray(req.body?.attachmentIds)
+    ? (req.body.attachmentIds as unknown[]).map(String).filter(Boolean)
+    : [];
 
   if (!message) {
     res.status(400).json({ error: 'message is required' });
@@ -176,7 +190,16 @@ app.post('/api/chat', async (req, res) => {
   const abort = new AbortController();
   req.on('close', () => abort.abort());
 
-  const messages: ChatMessage[] = [...history, { role: 'user', content: message }];
+  const attachmentRecords =
+    sessionId && attachmentIds.length > 0
+      ? fileStore.getMany(sessionId, attachmentIds)
+      : [];
+  const attachmentContext = buildAttachmentContext(attachmentRecords);
+  const userContent = attachmentContext
+    ? `${attachmentContext}\n\n[Message]\n${message}`
+    : message;
+
+  const messages: ChatMessage[] = [...history, { role: 'user', content: userContent }];
 
   try {
     for await (const event of runChatTurn({
@@ -227,6 +250,8 @@ app.post('/api/approvals/:id/review', async (req, res) => {
 });
 
 app.post('/api/session/reset', (req, res) => {
+  const sessionId = String(req.body?.sessionId || '').trim();
+  if (sessionId) fileStore.clearSession(sessionId);
   res.json({ ok: true });
 });
 

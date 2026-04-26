@@ -26,6 +26,36 @@ interface Message {
   toolEvents?: ToolEvent[];
 }
 
+interface Attachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function PaperclipIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+      aria-hidden="true"
+    >
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.57 8.57a2 2 0 1 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
+
 interface PromptIdea {
   title: string;
   subtitle: string;
@@ -319,11 +349,44 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending'>('idle');
   const [error, setError] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  async function uploadFiles(files: FileList) {
+    setUploading(true);
+    setError('');
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append('sessionId', sessionId);
+        form.append('file', file);
+        const response = await fetch('/api/files', { method: 'POST', body: form });
+        if (!response.ok) {
+          const data = (await response.json().catch(() => ({}))) as { error?: string };
+          throw new Error(data.error || `Upload failed (${response.status})`);
+        }
+        const data = (await response.json()) as { item: Attachment };
+        setAttachments((current) => [...current, data.item]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((a) => a.id !== id));
+    void fetch(`/api/files/${encodeURIComponent(sessionId)}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => undefined);
+  }
 
   async function sendMessage(overrideText?: string) {
     const text = (overrideText ?? input).trim();
@@ -343,12 +406,15 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
     }));
     const assistantId = crypto.randomUUID();
 
+    const sentAttachmentIds = attachments.map((a) => a.id);
+
     setMessages((current) => [
       ...current,
       nextUserMessage,
       { id: assistantId, role: 'assistant', content: '' },
     ]);
     setInput('');
+    setAttachments([]);
     setStatus('sending');
     setError('');
 
@@ -360,6 +426,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
           sessionId,
           message: text,
           history: nextHistory.slice(0, -1),
+          attachmentIds: sentAttachmentIds,
         }),
       });
 
@@ -470,6 +537,7 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
 
     setMessages([]);
     setInput('');
+    setAttachments([]);
     setError('');
   }
 
@@ -512,7 +580,40 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
       <div className="border-t border-border bg-background px-5 py-4">
         <div className="mx-auto w-full max-w-3xl">
           {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              const files = event.target.files;
+              if (files && files.length > 0) void uploadFiles(files);
+              event.target.value = '';
+            }}
+          />
           <div className="rounded-2xl border border-border bg-card shadow-sm transition-all focus-within:border-foreground/25 focus-within:shadow-md">
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 border-b border-border px-3 pb-2 pt-2.5">
+                {attachments.map((att) => (
+                  <span
+                    key={att.id}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-[11px] text-foreground"
+                    title={`${att.mimeType} · ${humanSize(att.size)}`}
+                  >
+                    <span className="max-w-[180px] truncate font-medium">{att.name}</span>
+                    <span className="text-muted-foreground">{humanSize(att.size)}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(att.id)}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove ${att.name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <Textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -527,13 +628,27 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
               className="min-h-16 resize-none border-0 bg-transparent px-4 pt-3 text-[15px] shadow-none focus-visible:ring-0"
             />
             <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-              <p className="text-xs text-muted-foreground">
-                Enter sends. Shift + Enter adds a line.
-              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || isStreaming}
+                  className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+                  aria-label="Attach files"
+                >
+                  <PaperclipIcon />
+                  <span className="text-xs">{uploading ? 'Uploading…' : 'Files'}</span>
+                </Button>
+                <p className="hidden text-xs text-muted-foreground sm:inline">
+                  Enter sends · Shift+Enter newline
+                </p>
+              </div>
               <Button
                 size="sm"
                 onClick={() => void sendMessage()}
-                disabled={!input.trim() || isStreaming}
+                disabled={(!input.trim() && attachments.length === 0) || isStreaming}
                 className="h-8 rounded-full px-4"
               >
                 {isStreaming ? <TypingDots /> : 'Send'}

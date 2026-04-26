@@ -50,4 +50,8 @@ export const config = {
     /** Path to a JSON config file using the Claude Desktop `mcpServers` shape. */
     configPath: process.env.STARTER_CHAT_MCP_CONFIG || undefined,
   },
+  files: {
+    /** Per-file size cap on uploads. Default 25MB. */
+    maxUploadBytes: parseInt(process.env.STARTER_CHAT_MAX_UPLOAD_BYTES || `${25 * 1024 * 1024}`, 10),
+  },
 };
