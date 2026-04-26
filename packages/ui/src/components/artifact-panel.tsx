@@ -123,9 +123,6 @@ export function ArtifactPanel({
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <FileIcon />
           <span className="truncate font-medium">{artifact.title}</span>
-          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Read-only
-          </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <DropdownMenu>
