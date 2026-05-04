@@ -13,6 +13,15 @@ export type {
   RunChatTurnOptions,
 } from './chat-provider.js';
 
+export { resolveAgentTarget } from './resolve-agent.js';
+export type { AgentTargetOverride, AgentTargetRegistry } from './resolve-agent.js';
+
+export { LOCAL_MODELS, buildLocalAgentRegistry } from './local-models.js';
+export type { LocalModel } from './local-models.js';
+
+export { validateLocalAgentUrl } from './validate-local-url.js';
+export type { ValidateLocalUrlResult } from './validate-local-url.js';
+
 // Skills bridge
 export { loadSkills } from './skills.js';
 export type { SkillLoadConfig, LoadedSkill, SkillLoadResult } from './skills.js';

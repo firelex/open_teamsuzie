@@ -1,0 +1,33 @@
+{
+  "name": "@teamsuzie/workspaces",
+  "version": "0.1.0",
+  "description": "SQLite schema + CRUD for workspace / folder / workspace-document — a generic doc container (legal apps call it a 'matter', M&A apps a 'deal', etc.).",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

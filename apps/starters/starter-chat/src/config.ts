@@ -67,6 +67,13 @@ export const config = {
     /** Path to a JSON config file using the Claude Desktop `mcpServers` shape. */
     configPath: process.env.STARTER_CHAT_MCP_CONFIG || undefined,
   },
+  personas: {
+    /** Directory of `<id>/PERSONA.md` files for builtin personas. Empty/unset
+     *  loads no personas and falls back to the default system prompt.
+     *  User-created personas (SQLite-backed) are not wired in starter-chat —
+     *  see the README for how to add them via @teamsuzie/db-sqlite + auth. */
+    dir: process.env.STARTER_CHAT_PERSONAS_DIR || undefined,
+  },
   files: {
     /** Per-file size cap on uploads. Default 25MB. */
     maxUploadBytes: parseInt(process.env.STARTER_CHAT_MAX_UPLOAD_BYTES || `${25 * 1024 * 1024}`, 10),

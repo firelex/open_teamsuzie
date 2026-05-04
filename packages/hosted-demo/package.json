@@ -1,0 +1,21 @@
+{
+  "name": "@teamsuzie/hosted-demo",
+  "version": "0.1.0",
+  "description": "Reusable hosted-demo OAuth and token allowance helpers for Team Suzie vertical apps",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*",
+    "@types/express": "^5.0.3",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

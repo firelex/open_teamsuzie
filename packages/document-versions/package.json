@@ -1,0 +1,31 @@
+{
+  "name": "@teamsuzie/document-versions",
+  "version": "0.1.0",
+  "description": "SQLite schema + store for immutable document version chains. Each version points at its parent and carries a source tag (upload | proposal | accept | reject). A per-document head pointer makes 'restore an old version' a single setHead call.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

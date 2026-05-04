@@ -10,6 +10,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./local-models": {
+      "import": "./dist/local-models.js",
+      "types": "./dist/local-models.d.ts"
     }
   },
   "files": [

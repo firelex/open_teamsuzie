@@ -137,7 +137,7 @@ Working examples of the sibling-repo pattern in the wild. Clone alongside Team S
 
 | App | Vertical | What it shows |
 |---|---|---|
-| **[Open Lawyer](https://github.com/firelex/open_lawyer)** | Legal AI (an OSS alternative to Harvey) | Domain-specific chat assistant ("Counsel"), prompt + workflow library by practice area, agentic DOCX drafting with a live read-only artifact panel, document Q&A via `markitdown-agent`, model picker in Settings, stub auth → swap path to `@teamsuzie/shared-auth`. |
+| **[Suzie Law](https://github.com/firelex/suzielaw)** | Legal AI (an OSS alternative to Harvey) | Domain-specific chat assistant ("Counsel"), prompt + workflow library by practice area, agentic DOCX drafting with a live read-only artifact panel, document Q&A via `markitdown-agent`, model picker in Settings, stub auth → swap path to `@teamsuzie/shared-auth`. |
 
 Building one of your own? Add it here via PR — the bar is "honest, runnable, and shows a non-trivial extension of the platform."
 

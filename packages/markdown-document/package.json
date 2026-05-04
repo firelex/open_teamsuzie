@@ -22,10 +22,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@teamsuzie/agent-loop": "workspace:*"
+    "@teamsuzie/agent-loop": "workspace:*",
+    "mammoth": "^1.12.0",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/turndown": "^5.0.6",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18"
   }

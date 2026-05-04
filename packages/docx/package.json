@@ -1,0 +1,33 @@
+{
+  "name": "@teamsuzie/docx",
+  "version": "0.1.0",
+  "description": "Lossless OOXML (.docx) parse + render. Round-trips arbitrary Word documents preserving every part; exposes the document.xml body as a typed-but-permissive tree for redline manipulation.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "docx": "^9.0.0",
+    "fast-xml-parser": "^4.5.0",
+    "pizzip": "^3.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@teamsuzie/sharing",
+  "version": "0.1.0",
+  "description": "SQLite schema + store for cross-subject membership and role-based access. Subjects are opaque (subject_type, subject_id) pairs — matters, reviews, workflows, anything. Owner inference via a lookup callback so the package doesn't depend on the host's tables.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

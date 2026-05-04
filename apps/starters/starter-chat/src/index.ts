@@ -17,6 +17,7 @@ import {
   type ToolContext,
 } from '@teamsuzie/agent-loop';
 import { InMemoryDocumentStore } from '@teamsuzie/markdown-document';
+import { applyPersona, PersonaRegistry } from '@teamsuzie/personas';
 import { config } from './config.js';
 import {
   buildAttachmentContext,
@@ -34,6 +35,20 @@ const docStore = new InMemoryDocumentStore();
 
 let skillState: SkillLoadResult = { skills: [], systemPrompt: '', derivedHosts: [] };
 let mcp: McpManager = { tools: [], status: [], shutdown: async () => {} };
+
+// File-based persona registry. starter-chat ships without auth/db so
+// user-created personas aren't wired here — apps that bootstrap from this
+// starter can layer in @teamsuzie/db-sqlite + auth + createPersonasRouter
+// to enable CRUD. See README for the extension pattern.
+const personaRegistry = new PersonaRegistry({ filesystemDir: config.personas.dir });
+if (personaRegistry.listBuiltins().length > 0) {
+  console.log(
+    `Loaded ${personaRegistry.listBuiltins().length} builtin persona(s): ${personaRegistry
+      .listBuiltins()
+      .map((p) => p.id)
+      .join(', ')}`,
+  );
+}
 
 function activeTools(): AnyToolDefinition[] {
   return [...builtInTools, ...mcp.tools];
@@ -103,6 +118,13 @@ app.use(
   '/api',
   createFilesRouter({ store: fileStore, maxUploadBytes: config.files.maxUploadBytes }),
 );
+
+// File-based personas only. Apps that add auth + a SQLite db can swap this
+// for `createPersonasRouter` from @teamsuzie/personas to enable user-created
+// personas with full CRUD scoped to the caller.
+app.get('/api/personas', (_req, res) => {
+  res.json({ personas: personaRegistry.listBuiltins() });
+});
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -183,9 +205,16 @@ app.post('/api/chat', async (req, res) => {
   // Per-request model override — set by the Settings page's model picker.
   // Falls back to the server's configured default.
   const requestedModel = String(req.body?.model || '').trim();
-  const agent = requestedModel
-    ? { ...config.agent, model: requestedModel }
-    : config.agent;
+  // Per-request persona — looked up from the file-based registry.
+  // (Apps that wire user-created personas via SQLite would resolve those here too.)
+  const personaId = String(req.body?.personaId || '').trim();
+  const persona = personaId
+    ? personaRegistry.listBuiltins().find((p) => p.id === personaId) ?? null
+    : null;
+
+  const baseAgent = config.agent;
+  const effectiveModel = requestedModel || persona?.model || baseAgent.model;
+  const agent = { ...baseAgent, model: effectiveModel };
 
   if (!message) {
     res.status(400).json({ error: 'message is required' });
@@ -229,13 +258,21 @@ app.post('/api/chat', async (req, res) => {
   });
   const turnTools = [...activeTools(), ...docTools];
 
+  // Persona's system prompt replaces the default; skills always append; tools
+  // are filtered by the persona's allow/blocklist.
+  const turnConfig = applyPersona({
+    skillSystemPrompt: skillState.systemPrompt,
+    tools: turnTools,
+    persona,
+  });
+
   try {
     for await (const event of runChatTurn({
       agent,
       messages,
-      tools: turnTools,
+      tools: turnConfig.tools,
       toolCtx,
-      systemPrompt: skillState.systemPrompt || undefined,
+      systemPrompt: turnConfig.systemPrompt,
       maxIterations: config.tools.maxIterations,
       signal: abort.signal,
     })) {

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 /**
  * Persist the user's chat-model preference in localStorage so it survives
  * reloads and applies on subsequent chat requests. Apps pass a unique
- * `storageKey` (e.g. `"open-lawyer:selected-model"`) and use the returned
+ * `storageKey` (e.g. `"suzielaw:selected-model"`) and use the returned
  * tuple like `useState`.
  *
  * Returns `[selected, setSelected]` where `selected` falls back to
