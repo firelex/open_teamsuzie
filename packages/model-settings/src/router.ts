@@ -7,6 +7,12 @@ export interface CreateModelSettingsRouterOptions {
   /** Resolve the owner id (e.g. user email) from the request. Return
    *  null/undefined to reject as unauthorized. */
   getOwnerId: (req: Request) => string | null | undefined;
+  /**
+   * Cloud provider ids the host supports for BYOK. Drives both the
+   * `GET /providers` summary and the allow-list for `PUT /providers/:id`.
+   * Empty list disables the BYOK endpoints entirely.
+   */
+  providerIds?: string[];
 }
 
 /**
@@ -26,7 +32,60 @@ export interface CreateModelSettingsRouterOptions {
 export function createModelSettingsRouter(opts: CreateModelSettingsRouterOptions): Router {
   const { store, getOwnerId } = opts;
   const known = store.knownModelIds();
+  const providerIds = opts.providerIds ?? [];
+  const knownProviders = new Set(providerIds);
   const router: Router = Router();
+
+  // --- BYOK provider keys -------------------------------------------------
+  // Mounted before the per-model routes so `/providers/...` doesn't get
+  // matched as a `:modelId`. The model-id allow-list (`store.knownModelIds`)
+  // also excludes 'providers' from the picker, so collisions are impossible
+  // in practice — but ordering keeps the router robust to future model ids.
+
+  router.get('/providers', (req, res) => {
+    const ownerId = getOwnerId(req);
+    if (!ownerId) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    res.json({ providers: store.publicProviderKeys(ownerId, providerIds) });
+  });
+
+  router.put('/providers/:providerId', (req, res) => {
+    const ownerId = getOwnerId(req);
+    if (!ownerId) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const providerId = req.params.providerId;
+    if (!knownProviders.has(providerId)) {
+      res.status(404).json({ error: 'unknown_provider' });
+      return;
+    }
+    const body = req.body as Record<string, unknown> | undefined;
+    const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : '';
+    if (!apiKey) {
+      res.status(400).json({ error: 'apiKey is required' });
+      return;
+    }
+    store.setProviderKey(ownerId, providerId, apiKey);
+    res.json({ providers: store.publicProviderKeys(ownerId, providerIds) });
+  });
+
+  router.delete('/providers/:providerId', (req, res) => {
+    const ownerId = getOwnerId(req);
+    if (!ownerId) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const providerId = req.params.providerId;
+    if (!knownProviders.has(providerId)) {
+      res.status(404).json({ error: 'unknown_provider' });
+      return;
+    }
+    store.clearProviderKey(ownerId, providerId);
+    res.json({ providers: store.publicProviderKeys(ownerId, providerIds) });
+  });
 
   router.get('/', (req, res) => {
     const ownerId = getOwnerId(req);

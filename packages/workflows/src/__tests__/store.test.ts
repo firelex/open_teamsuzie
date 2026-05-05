@@ -361,3 +361,127 @@ describe('Output mode (WD2)', () => {
     expect(wf.outputMode).toBe('inline_chat');
   });
 });
+
+describe('Versioning (WD5)', () => {
+  it('creates the workflow_versions table', () => {
+    const tables = db
+      .prepare<[], { name: string }>(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+      )
+      .all()
+      .map((r) => r.name);
+    expect(tables).toContain('workflow_versions');
+  });
+
+  it('captures a snapshot before each update with reason=update', () => {
+    const wf = store.createUserWorkflow({
+      ownerId: 'a@e.com',
+      name: 'Original',
+      prompt: 'first prompt',
+    });
+    expect(store.listVersions(wf.id, 'a@e.com')).toEqual([]);
+
+    store.updateUserWorkflow(wf.id, 'a@e.com', { name: 'Edited' }, 'a@e.com');
+    const v1 = store.listVersions(wf.id, 'a@e.com');
+    expect(v1.length).toBe(1);
+    // Snapshot is the *pre-edit* state.
+    expect(v1[0]).toMatchObject({
+      workflowId: wf.id,
+      name: 'Original',
+      prompt: 'first prompt',
+      reason: 'update',
+      capturedBy: 'a@e.com',
+    });
+
+    store.updateUserWorkflow(
+      wf.id,
+      'a@e.com',
+      { prompt: 'second prompt' },
+      'a@e.com',
+    );
+    const v2 = store.listVersions(wf.id, 'a@e.com');
+    expect(v2.length).toBe(2);
+    // Newest first.
+    expect(v2[0]).toMatchObject({ name: 'Edited', prompt: 'first prompt' });
+    expect(v2[1]).toMatchObject({ name: 'Original', prompt: 'first prompt' });
+  });
+
+  it('listVersions refuses for non-owner and unknown ids', () => {
+    const wf = store.createUserWorkflow({
+      ownerId: 'a@e.com',
+      name: 'A',
+      prompt: 'p',
+    });
+    store.updateUserWorkflow(wf.id, 'a@e.com', { name: 'A2' }, 'a@e.com');
+    expect(store.listVersions(wf.id, 'b@e.com')).toEqual([]);
+    expect(store.listVersions('nope', 'a@e.com')).toEqual([]);
+  });
+
+  it('restoreVersion writes a restore snapshot then overwrites the live row', () => {
+    const wf = store.createUserWorkflow({
+      ownerId: 'a@e.com',
+      name: 'V1',
+      prompt: 'p1',
+      practiceAreas: ['transactional'],
+    });
+    store.updateUserWorkflow(
+      wf.id,
+      'a@e.com',
+      { name: 'V2', prompt: 'p2', practiceAreas: ['litigation'] },
+      'a@e.com',
+    );
+    const versions = store.listVersions(wf.id, 'a@e.com');
+    // Snapshot of V1 is the only entry; restore back to it.
+    const target = versions[0]!;
+    expect(target.name).toBe('V1');
+
+    const restored = store.restoreVersion(wf.id, target.id, 'a@e.com', 'a@e.com');
+    expect(restored).not.toBeNull();
+    expect(restored!.name).toBe('V1');
+    expect(restored!.prompt).toBe('p1');
+    expect(restored!.practiceAreas).toEqual(['transactional']);
+
+    // After restore, history has 2 rows: original V1 snapshot (update) +
+    // V2 snapshot captured during restore.
+    const after = store.listVersions(wf.id, 'a@e.com');
+    expect(after.length).toBe(2);
+    expect(after[0]).toMatchObject({ name: 'V2', reason: 'restore' });
+    expect(after[1]).toMatchObject({ name: 'V1', reason: 'update' });
+  });
+
+  it('restoreVersion refuses for non-owner / wrong workflow / unknown ids', () => {
+    const wf = store.createUserWorkflow({ ownerId: 'a@e.com', name: 'A', prompt: 'p' });
+    store.updateUserWorkflow(wf.id, 'a@e.com', { name: 'A2' }, 'a@e.com');
+    const v = store.listVersions(wf.id, 'a@e.com')[0]!;
+    expect(store.restoreVersion(wf.id, v.id, 'b@e.com')).toBeNull();
+    expect(store.restoreVersion(wf.id, 'no-such-version', 'a@e.com')).toBeNull();
+    expect(store.restoreVersion('no-such-workflow', v.id, 'a@e.com')).toBeNull();
+  });
+
+  it('versions cascade-delete with the workflow', () => {
+    const wf = store.createUserWorkflow({ ownerId: 'a@e.com', name: 'A', prompt: 'p' });
+    store.updateUserWorkflow(wf.id, 'a@e.com', { name: 'A2' }, 'a@e.com');
+    expect(store.listVersions(wf.id, 'a@e.com').length).toBe(1);
+    store.deleteUserWorkflow(wf.id, 'a@e.com');
+    const orphans = db
+      .prepare<[string], { c: number }>(
+        `SELECT COUNT(*) as c FROM workflow_versions WHERE workflow_id = ?`,
+      )
+      .get(wf.id);
+    expect(orphans?.c).toBe(0);
+  });
+
+  it('round-trips columnConfig + outputMode in snapshots', () => {
+    const wf = store.createUserWorkflow({
+      ownerId: 'a@e.com',
+      name: 'Tabular',
+      prompt: 'p',
+      columnConfig: [{ title: 'A', prompt: 'pa', format: 'text' }],
+      outputMode: 'tabular_review',
+    });
+    store.updateUserWorkflow(wf.id, 'a@e.com', { name: 'Tabular2' }, 'a@e.com');
+    const v = store.listVersions(wf.id, 'a@e.com')[0]!;
+    expect(v.columnConfig).toEqual([{ title: 'A', prompt: 'pa', format: 'text' }]);
+    expect(v.outputMode).toBe('tabular_review');
+  });
+});

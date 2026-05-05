@@ -193,12 +193,49 @@ export function createWorkflowsRouter(opts: CreateWorkflowsRouterOptions): Route
     }
     const outputMode = parseOutputMode(body?.outputMode);
     if (outputMode) patch.outputMode = outputMode;
-    const updated = store.updateUserWorkflow(id, ownerId, patch);
+    const updated = store.updateUserWorkflow(id, ownerId, patch, ownerId);
     if (!updated) {
       res.status(404).json({ error: 'not_found_or_forbidden' });
       return;
     }
     res.json({ item: updated });
+  });
+
+  // WD5 — version history. List is owner-only; system workflows have
+  // no history.
+  router.get('/:id/versions', (req, res) => {
+    const ownerId = ownerOr401(req);
+    if (!ownerId) {
+      res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    const id = String(req.params.id ?? '');
+    const existing = store.get(id);
+    if (!existing) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    if (existing.source !== 'user' || existing.ownerId !== ownerId) {
+      res.status(404).json({ error: 'not_found_or_forbidden' });
+      return;
+    }
+    res.json({ items: store.listVersions(id, ownerId) });
+  });
+
+  router.post('/:id/versions/:versionId/restore', (req, res) => {
+    const ownerId = ownerOr401(req);
+    if (!ownerId) {
+      res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    const id = String(req.params.id ?? '');
+    const versionId = String(req.params.versionId ?? '');
+    const restored = store.restoreVersion(id, versionId, ownerId, ownerId);
+    if (!restored) {
+      res.status(404).json({ error: 'not_found_or_forbidden' });
+      return;
+    }
+    res.json({ item: restored });
   });
 
   router.delete('/:id', (req, res) => {

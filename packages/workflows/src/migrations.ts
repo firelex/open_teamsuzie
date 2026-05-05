@@ -72,4 +72,32 @@ export const WORKFLOWS_MIGRATIONS: Migration[] = [
        WHERE column_config IS NOT NULL;
     `,
   },
+  {
+    // WD5 — append-only history of workflow edits. One row is inserted
+    // before every successful `updateUserWorkflow`, capturing the
+    // pre-edit state. Restores write a snapshot of the current state
+    // and then UPDATE the live row, so the act of restoring is itself
+    // versioned.
+    //
+    // System rows aren't versioned — they're code-of-truth and re-seed
+    // on boot. The CASCADE drops history when the live row is deleted.
+    name: '20260504_create_workflow_versions',
+    up: `
+      CREATE TABLE IF NOT EXISTS workflow_versions (
+        id             TEXT PRIMARY KEY,
+        workflow_id    TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+        name           TEXT NOT NULL,
+        description    TEXT NOT NULL DEFAULT '',
+        prompt         TEXT NOT NULL,
+        practice_areas TEXT NOT NULL DEFAULT '[]',
+        column_config  TEXT,
+        output_mode    TEXT NOT NULL,
+        captured_at    INTEGER NOT NULL,
+        captured_by    TEXT,
+        reason         TEXT NOT NULL CHECK (reason IN ('update', 'restore'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow_time
+        ON workflow_versions(workflow_id, captured_at DESC);
+    `,
+  },
 ];

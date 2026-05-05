@@ -22,6 +22,7 @@ export {
   Download,
   Eye,
   EyeOff,
+  ExternalLink,
   FileText,
   Filter,
   Folder,
@@ -29,6 +30,7 @@ export {
   FolderPlus,
   GitCompareArrows,
   HelpCircle,
+  History,
   Inbox,
   Info,
   LayoutGrid,
@@ -52,6 +54,7 @@ export {
   Star,
   Tag,
   Trash2,
+  Undo2,
   Upload,
   User,
   Users,
@@ -125,5 +128,6 @@ export * from './components/citation-chip.js';
 export * from './components/cited-markdown-message.js';
 export * from './components/pdf-preview.js';
 export * from './components/docx-preview.js';
+export * from './components/doc-find-bar.js';
 export * from './components/review-grid.js';
 export * from './components/column-header-editor.js';

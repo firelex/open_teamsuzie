@@ -128,3 +128,31 @@ export interface ListWorkflowsOptions {
   /** Default false — exclude archived rows. */
   includeArchived?: boolean;
 }
+
+/**
+ * WD5 — why a version was captured. `'update'` means the row above was
+ * captured immediately before a `PATCH` overwrote it; `'restore'` means
+ * the user restored a prior version and the row above is the state
+ * just before the restore (so the restore itself is undo-able).
+ */
+export type WorkflowVersionReason = 'update' | 'restore';
+
+/**
+ * One snapshot of a workflow's editable state. Captured automatically
+ * on every successful update or restore. System workflows are never
+ * versioned — they're code-of-truth and re-seed on boot.
+ */
+export interface WorkflowVersion {
+  id: string;
+  workflowId: string;
+  name: string;
+  description: string;
+  prompt: string;
+  practiceAreas: string[];
+  columnConfig: WorkflowColumnConfig[] | null;
+  outputMode: WorkflowOutputMode;
+  capturedAt: number;
+  /** User id (typically email) — null when the host didn't supply one. */
+  capturedBy: string | null;
+  reason: WorkflowVersionReason;
+}

@@ -13,4 +13,6 @@ export type {
   WorkflowColumnConfig,
   WorkflowOutputMode,
   WorkflowSource,
+  WorkflowVersion,
+  WorkflowVersionReason,
 } from './types.js';

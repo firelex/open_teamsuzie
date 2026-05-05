@@ -7,6 +7,10 @@ import { cn } from "../lib/utils"
 
 const HIGHLIGHT_BG = "rgba(252, 211, 77, 0.45)"
 const HIGHLIGHT_DATA_ATTR = "data-citation-highlight"
+const FIND_HIGHLIGHT_BG = "rgba(125, 211, 252, 0.45)" // sky-300/45
+const FIND_CURRENT_BG = "rgba(56, 189, 248, 0.7)" // sky-400/70
+const FIND_HIGHLIGHT_DATA_ATTR = "data-find-highlight"
+const FIND_CURRENT_DATA_ATTR = "data-find-current"
 const PAGE_SELECTOR = "section.docx"
 
 export type DocxJumpTarget = {
@@ -18,6 +22,16 @@ export type DocxJumpTarget = {
 
 export type DocxPreviewHandle = {
   jumpTo: (target: DocxJumpTarget) => void
+  /**
+   * Highlight every occurrence of `query` (case-insensitive substring),
+   * scroll the first match into view, and return the count. Pass an empty
+   * query to clear all find-highlights without affecting jumpTo highlights.
+   */
+  findAll: (query: string) => { count: number }
+  /** Scroll to and "current"-mark the next find-highlight. */
+  findNext: () => void
+  /** Scroll to and "current"-mark the previous find-highlight. */
+  findPrev: () => void
 }
 
 export type DocxPreviewProps = {
@@ -51,6 +65,8 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
     const numPagesRef = React.useRef(0)
     const pendingJumpRef = React.useRef<DocxJumpTarget | null>(null)
     const highlightedRef = React.useRef<HTMLElement[]>([])
+    const findMatchesRef = React.useRef<HTMLElement[]>([])
+    const findCurrentRef = React.useRef(0)
     const [error, setError] = React.useState<Error | null>(null)
 
     const clearHighlights = React.useCallback(() => {
@@ -135,6 +151,85 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
       pendingJumpRef.current = null
     }, [applyJump])
 
+    const clearFindHighlights = React.useCallback(() => {
+      for (const mark of findMatchesRef.current) {
+        const parent = mark.parentNode
+        if (!parent) continue
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)
+        parent.removeChild(mark)
+      }
+      findMatchesRef.current = []
+      findCurrentRef.current = 0
+    }, [])
+
+    const focusFindMatch = React.useCallback((index: number) => {
+      const matches = findMatchesRef.current
+      if (matches.length === 0) return
+      const wrapped = ((index % matches.length) + matches.length) % matches.length
+      for (const m of matches) {
+        m.removeAttribute(FIND_CURRENT_DATA_ATTR)
+        m.style.backgroundColor = FIND_HIGHLIGHT_BG
+      }
+      const target = matches[wrapped]
+      target.setAttribute(FIND_CURRENT_DATA_ATTR, "")
+      target.style.backgroundColor = FIND_CURRENT_BG
+      target.scrollIntoView({ block: "center", behavior: "smooth" })
+      findCurrentRef.current = wrapped
+    }, [])
+
+    const findAll = React.useCallback(
+      (rawQuery: string): { count: number } => {
+        clearFindHighlights()
+        const query = rawQuery.trim()
+        if (!query) return { count: 0 }
+        const container = containerRef.current
+        if (!container || !renderedRef.current) return { count: 0 }
+        const lowerQuery = query.toLowerCase()
+        const textNodes = collectTextNodes(container)
+        const created: HTMLElement[] = []
+        for (const node of textNodes) {
+          const haystack = node.data
+          const lower = haystack.toLowerCase()
+          // Walk all matches in this text node, splitting + wrapping each.
+          let cursor = 0
+          let cursorNode: Text = node
+          while (true) {
+            const idx = lower.indexOf(lowerQuery, cursor)
+            if (idx === -1) break
+            const localStart = idx - cursor
+            const localEnd = localStart + lowerQuery.length
+            // Re-fetch length from cursorNode since we splitText on prior iter.
+            if (localEnd > cursorNode.data.length) break
+            const wrapped = wrapTextNodeRange(
+              cursorNode,
+              localStart,
+              localEnd,
+              FIND_HIGHLIGHT_DATA_ATTR,
+              FIND_HIGHLIGHT_BG,
+            )
+            if (wrapped) {
+              created.push(wrapped)
+              // Advance cursorNode to the trailing remainder so the next
+              // search continues after the highlighted span.
+              const next = wrapped.nextSibling
+              if (next && next.nodeType === Node.TEXT_NODE) {
+                cursorNode = next as Text
+                cursor = 0
+              } else {
+                break
+              }
+            } else {
+              break
+            }
+          }
+        }
+        findMatchesRef.current = created
+        if (created.length > 0) focusFindMatch(0)
+        return { count: created.length }
+      },
+      [clearFindHighlights, focusFindMatch],
+    )
+
     React.useImperativeHandle(
       ref,
       () => ({
@@ -142,8 +237,11 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
           pendingJumpRef.current = target
           tryApplyPending()
         },
+        findAll,
+        findNext: () => focusFindMatch(findCurrentRef.current + 1),
+        findPrev: () => focusFindMatch(findCurrentRef.current - 1),
       }),
-      [tryApplyPending],
+      [tryApplyPending, findAll, focusFindMatch],
     )
 
     React.useEffect(() => {
@@ -219,6 +317,8 @@ function wrapTextNodeRange(
   node: Text,
   localStart: number,
   localEnd: number,
+  dataAttr: string = HIGHLIGHT_DATA_ATTR,
+  bgColor: string = HIGHLIGHT_BG,
 ): HTMLElement | null {
   const parent = node.parentNode
   if (!parent) return null
@@ -232,8 +332,8 @@ function wrapTextNodeRange(
   }
 
   const mark = document.createElement("mark")
-  mark.setAttribute(HIGHLIGHT_DATA_ATTR, "")
-  mark.style.backgroundColor = HIGHLIGHT_BG
+  mark.setAttribute(dataAttr, "")
+  mark.style.backgroundColor = bgColor
   mark.style.padding = "0"
   mark.style.borderRadius = "1px"
 

@@ -13,6 +13,23 @@ interface ModelSettingRow {
   updated_at: number;
 }
 
+interface ProviderKeyRow {
+  owner_id: string;
+  provider_id: string;
+  api_key: string;
+  updated_at: number;
+}
+
+/**
+ * Public view of a per-(user, provider) BYOK key. The actual key is never
+ * echoed back over the wire — only `hasKey` + `updatedAt`.
+ */
+export interface ProviderKeyPublic {
+  providerId: string;
+  hasKey: boolean;
+  updatedAt: number;
+}
+
 /**
  * Public-shape view of an effective model setting — what the client sees
  * via `GET /api/model-settings`. Does *not* include the API key (only a
@@ -143,5 +160,75 @@ export class ModelSettingsStore {
   /** Set of model ids the store will accept overrides for. */
   knownModelIds(): Set<string> {
     return new Set(this.localModels.map((m) => m.id));
+  }
+
+  // --- Provider keys (BYOK) ---------------------------------------------
+
+  /**
+   * Return the user's API key for a cloud provider, or null if unset.
+   * Server-only — never round-trip this through the client.
+   */
+  getProviderKey(ownerId: string, providerId: string): string | null {
+    const row = prepareCached<[string, string], ProviderKeyRow>(
+      this.db,
+      `SELECT * FROM provider_keys WHERE owner_id = ? AND provider_id = ?`,
+    ).get(ownerId, providerId);
+    return row ? row.api_key : null;
+  }
+
+  /** All provider-key rows for one user. Internal — use `publicProviderKeys`. */
+  listProviderKeyRows(ownerId: string): ProviderKeyRow[] {
+    return prepareCached<[string], ProviderKeyRow>(
+      this.db,
+      `SELECT * FROM provider_keys WHERE owner_id = ? ORDER BY provider_id`,
+    ).all(ownerId);
+  }
+
+  /** Insert or update a provider key. Empty/whitespace key throws. */
+  setProviderKey(ownerId: string, providerId: string, apiKey: string): void {
+    const trimmed = apiKey.trim();
+    if (!trimmed) throw new Error('apiKey cannot be empty');
+    const now = Date.now();
+    prepareCached<[string, string, string, number]>(
+      this.db,
+      `INSERT INTO provider_keys (owner_id, provider_id, api_key, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(owner_id, provider_id) DO UPDATE SET
+         api_key = excluded.api_key,
+         updated_at = excluded.updated_at`,
+    ).run(ownerId, providerId, trimmed, now);
+  }
+
+  /** Remove a provider key. Returns true if a row was removed. */
+  clearProviderKey(ownerId: string, providerId: string): boolean {
+    const result = prepareCached<[string, string]>(
+      this.db,
+      `DELETE FROM provider_keys WHERE owner_id = ? AND provider_id = ?`,
+    ).run(ownerId, providerId);
+    return result.changes > 0;
+  }
+
+  /**
+   * Public summary of the user's provider keys. The set of providers is
+   * driven by the host — pass the `providerIds` they care about (typically
+   * a hardcoded list of cloud providers the app supports). Each entry has
+   * `hasKey` so the client can render a "Set key" / "Update key" affordance.
+   * The actual key is never included.
+   */
+  publicProviderKeys(
+    ownerId: string | null,
+    providerIds: string[],
+  ): ProviderKeyPublic[] {
+    const rows = ownerId
+      ? new Map(this.listProviderKeyRows(ownerId).map((r) => [r.provider_id, r]))
+      : new Map<string, ProviderKeyRow>();
+    return providerIds.map((id) => {
+      const row = rows.get(id);
+      return {
+        providerId: id,
+        hasKey: !!row,
+        updatedAt: row?.updated_at ?? 0,
+      };
+    });
   }
 }

@@ -21,4 +21,21 @@ export const MODEL_SETTINGS_MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    // Per-user, per-provider API keys for cloud BYOK (M1). Distinct from
+    // `model_settings` (which is per-model URL+key for local hosting).
+    // Provider ids are opaque strings — the host app maps cloud-model
+    // entries to a provider id (e.g. 'openai', 'dashscope') and resolves
+    // the actual base URL on the server side.
+    name: '20260504_create_provider_keys',
+    up: `
+      CREATE TABLE IF NOT EXISTS provider_keys (
+        owner_id    TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        api_key     TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (owner_id, provider_id)
+      );
+    `,
+  },
 ];

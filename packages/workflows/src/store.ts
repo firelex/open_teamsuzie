@@ -10,8 +10,24 @@ import type {
   WorkflowColumnConfig,
   WorkflowOutputMode,
   WorkflowSource,
+  WorkflowVersion,
+  WorkflowVersionReason,
 } from './types.js';
 import { WORKFLOW_OUTPUT_MODES } from './types.js';
+
+interface WorkflowVersionRow {
+  id: string;
+  workflow_id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  practice_areas: string;
+  column_config: string | null;
+  output_mode: string;
+  captured_at: number;
+  captured_by: string | null;
+  reason: string;
+}
 
 function normalizeOutputMode(
   raw: WorkflowOutputMode | undefined,
@@ -207,11 +223,17 @@ export class WorkflowsStore {
    * desired changes (the host can offer that as a UI affordance).
    * Returns null when the id doesn't exist or the row isn't owned by
    * `ownerId`.
+   *
+   * WD5 — captures a `workflow_versions` snapshot of the pre-edit
+   * state immediately before applying the patch. The capture and
+   * update happen in a single transaction so a snapshot is never
+   * orphaned on update failure.
    */
   updateUserWorkflow(
     id: string,
     ownerId: string,
     patch: UpdateWorkflowInput,
+    capturedBy?: string | null,
   ): Workflow | null {
     const existing = this.get(id);
     if (!existing) return null;
@@ -242,25 +264,143 @@ export class WorkflowsStore {
       columnConfig: nextColumnConfigJson,
       outputMode: nextOutputMode,
     };
+    const tx = this.db.transaction(() => {
+      this.insertVersionFromExisting(existing, capturedBy ?? null, 'update', now);
+      prepareCached<
+        [string, string, string, string, string | null, string, number, string]
+      >(
+        this.db,
+        `UPDATE workflows
+           SET name = ?, description = ?, prompt = ?, practice_areas = ?,
+               column_config = ?, output_mode = ?, updated_at = ?
+         WHERE id = ?`,
+      ).run(
+        next.name,
+        next.description,
+        next.prompt,
+        next.practiceAreas,
+        next.columnConfig,
+        next.outputMode,
+        now,
+        id,
+      );
+    });
+    tx();
+    return this.get(id);
+  }
+
+  // --- Versioning (WD5) -------------------------------------------------
+
+  /**
+   * Versions for a user-owned workflow, newest first. System workflows
+   * never have history (their state is owned by the seed). Returns an
+   * empty array for unknown ids or when the caller isn't the owner.
+   */
+  listVersions(id: string, ownerId: string): WorkflowVersion[] {
+    const existing = this.get(id);
+    if (!existing) return [];
+    if (existing.source !== 'user' || existing.ownerId !== ownerId) return [];
+    const rows = prepareCached<[string], WorkflowVersionRow>(
+      this.db,
+      // ROWID is SQLite's hidden monotonically-increasing per-INSERT id.
+      // Used as a tiebreaker so two snapshots written in the same
+      // millisecond (common for restore-after-update sequences) order
+      // by insertion order, not by random UUID lexicographic compare.
+      `SELECT * FROM workflow_versions
+         WHERE workflow_id = ?
+         ORDER BY captured_at DESC, ROWID DESC`,
+    ).all(id);
+    return rows.map(rowToVersion);
+  }
+
+  /**
+   * Restore a workflow to a prior captured state. Captures the current
+   * state with `reason = 'restore'` first, then overwrites the live row
+   * with the version's fields. Returns the post-restore workflow, or
+   * null when the version doesn't belong to this workflow / owner.
+   */
+  restoreVersion(
+    workflowId: string,
+    versionId: string,
+    ownerId: string,
+    capturedBy?: string | null,
+  ): Workflow | null {
+    const existing = this.get(workflowId);
+    if (!existing) return null;
+    if (existing.source !== 'user' || existing.ownerId !== ownerId) return null;
+    const versionRow = prepareCached<[string, string], WorkflowVersionRow>(
+      this.db,
+      `SELECT * FROM workflow_versions WHERE id = ? AND workflow_id = ?`,
+    ).get(versionId, workflowId);
+    if (!versionRow) return null;
+    const now = this.clock();
+    const tx = this.db.transaction(() => {
+      this.insertVersionFromExisting(existing, capturedBy ?? null, 'restore', now);
+      prepareCached<
+        [string, string, string, string, string | null, string, number, string]
+      >(
+        this.db,
+        `UPDATE workflows
+           SET name = ?, description = ?, prompt = ?, practice_areas = ?,
+               column_config = ?, output_mode = ?, updated_at = ?
+         WHERE id = ?`,
+      ).run(
+        versionRow.name,
+        versionRow.description,
+        versionRow.prompt,
+        versionRow.practice_areas,
+        versionRow.column_config,
+        versionRow.output_mode,
+        now,
+        workflowId,
+      );
+    });
+    tx();
+    return this.get(workflowId);
+  }
+
+  /** Internal: write one snapshot row from a `Workflow`. */
+  private insertVersionFromExisting(
+    existing: Workflow,
+    capturedBy: string | null,
+    reason: WorkflowVersionReason,
+    capturedAt: number,
+  ): void {
     prepareCached<
-      [string, string, string, string, string | null, string, number, string]
+      [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string | null,
+        string,
+        number,
+        string | null,
+        string,
+      ]
     >(
       this.db,
-      `UPDATE workflows
-         SET name = ?, description = ?, prompt = ?, practice_areas = ?,
-             column_config = ?, output_mode = ?, updated_at = ?
-       WHERE id = ?`,
+      `INSERT INTO workflow_versions
+         (id, workflow_id, name, description, prompt, practice_areas,
+          column_config, output_mode, captured_at, captured_by, reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      next.name,
-      next.description,
-      next.prompt,
-      next.practiceAreas,
-      next.columnConfig,
-      next.outputMode,
-      now,
-      id,
+      this.newId(),
+      existing.id,
+      existing.name,
+      existing.description,
+      existing.prompt,
+      JSON.stringify(existing.practiceAreas),
+      existing.columnConfig === null
+        ? null
+        : JSON.stringify(existing.columnConfig),
+      existing.outputMode,
+      capturedAt,
+      capturedBy,
+      reason,
     );
-    return this.get(id);
   }
 
   archive(id: string, ownerId: string): boolean {
@@ -390,6 +530,51 @@ export class WorkflowsStore {
       .all(source)
       .map(rowToWorkflow);
   }
+}
+
+function rowToVersion(row: WorkflowVersionRow): WorkflowVersion {
+  let practiceAreas: string[] = [];
+  try {
+    const parsed = JSON.parse(row.practice_areas);
+    if (Array.isArray(parsed)) practiceAreas = parsed.filter((x) => typeof x === 'string');
+  } catch {
+    /* tolerate corrupt JSON */
+  }
+  let columnConfig: WorkflowColumnConfig[] | null = null;
+  if (row.column_config) {
+    try {
+      const parsed = JSON.parse(row.column_config);
+      if (Array.isArray(parsed)) {
+        columnConfig = parsed.filter(
+          (x): x is WorkflowColumnConfig =>
+            !!x &&
+            typeof x === 'object' &&
+            typeof (x as WorkflowColumnConfig).title === 'string' &&
+            typeof (x as WorkflowColumnConfig).prompt === 'string' &&
+            typeof (x as WorkflowColumnConfig).format === 'string',
+        );
+      }
+    } catch {
+      /* tolerate corrupt JSON */
+    }
+  }
+  return {
+    id: row.id,
+    workflowId: row.workflow_id,
+    name: row.name,
+    description: row.description,
+    prompt: row.prompt,
+    practiceAreas,
+    columnConfig,
+    outputMode: WORKFLOW_OUTPUT_MODES.includes(
+      row.output_mode as WorkflowOutputMode,
+    )
+      ? (row.output_mode as WorkflowOutputMode)
+      : 'inline_chat',
+    capturedAt: row.captured_at,
+    capturedBy: row.captured_by,
+    reason: row.reason === 'restore' ? 'restore' : 'update',
+  };
 }
 
 function rowToWorkflow(row: WorkflowRow): Workflow {
