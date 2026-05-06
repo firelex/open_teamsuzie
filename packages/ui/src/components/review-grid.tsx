@@ -1,5 +1,13 @@
 import * as React from "react"
 import {
+  ArrowLeftRight,
+  Maximize2,
+  Pencil,
+  Play,
+  RefreshCw,
+  Trash2,
+} from "lucide-react"
+import {
   SENTINEL_OPEN,
   type Citation,
 } from "@teamsuzie/citations"
@@ -15,6 +23,16 @@ import type {
 
 import { cn } from "../lib/utils"
 import { CitationChip } from "./citation-chip"
+import { MarkdownMessage } from "./markdown-message"
+import { useSidePanelOptional } from "./side-panel"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "./context-menu"
 import {
   Dialog,
   DialogContent,
@@ -47,6 +65,14 @@ export interface ReviewGridProps {
   onRowRemove?: (document: ReviewDocument) => void
   /** When provided, the cell expand modal gets a Regenerate button. */
   onCellRegenerate?: (column: ReviewColumn, document: ReviewDocument) => void | Promise<void>
+  /** Run pending cells in a row (right-click row header). */
+  onRowRun?: (document: ReviewDocument) => void | Promise<void>
+  /** Re-run every cell in a row (right-click row header). */
+  onRowRegenerate?: (document: ReviewDocument) => void | Promise<void>
+  /** Run pending cells in a column (right-click column header). */
+  onColumnRun?: (column: ReviewColumn) => void | Promise<void>
+  /** Re-run every cell in a column (right-click column header). */
+  onColumnRegenerate?: (column: ReviewColumn) => void | Promise<void>
   /** When true, the Regenerate button shows a busy state and is disabled. */
   busy?: boolean
   /** Cell currently running (drives the active-cell ring + modal live view). */
@@ -110,6 +136,49 @@ function parseCitations(raw: string | null): Citation[] {
   }
 }
 
+// Turn `[N]` footnote markers in cell text into markdown links pointing at
+// the corresponding citation row in the expand-dialog citations list.
+// Escaped brackets keep the visible text as `[6]` while the link target
+// becomes `#cell-citation-6`. The negative lookahead avoids interfering with
+// genuine `[label](url)` markdown links.
+function linkifyCitations(text: string): string {
+  return text.replace(/\[(\d+)\](?!\()/g, "[\\[$1\\]](#cell-citation-$1)")
+}
+
+function handleCellMarkdownClick(e: React.MouseEvent<HTMLDivElement>) {
+  const anchor = (e.target as HTMLElement).closest("a")
+  if (!anchor) return
+  const href = anchor.getAttribute("href") || ""
+  const match = href.match(/#cell-citation-(\d+)$/)
+  if (!match) return
+  e.preventDefault()
+  const el = document.getElementById(`cell-citation-${match[1]}`)
+  if (!el) return
+  el.scrollIntoView({ behavior: "smooth", block: "center" })
+  el.classList.add("ring-2", "ring-primary", "rounded", "ring-offset-2")
+  window.setTimeout(() => {
+    el.classList.remove("ring-2", "ring-primary", "rounded", "ring-offset-2")
+  }, 1200)
+}
+
+// Strip markdown markers so the inline cell preview doesn't show literal
+// `**`, `[1]`, etc. Bullet markers (`-`, `*`, `+`) are converted to `•` so a
+// list collapsed to a single line still reads as `• foo • bar` rather than
+// `foo bar`. The expand dialog renders the full markdown via MarkdownMessage.
+function stripMarkdownForPreview(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1$2")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/(^|[\s(])_([^_\n]+)_/g, "$1$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^\s*#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "• ")
+    .replace(/^\s*>\s?/gm, "")
+}
+
 function CellPreview({ cell, status }: { cell: ReviewCell | null; status: CellStatus | "empty" }) {
   if (status === "empty" || status === "pending") {
     return <span className="text-muted-foreground/60">—</span>
@@ -122,7 +191,7 @@ function CellPreview({ cell, status }: { cell: ReviewCell | null; status: CellSt
     return <span className="text-muted-foreground/60">—</span>
   }
   // Show first ~120 chars; modal shows full content.
-  const compact = cell.value.replace(/\s+/g, " ").trim()
+  const compact = stripMarkdownForPreview(cell.value).replace(/\s+/g, " ").trim()
   return <span>{compact.length > 120 ? `${compact.slice(0, 120)}…` : compact}</span>
 }
 
@@ -145,6 +214,10 @@ export function ReviewGrid({
   onColumnRemove,
   onRowRemove,
   onCellRegenerate,
+  onRowRun,
+  onRowRegenerate,
+  onColumnRun,
+  onColumnRegenerate,
   busy = false,
   runningCell,
   docLabels,
@@ -152,6 +225,10 @@ export function ReviewGrid({
   className,
 }: ReviewGridProps) {
   const [expanded, setExpanded] = React.useState<ExpandedCell | null>(null)
+  // Transpose toggle: docs as rows (default) ↔ docs as columns. Cell lookup
+  // is unchanged either way (`cellsByKey` is keyed by column.id::doc.id);
+  // only the table header/row axes swap.
+  const [transposed, setTransposed] = React.useState(false)
   // Auto-follow the active cell during a run. Reset when a new run starts;
   // sticky-disable when the user manually closes the modal mid-run.
   const lastRunningKeyRef = React.useRef<string | null>(null)
@@ -223,14 +300,300 @@ export function ReviewGrid({
     )
   }
 
+  const hasCellMenu = !!onCellRegenerate
+  const hasColumnMenu =
+    !!(onColumnClick || onColumnRun || onColumnRegenerate || onColumnRemove)
+  const hasRowMenu = !!(onRowRun || onRowRegenerate || onRowRemove)
+
+  // Pure-presentation cell renderer — used by both the normal and transposed
+  // table layouts. Cell lookup is keyed by column.id::doc.id either way.
+  function renderCell(col: ReviewColumn, doc: ReviewDocument): React.ReactElement {
+    const cell = cellsByKey.get(`${col.id}::${doc.id}`) ?? null
+    const isActive =
+      !!runningCell &&
+      runningCell.columnId === col.id &&
+      runningCell.rowId === doc.id
+    const status: CellStatus | "empty" = isActive
+      ? "streaming"
+      : cell
+        ? cell.status
+        : "empty"
+    const liveValue = isActive
+      ? truncateAtSentinel(runningCell?.partialText ?? "")
+      : null
+    const tdInner = (
+      <div className="flex items-start gap-1.5">
+        <span className="mt-1.5">
+          <StatusDot status={status} />
+        </span>
+        <div className="min-w-0 flex-1">
+          {liveValue !== null ? (
+            (() => {
+              const stripped = stripMarkdownForPreview(liveValue)
+                .replace(/\s+/g, " ")
+                .trim()
+              return (
+                <span>
+                  {stripped.length > 120
+                    ? `${stripped.slice(0, 120)}…`
+                    : stripped || (
+                        <span className="text-muted-foreground/60">…</span>
+                      )}
+                </span>
+              )
+            })()
+          ) : (
+            <CellPreview cell={cell} status={status} />
+          )}
+        </div>
+      </div>
+    )
+    return (
+      <td
+        key={`${doc.id}-${col.id}`}
+        className={cn(
+          "min-w-[200px] border-b border-r border-border px-3 py-2 align-top",
+          "cursor-pointer hover:bg-primary/5",
+          isActive && "outline outline-2 outline-primary/60 bg-primary/5",
+        )}
+        onClick={() => setExpanded({ cell, column: col, document: doc })}
+      >
+        {hasCellMenu ? (
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <div>{tdInner}</div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuLabel>Cell</ContextMenuLabel>
+              <ContextMenuItem
+                onSelect={(e) => {
+                  e.preventDefault()
+                  setExpanded({ cell, column: col, document: doc })
+                }}
+              >
+                <Maximize2 />
+                Open
+              </ContextMenuItem>
+              {onCellRegenerate && (
+                <ContextMenuItem
+                  disabled={busy || isActive}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    void onCellRegenerate(col, doc)
+                  }}
+                >
+                  <RefreshCw />
+                  {!cell || cell.status === "pending" ? "Run cell" : "Regenerate"}
+                </ContextMenuItem>
+              )}
+            </ContextMenuContent>
+          </ContextMenu>
+        ) : (
+          tdInner
+        )}
+      </td>
+    )
+  }
+
+  function columnHeaderInner(col: ReviewColumn): React.ReactElement {
+    return (
+      <div className="group flex items-start justify-between gap-1">
+        {onColumnClick ? (
+          <button
+            type="button"
+            onClick={() => onColumnClick(col)}
+            className="block flex-1 min-w-0 text-left hover:underline underline-offset-2"
+          >
+            <span className="block truncate text-foreground">{col.title}</span>
+            <span className="block truncate text-[10px] font-normal text-muted-foreground">
+              {col.format}
+            </span>
+          </button>
+        ) : (
+          <div className="flex-1 min-w-0">
+            <span className="block truncate text-foreground">{col.title}</span>
+            <span className="block truncate text-[10px] font-normal text-muted-foreground">
+              {col.format}
+            </span>
+          </div>
+        )}
+        {onColumnRemove && (
+          <button
+            type="button"
+            onClick={() => onColumnRemove(col)}
+            aria-label={`Remove ${col.title}`}
+            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
+          >
+            ×
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  function renderColumnHeader(col: ReviewColumn): React.ReactElement {
+    if (!hasColumnMenu) return columnHeaderInner(col)
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div>{columnHeaderInner(col)}</div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuLabel>Column</ContextMenuLabel>
+          {onColumnRun && (
+            <ContextMenuItem
+              disabled={busy}
+              onSelect={(e) => {
+                e.preventDefault()
+                void onColumnRun(col)
+              }}
+            >
+              <Play />
+              Run column
+            </ContextMenuItem>
+          )}
+          {onColumnRegenerate && (
+            <ContextMenuItem
+              disabled={busy}
+              onSelect={(e) => {
+                e.preventDefault()
+                void onColumnRegenerate(col)
+              }}
+            >
+              <RefreshCw />
+              Regenerate column
+            </ContextMenuItem>
+          )}
+          {onColumnClick && (
+            <ContextMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                onColumnClick(col)
+              }}
+            >
+              <Pencil />
+              Edit prompt
+            </ContextMenuItem>
+          )}
+          {onColumnRemove && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                variant="destructive"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  onColumnRemove(col)
+                }}
+              >
+                <Trash2 />
+                Remove column
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    )
+  }
+
+  function docHeaderInner(doc: ReviewDocument): React.ReactElement {
+    return (
+      <div className="group flex items-start justify-between gap-1">
+        <div className="flex-1 min-w-0">
+          <span className="block truncate">{doc.name}</span>
+          {doc.mimeType && (
+            <span className="block truncate text-[10px] font-normal text-muted-foreground">
+              {doc.mimeType}
+            </span>
+          )}
+        </div>
+        {onRowRemove && (
+          <button
+            type="button"
+            onClick={() => onRowRemove(doc)}
+            aria-label={`Remove ${doc.name}`}
+            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
+          >
+            ×
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  function renderDocHeader(doc: ReviewDocument): React.ReactElement {
+    if (!hasRowMenu) return docHeaderInner(doc)
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div>{docHeaderInner(doc)}</div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuLabel>Row</ContextMenuLabel>
+          {onRowRun && (
+            <ContextMenuItem
+              disabled={busy}
+              onSelect={(e) => {
+                e.preventDefault()
+                void onRowRun(doc)
+              }}
+            >
+              <Play />
+              Run row
+            </ContextMenuItem>
+          )}
+          {onRowRegenerate && (
+            <ContextMenuItem
+              disabled={busy}
+              onSelect={(e) => {
+                e.preventDefault()
+                void onRowRegenerate(doc)
+              }}
+            >
+              <RefreshCw />
+              Regenerate row
+            </ContextMenuItem>
+          )}
+          {onRowRemove && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                variant="destructive"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  onRowRemove(doc)
+                }}
+              >
+                <Trash2 />
+                Remove row
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    )
+  }
+
   return (
     <>
       <div
         className={cn(
-          "relative overflow-auto rounded-md border border-border bg-card",
+          "relative rounded-md border border-border bg-card",
           className,
         )}
       >
+        <div className="flex items-center justify-end border-b border-border bg-muted/20 px-2 py-1.5">
+          <button
+            type="button"
+            onClick={() => setTransposed((t) => !t)}
+            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={transposed ? "Show documents as rows" : "Show documents as columns"}
+            title={transposed ? "Show documents as rows" : "Show documents as columns"}
+          >
+            <ArrowLeftRight className="size-3.5" aria-hidden />
+            <span>{transposed ? "Docs as rows" : "Docs as columns"}</span>
+          </button>
+        </div>
+        <div className="overflow-auto">
         <table className="min-w-full border-collapse text-sm">
           <thead className="bg-muted/40">
             <tr>
@@ -238,139 +601,56 @@ export function ReviewGrid({
                 scope="col"
                 className="sticky left-0 top-0 z-20 min-w-[200px] max-w-[280px] border-b border-r border-border bg-muted/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
-                Document
+                {transposed ? "Question" : "Document"}
               </th>
-              {columnsSorted.map((col) => (
-                <th
-                  key={col.id}
-                  scope="col"
-                  className="sticky top-0 z-10 min-w-[200px] border-b border-r border-border bg-muted/40 px-3 py-2 text-left text-xs font-semibold tracking-tight"
-                >
-                  <div className="group flex items-start justify-between gap-1">
-                    {onColumnClick ? (
-                      <button
-                        type="button"
-                        onClick={() => onColumnClick(col)}
-                        className="block flex-1 min-w-0 text-left hover:underline underline-offset-2"
-                      >
-                        <span className="block truncate text-foreground">
-                          {col.title}
-                        </span>
-                        <span className="block truncate text-[10px] font-normal text-muted-foreground">
-                          {col.format}
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="flex-1 min-w-0">
-                        <span className="block truncate text-foreground">
-                          {col.title}
-                        </span>
-                        <span className="block truncate text-[10px] font-normal text-muted-foreground">
-                          {col.format}
-                        </span>
-                      </div>
-                    )}
-                    {onColumnRemove && (
-                      <button
-                        type="button"
-                        onClick={() => onColumnRemove(col)}
-                        aria-label={`Remove ${col.title}`}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                </th>
-              ))}
+              {transposed
+                ? docsSorted.map((doc) => (
+                    <th
+                      key={doc.id}
+                      scope="col"
+                      className="sticky top-0 z-10 min-w-[200px] border-b border-r border-border bg-muted/40 px-3 py-2 text-left text-xs font-semibold tracking-tight"
+                    >
+                      {renderDocHeader(doc)}
+                    </th>
+                  ))
+                : columnsSorted.map((col) => (
+                    <th
+                      key={col.id}
+                      scope="col"
+                      className="sticky top-0 z-10 min-w-[200px] border-b border-r border-border bg-muted/40 px-3 py-2 text-left text-xs font-semibold tracking-tight"
+                    >
+                      {renderColumnHeader(col)}
+                    </th>
+                  ))}
             </tr>
           </thead>
           <tbody>
-            {docsSorted.map((doc) => (
-              <tr key={doc.id} className="hover:bg-accent/20">
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 min-w-[200px] max-w-[280px] border-b border-r border-border bg-card px-3 py-2 text-left align-top font-medium text-foreground"
-                >
-                  <div className="group flex items-start justify-between gap-1">
-                    <div className="flex-1 min-w-0">
-                      <span className="block truncate">{doc.name}</span>
-                      {doc.mimeType && (
-                        <span className="block truncate text-[10px] font-normal text-muted-foreground">
-                          {doc.mimeType}
-                        </span>
-                      )}
-                    </div>
-                    {onRowRemove && (
-                      <button
-                        type="button"
-                        onClick={() => onRowRemove(doc)}
-                        aria-label={`Remove row ${doc.name}`}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                </th>
-                {columnsSorted.map((col) => {
-                  const cell = cellsByKey.get(`${col.id}::${doc.id}`) ?? null
-                  const isActive =
-                    !!runningCell &&
-                    runningCell.columnId === col.id &&
-                    runningCell.rowId === doc.id
-                  const status: CellStatus | "empty" = isActive
-                    ? "streaming"
-                    : cell
-                      ? cell.status
-                      : "empty"
-                  // While a cell is actively running, prefer the live token
-                  // stream over the persisted cell value (which lags behind).
-                  // Truncate at the citation sentinel so the JSON block
-                  // doesn't leak into the visible cell preview.
-                  const liveValue = isActive
-                    ? truncateAtSentinel(runningCell?.partialText ?? "")
-                    : null
-                  return (
-                    <td
-                      key={`${doc.id}-${col.id}`}
-                      className={cn(
-                        "min-w-[200px] border-b border-r border-border px-3 py-2 align-top",
-                        "cursor-pointer hover:bg-primary/5",
-                        isActive &&
-                          "outline outline-2 outline-primary/60 bg-primary/5",
-                      )}
-                      onClick={() =>
-                        setExpanded({ cell, column: col, document: doc })
-                      }
+            {transposed
+              ? columnsSorted.map((col) => (
+                  <tr key={col.id} className="hover:bg-accent/20">
+                    <th
+                      scope="row"
+                      className="sticky left-0 z-10 min-w-[200px] max-w-[280px] border-b border-r border-border bg-card px-3 py-2 text-left align-top font-medium text-foreground"
                     >
-                      <div className="flex items-start gap-1.5">
-                        <span className="mt-1.5">
-                          <StatusDot status={status} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          {liveValue !== null ? (
-                            <span>
-                              {liveValue.length > 120
-                                ? `${liveValue.slice(0, 120)}…`
-                                : liveValue || (
-                                    <span className="text-muted-foreground/60">
-                                      …
-                                    </span>
-                                  )}
-                            </span>
-                          ) : (
-                            <CellPreview cell={cell} status={status} />
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
+                      {renderColumnHeader(col)}
+                    </th>
+                    {docsSorted.map((doc) => renderCell(col, doc))}
+                  </tr>
+                ))
+              : docsSorted.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-accent/20">
+                    <th
+                      scope="row"
+                      className="sticky left-0 z-10 min-w-[200px] max-w-[280px] border-b border-r border-border bg-card px-3 py-2 text-left align-top font-medium text-foreground"
+                    >
+                      {renderDocHeader(doc)}
+                    </th>
+                    {columnsSorted.map((col) => renderCell(col, doc))}
+                  </tr>
+                ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <CellExpandDialog
@@ -383,8 +663,9 @@ export function ReviewGrid({
         }}
         docLabels={docLabels}
         onCitationJump={(citation) => {
-          // Close the modal first so the preview surface isn't stacked on top.
-          setExpanded(null)
+          // Keep the cell modal open while the host opens the citation source
+          // in its side panel. The dialog handles Escape specially so the
+          // user can close the panel first, then the modal.
           onCitationJump?.(citation)
         }}
         onCellRegenerate={
@@ -456,6 +737,26 @@ function CellExpandDialog({
       ? runningCell.retrievalQuery
       : undefined
 
+  const sidePanel = useSidePanelOptional()
+  // Set synchronously the moment a citation click fires `onCitationJump`,
+  // before React commits the side panel's `isOpen=true` state. Radix can
+  // call `onOpenChange(false)` synchronously during the same tick (focus
+  // moves to the side panel as it mounts), at which point a closure read
+  // of `sidePanel.isOpen` would still see `false`. The ref bridges that
+  // gap. Cleared once the side panel state has caught up.
+  const recentJumpAtRef = React.useRef(0)
+  React.useEffect(() => {
+    if (sidePanel?.isOpen) recentJumpAtRef.current = 0
+  }, [sidePanel?.isOpen])
+
+  const handleCitationJumpWithGuard = React.useCallback(
+    (c: Citation) => {
+      recentJumpAtRef.current = Date.now()
+      onCitationJump?.(c)
+    },
+    [onCitationJump],
+  )
+
   return (
     // `modal={false}` so clicking a citation chip can open the side
     // panel without the dim-overlay hiding it — the user keeps the
@@ -465,21 +766,40 @@ function CellExpandDialog({
     // calc re-centers the dialog into the visible main column when
     // the side panel is open (the panel sets `--side-panel-width`
     // on the body).
-    <Dialog open={open} modal={false} onOpenChange={(o) => { if (!o) onClose() }}>
+    <Dialog
+      open={open}
+      modal={false}
+      // While the side panel is open (or just opening — see the ref above)
+      // the user is drilling into citations and wants the cell modal to
+      // stay put alongside the source doc. Catch all close paths here so
+      // the modal only dismisses when the side panel isn't claiming the
+      // user's attention. ESC (handled below) gives them a way out: first
+      // ESC closes the panel, second ESC closes the modal.
+      onOpenChange={(o) => {
+        if (o) return
+        if (sidePanel?.isOpen) return
+        if (Date.now() - recentJumpAtRef.current < 500) return
+        onClose()
+      }}
+    >
       <DialogContent
         className="max-w-2xl"
+        showOverlay={false}
         style={{
           left: 'calc((100vw - var(--side-panel-width, 0px)) / 2)',
         }}
-        // `modal={false}` on Dialog doesn't actually stop Radix from
-        // calling `onOpenChange(false)` when the user interacts outside
-        // the dialog — clicks on a citation chip's tooltip portal, on
-        // the side panel, etc. all count. Block those here so the
-        // user can drill from chip to chip without losing the cell's
-        // context. Escape and the built-in X close still work.
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
+        // First Escape: close the side panel, keep the modal open with
+        // its scroll position preserved. Second Escape: Radix's default
+        // close behavior dismisses the modal.
+        onEscapeKeyDown={(e) => {
+          if (sidePanel?.isOpen) {
+            e.preventDefault()
+            sidePanel.close()
+          }
+        }}
       >
         <DialogHeader>
           <DialogTitle className="truncate">
@@ -552,9 +872,11 @@ function CellExpandDialog({
             </details>
           )}
           {liveText !== null ? (
-            <div className="space-y-3 whitespace-pre-wrap text-sm text-foreground">
-              {liveText || (
-                <span className="text-muted-foreground">
+            <div className="text-foreground" onClick={handleCellMarkdownClick}>
+              {liveText ? (
+                <MarkdownMessage content={linkifyCitations(liveText)} />
+              ) : (
+                <span className="text-sm text-muted-foreground">
                   {whimsicalVerbFor(
                     `${expanded?.column.id ?? ''}::${expanded?.document.id ?? ''}`,
                   )}
@@ -568,16 +890,24 @@ function CellExpandDialog({
           ) : cell.status === "error" ? (
             <p className="text-sm text-destructive">{cell.error ?? "Error"}</p>
           ) : cell.status === "streaming" ? (
-            <div className="space-y-3 whitespace-pre-wrap text-sm text-foreground">
-              {truncateAtSentinel(cell.value ?? "") || (
-                <span className="text-muted-foreground">…</span>
+            <div className="text-foreground" onClick={handleCellMarkdownClick}>
+              {truncateAtSentinel(cell.value ?? "") ? (
+                <MarkdownMessage
+                  content={linkifyCitations(truncateAtSentinel(cell.value ?? ""))}
+                />
+              ) : (
+                <span className="text-sm text-muted-foreground">…</span>
               )}
               <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-primary align-middle" />
             </div>
           ) : (
-            <div className="space-y-3 whitespace-pre-wrap text-sm text-foreground">
-              {truncateAtSentinel(cell.value ?? "") || (
-                <span className="text-muted-foreground">(empty)</span>
+            <div className="text-foreground" onClick={handleCellMarkdownClick}>
+              {truncateAtSentinel(cell.value ?? "") ? (
+                <MarkdownMessage
+                  content={linkifyCitations(truncateAtSentinel(cell.value ?? ""))}
+                />
+              ) : (
+                <span className="text-sm text-muted-foreground">(empty)</span>
               )}
             </div>
           )}
@@ -588,20 +918,29 @@ function CellExpandDialog({
               </div>
               <ul className="space-y-2 text-xs">
                 {citations.map((c) => (
-                  <li key={c.id} className="flex gap-2">
+                  <li
+                    key={c.id}
+                    id={`cell-citation-${c.id}`}
+                    className="flex gap-2 ring-offset-background transition-shadow"
+                  >
                     <CitationChip
                       id={c.id}
                       citation={c}
-                      onJump={onCitationJump}
+                      onJump={handleCitationJumpWithGuard}
                       docLabel={docLabels?.[c.doc]}
                     />
-                    <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => handleCitationJumpWithGuard(c)}
+                      className="min-w-0 flex-1 rounded p-1 -m-1 text-left hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={`Open citation ${c.id} in source document`}
+                    >
                       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         {docLabels?.[c.doc] ?? c.doc}
                         {c.locator ? ` · ${c.locator}` : ""}
                       </div>
                       <div className="italic">&ldquo;{c.quote}&rdquo;</div>
-                    </div>
+                    </button>
                   </li>
                 ))}
               </ul>

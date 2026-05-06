@@ -26,4 +26,18 @@ export const PERSONAS_MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_personas_owner ON personas(owner_id);
     `,
   },
+  {
+    // Tracks which owners have had the file-based built-ins copied into
+    // their user-personas store. Hosts call
+    // `PersonaRegistry.seedFromBuiltinsIfNeeded(ownerId)` once per request
+    // (or on login); the row records that the seed already ran so we
+    // don't re-copy if the user later deletes everything.
+    name: '20260506_create_personas_seeded',
+    up: `
+      CREATE TABLE IF NOT EXISTS personas_seeded (
+        owner_id   TEXT PRIMARY KEY,
+        seeded_at  INTEGER NOT NULL
+      );
+    `,
+  },
 ];

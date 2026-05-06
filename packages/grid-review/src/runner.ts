@@ -46,7 +46,7 @@ export type CellEvent =
 export interface RunCellOptions {
     document: PreparedDocument;
     documentLabel?: string;
-    /** The column being filled. Only `prompt` is consumed; the format string is for downstream coercion (G3). */
+    /** The column being filled. */
     column: Pick<ReviewColumn, 'prompt'>;
     llm: LlmStream;
     signal?: AbortSignal;
@@ -68,6 +68,7 @@ export async function* runCell(opts: RunCellOptions): AsyncIterable<CellEvent> {
         document: opts.document,
         documentLabel: opts.documentLabel,
         prompt: opts.column.prompt,
+        format: 'text',
     });
 
     let accumulated = '';
@@ -128,6 +129,7 @@ export async function* runCellWithFormat(
         document: opts.document,
         documentLabel: opts.documentLabel,
         prompt: opts.column.prompt,
+        format: opts.format,
     });
 
     for (let attempt = 0; attempt < 2; attempt++) {

@@ -66,7 +66,7 @@ export function applyContentKeyedEdits(
     interface LocatedEdit {
         editIndex: number;
         paragraphIndex: number;
-        /** Half-open range of `find` within the paragraph's normalized text. */
+        /** Half-open range of `find` within the paragraph's original text. */
         startInPara: number;
         endInPara: number;
         replace: string;
@@ -123,6 +123,7 @@ export function applyContentKeyedEdits(
 
         const paraText = paragraphs[paraIdx];
         const ops: WordDiffOp[] = [];
+        const editRevisionOpCounts = new Map<number, number>();
         let cursor = 0;
         for (const e of paraEdits) {
             if (e.startInPara > cursor) {
@@ -132,12 +133,13 @@ export function applyContentKeyedEdits(
                 });
             }
             const deleteText = paraText.slice(e.startInPara, e.endInPara);
-            if (deleteText.length > 0) {
-                ops.push({ kind: 'delete', text: deleteText });
+            const replacementOps = diffReplacement(deleteText, e.replace);
+            let revisionOpCount = 0;
+            for (const op of replacementOps) {
+                ops.push(op);
+                if (op.kind !== 'equal') revisionOpCount++;
             }
-            if (e.replace.length > 0) {
-                ops.push({ kind: 'insert', text: e.replace });
-            }
+            editRevisionOpCounts.set(e.editIndex, revisionOpCount);
             cursor = e.endInPara;
         }
         if (cursor < paraText.length) {
@@ -165,10 +167,10 @@ export function applyContentKeyedEdits(
         let idCursor = 0;
         for (const e of paraEdits) {
             const ids: number[] = [];
-            const hadDelete = e.endInPara > e.startInPara;
-            const hadInsert = e.replace.length > 0;
-            if (hadDelete && idCursor < issuedIds.length) ids.push(issuedIds[idCursor++]);
-            if (hadInsert && idCursor < issuedIds.length) ids.push(issuedIds[idCursor++]);
+            const count = editRevisionOpCounts.get(e.editIndex) ?? 0;
+            for (let n = 0; n < count && idCursor < issuedIds.length; n++) {
+                ids.push(issuedIds[idCursor++]);
+            }
             results[e.editIndex] = { status: 'applied', revisionIds: ids };
         }
     }
@@ -188,47 +190,74 @@ function locateEdit(
     paragraphs: string[],
     edit: ContentKeyedEdit,
 ): LocateResult {
-    const normFind = normalize(edit.find);
-    const normCtxBefore = normalize(edit.contextBefore);
-    const normCtxAfter = normalize(edit.contextAfter);
+    const normFind = normalizeWs(edit.find).norm;
+    const normCtxBefore = normalizeWs(edit.contextBefore).norm;
+    const normCtxAfter = normalizeWs(edit.contextAfter).norm;
+    const paraNorms = paragraphs.map((p) => normalizeWs(p));
+    type Hit = { paragraphIndex: number; normStart: number; normEnd: number };
 
-    const matches: Array<{
-        paragraphIndex: number;
-        startInPara: number;
-        endInPara: number;
-    }> = [];
-
-    for (let i = 0; i < paragraphs.length; i++) {
-        const normPara = normalize(paragraphs[i]);
-        const positions: number[] =
-            normFind.length === 0
-                ? Array.from({ length: normPara.length + 1 }, (_, k) => k)
-                : indexAll(normPara, normFind);
-        for (const p of positions) {
-            const ctxBeforeStart = p - normCtxBefore.length;
-            const ctxAfterEnd = p + normFind.length + normCtxAfter.length;
-            if (ctxBeforeStart < 0) continue;
-            if (ctxAfterEnd > normPara.length) continue;
-            if (
-                normCtxBefore.length > 0 &&
-                normPara.slice(ctxBeforeStart, p) !== normCtxBefore
-            )
+    const tryStrategy = (
+        ctxBefore: string,
+        ctxAfter: string,
+    ): { kind: 'ok'; hits: Hit[] } | { kind: 'ambiguous'; count: number } => {
+        const hits: Hit[] = [];
+        let candidateCount = 0;
+        let ambiguous = false;
+        for (let i = 0; i < paraNorms.length; i++) {
+            const found = findUniqueAnchor(
+                paraNorms[i].norm,
+                normFind,
+                ctxBefore,
+                ctxAfter,
+            );
+            if ('error' in found) {
+                if (found.error === 'ambiguous') ambiguous = true;
                 continue;
-            if (
-                normCtxAfter.length > 0 &&
-                normPara.slice(p + normFind.length, ctxAfterEnd) !==
-                    normCtxAfter
-            )
-                continue;
-            matches.push({
+            }
+            candidateCount++;
+            hits.push({
                 paragraphIndex: i,
-                startInPara: p,
-                endInPara: p + normFind.length,
+                normStart: found.start,
+                normEnd: found.end,
             });
         }
+        if (ambiguous || hits.length > 1)
+            return { kind: 'ambiguous', count: Math.max(candidateCount, hits.length) };
+        return { kind: 'ok', hits };
+    };
+
+    const attempts = [
+        { before: normCtxBefore, after: normCtxAfter },
+        { before: normCtxBefore, after: '' },
+        { before: '', after: normCtxAfter },
+        { before: '', after: '' },
+    ];
+    let sawAmbiguous = false;
+    let ambiguousCount = 0;
+    for (const attempt of attempts) {
+        const result = tryStrategy(attempt.before, attempt.after);
+        if (result.kind === 'ambiguous') {
+            sawAmbiguous = true;
+            ambiguousCount = Math.max(ambiguousCount, result.count);
+            continue;
+        }
+        if (result.hits.length !== 1) continue;
+        const hit = result.hits[0];
+        const originalRange = mapNormRangeToOriginal(
+            paraNorms[hit.paragraphIndex],
+            paragraphs[hit.paragraphIndex].length,
+            hit.normStart,
+            hit.normEnd,
+        );
+        return {
+            status: 'applied',
+            paragraphIndex: hit.paragraphIndex,
+            startInPara: originalRange.start,
+            endInPara: originalRange.end,
+        };
     }
 
-    if (matches.length === 0) {
+    if (!sawAmbiguous) {
         return {
             status: 'not_found',
             paragraphIndex: -1,
@@ -237,33 +266,111 @@ function locateEdit(
             reason: `find + context not found in document`,
         };
     }
-    if (matches.length > 1) {
-        return {
-            status: 'ambiguous',
-            paragraphIndex: -1,
-            startInPara: -1,
-            endInPara: -1,
-            reason: `find + context matched ${matches.length} positions; provide more disambiguating context`,
-        };
-    }
-    return { status: 'applied', ...matches[0] };
+    return {
+        status: 'ambiguous',
+        paragraphIndex: -1,
+        startInPara: -1,
+        endInPara: -1,
+        reason: `find + context matched ${ambiguousCount || 'multiple'} positions; provide more disambiguating context`,
+    };
 }
 
 /**
- * Light text normalization for anchor matching. Collapses smart quotes,
- * em/en dashes, and non-breaking spaces to ASCII equivalents — the kinds
- * of substitutions Word applies on autoformat that throw off literal
- * string matching against an LLM's view of the text. All replacements
- * are 1-to-1 so character offsets in the normalized string map directly
- * back to offsets in the original.
+ * Text normalization for anchor matching. Collapses smart quotes,
+ * em/en dashes, non-breaking spaces, and arbitrary whitespace runs to a
+ * shape closer to the model's markdown view of a DOCX. A remap is kept so
+ * matches in the normalized string can still mutate the original paragraph
+ * offsets.
  */
-function normalize(s: string): string {
-    return s
-        .replace(/[‘’′]/g, "'")
-        .replace(/[“”″]/g, '"')
-        .replace(/[–—]/g, '-')
-        .replace(/ /g, ' ')
-        .replace(/​/g, '');
+interface NormalizedText {
+    norm: string;
+    origIdx: number[];
+}
+
+function normalizeWs(s: string): NormalizedText {
+    let norm = '';
+    const origIdx: number[] = [];
+    let prevSpace = false;
+    for (let i = 0; i < s.length; i++) {
+        const folded = foldChar(s[i]);
+        if (folded === '') continue;
+        if (/\s/.test(folded)) {
+            if (!prevSpace) {
+                norm += ' ';
+                origIdx.push(i);
+                prevSpace = true;
+            }
+            continue;
+        }
+        norm += folded;
+        origIdx.push(i);
+        prevSpace = false;
+    }
+    return { norm, origIdx };
+}
+
+function foldChar(ch: string): string {
+    if (/[‘’′]/.test(ch)) return "'";
+    if (/[“”″]/.test(ch)) return '"';
+    if (/[–—]/.test(ch)) return '-';
+    if (ch === ' ') return ' ';
+    if (ch === '​') return '';
+    return ch;
+}
+
+function findUniqueAnchor(
+    hayNorm: string,
+    findNorm: string,
+    ctxBeforeNorm: string,
+    ctxAfterNorm: string,
+): { start: number; end: number } | { error: 'none' | 'ambiguous' } {
+    const candidates: number[] = [];
+    const checkContext = (pos: number): boolean => {
+        if (ctxBeforeNorm.length > 0) {
+            const start = pos - ctxBeforeNorm.length;
+            if (start < 0) return false;
+            if (hayNorm.slice(start, pos) !== ctxBeforeNorm) return false;
+        }
+        if (ctxAfterNorm.length > 0) {
+            const end = pos + findNorm.length;
+            if (hayNorm.slice(end, end + ctxAfterNorm.length) !== ctxAfterNorm)
+                return false;
+        }
+        return true;
+    };
+
+    if (findNorm.length === 0) {
+        for (let i = 0; i <= hayNorm.length; i++) {
+            if (checkContext(i)) candidates.push(i);
+        }
+    } else {
+        for (const p of indexAll(hayNorm, findNorm)) {
+            if (checkContext(p)) candidates.push(p);
+        }
+    }
+
+    if (candidates.length === 0) return { error: 'none' };
+    if (candidates.length > 1) return { error: 'ambiguous' };
+    return { start: candidates[0], end: candidates[0] + findNorm.length };
+}
+
+function mapNormRangeToOriginal(
+    normalized: NormalizedText,
+    originalLength: number,
+    normStart: number,
+    normEnd: number,
+): { start: number; end: number } {
+    const start =
+        normStart < normalized.origIdx.length
+            ? normalized.origIdx[normStart]
+            : originalLength;
+    const end =
+        normEnd === normStart
+            ? start
+            : normEnd - 1 < normalized.origIdx.length
+              ? normalized.origIdx[normEnd - 1] + 1
+              : originalLength;
+    return { start, end };
 }
 
 function indexAll(haystack: string, needle: string): number[] {
@@ -275,6 +382,83 @@ function indexAll(haystack: string, needle: string): number[] {
         if (j < 0) break;
         out.push(j);
         i = j + 1;
+    }
+    return out;
+}
+
+// Word-level replacement refinement. Models often send a whole clause or
+// paragraph as `find` plus the revised clause as `replace`; applying that
+// literally creates a noisy delete-all/insert-all redline. Diffing the two
+// strings here keeps the model's contract simple while emitting native
+// tracked changes only around the words that actually changed.
+const ATOM_RE = /\s+|(?:[\p{L}\p{N}_'‘’′]+|[^\p{L}\p{N}_'‘’′\s])\s*/gu;
+
+function diffReplacement(original: string, replacement: string): WordDiffOp[] {
+    if (original === replacement) {
+        return original.length === 0 ? [] : [{ kind: 'equal', text: original }];
+    }
+    const a = tokenize(original);
+    const b = tokenize(replacement);
+    const aKeys = a.map(tokenKey);
+    const bKeys = b.map(tokenKey);
+    if (a.length === 0) {
+        return replacement.length === 0
+            ? []
+            : [{ kind: 'insert', text: replacement }];
+    }
+    if (b.length === 0) return [{ kind: 'delete', text: original }];
+
+    const dp: number[][] = Array.from({ length: a.length + 1 }, () =>
+        new Array(b.length + 1).fill(0),
+    );
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            dp[i][j] =
+                aKeys[i - 1] === bKeys[j - 1]
+                    ? dp[i - 1][j - 1] + 1
+                    : Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+
+    const reversed: WordDiffOp[] = [];
+    let i = a.length;
+    let j = b.length;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && aKeys[i - 1] === bKeys[j - 1]) {
+            reversed.push({ kind: 'equal', text: a[i - 1] });
+            i--;
+            j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            reversed.push({ kind: 'insert', text: b[j - 1] });
+            j--;
+        } else {
+            reversed.push({ kind: 'delete', text: a[i - 1] });
+            i--;
+        }
+    }
+    reversed.reverse();
+    return coalesceOps(reversed);
+}
+
+function tokenize(s: string): string[] {
+    return s.match(ATOM_RE) ?? [];
+}
+
+function tokenKey(s: string): string {
+    let out = '';
+    for (const ch of s) out += foldChar(ch);
+    return out;
+}
+
+function coalesceOps(ops: WordDiffOp[]): WordDiffOp[] {
+    const out: WordDiffOp[] = [];
+    for (const op of ops) {
+        const last = out[out.length - 1];
+        if (last && last.kind === op.kind) {
+            last.text += op.text;
+        } else {
+            out.push({ ...op });
+        }
     }
     return out;
 }

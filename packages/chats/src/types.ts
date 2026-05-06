@@ -4,6 +4,10 @@ export interface Chat {
     id: string;
     workspaceId: string;
     name: string;
+    /** Opaque persona id active when this chat was created. The chats
+     *  package never resolves it — the host app does. `null` = no persona
+     *  (default assistant). */
+    personaId: string | null;
     createdAt: number;
     updatedAt: number;
 }
@@ -24,10 +28,14 @@ export interface CreateChatInput {
     workspaceId: string;
     /** Defaults to "New chat". */
     name?: string;
+    /** Opaque persona id; null/undefined = default assistant. */
+    personaId?: string | null;
 }
 
 export interface UpdateChatInput {
     name?: string;
+    /** Pass `null` to clear the persona, a string to switch. */
+    personaId?: string | null;
 }
 
 export interface AppendMessageInput {

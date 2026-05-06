@@ -24,21 +24,18 @@ export interface RevisionAuthor {
  * mutate the document in place and call `markDocumentDirty()` so the next
  * `save()` re-serializes.
  *
- * Scope (MVP):
+ * Scope:
  *
- * - **Body-level paragraphs only.** Paragraphs nested inside tables
- *   (`<w:tbl>` → `<w:tr>` → `<w:tc>` → `<w:p>`) are out of scope —
- *   `bodyParagraphCount()` and the indexed APIs see only direct
- *   `<w:body>` children. Table content support is a separate ticket.
+ * - **Main-document paragraphs.** Indexed APIs walk the main document
+ *   body in document order, including paragraphs nested inside tables and
+ *   other body descendants. Headers, footers, comments, footnotes, and
+ *   text boxes are not part of this editor's index space.
  *
- * - **Modified paragraphs lose run formatting.** `applyParagraphDiff`
- *   replaces the paragraph's runs with a sequence of plain-text runs
- *   reflecting the diff. `<w:pPr>` (paragraph style, numbering, alignment)
- *   IS preserved, so a heading stays a heading. `<w:rPr>` (bold, italic,
- *   color, font) is dropped on modified paragraphs only — unchanged
- *   paragraphs and deleted paragraphs (which keep original runs, just
- *   wrapped in `<w:del>` with `<w:t>` rewritten to `<w:delText>`) are
- *   formatting-preserving.
+ * - **Modified paragraphs preserve run formatting when possible.**
+ *   `applyParagraphDiff({ inheritFormatting: true })` first tries to
+ *   split and reconstruct the existing runs so untouched formatting
+ *   survives. If the diff text cannot be aligned to the OOXML run text,
+ *   it falls back to copying the first run's formatting.
  *
  * - **Paragraph-mark markers are emitted.** Inserted paragraphs carry a
  *   `<w:ins>` inside `<w:pPr>/<w:rPr>` to mark the paragraph break itself
@@ -59,9 +56,9 @@ export class TrackedChangesEditor {
         this.nextId = computeNextRevisionId(file.document());
     }
 
-    /** Number of body-level `<w:p>` children. Tables are not counted. */
+    /** Number of main-document paragraphs in editor index order. */
     bodyParagraphCount(): number {
-        return getBodyParagraphs(this.file.document()).length;
+        return bodyParagraphRefs(this.file.document()).length;
     }
 
     /**
@@ -91,14 +88,13 @@ export class TrackedChangesEditor {
         ops: WordDiffOp[],
         opts?: { inheritFormatting?: boolean },
     ): number[] {
-        const body = getBodyChildren(this.file.document());
-        const paragraphIndices = bodyParagraphIndices(body);
-        if (index < 0 || index >= paragraphIndices.length) {
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (index < 0 || index >= paragraphs.length) {
             throw new Error(
-                `paragraph index ${index} out of range (body has ${paragraphIndices.length} paragraphs)`,
+                `paragraph index ${index} out of range (body has ${paragraphs.length} paragraphs)`,
             );
         }
-        const pNode = body[paragraphIndices[index]];
+        const pNode = paragraphs[index].node;
         const pChildren = pNode['w:p'] as XmlNode[];
         const pPr = pChildren.find(isPPr);
 
@@ -329,10 +325,9 @@ export class TrackedChangesEditor {
      * neighbour" composition flows (R-A → R-B redline pipeline).
      */
     getBodyParagraphPPr(index: number): XmlNode | null {
-        const body = getBodyChildren(this.file.document());
-        const paragraphIndices = bodyParagraphIndices(body);
-        if (index < 0 || index >= paragraphIndices.length) return null;
-        const pNode = body[paragraphIndices[index]];
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (index < 0 || index >= paragraphs.length) return null;
+        const pNode = paragraphs[index].node;
         const pChildren = pNode['w:p'] as XmlNode[];
         const pPr = pChildren.find(isPPr);
         return pPr ? (cloneNode(pPr) ?? null) : null;
@@ -346,13 +341,12 @@ export class TrackedChangesEditor {
      * next paragraph.
      */
     deleteParagraph(index: number): number {
-        const body = getBodyChildren(this.file.document());
-        const paragraphIndices = bodyParagraphIndices(body);
-        if (index < 0 || index >= paragraphIndices.length) {
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (index < 0 || index >= paragraphs.length) {
             throw new Error(`paragraph index ${index} out of range`);
         }
         const id = this.allocId();
-        const pNode = body[paragraphIndices[index]];
+        const pNode = paragraphs[index].node;
         const pChildren = pNode['w:p'] as XmlNode[];
 
         // Ensure pPr/rPr exists so we can hang the paragraph-mark del marker on it.
@@ -374,8 +368,10 @@ export class TrackedChangesEditor {
     }
 
     /**
-     * Insert a new paragraph after the body paragraph at `afterIndex`. Pass
-     * `afterIndex = -1` to insert before the first body paragraph. The new
+     * Insert a new paragraph after the main-document paragraph at
+     * `afterIndex`. If the anchor paragraph is nested inside a table cell or
+     * other container, the new paragraph is inserted into that same parent.
+     * Pass `afterIndex = -1` to insert before the first paragraph. The new
      * paragraph carries a paragraph-mark insertion marker on its `<w:pPr>`
      * and wraps its content run in `<w:ins>`. Optional `pPr` lets the caller
      * inherit paragraph style from a neighbour (or, in redline composition,
@@ -389,15 +385,11 @@ export class TrackedChangesEditor {
         opts?: { pPr?: XmlNode; rPr?: XmlNode },
     ): number {
         const body = getBodyChildren(this.file.document());
-        const paragraphIndices = bodyParagraphIndices(body);
-        if (afterIndex < -1 || afterIndex >= paragraphIndices.length) {
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (afterIndex < -1 || afterIndex >= paragraphs.length) {
             throw new Error(`afterIndex ${afterIndex} out of range`);
         }
         const id = this.allocId();
-        const insertAtBodyIdx =
-            afterIndex === -1
-                ? paragraphIndices[0] ?? body.length
-                : paragraphIndices[afterIndex] + 1;
 
         const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
         const rPr = ensureRPr(pPr);
@@ -411,7 +403,17 @@ export class TrackedChangesEditor {
                 this.wrapInIns([makeRun(text, false, inheritedRPr)], id),
             ],
         };
-        body.splice(insertAtBodyIdx, 0, newP);
+        if (afterIndex === -1) {
+            const first = paragraphs[0];
+            if (first) {
+                first.parent.splice(first.index, 0, newP);
+            } else {
+                body.splice(emptyBodyInsertIndex(body), 0, newP);
+            }
+        } else {
+            const anchor = paragraphs[afterIndex];
+            anchor.parent.splice(anchor.index + 1, 0, newP);
+        }
         this.file.markDocumentDirty();
         return id;
     }
@@ -485,16 +487,13 @@ export interface BodyParagraphInfo {
 export function bodyParagraphInfos(file: {
     document: () => XmlTree;
 }): BodyParagraphInfo[] {
-    const tree = file.document();
-    const body = getBodyChildren(tree);
     const out: BodyParagraphInfo[] = [];
-    for (const child of body) {
-        if (!('w:p' in child)) continue;
-        const pChildren = (child['w:p'] ?? []) as XmlNode[];
+    for (const ref of bodyParagraphRefs(file.document())) {
+        const pChildren = (ref.node['w:p'] ?? []) as XmlNode[];
         const pPrNode = pChildren.find((c) => 'w:pPr' in c);
         const firstRunRPrNode = extractFirstRunRPr(pChildren);
         out.push({
-            text: extractParagraphText(child),
+            text: extractParagraphText(ref.node),
             pPr: pPrNode ? (cloneNode(pPrNode) ?? null) : null,
             firstRunRPr: firstRunRPrNode
                 ? (cloneNode(firstRunRPrNode) ?? null)
@@ -525,14 +524,9 @@ export function bodyParagraphInfos(file: {
  * run-splitting handles this by falling back when the texts don't match).
  */
 export function bodyParagraphTexts(file: { document: () => XmlTree }): string[] {
-    const tree = file.document();
-    const body = getBodyChildren(tree);
-    const out: string[] = [];
-    for (const child of body) {
-        if (!('w:p' in child)) continue;
-        out.push(extractParagraphText(child));
-    }
-    return out;
+    return bodyParagraphRefs(file.document()).map((ref) =>
+        extractParagraphText(ref.node),
+    );
 }
 
 function extractParagraphText(pNode: XmlNode): string {
@@ -595,18 +589,38 @@ export function getBodyChildren(tree: XmlTree): XmlNode[] {
     return body['w:body'] as XmlNode[];
 }
 
-/** Indices of `<w:p>` direct children of `<w:body>`, in document order. */
-function bodyParagraphIndices(body: XmlNode[]): number[] {
-    const out: number[] = [];
-    for (let i = 0; i < body.length; i++) {
-        if ('w:p' in body[i]) out.push(i);
-    }
+interface ParagraphRef {
+    parent: XmlNode[];
+    index: number;
+    node: XmlNode;
+}
+
+function bodyParagraphRefs(tree: XmlTree): ParagraphRef[] {
+    const body = getBodyChildren(tree);
+    const out: ParagraphRef[] = [];
+    collectParagraphRefs(body, out);
     return out;
 }
 
-function getBodyParagraphs(tree: XmlTree): XmlNode[] {
-    const body = getBodyChildren(tree);
-    return body.filter((n) => 'w:p' in n);
+function collectParagraphRefs(nodes: XmlNode[], out: ParagraphRef[]): void {
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (!node || typeof node !== 'object') continue;
+        if ('w:p' in node) {
+            out.push({ parent: nodes, index: i, node });
+            continue;
+        }
+        const tag = primaryTag(node);
+        if (!tag) continue;
+        const value = node[tag];
+        if (!Array.isArray(value)) continue;
+        collectParagraphRefs(value as XmlNode[], out);
+    }
+}
+
+function emptyBodyInsertIndex(body: XmlNode[]): number {
+    const sectPrIndex = body.findIndex((node) => 'w:sectPr' in node);
+    return sectPrIndex >= 0 ? sectPrIndex : body.length;
 }
 
 function isPPr(n: XmlNode): boolean {

@@ -80,7 +80,11 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
     }, [])
 
     const tryHighlightInRoot = React.useCallback(
-      (root: HTMLElement, quote: string): boolean => {
+      (
+        root: HTMLElement,
+        quote: string,
+        options?: Parameters<typeof findHighlightRange>[2],
+      ): boolean => {
         const textNodes = collectTextNodes(root)
         const ranges: { start: number; end: number; node: Text }[] = []
         let cursor = 0
@@ -92,7 +96,7 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
           cursor += t.length
         }
 
-        const match = findHighlightRange(fullText, quote)
+        const match = findHighlightRange(fullText, quote, options)
         if (!match) return false
 
         const created: HTMLElement[] = []
@@ -134,11 +138,16 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
 
         if (!target.quote) return
 
-        // Whole-doc fallback: search across all sections, then bare container.
+        // Search the full rendered document before individual pages. Many
+        // legal citations start with repeated boilerplate, and page-local
+        // prefix fallback can otherwise "succeed" on the first similar clause.
+        if (tryHighlightInRoot(container, target.quote)) return
+
+        // Exact-only page fallback for unusual render trees where a match is
+        // easier to find inside one page than in the combined container text.
         for (const section of sections) {
-          if (tryHighlightInRoot(section, target.quote)) return
+          if (tryHighlightInRoot(section, target.quote, { allowPrefixMatch: false })) return
         }
-        tryHighlightInRoot(container, target.quote)
       },
       [clearHighlights, tryHighlightInRoot],
     )

@@ -46,6 +46,29 @@ async function collect(events: AsyncIterable<FormattedCellEvent>): Promise<Forma
 const DOC = prepareDocumentForPrompt('Some content.\n', [], { handle: 'doc-x' });
 
 describe('runCellWithFormat — happy paths per format', () => {
+    it('adds answer-shape instructions for bullet cells before the model runs', async () => {
+        let seenMessages: CellChatMessage[] | null = null;
+        const llm: LlmStream = async function* ({ messages }) {
+            seenMessages = messages;
+            yield `- Environmental: Restricts projects affecting protected wetlands [1].\n${citationBlock('doc-x', 'wetlands')}`;
+        };
+        await collect(
+            runCellWithFormat({
+                document: DOC,
+                column: { prompt: 'Identify ESG provisions.' },
+                format: 'bullets',
+                llm,
+            }),
+        );
+
+        expect(seenMessages).not.toBeNull();
+        const system = seenMessages![0]!;
+        expect(system.role).toBe('system');
+        expect(system.content).toContain('Answer format: a markdown bullet list.');
+        expect(system.content).toContain('concise analytical summary');
+        expect(system.content).toContain('not a pasted full clause');
+    });
+
     it('coerces a yes_no cell on first pass', async () => {
         const llm = scriptedSequence([
             `Yes [1].\n${citationBlock('doc-x', 'something')}`,

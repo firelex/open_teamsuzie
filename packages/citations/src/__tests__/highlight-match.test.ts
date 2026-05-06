@@ -40,6 +40,13 @@ describe('findHighlightRange — direct matches', () => {
         expect(r!.matchedText).toBe('2025–2030 — inclusive');
     });
 
+    it('tolerates case drift', () => {
+        const haystack = 'Annual Consolidated Revenue from thermal coal mining.';
+        const r = findHighlightRange(haystack, 'annual consolidated revenue from THERMAL COAL');
+        expect(r).not.toBeNull();
+        expect(r!.matchedText).toBe('Annual Consolidated Revenue from thermal coal');
+    });
+
     it('returns null when the needle does not appear', () => {
         const haystack = 'short doc text here.';
         expect(findHighlightRange(haystack, 'totally unrelated phrase')).toBeNull();
@@ -47,6 +54,35 @@ describe('findHighlightRange — direct matches', () => {
 });
 
 describe('findHighlightRange — prefix fallback', () => {
+    it('uses ellipsis-separated fragments instead of a generic repeated prefix', () => {
+        const haystack = [
+            'an Investment in a Portfolio Company that derives any of its Annual Consolidated Revenue from unrelated activities. ',
+            'an Investment in a Portfolio Company that derives any of its Annual Consolidated Revenues, directly or indirectly, from the manufacture and/or sale of weapons, or weapons related products. ',
+            'an Investment in a Portfolio Company that derives any of its Annual Consolidated Revenues from cluster bombs, weapons of mass destruction or biochemical weapons.',
+        ].join('');
+        const r = findHighlightRange(
+            haystack,
+            'an Investment in a Portfolio Company that derives any of its Annual Consolidated Revenues... from the manufacture and/or sale of weapons, or weapons related products... an Investment in a Portfolio Company that derives any of its Annual Consolidated Revenues from cluster bombs, weapons of mass destruction or biochemical weapons',
+        );
+        expect(r).not.toBeNull();
+        expect(r!.prefix).toBe(false);
+        expect(r!.matchedText).toContain('manufacture and/or sale of weapons');
+        expect(r!.matchedText).toContain('cluster bombs');
+        expect(r!.matchedText).not.toContain('unrelated activities');
+    });
+
+    it('returns null for ellipsis fragments when multiple ordered sequences match', () => {
+        const sequence =
+            'alpha beta gamma before omitted text delta epsilon zeta after. ';
+        const haystack = sequence + sequence;
+        const r = findHighlightRange(
+            haystack,
+            'alpha beta gamma... delta epsilon zeta',
+            { allowPrefixMatch: false },
+        );
+        expect(r).toBeNull();
+    });
+
     it('falls back to the longest matching prefix when full needle is not found', () => {
         const haystack = 'The buyer shall pay the seller within thirty (30) days.';
         // Tail of the needle (about indemnification) is not on this page.
@@ -58,6 +94,20 @@ describe('findHighlightRange — prefix fallback', () => {
         expect(r!.prefix).toBe(true);
         expect(r!.matchedText.startsWith('The buyer shall pay')).toBe(true);
         expect(haystack.includes(r!.matchedText)).toBe(true);
+    });
+
+    it('uses a distinctive later anchor instead of a repeated legal lead-in', () => {
+        const haystack = [
+            'an Investment in a Portfolio Company that (A) is controlled by an Anti-Social Force; ',
+            'an Investment in a Portfolio Company that derives 50% or more of its Annual Consolidated Revenue from thermal coal mining or coal mining projects using the mountain top removal method;',
+        ].join('');
+        const r = findHighlightRange(
+            haystack,
+            'an Investment in a Portfolio Company that derives 50% or more of its annual consolidated revenue from thermal coal mining or coal mining projects using the mountain top removal method.',
+        );
+        expect(r).not.toBeNull();
+        expect(r!.matchedText).toContain('thermal coal mining');
+        expect(r!.matchedText).not.toContain('Anti-Social Force');
     });
 
     it('refuses prefix match below minPrefixTokens', () => {

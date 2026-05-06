@@ -15,6 +15,7 @@ import {
   PageHeaderContent,
   PageHeaderDescription,
   PageHeaderTitle,
+  User,
   type Column,
 } from '@teamsuzie/ui';
 
@@ -31,6 +32,7 @@ export interface AgentRow {
     text_model?: string;
     skills?: string[];
     approval_required?: boolean;
+    avatar?: string | null;
   };
   created_at: string;
 }
@@ -93,11 +95,25 @@ export function AgentsPage() {
       key: 'name',
       header: 'Name',
       render: (row) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium">{row.name}</div>
-          {row.description && (
-            <div className="truncate text-xs text-muted-foreground">{row.description}</div>
+        <div className="flex min-w-0 items-center gap-3">
+          {row.config.avatar ? (
+            <img
+              src={row.config.avatar}
+              alt=""
+              className="size-9 shrink-0 rounded-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
+              <User className="size-4 text-muted-foreground" aria-hidden />
+            </div>
           )}
+          <div className="min-w-0">
+            <div className="truncate font-medium">{row.name}</div>
+            {row.description && (
+              <div className="truncate text-xs text-muted-foreground">{row.description}</div>
+            )}
+          </div>
         </div>
       ),
     },

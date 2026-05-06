@@ -128,6 +128,15 @@ export function useSidePanel(): SidePanelContextValue {
   return ctx
 }
 
+/**
+ * Like {@link useSidePanel} but returns `null` when no provider is mounted,
+ * for components that opportunistically integrate with the panel (e.g.
+ * intercepting Escape) but don't strictly require it.
+ */
+export function useSidePanelOptional(): SidePanelContextValue | null {
+  return React.useContext(SidePanelContext)
+}
+
 export interface SidePanelSurfaceProps {
   /**
    * Width when open. Default 640px — wide enough to read a typical

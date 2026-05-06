@@ -39,4 +39,14 @@ export const CHATS_MIGRATIONS: Migration[] = [
                 ON chat_messages(chat_id, created_at);
         `,
     },
+    {
+        // Pin the persona that was active when the chat was started — so
+        // re-opening the chat restores the right system prompt + tool set
+        // without the user having to remember which persona to switch to.
+        // Opaque id; the chats package doesn't know about persona schemas.
+        name: '20260506_chats_add_persona_id',
+        up: `
+            ALTER TABLE chats ADD COLUMN persona_id TEXT;
+        `,
+    },
 ];

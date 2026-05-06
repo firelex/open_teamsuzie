@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArtifactPanel,
   Button,
@@ -6,6 +7,7 @@ import {
   PromptCard,
   PromptCardDescription,
   PromptCardTitle,
+  Square,
   ToolUseStatus,
   cn,
   humanSize,
@@ -13,6 +15,7 @@ import {
   type ArtifactSnapshot,
   type ToolEvent,
 } from '@teamsuzie/ui';
+import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats';
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
 
@@ -21,6 +24,29 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   toolEvents?: ToolEvent[];
+}
+
+/**
+ * Hydrate persisted chat messages into the same shape this page renders.
+ * Past tool events are preserved on the assistant message but only the
+ * currently-streaming turn shows the live status indicator.
+ */
+function hydratePersisted(messages: PersistedChatMessage[]): Message[] {
+  return messages.map((m) => {
+    const base: Message = {
+      id: m.id,
+      role: m.role,
+      content: m.content,
+    };
+    if (m.toolEvents) {
+      try {
+        base.toolEvents = JSON.parse(m.toolEvents) as ToolEvent[];
+      } catch {
+        // ignore corrupt tool_events
+      }
+    }
+    return base;
+  });
 }
 
 interface Attachment {
@@ -180,10 +206,20 @@ function Greeting({
 
 export interface AssistantPageProps {
   agentName: string;
+  /** When set, the page is bound to a persisted top-level Assistant chat. */
+  chatId?: string;
 }
 
-export function AssistantPage({ agentName }: AssistantPageProps) {
-  const sessionId = useMemo(() => crypto.randomUUID(), []);
+export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Stable per-render-tab session id used for paperclip uploads. When chatId
+  // is present we reuse it as the upload bucket key so paperclips persist
+  // alongside the chat — same pattern as matter chats.
+  const [tabSessionId] = useState(() => crypto.randomUUID());
+  const sessionId = chatId ?? tabSessionId;
+  const [historyLoaded, setHistoryLoaded] = useState(!chatId);
+  const [chatName, setChatName] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending'>('idle');
@@ -198,10 +234,66 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const prevStatus = useRef<'idle' | 'sending'>('idle');
+  // Set while a /api/chat fetch is in flight so the user can stop it. The
+  // server's res.on('close') handler aborts the upstream LLM call when the
+  // socket goes away, so a fetch abort here propagates all the way through.
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Load persisted history when bound to a chatId.
+  useEffect(() => {
+    if (!chatId) {
+      setHistoryLoaded(true);
+      setMessages([]);
+      setChatName(null);
+      setAttachments([]);
+      setActiveArtifact(null);
+      setError('');
+      return;
+    }
+    let cancelled = false;
+    setHistoryLoaded(false);
+    setMessages([]);
+    setError('');
+    void (async () => {
+      try {
+        const [chatRes, msgRes] = await Promise.all([
+          fetch(`/api/chats/${encodeURIComponent(chatId)}`),
+          fetch(`/api/chats/${encodeURIComponent(chatId)}/messages`),
+        ]);
+        if (cancelled) return;
+        if (!chatRes.ok) throw new Error(`Failed to load chat (${chatRes.status})`);
+        const chatData = (await chatRes.json()) as { item: Chat };
+        setChatName(chatData.item.name);
+        if (msgRes.ok) {
+          const msgData = (await msgRes.json()) as { items: PersistedChatMessage[] };
+          setMessages(hydratePersisted(msgData.items));
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load chat');
+      } finally {
+        if (!cancelled) setHistoryLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId]);
+
+  // After a fresh navigate from `/` to `/c/:newChatId`, dispatch the message
+  // we deferred from the bare-route send.
+  useEffect(() => {
+    const state = location.state as { pendingMessage?: string } | null;
+    if (!chatId || !historyLoaded || !state?.pendingMessage) return;
+    if (messages.length > 0) return;
+    const pending = state.pendingMessage;
+    navigate(location.pathname, { replace: true, state: null });
+    void sendMessage(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId, historyLoaded]);
 
   // After the agent finishes streaming (status: sending → idle), put focus
   // back on the textarea so the user can keep typing without reaching for
@@ -250,6 +342,33 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
       return;
     }
 
+    // Bare-route first send: create a chat row and navigate to /c/:newId.
+    // The route mount picks up `pendingMessage` and re-enters this function
+    // with chatId set.
+    if (!chatId) {
+      try {
+        setStatus('sending');
+        const response = await fetch('/api/chats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to start chat (${response.status})`);
+        }
+        const data = (await response.json()) as { item: Chat };
+        setStatus('idle');
+        navigate(`/c/${encodeURIComponent(data.item.id)}`, {
+          state: { pendingMessage: text },
+        });
+        return;
+      } catch (err) {
+        setStatus('idle');
+        setError(err instanceof Error ? err.message : 'Failed to start chat');
+        return;
+      }
+    }
+
     const nextUserMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -274,17 +393,22 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
     setStatus('sending');
     setError('');
 
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
+          chatId,
           message: text,
           history: nextHistory.slice(0, -1),
           attachmentIds: sentAttachmentIds,
           model: selectedModel,
         }),
+        signal: ac.signal,
       });
 
       if (!response.body) {
@@ -428,10 +552,35 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chat failed');
+      // User-initiated stop: signal aborted via stopStreaming(). The partial
+      // assistant text is already in `messages` from the chunks that arrived
+      // before the abort, so just bail without surfacing an error.
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // intentional no-op
+      } else {
+        setError(err instanceof Error ? err.message : 'Chat failed');
+      }
     } finally {
+      if (abortRef.current === ac) abortRef.current = null;
       setStatus('idle');
     }
+
+    // Pick up any auto-titled name set on the server.
+    if (chatId) {
+      try {
+        const r = await fetch(`/api/chats/${encodeURIComponent(chatId)}`);
+        if (r.ok) {
+          const d = (await r.json()) as { item: Chat };
+          setChatName(d.item.name);
+        }
+      } catch {
+        // best-effort
+      }
+    }
+  }
+
+  function stopStreaming() {
+    abortRef.current?.abort();
   }
 
   async function newChat() {
@@ -446,17 +595,20 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
     setAttachments([]);
     setActiveArtifact(null);
     setError('');
+    if (chatId) navigate('/');
   }
 
   const isStreaming = status === 'sending';
   const isEmpty = messages.length === 0;
+  const showGreeting = isEmpty && historyLoaded && !chatId;
+  const showLoading = !!chatId && !historyLoaded;
 
   return (
     <div className="flex h-full">
       <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-14 items-center justify-between border-b border-border px-5">
         <div className="text-sm font-medium text-foreground">{agentName}</div>
-        {messages.length > 0 && (
+        {(messages.length > 0 || chatId) && (
           <Button size="sm" variant="outline" onClick={() => void newChat()}>
             New chat
           </Button>
@@ -464,7 +616,11 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {isEmpty ? (
+        {showLoading ? (
+          <div className="mx-auto flex h-full max-w-3xl items-center justify-center px-6 py-16 text-sm text-muted-foreground">
+            Loading chat…
+          </div>
+        ) : showGreeting ? (
           <Greeting
             name={agentName}
             prompts={PROMPTS}
@@ -472,6 +628,11 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
           />
         ) : (
           <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-8">
+            {chatName && (
+              <div className="border-b border-border pb-3 text-xs text-muted-foreground">
+                {chatName}
+              </div>
+            )}
             {messages.map((message, idx) => (
               <MessageItem
                 key={message.id}
@@ -558,14 +719,28 @@ export function AssistantPage({ agentName }: AssistantPageProps) {
                   Enter sends · Shift+Enter newline
                 </p>
               </div>
-              <Button
-                size="sm"
-                onClick={() => void sendMessage()}
-                disabled={(!input.trim() && attachments.length === 0) || isStreaming}
-                className="h-8 rounded-full px-4"
-              >
-                {isStreaming ? <TypingDots /> : 'Send'}
-              </Button>
+              {isStreaming ? (
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={stopStreaming}
+                  className="h-8 rounded-full px-4"
+                  aria-label="Stop streaming"
+                >
+                  <Square className="size-3 fill-current" aria-hidden />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => void sendMessage()}
+                  disabled={!input.trim() && attachments.length === 0}
+                  className="h-8 rounded-full px-4"
+                >
+                  Send
+                </Button>
+              )}
             </div>
           </div>
         </div>

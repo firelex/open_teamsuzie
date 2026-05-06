@@ -1,5 +1,10 @@
 import { Router, type Request } from 'express';
 import type { PersonaRegistry } from './registry.js';
+import type { Persona } from './types.js';
+
+function byNameAsc(a: Persona, b: Persona): number {
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+}
 
 export interface CreatePersonasRouterOptions {
   registry: PersonaRegistry;
@@ -34,7 +39,90 @@ export function createPersonasRouter(opts: CreatePersonasRouterOptions): Router 
       res.status(401).json({ error: 'unauthorized' });
       return;
     }
-    res.json({ personas: registry.listVisibleTo(ownerId) });
+    // source: 'all' (default) | 'builtin' | 'user'.
+    // page/pageSize only apply to user personas — builtins are bounded.
+    const sourceRaw = String(req.query.source ?? 'all');
+    const source: 'all' | 'builtin' | 'user' =
+      sourceRaw === 'builtin' || sourceRaw === 'user' ? sourceRaw : 'all';
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.max(
+      1,
+      Math.min(200, parseInt(String(req.query.pageSize ?? '24'), 10) || 24),
+    );
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    // Pagination is opt-in: callers that want the full list (e.g. the
+    // sidebar persona picker) omit page/pageSize entirely. Editors that
+    // want paged results pass them.
+    const wantPaging =
+      req.query.page !== undefined || req.query.pageSize !== undefined;
+
+    // Case-insensitive name+description substring match for builtins. The
+    // user store applies the same filter via SQL.
+    const matchesQ = (text: string) =>
+      !q || text.toLowerCase().includes(q.toLowerCase());
+
+    if (source === 'builtin') {
+      // Once a user is seeded the file-based built-ins are no longer their
+      // canonical copies — they own editable duplicates. Hide the originals
+      // so they don't show up twice in the editor.
+      const all = registry.isSeeded(ownerId)
+        ? []
+        : registry
+            .listBuiltins()
+            .filter((p) => matchesQ(p.name) || matchesQ(p.description))
+            .sort(byNameAsc);
+      if (wantPaging) {
+        const start = (page - 1) * pageSize;
+        res.json({
+          items: all.slice(start, start + pageSize),
+          total: all.length,
+          page,
+          pageSize,
+        });
+        return;
+      }
+      res.json({ items: all, total: all.length });
+      return;
+    }
+
+    if (source === 'user') {
+      const total = registry.countForOwner(ownerId, { q });
+      if (wantPaging) {
+        const items = registry.listForOwner(ownerId, {
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+          q,
+        });
+        res.json({ items, total, page, pageSize });
+        return;
+      }
+      // Unpaged user listing — used when callers want the full list.
+      const items = registry.listForOwner(ownerId, { q });
+      res.json({ items, total });
+      return;
+    }
+
+    // 'all' — flat alphabetical list. Once a user is seeded their editable
+    // copies replace the file-based originals, so we skip the builtin tier.
+    // For pre-seed users we still merge.
+    const builtins = registry.isSeeded(ownerId)
+      ? []
+      : registry
+          .listBuiltins()
+          .filter((p) => matchesQ(p.name) || matchesQ(p.description));
+    const userItems = registry.listForOwner(ownerId, { q });
+    const merged = [...builtins, ...userItems].sort(byNameAsc);
+    if (wantPaging) {
+      const start = (page - 1) * pageSize;
+      res.json({
+        items: merged.slice(start, start + pageSize),
+        total: merged.length,
+        page,
+        pageSize,
+      });
+      return;
+    }
+    res.json({ items: merged, total: merged.length });
   });
 
   router.get('/:id', (req, res) => {
@@ -48,7 +136,7 @@ export function createPersonasRouter(opts: CreatePersonasRouterOptions): Router 
       res.status(404).json({ error: 'not_found' });
       return;
     }
-    res.json({ persona });
+    res.json({ item: persona });
   });
 
   router.post('/', (req, res) => {
@@ -65,7 +153,7 @@ export function createPersonasRouter(opts: CreatePersonasRouterOptions): Router 
     }
     try {
       const persona = registry.create({ ownerId, ...validation.input });
-      res.status(201).json({ persona });
+      res.status(201).json({ item: persona });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'create_failed' });
     }
@@ -98,7 +186,7 @@ export function createPersonasRouter(opts: CreatePersonasRouterOptions): Router 
         res.status(404).json({ error: 'not_found' });
         return;
       }
-      res.json({ persona: updated });
+      res.json({ item: updated });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'update_failed' });
     }

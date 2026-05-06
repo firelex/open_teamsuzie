@@ -44,6 +44,7 @@ export {
   MoreVertical,
   Paperclip,
   Pencil,
+  Play,
   Plus,
   RefreshCw,
   Save,
@@ -51,6 +52,7 @@ export {
   Send,
   Settings as SettingsIcon,
   Sparkles,
+  Square,
   Star,
   Tag,
   Trash2,
@@ -120,6 +122,7 @@ export * from './components/status-dot.js';
 export * from './components/switch.js';
 export * from './components/table.js';
 export * from './components/tabs.js';
+export * from './components/context-menu.js';
 export * from './components/textarea.js';
 export * from './components/tool-call-card.js';
 export * from './components/tool-use-status.js';

@@ -21,6 +21,8 @@ export interface AdminAgentConfig {
   openclawAgentId?: string;
   skills?: string[];
   text_model?: string;
+  /** Static avatar URL served by the admin client, e.g. `/avatars/female/12.webp`. */
+  avatar?: string | null;
   temperature?: number;
   max_tokens?: number;
   approval_required?: boolean;

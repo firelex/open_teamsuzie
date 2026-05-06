@@ -23,9 +23,11 @@ import {
   SelectValue,
   Switch,
   Textarea,
+  User,
 } from '@teamsuzie/ui';
 import type { AgentRow } from './agents.js';
 import type { SkillTemplateRow } from './skills.js';
+import { AvatarPicker } from '../components/avatar-picker.js';
 
 interface ProfileRow {
   id: string;
@@ -44,6 +46,7 @@ interface AgentFormState {
   baseUrl: string;
   apiKey: string;
   openclawAgentId: string;
+  avatar: string;
   system_prompt: string;
   text_model: string;
   skills: string[];
@@ -59,6 +62,7 @@ const EMPTY_FORM: AgentFormState = {
   baseUrl: '',
   apiKey: '',
   openclawAgentId: '',
+  avatar: '',
   system_prompt: '',
   text_model: '',
   skills: [],
@@ -82,6 +86,7 @@ function agentToForm(row: AgentRow): AgentFormState {
     baseUrl: cfg.baseUrl ?? '',
     apiKey: cfg.apiKey ?? '',
     openclawAgentId: cfg.openclawAgentId ?? '',
+    avatar: cfg.avatar ?? '',
     system_prompt: cfg.system_prompt ?? '',
     text_model: cfg.text_model ?? '',
     skills: cfg.skills ?? [],
@@ -96,6 +101,7 @@ function formToPayload(form: AgentFormState, { create }: { create: boolean }) {
   };
   if (form.apiKey.trim()) config.apiKey = form.apiKey.trim();
   if (form.openclawAgentId.trim()) config.openclawAgentId = form.openclawAgentId.trim();
+  config.avatar = form.avatar.trim() || null;
   if (form.system_prompt.trim()) config.system_prompt = form.system_prompt;
   if (form.text_model.trim()) config.text_model = form.text_model.trim();
   if (form.skills.length) config.skills = form.skills;
@@ -124,6 +130,7 @@ export function AgentEditPage() {
   const [loading, setLoading] = useState(!isCreate);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -237,6 +244,34 @@ export function AgentEditPage() {
               <CardDescription>How users see this agent in the product.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                {form.avatar ? (
+                  <img
+                    src={form.avatar}
+                    alt=""
+                    className="size-16 rounded-full border object-cover"
+                  />
+                ) : (
+                  <div className="flex size-16 items-center justify-center rounded-full border bg-muted">
+                    <User className="size-6 text-muted-foreground" aria-hidden />
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAvatarPickerOpen(true)}>
+                    Choose avatar
+                  </Button>
+                  {form.avatar && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm({ ...form, avatar: '' })}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -459,6 +494,12 @@ export function AgentEditPage() {
           </div>
         </form>
       </AppShellContent>
+      <AvatarPicker
+        open={avatarPickerOpen}
+        selected={form.avatar || undefined}
+        onClose={() => setAvatarPickerOpen(false)}
+        onSelect={(avatar) => setForm({ ...form, avatar: avatar ?? '' })}
+      />
     </>
   );
 }

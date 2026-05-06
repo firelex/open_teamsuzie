@@ -44,7 +44,11 @@ export function resolveAgentTarget(
   return {
     ...base,
     ...override,
-    model: requested,
+    // The override may set `model` to a "wire" id (e.g. `claude-sonnet-4-6`)
+    // when the picker uses a prefixed UI id (e.g. `anthropic/claude-sonnet-4-6`).
+    // Without this, the prefixed id would land in the request body and the
+    // provider would 404 it. Falls back to the requested id when not overridden.
+    model: override.model ?? requested,
     // Merge `extraBody` shallowly — typical pattern is per-model knobs.
     extraBody: override.extraBody ?? base.extraBody,
   };

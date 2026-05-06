@@ -14,6 +14,8 @@
   "dependencies": {
     "@teamsuzie/agent-loop": "workspace:*",
     "@teamsuzie/approvals": "workspace:*",
+    "@teamsuzie/chats": "workspace:*",
+    "@teamsuzie/db-sqlite": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/personas": "workspace:*",
     "cors": "^2.8.5",

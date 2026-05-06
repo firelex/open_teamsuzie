@@ -18,27 +18,27 @@ function bodyXml(file: ReturnType<typeof loadDocx>): string {
     return file.readPart('word/document.xml')!.toString('utf-8');
 }
 
-describe('bodyParagraphTexts', () => {
-    function buildBodyDocx(bodyInner: string): Buffer {
-        const xmlnsW =
-            'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+function buildBodyDocx(bodyInner: string): Buffer {
+    const xmlnsW =
+        'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="${xmlnsW}">
   <w:body>${bodyInner}</w:body>
 </w:document>`;
-        const zip = new PizZip();
-        zip.file(
-            '[Content_Types].xml',
-            '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-        );
-        zip.file(
-            '_rels/.rels',
-            '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-        );
-        zip.file('word/document.xml', docXml);
-        return zip.generate({ type: 'nodebuffer' });
-    }
+    const zip = new PizZip();
+    zip.file(
+        '[Content_Types].xml',
+        '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+    );
+    zip.file(
+        '_rels/.rels',
+        '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+    );
+    zip.file('word/document.xml', docXml);
+    return zip.generate({ type: 'nodebuffer' });
+}
 
+describe('bodyParagraphTexts', () => {
     it('returns empty array for an empty body', () => {
         const file = loadDocx(buildBodyDocx(''));
         expect(bodyParagraphTexts(file)).toEqual([]);
@@ -154,29 +154,38 @@ describe('bodyParagraphTexts', () => {
             editor.bodyParagraphCount(),
         );
     });
+
+    it('includes table-cell paragraphs in document order', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+              <w:tbl>
+                <w:tr>
+                  <w:tc>
+                    <w:p><w:r><w:t>cell one</w:t></w:r></w:p>
+                    <w:p><w:r><w:t>cell two</w:t></w:r></w:p>
+                  </w:tc>
+                  <w:tc>
+                    <w:p><w:r><w:t>cell three</w:t></w:r></w:p>
+                  </w:tc>
+                </w:tr>
+              </w:tbl>
+              <w:p><w:r><w:t>outro</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        expect(bodyParagraphTexts(file)).toEqual([
+            'intro',
+            'cell one',
+            'cell two',
+            'cell three',
+            'outro',
+        ]);
+        expect(editor.bodyParagraphCount()).toBe(5);
+    });
 });
 
 describe('bodyParagraphInfos', () => {
-    function buildBodyDocx(bodyInner: string): Buffer {
-        const xmlnsW =
-            'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="${xmlnsW}">
-  <w:body>${bodyInner}</w:body>
-</w:document>`;
-        const zip = new PizZip();
-        zip.file(
-            '[Content_Types].xml',
-            '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-        );
-        zip.file(
-            '_rels/.rels',
-            '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-        );
-        zip.file('word/document.xml', docXml);
-        return zip.generate({ type: 'nodebuffer' });
-    }
-
     it('returns text + pPr clone + first-run rPr clone per paragraph', () => {
         const file = loadDocx(
             buildBodyDocx(`
@@ -231,6 +240,24 @@ describe('bodyParagraphInfos', () => {
         const infos = bodyParagraphInfos(file);
         const texts = bodyParagraphTexts(file);
         expect(infos.map((i) => i.text)).toEqual(texts);
+    });
+
+    it('returns formatting metadata for nested table paragraphs', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+              <w:tbl><w:tr><w:tc>
+                <w:p>
+                  <w:pPr><w:pStyle w:val="TableBody"/></w:pPr>
+                  <w:r><w:rPr><w:i/></w:rPr><w:t>cell text</w:t></w:r>
+                </w:p>
+              </w:tc></w:tr></w:tbl>
+            `),
+        );
+        const infos = bodyParagraphInfos(file);
+        expect(infos.map((i) => i.text)).toEqual(['intro', 'cell text']);
+        expect(JSON.stringify(infos[1].pPr)).toContain('TableBody');
+        expect(JSON.stringify(infos[1].firstRunRPr)).toContain('w:i');
     });
 });
 
@@ -343,6 +370,30 @@ describe('TrackedChangesEditor.applyParagraphDiff', () => {
         expect(() =>
             editor.applyParagraphDiff(5, [{ kind: 'insert', text: 'x' }]),
         ).toThrow(/out of range/);
+    });
+
+    it('can redline a paragraph nested inside a table cell', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+              <w:tbl><w:tr><w:tc>
+                <w:p><w:r><w:t>cell one</w:t></w:r></w:p>
+              </w:tc></w:tr></w:tbl>
+              <w:p><w:r><w:t>outro</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.applyParagraphDiff(1, [
+            { kind: 'equal', text: 'cell ' },
+            { kind: 'delete', text: 'one' },
+            { kind: 'insert', text: '1' },
+        ]);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).toContain('<w:delText xml:space="preserve">one</w:delText>');
+        expect(out).toContain('<w:t xml:space="preserve">1</w:t>');
+        expect(out.indexOf('<w:delText xml:space="preserve">one</w:delText>')).toBeLessThan(
+            out.indexOf('</w:tc>'),
+        );
     });
 });
 
@@ -754,6 +805,34 @@ describe('TrackedChangesEditor.insertParagraph', () => {
         expect(a).toBeGreaterThan(0);
         expect(a).toBeLessThan(b);
         expect(b).toBeLessThan(c);
+    });
+
+    it('inserts after a table-cell paragraph inside the same cell', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+              <w:tbl><w:tr><w:tc>
+                <w:p><w:r><w:t>cell one</w:t></w:r></w:p>
+              </w:tc></w:tr></w:tbl>
+              <w:p><w:r><w:t>outro</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraph(1, 'inserted in cell');
+        expect(bodyParagraphTexts(file)).toEqual([
+            'intro',
+            'cell one',
+            'inserted in cell',
+            'outro',
+        ]);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out.indexOf('cell one')).toBeLessThan(
+            out.indexOf('inserted in cell'),
+        );
+        expect(out.indexOf('inserted in cell')).toBeLessThan(
+            out.indexOf('</w:tc>'),
+        );
+        expect(out.indexOf('</w:tc>')).toBeLessThan(out.indexOf('outro'));
     });
 });
 

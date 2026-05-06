@@ -1,6 +1,6 @@
 import { loadPersonasFromDir } from './file-source.js';
 import { PersonaStore } from './db-source.js';
-import type { DatabaseInstance } from '@teamsuzie/db-sqlite';
+import { prepareCached, type DatabaseInstance } from '@teamsuzie/db-sqlite';
 import type { Persona, PersonaCreateInput, PersonaUpdateInput } from './types.js';
 
 export interface PersonaRegistryOptions {
@@ -21,10 +21,12 @@ export interface PersonaRegistryOptions {
 export class PersonaRegistry {
   private readonly builtins: Persona[];
   private readonly store: PersonaStore | null;
+  private readonly seedDb: DatabaseInstance | null;
 
   constructor(opts: PersonaRegistryOptions) {
     this.builtins = opts.filesystemDir ? loadPersonasFromDir(opts.filesystemDir) : [];
     this.store = opts.db ? new PersonaStore(opts.db) : null;
+    this.seedDb = opts.db ?? null;
   }
 
   /** All builtin personas — same for every caller. */
@@ -32,15 +34,93 @@ export class PersonaRegistry {
     return this.builtins.slice();
   }
 
-  /** User-owned personas for one caller. Empty if no DB is configured. */
-  listForOwner(ownerId: string): Persona[] {
-    return this.store ? this.store.list(ownerId) : [];
+  /** User-owned personas for one caller. Empty if no DB is configured.
+   *  Optional paging via `{ limit, offset }`, optional substring filter via
+   *  `{ q }` against name + description. */
+  listForOwner(
+    ownerId: string,
+    opts?: { limit?: number; offset?: number; q?: string },
+  ): Persona[] {
+    return this.store ? this.store.list(ownerId, opts) : [];
+  }
+
+  /** Total user personas the caller owns. Useful for paging. */
+  countForOwner(ownerId: string, opts?: { q?: string }): number {
+    return this.store ? this.store.count(ownerId, opts) : 0;
   }
 
   /** Builtins + the caller's own user personas. The shape clients want for a
-   *  picker. Builtins come first. */
+   *  picker. Builtins come first.
+   *
+   *  Once a caller has been seeded (see `seedFromBuiltinsIfNeeded`), the
+   *  built-ins are skipped — the caller now owns editable copies in their
+   *  own personas table, so re-listing the file-based originals would
+   *  produce duplicates. */
   listVisibleTo(ownerId: string): Persona[] {
-    return [...this.listBuiltins(), ...this.listForOwner(ownerId)];
+    const userItems = this.listForOwner(ownerId);
+    if (this.isSeeded(ownerId)) return userItems;
+    return [...this.listBuiltins(), ...userItems];
+  }
+
+  /** Has the seed-from-builtins step already run for this owner? */
+  isSeeded(ownerId: string): boolean {
+    if (!this.seedDb) return false;
+    const row = prepareCached<[string], { owner_id: string }>(
+      this.seedDb,
+      `SELECT owner_id FROM personas_seeded WHERE owner_id = ?`,
+    ).get(ownerId);
+    return !!row;
+  }
+
+  /**
+   * One-shot seeding: copies every file-based built-in into the caller's
+   * SQLite-backed personas table, then marks the caller as seeded so we
+   * don't re-copy on subsequent calls (even if the user later deletes
+   * everything — that's "Reset" territory and should be an explicit
+   * action, not an accident).
+   *
+   * Idempotent. Safe to call on every login or every `/api/personas`
+   * request — the seeded-marker check is cheap.
+   *
+   * Returns the number of rows just copied (0 when already seeded). The
+   * caller can use this to surface a "We added 12 starter personas to
+   * your library" toast on first login.
+   */
+  seedFromBuiltinsIfNeeded(ownerId: string): { seeded: boolean; count: number } {
+    if (!this.store || !this.seedDb) return { seeded: false, count: 0 };
+    if (this.isSeeded(ownerId)) return { seeded: false, count: 0 };
+
+    let count = 0;
+    const insertSeed = prepareCached<[string, number]>(
+      this.seedDb,
+      `INSERT INTO personas_seeded (owner_id, seeded_at) VALUES (?, ?)
+       ON CONFLICT(owner_id) DO NOTHING`,
+    );
+    const tx = this.seedDb.transaction(() => {
+      for (const builtin of this.builtins) {
+        // Filter out the wildcard "*" — it's the file-source's way of
+        // saying "all tools allowed", and PersonaCreateInput expects a
+        // concrete list (or undefined for "all").
+        const allowedTools = builtin.allowedTools?.filter((t) => t !== '*');
+        const input: PersonaCreateInput = {
+          ownerId,
+          name: builtin.name,
+          description: builtin.description,
+          systemPrompt: builtin.systemPrompt,
+        };
+        if (builtin.avatar) input.avatar = builtin.avatar;
+        if (builtin.model) input.model = builtin.model;
+        if (allowedTools && allowedTools.length > 0) input.allowedTools = allowedTools;
+        if (builtin.blockedTools && builtin.blockedTools.length > 0) {
+          input.blockedTools = builtin.blockedTools;
+        }
+        this.store!.create(input);
+        count += 1;
+      }
+      insertSeed.run(ownerId, Date.now());
+    });
+    tx();
+    return { seeded: true, count };
   }
 
   /**

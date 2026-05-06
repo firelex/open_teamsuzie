@@ -14,6 +14,7 @@ interface ChatRow {
     id: string;
     workspace_id: string;
     name: string;
+    persona_id: string | null;
     created_at: number;
     updated_at: number;
 }
@@ -51,11 +52,12 @@ export class ChatsStore {
         const id = this.newId();
         const now = this.clock();
         const name = input.name?.trim() || 'New chat';
-        prepareCached<[string, string, string, number, number]>(
+        const personaId = input.personaId ?? null;
+        prepareCached<[string, string, string, string | null, number, number]>(
             this.db,
-            `INSERT INTO chats (id, workspace_id, name, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?)`,
-        ).run(id, input.workspaceId, name, now, now);
+            `INSERT INTO chats (id, workspace_id, name, persona_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+        ).run(id, input.workspaceId, name, personaId, now, now);
         return this.getChat(id)!;
     }
 
@@ -80,13 +82,15 @@ export class ChatsStore {
         const existing = this.getChat(id);
         if (!existing) return null;
         const now = this.clock();
-        const next = {
-            name: patch.name?.trim() || existing.name,
-        };
-        prepareCached<[string, number, string]>(
+        const nextName = patch.name?.trim() || existing.name;
+        // personaId in the patch is tri-state: undefined = leave, null = clear,
+        // string = switch. Distinguish "key absent" from "value null" via `in`.
+        const nextPersonaId =
+            'personaId' in patch ? patch.personaId ?? null : existing.personaId;
+        prepareCached<[string, string | null, number, string]>(
             this.db,
-            `UPDATE chats SET name = ?, updated_at = ? WHERE id = ?`,
-        ).run(next.name, now, id);
+            `UPDATE chats SET name = ?, persona_id = ?, updated_at = ? WHERE id = ?`,
+        ).run(nextName, nextPersonaId, now, id);
         return this.getChat(id);
     }
 
@@ -171,6 +175,7 @@ function rowToChat(row: ChatRow): Chat {
         id: row.id,
         workspaceId: row.workspace_id,
         name: row.name,
+        personaId: row.persona_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };

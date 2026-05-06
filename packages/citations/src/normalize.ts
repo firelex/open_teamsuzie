@@ -87,6 +87,6 @@ function remap(ch: string): string {
         case '\v':
             return ' ';
         default:
-            return ch;
+            return ch.toLowerCase();
     }
 }

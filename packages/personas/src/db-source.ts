@@ -12,12 +12,69 @@ import type { Persona, PersonaCreateInput, PersonaUpdateInput } from './types.js
 export class PersonaStore {
   constructor(private readonly db: DatabaseInstance) {}
 
-  list(ownerId: string): Persona[] {
+  list(
+    ownerId: string,
+    opts?: { limit?: number; offset?: number; q?: string },
+  ): Persona[] {
+    const limit = opts?.limit;
+    const offset = opts?.offset ?? 0;
+    const q = opts?.q?.trim();
+    // Substring match against name + description, case-insensitive. SQLite's
+    // LIKE is case-insensitive only for ASCII by default, which is good
+    // enough for persona labels.
+    const like = q ? `%${q}%` : null;
+    if (limit !== undefined && like !== null) {
+      const rows = prepareCached<[string, string, string, number, number], DbRow>(
+        this.db,
+        `SELECT * FROM personas
+         WHERE owner_id = ? AND (name LIKE ? OR description LIKE ?)
+         ORDER BY name COLLATE NOCASE ASC
+         LIMIT ? OFFSET ?`,
+      ).all(ownerId, like, like, limit, offset);
+      return rows.map(rowToPersona);
+    }
+    if (limit !== undefined) {
+      const rows = prepareCached<[string, number, number], DbRow>(
+        this.db,
+        `SELECT * FROM personas WHERE owner_id = ?
+         ORDER BY name COLLATE NOCASE ASC
+         LIMIT ? OFFSET ?`,
+      ).all(ownerId, limit, offset);
+      return rows.map(rowToPersona);
+    }
+    if (like !== null) {
+      const rows = prepareCached<[string, string, string], DbRow>(
+        this.db,
+        `SELECT * FROM personas
+         WHERE owner_id = ? AND (name LIKE ? OR description LIKE ?)
+         ORDER BY name COLLATE NOCASE ASC`,
+      ).all(ownerId, like, like);
+      return rows.map(rowToPersona);
+    }
     const rows = prepareCached<[string], DbRow>(
       this.db,
-      `SELECT * FROM personas WHERE owner_id = ? ORDER BY updated_at DESC`,
+      `SELECT * FROM personas WHERE owner_id = ?
+       ORDER BY name COLLATE NOCASE ASC`,
     ).all(ownerId);
     return rows.map(rowToPersona);
+  }
+
+  count(ownerId: string, opts?: { q?: string }): number {
+    const q = opts?.q?.trim();
+    if (q) {
+      const like = `%${q}%`;
+      const row = prepareCached<[string, string, string], { n: number }>(
+        this.db,
+        `SELECT COUNT(*) AS n FROM personas
+         WHERE owner_id = ? AND (name LIKE ? OR description LIKE ?)`,
+      ).get(ownerId, like, like);
+      return row?.n ?? 0;
+    }
+    const row = prepareCached<[string], { n: number }>(
+      this.db,
+      `SELECT COUNT(*) AS n FROM personas WHERE owner_id = ?`,
+    ).get(ownerId);
+    return row?.n ?? 0;
   }
 
   get(id: string, ownerId: string): Persona | null {

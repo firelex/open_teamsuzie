@@ -16,6 +16,8 @@ import {
   type SkillLoadResult,
   type ToolContext,
 } from '@teamsuzie/agent-loop';
+import { CHATS_MIGRATIONS, ChatsStore, createChatsRouter } from '@teamsuzie/chats';
+import { openDb } from '@teamsuzie/db-sqlite';
 import { InMemoryDocumentStore } from '@teamsuzie/markdown-document';
 import { applyPersona, PersonaRegistry } from '@teamsuzie/personas';
 import { config } from './config.js';
@@ -32,6 +34,17 @@ const clientDistDir = path.resolve(__dirname, '../client/dist');
 const approvals = new ApprovalQueue({ store: new InMemoryApprovalStore() });
 const fileStore = new InMemoryFileStore();
 const docStore = new InMemoryDocumentStore();
+
+// SQLite-backed persistence for top-level Assistant chats. Single-user
+// starter — every chat gets the synthetic workspace id `assistant:default`.
+// Apps that bootstrap from this starter and add real auth would scope by
+// user (e.g. `assistant:<userId>`), keeping per-user history separate.
+const db = openDb({
+  path: config.db.path,
+  migrations: [...CHATS_MIGRATIONS],
+});
+const chats = new ChatsStore({ db });
+const ASSISTANT_WORKSPACE_ID = 'assistant:default';
 
 let skillState: SkillLoadResult = { skills: [], systemPrompt: '', derivedHosts: [] };
 let mcp: McpManager = { tools: [], status: [], shutdown: async () => {} };
@@ -119,6 +132,18 @@ app.use(
   createFilesRouter({ store: fileStore, maxUploadBytes: config.files.maxUploadBytes }),
 );
 
+// Persisted top-level Assistant chats. The router exposes list / create /
+// get / messages / rename / delete under `/api/chats`; the chat-completion
+// handler below picks up `chatId` from the request body and persists each
+// turn into the same store. Single-user starter — workspace id is fixed.
+app.use(
+  '/api/chats',
+  createChatsRouter({
+    store: chats,
+    getWorkspaceId: () => ASSISTANT_WORKSPACE_ID,
+  }),
+);
+
 // File-based personas only. Apps that add auth + a SQLite db can swap this
 // for `createPersonasRouter` from @teamsuzie/personas to enable user-created
 // personas with full CRUD scoped to the caller.
@@ -199,6 +224,15 @@ app.post('/api/chat', async (req, res) => {
   const message = String(req.body?.message || '').trim();
   const history = Array.isArray(req.body?.history) ? (req.body.history as ChatMessage[]) : [];
   const sessionId = String(req.body?.sessionId || '').trim();
+  // When set, the turn is bound to a persisted top-level Assistant chat:
+  // both the user message and the assistant response are appended to its
+  // message store on completion, so reload + History both see the chat.
+  const chatId = String(req.body?.chatId || '').trim();
+  const persistedChat = chatId ? chats.getChat(chatId) : null;
+  if (chatId && (!persistedChat || persistedChat.workspaceId !== ASSISTANT_WORKSPACE_ID)) {
+    res.status(404).json({ error: 'chat_not_found' });
+    return;
+  }
   const attachmentIds = Array.isArray(req.body?.attachmentIds)
     ? (req.body.attachmentIds as unknown[]).map(String).filter(Boolean)
     : [];
@@ -266,6 +300,11 @@ app.post('/api/chat', async (req, res) => {
     persona,
   });
 
+  // Accumulate the assistant text + tool events while streaming so we can
+  // persist a single message row on completion. Empty when no chat is bound.
+  let assistantText = '';
+  const collectedToolEvents: unknown[] = [];
+
   try {
     for await (const event of runChatTurn({
       agent,
@@ -277,11 +316,62 @@ app.post('/api/chat', async (req, res) => {
       signal: abort.signal,
     })) {
       send(event);
+      if (persistedChat) {
+        if (event.type === 'chunk') {
+          assistantText += event.text;
+        } else if (
+          event.type === 'tool_call' ||
+          event.type === 'tool_result' ||
+          event.type === 'tool_error'
+        ) {
+          collectedToolEvents.push(event);
+        }
+      }
       if (event.type === 'done' || event.type === 'error') break;
     }
   } catch (error) {
     send({ type: 'error', message: error instanceof Error ? error.message : 'Chat request failed' });
   } finally {
+    if (persistedChat) {
+      try {
+        // User turn: store the original message, not the embellished
+        // userContent — we don't want the [Attachments] block in history.
+        chats.appendMessage({
+          chatId: persistedChat.id,
+          role: 'user',
+          content: message,
+        });
+        chats.appendMessage({
+          chatId: persistedChat.id,
+          role: 'assistant',
+          content: assistantText,
+          toolEvents:
+            collectedToolEvents.length > 0
+              ? JSON.stringify(collectedToolEvents)
+              : null,
+          citations: null,
+        });
+        // First-turn auto-title: trim the user's first message into a short
+        // sidebar label. Apps that want LLM-polished titles can run a
+        // background pass after the response stream ends.
+        if (persistedChat.name === 'New chat') {
+          const firstLine = message.split('\n')[0]?.trim() ?? '';
+          const provisional =
+            firstLine.length > 0
+              ? firstLine.slice(0, 60) + (firstLine.length > 60 ? '…' : '')
+              : 'New chat';
+          if (provisional !== persistedChat.name) {
+            chats.updateChat(persistedChat.id, { name: provisional });
+          }
+        }
+      } catch (err) {
+        // Persistence failure shouldn't break the response stream.
+        console.error(
+          'Failed to persist chat messages:',
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
     res.end();
   }
 });

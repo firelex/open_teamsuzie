@@ -39,7 +39,13 @@ export function createChatsRouter(opts: CreateChatsRouterOptions): Router {
         const workspaceId = getWorkspaceId(req);
         const body = req.body as Record<string, unknown> | undefined;
         const name = typeof body?.name === 'string' ? body.name.trim() : undefined;
-        const chat = store.createChat({ workspaceId, name });
+        // personaId: string switches, null clears, missing leaves unset.
+        let personaId: string | null | undefined;
+        if (body && 'personaId' in body) {
+            const raw = body.personaId;
+            personaId = typeof raw === 'string' && raw.length > 0 ? raw : null;
+        }
+        const chat = store.createChat({ workspaceId, name, personaId });
         res.status(201).json({ item: chat });
     });
 
@@ -71,7 +77,7 @@ export function createChatsRouter(opts: CreateChatsRouterOptions): Router {
             return;
         }
         const body = req.body as Record<string, unknown> | undefined;
-        const patch: { name?: string } = {};
+        const patch: { name?: string; personaId?: string | null } = {};
         if (typeof body?.name === 'string') {
             const trimmed = body.name.trim();
             if (!trimmed) {
@@ -79,6 +85,14 @@ export function createChatsRouter(opts: CreateChatsRouterOptions): Router {
                 return;
             }
             patch.name = trimmed;
+        }
+        // personaId is tri-state: string switches, null clears, missing
+        // means "leave the existing value alone". The store.updateChat
+        // distinguishes the three via `'personaId' in patch`.
+        if (body && 'personaId' in body) {
+            const raw = body.personaId;
+            patch.personaId =
+                typeof raw === 'string' && raw.length > 0 ? raw : null;
         }
         const updated = store.updateChat(chatId, patch);
         res.json({ item: updated });

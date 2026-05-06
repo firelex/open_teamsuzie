@@ -65,8 +65,71 @@ describe('applyContentKeyedEdits', () => {
         expect(results[0].status).toBe('applied');
         expect(results[0].revisionIds.length).toBeGreaterThan(0);
         const xml = bodyXml(loadDocx(saveDocx(file)));
-        expect(xml).toContain('<w:delText xml:space="preserve">5%</w:delText>');
-        expect(xml).toContain('<w:t xml:space="preserve">7%</w:t>');
+        expect(xml).toContain('<w:delText xml:space="preserve">5</w:delText>');
+        expect(xml).toContain('<w:t xml:space="preserve">7</w:t>');
+        expect(xml).toContain('<w:t xml:space="preserve">%</w:t>');
+    });
+
+    it('refines paragraph-sized replacements into word-level tracked changes', () => {
+        const original =
+            'Receiving Party hereby acknowledges and agrees that in the event of any breach of this Agreement by it or its Representatives, the Company will suffer irreparable injury, such that no remedy at law will afford adequate protection against such injury.';
+        const revised =
+            'Each party acknowledges and agrees that in the event of any breach of this Agreement by it or its Representatives, the other party may suffer irreparable injury for which monetary damages would be inadequate.';
+        const file = loadDocx(buildDocx([original]));
+
+        const results = applyContentKeyedEdits(
+            file,
+            [
+                {
+                    find: original,
+                    replace: revised,
+                    contextBefore: '',
+                    contextAfter: '',
+                },
+            ],
+            AUTHOR,
+        );
+
+        expect(results[0].status).toBe('applied');
+        expect(results[0].revisionIds.length).toBeGreaterThan(2);
+        const xml = bodyXml(loadDocx(saveDocx(file)));
+        expect(xml).toContain('of this Agreement by it or its Representatives');
+        expect(xml).not.toContain(
+            `<w:delText xml:space="preserve">${escapeXml(original)}</w:delText>`,
+        );
+        expect(xml).toContain('<w:delText xml:space="preserve">Receiving Party hereby </w:delText>');
+        expect(xml).toContain('<w:t xml:space="preserve">Each party </w:t>');
+        expect(xml).toContain('<w:t xml:space="preserve">injury for which monetary damages would be inadequate</w:t>');
+    });
+
+    it('does not redline straight-vs-curly quote differences inside replacements', () => {
+        const original =
+            'Neither Receiving Party nor any affiliate acting at the Recipient’s or such affiliate’s instruction shall solicit the Company’s employees.';
+        const revised =
+            "Neither Receiving Party nor any affiliate acting at the Recipient's or such affiliate's instruction shall solicit the Company's senior executives.";
+        const file = loadDocx(buildDocx([original]));
+
+        const results = applyContentKeyedEdits(
+            file,
+            [
+                {
+                    find: original,
+                    replace: revised,
+                    contextBefore: '',
+                    contextAfter: '',
+                },
+            ],
+            AUTHOR,
+        );
+
+        expect(results[0].status).toBe('applied');
+        const xml = bodyXml(loadDocx(saveDocx(file)));
+        expect(xml).not.toContain('<w:delText xml:space="preserve">Recipient’s</w:delText>');
+        expect(xml).not.toContain('<w:t xml:space="preserve">Recipient\'s</w:t>');
+        expect(xml).not.toContain('<w:delText xml:space="preserve">affiliate’s</w:delText>');
+        expect(xml).not.toContain('<w:t xml:space="preserve">affiliate\'s</w:t>');
+        expect(xml).toContain('<w:delText xml:space="preserve">employees</w:delText>');
+        expect(xml).toContain('<w:t xml:space="preserve">senior executives</w:t>');
     });
 
     it('rejects an edit whose find+context appears nowhere', () => {
@@ -139,8 +202,9 @@ describe('applyContentKeyedEdits', () => {
         expect(results[0].status).toBe('applied');
         expect(results[1].status).toBe('applied');
         const xml = bodyXml(loadDocx(saveDocx(file)));
-        expect(xml).toContain('<w:t xml:space="preserve">7%</w:t>');
-        expect(xml).toContain('<w:t xml:space="preserve">8%</w:t>');
+        expect(xml).toContain('<w:t xml:space="preserve">7</w:t>');
+        expect(xml).toContain('<w:t xml:space="preserve">8</w:t>');
+        expect(xml.match(/<w:t xml:space="preserve">%<\/w:t>/g)?.length).toBe(2);
     });
 
     it('batches multiple edits in the same paragraph into one applyParagraphDiff', () => {
@@ -181,8 +245,9 @@ describe('applyContentKeyedEdits', () => {
         const xml = bodyXml(loadDocx(saveDocx(file)));
         expect(xml).toContain('Borrower');  // in delText
         expect(xml).toContain('Buyer');
-        expect(xml).toContain('5%');         // in delText
-        expect(xml).toContain('7%');
+        expect(xml).toContain('<w:delText xml:space="preserve">5</w:delText>');
+        expect(xml).toContain('<w:t xml:space="preserve">%</w:t>');
+        expect(xml).toContain('<w:t xml:space="preserve">7</w:t>');
         expect(xml).toContain('Lender');     // in delText
         expect(xml).toContain('Seller');
     });
@@ -200,6 +265,49 @@ describe('applyContentKeyedEdits', () => {
                     replace: "Buyer's",
                     contextBefore: 'The ',
                     contextAfter: ' obligations',
+                },
+            ],
+            AUTHOR,
+        );
+        expect(results[0].status).toBe('applied');
+    });
+
+    it('matches context across whitespace differences from markdown conversion', () => {
+        const file = loadDocx(
+            buildDocx([
+                'All information directly or indirectly disclosed by the Company\n\tshall constitute Confidential Information.',
+            ]),
+        );
+        const results = applyContentKeyedEdits(
+            file,
+            [
+                {
+                    find: 'directly or indirectly disclosed',
+                    replace: 'disclosed',
+                    contextBefore: 'All information ',
+                    contextAfter: ' by the Company shall constitute',
+                },
+            ],
+            AUTHOR,
+        );
+        expect(results[0].status).toBe('applied');
+    });
+
+    it('falls back to a unique find match when converted context is imperfect', () => {
+        const file = loadDocx(
+            buildDocx([
+                'The Recipient acknowledges that breach may cause irreparable harm.',
+                'The parties agree Delaware law governs this Agreement.',
+            ]),
+        );
+        const results = applyContentKeyedEdits(
+            file,
+            [
+                {
+                    find: 'irreparable harm',
+                    replace: 'harm not adequately compensable by money damages',
+                    contextBefore: 'converted markdown omitted this prefix ',
+                    contextAfter: ' and this suffix',
                 },
             ],
             AUTHOR,
