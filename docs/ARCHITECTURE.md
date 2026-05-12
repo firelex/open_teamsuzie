@@ -126,12 +126,23 @@ A generic state machine for **proposed actions that need a human before they dis
 ```
 pending → approved → dispatched
         → rejected
-        → edited → approved → dispatched
+        → failed
 ```
 
-Today the queue is used for email (agent drafts → human reviews → SendGrid sends). The abstractions are generic: the v1 package ships with the email consumer as an example; other consumers (Slack messages, external API writes, financial transactions) plug in by implementing the dispatch interface.
+Reviewers can approve, reject, or approve with an edited payload. Edited payloads
+replace the proposed payload before dispatch; they are part of `review()`, not a
+separate durable state.
 
-Storage is Postgres; the worker uses BullMQ on Redis. See [QUEUE.md](QUEUE.md) *(coming soon)*.
+The v1 package ships the generic queue, state machine, dispatcher registry, and
+`InMemoryApprovalStore`. The admin app and starters expose propose/review
+endpoints and inbox UIs; `starter-ops-console` demonstrates a real gated delete
+flow that dispatches after approval. Pending approvals are not durable with the
+default store — they reset when the owning process restarts.
+
+Production apps should replace `InMemoryApprovalStore` with their own
+`ApprovalStore` implementation (Postgres, Redis/KV, SQLite, etc.) and register
+dispatchers for each action type they want to execute. A first-party durable
+Postgres store and async worker pattern are tracked in [ROADMAP.md](ROADMAP.md).
 
 ### 4. Scoped knowledge (`apps/platform/vector-db`, `apps/platform/graph-db`, `packages/db-client`)
 

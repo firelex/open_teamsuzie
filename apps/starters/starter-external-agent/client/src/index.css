@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-background: oklch(99% 0.003 200);
+  --color-foreground: oklch(22% 0.012 230);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(22% 0.012 230);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(22% 0.012 230);
+  --color-primary: oklch(45% 0.10 170);
+  --color-primary-foreground: oklch(99% 0.003 200);
+  --color-secondary: oklch(96% 0.005 210);
+  --color-secondary-foreground: oklch(30% 0.012 230);
+  --color-muted: oklch(96% 0.005 210);
+  --color-muted-foreground: oklch(48% 0.015 230);
+  --color-accent: oklch(96% 0.005 210);
+  --color-accent-foreground: oklch(30% 0.012 230);
+  --color-destructive: oklch(58% 0.22 28);
+  --color-destructive-foreground: oklch(99% 0.003 100);
+  --color-border: oklch(92% 0.005 210);
+  --color-input: oklch(92% 0.005 210);
+  --color-ring: oklch(45% 0.10 170);
+
+  --radius-lg: 0.75rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-background text-foreground font-sans antialiased;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  .typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot { animation: none; }
+  }
+}

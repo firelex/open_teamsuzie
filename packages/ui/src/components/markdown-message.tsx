@@ -5,12 +5,44 @@ import remarkGfm from "remark-gfm"
 import { cn } from "../lib/utils"
 
 /**
+ * Lightweight error boundary that catches React DOM reconciliation errors
+ * (e.g. "removeChild on Node") during markdown re-renders and silently
+ * retries on the next render pass instead of crashing the whole page.
+ */
+export class MarkdownErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidUpdate(_prev: unknown, prevState: { hasError: boolean }) {
+    // Auto-recover on the next render cycle so the message re-appears
+    if (this.state.hasError && !prevState.hasError) {
+      requestAnimationFrame(() => this.setState({ hasError: false }))
+    }
+  }
+
+  render() {
+    if (this.state.hasError) return null
+    return this.props.children
+  }
+}
+
+/**
  * Render markdown with the chat-flavored typography defaults used throughout
  * Team Suzie's chat starters and apps. Drop-in replacement for an inline
  * ReactMarkdown call — handles headings, lists, code blocks, tables, etc.
  */
 export function MarkdownMessage({ content }: { content: string }) {
   return (
+    <MarkdownErrorBoundary>
     <div className="space-y-3 text-[15px] leading-relaxed text-foreground">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
@@ -99,5 +131,6 @@ export function MarkdownMessage({ content }: { content: string }) {
         {content}
       </ReactMarkdown>
     </div>
+    </MarkdownErrorBoundary>
   )
 }

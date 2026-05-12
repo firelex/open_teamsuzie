@@ -12,8 +12,8 @@ Gets you from zero to a running agent hitting a scoped knowledge base with an ap
 ## 1. Install
 
 ```bash
-git clone https://github.com/firelex/teamsuzie
-cd teamsuzie
+git clone https://github.com/firelex/open_teamsuzie
+cd open_teamsuzie
 pnpm install
 ```
 
