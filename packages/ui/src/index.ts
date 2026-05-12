@@ -56,7 +56,6 @@ export {
   Square,
   Star,
   Tag,
-  Square,
   Trash2,
   Undo2,
   Upload,
