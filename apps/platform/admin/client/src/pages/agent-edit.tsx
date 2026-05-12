@@ -472,7 +472,7 @@ export function AgentEditPage() {
                     Require approval for actions
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Phase 3 will route proposals through <code className="font-mono">@teamsuzie/approvals</code>.
+                    Marks this agent's actions as approval-gated for runtimes that honor the flag.
                   </p>
                 </div>
                 <Switch

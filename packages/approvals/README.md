@@ -26,7 +26,11 @@ Agents propose actions that need human review before they dispatch. The queue tr
 
 Terminal states are `rejected`, `dispatched`, and `failed`. A reviewer can optionally supply an `edited_payload` alongside an approve verdict, which replaces the payload before dispatch — this is a parameter of `review()`, not a separate state.
 
-v0.1 ships an in-memory store for tests and demos. A durable Postgres store and a BullMQ worker pattern are tracked in [ROADMAP.md](../../docs/ROADMAP.md) for v0.4.
+v0.1 ships an in-memory store for tests and demos. The admin app and starters
+already expose propose/review endpoints and inbox UIs on top of this package.
+Pending approvals are not durable with the default store; a durable Postgres
+store and a BullMQ-style worker pattern are tracked in
+[ROADMAP.md](../../docs/ROADMAP.md) for v0.4.
 
 ## API surface
 

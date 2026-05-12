@@ -39,8 +39,8 @@ You need three things on your machine before your assistant can do anything usef
 Then:
 
 ```bash
-git clone https://github.com/firelex/teamsuzie
-cd teamsuzie
+git clone https://github.com/firelex/open_teamsuzie
+cd open_teamsuzie
 pnpm install
 ```
 
@@ -99,7 +99,7 @@ The starters live inside this monorepo for convenience, but most real apps want 
 
 ```
 ~/code/
-  teamsuzie/        # this repo, kept clean
+  open_teamsuzie/   # this repo, kept clean
   my-app/           # your app, separate git repo
 ```
 
@@ -116,16 +116,16 @@ packages:
 {
   "name": "my-app-web",
   "dependencies": {
-    "@teamsuzie/ui": "link:../../../teamsuzie/packages/ui",
-    "@teamsuzie/agent-loop": "link:../../../teamsuzie/packages/agent-loop",
-    "@teamsuzie/approvals": "link:../../../teamsuzie/packages/approvals"
+    "@teamsuzie/ui": "link:../../../open_teamsuzie/packages/ui",
+    "@teamsuzie/agent-loop": "link:../../../open_teamsuzie/packages/agent-loop",
+    "@teamsuzie/approvals": "link:../../../open_teamsuzie/packages/approvals"
   }
 }
 ```
 
-**Bootstrap the app.** Copy a starter into your repo as a starting point (`cp -R ../teamsuzie/apps/starters/starter-chat apps/web`), swap in the `link:` references above, then `pnpm install`.
+**Bootstrap the app.** Copy a starter into your repo as a starting point (`cp -R ../open_teamsuzie/apps/starters/starter-chat apps/web`), swap in the `link:` references above, then `pnpm install`.
 
-**Why this works.** The `link:` protocol points at a directory — pnpm symlinks it, so changes in `teamsuzie/packages/*` show up immediately in your app. When you upgrade Team Suzie (`git pull` in the sibling clone), your app picks up the new code without a publish step. Your app's repo only contains code that is genuinely yours.
+**Why this works.** The `link:` protocol points at a directory — pnpm symlinks it, so changes in `open_teamsuzie/packages/*` show up immediately in your app. When you upgrade Team Suzie (`git pull` in the sibling clone), your app picks up the new code without a publish step. Your app's repo only contains code that is genuinely yours.
 
 **When to use a published version instead.** If you're shipping the app to teammates who shouldn't need a local clone of Team Suzie, replace the `link:` references with a published version — either the npm registry, a GitHub Packages registry, or your own private registry. The package boundaries don't change.
 

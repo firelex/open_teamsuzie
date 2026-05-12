@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm"
 
 import { cn } from "../lib/utils"
 import { CitationChip } from "./citation-chip"
+import { MarkdownErrorBoundary } from "./markdown-message"
 
 export type CitedMarkdownMessageProps = {
   content: string
@@ -48,6 +49,7 @@ export function CitedMarkdownMessage({
   }, [citations])
 
   return (
+    <MarkdownErrorBoundary>
     <div
       className={cn(
         "space-y-3 text-[15px] leading-relaxed text-foreground",
@@ -175,5 +177,6 @@ export function CitedMarkdownMessage({
         {content}
       </ReactMarkdown>
     </div>
+    </MarkdownErrorBoundary>
   )
 }
