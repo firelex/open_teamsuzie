@@ -141,7 +141,7 @@ importers:
         version: 6.37.8(pg@8.20.0)
       sequelize-typescript:
         specifier: ^2.1.6
-        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8(pg@8.20.0))
+        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8)
       ws:
         specifier: ^8.18.3
         version: 8.20.0
@@ -260,7 +260,7 @@ importers:
         version: 6.37.8(pg@8.20.0)
       sequelize-typescript:
         specifier: ^2.1.6
-        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8(pg@8.20.0))
+        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8)
       umzug:
         specifier: ^3.8.2
         version: 3.8.2(@types/node@22.19.17)
@@ -754,7 +754,7 @@ importers:
         version: 6.37.8(pg@8.20.0)
       sequelize-typescript:
         specifier: ^2.1.6
-        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8(pg@8.20.0))
+        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8)
     devDependencies:
       '@types/bcryptjs':
         specifier: ^3.0.0
@@ -848,6 +848,40 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+
+  packages/billing-stripe:
+    dependencies:
+      '@teamsuzie/shared-auth':
+        specifier: workspace:*
+        version: link:../shared-auth
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      ioredis:
+        specifier: ^5.6.1
+        version: 5.10.1
+      sequelize:
+        specifier: ^6.37.7
+        version: 6.37.8(pg@8.20.0)
+      sequelize-typescript:
+        specifier: ^2.1.6
+        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8)
+      stripe:
+        specifier: ^17.0.0
+        version: 17.7.0
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/express-session':
+        specifier: ^1.18.1
+        version: 1.18.2
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
 
   packages/chats:
     dependencies:
@@ -1155,7 +1189,7 @@ importers:
         version: 6.37.8(pg@8.20.0)
       sequelize-typescript:
         specifier: ^2.1.6
-        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8(pg@8.20.0))
+        version: 2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8)
       umzug:
         specifier: ^3.8.2
         version: 3.8.2(@types/node@22.19.17)
@@ -5505,6 +5539,10 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
+
+  stripe@17.7.0:
+    resolution: {integrity: sha512-aT2BU9KkizY9SATf14WhhYVv2uOapBWX0OFWF4xvcj1mPaNotlSc2CsxpS4DS46ZueSppmCF5BX1sNYBtwBvfw==}
+    engines: {node: '>=12.*'}
 
   strnum@1.1.2:
     resolution: {integrity: sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA==}
@@ -10537,7 +10575,7 @@ snapshots:
 
   sequelize-pool@7.1.0: {}
 
-  sequelize-typescript@2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8(pg@8.20.0)):
+  sequelize-typescript@2.1.6(@types/node@22.19.17)(@types/validator@13.15.10)(reflect-metadata@0.2.2)(sequelize@6.37.8):
     dependencies:
       '@types/node': 22.19.17
       '@types/validator': 13.15.10
@@ -10735,6 +10773,11 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
+
+  stripe@17.7.0:
+    dependencies:
+      '@types/node': 22.19.17
+      qs: 6.15.1
 
   strnum@1.1.2: {}
 
