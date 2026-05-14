@@ -1000,6 +1000,9 @@ importers:
 
   packages/docx:
     dependencies:
+      '@teamsuzie/docx-diff':
+        specifier: workspace:*
+        version: link:../docx-diff
       docx:
         specifier: ^9.0.0
         version: 9.6.1

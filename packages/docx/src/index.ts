@@ -31,3 +31,5 @@ export type {
     ContentKeyedEdit,
 } from './content-keyed-edits.js';
 export type { Revision, AcceptRejectOptions } from './revisions.js';
+export { composeRedline, redlineDownloadFilename } from './compose-redline.js';
+export type { ComposeRedlineOptions } from './compose-redline.js';
