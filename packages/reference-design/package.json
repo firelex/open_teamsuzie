@@ -1,0 +1,28 @@
+{
+  "name": "@teamsuzie/reference-design",
+  "version": "0.1.0",
+  "description": "Reference documents (customer-uploaded canonical examples) decomposed into reusable structure + design metadata",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/document-conversion": "workspace:*",
+    "@teamsuzie/markdown-document": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
