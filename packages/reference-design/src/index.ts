@@ -1,4 +1,6 @@
 export type { ReferenceDoc, DocType } from './types.js';
 export { decomposeDocx } from './decompose-docx.js';
 export type { DecomposeDocxOptions } from './decompose-docx.js';
-// decomposePptx in B6, useReferenceDesignInPrompt + storage in B7.
+export { decomposePptx } from './decompose-pptx.js';
+export type { DecomposePptxOptions } from './decompose-pptx.js';
+// useReferenceDesignInPrompt + storage in B7.
