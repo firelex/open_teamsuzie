@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@teamsuzie/markdown-document": "workspace:*"
+    "@teamsuzie/markdown-document": "workspace:*",
+    "@teamsuzie/pdf": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

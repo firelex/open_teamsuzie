@@ -1,15 +1,49 @@
 # @teamsuzie/document-conversion
 
-Facade over [`mammoth`](https://github.com/mwilliamson/mammoth.js) (DOCX→Markdown) and
-[`markitdown-agent`](../../apps/agents/markitdown-agent/) (everything else → Markdown,
-and Markdown → DOCX/PDF).
+Markdown ↔ binary document conversion for Team Suzie.
 
-**Status:** Skeleton. Real implementation lands in Tasks A2 (`convertToMarkdown`) and
-A5 (`exportMarkdownToDocx`, `exportMarkdownToPdf`) of the upstream extraction sweep
-(`suziecode/docs/superpowers/plans/2026-05-14-upstream-extraction-sweep.md`).
+A thin facade over three backends:
 
-## Public API (planned)
+- **`@teamsuzie/markdown-document`** for DOCX → Markdown (mammoth + turndown — best table fidelity)
+- **`markitdown-agent`** service for everything else (PDF, PPTX, XLSX, HTML, EPUB → Markdown; Markdown → DOCX with optional `--reference-doc` styling)
+- **`@teamsuzie/pdf`** for the Markdown → PDF step (DOCX intermediate → PDF via headless LibreOffice)
 
-- `convertToMarkdown(bytes, { mime, filename, markitdownAgentBaseUrl })`
-- `exportMarkdownToDocx(markdown, { markitdownAgentBaseUrl, referenceDocId? })`
-- `exportMarkdownToPdf(markdown, { markitdownAgentBaseUrl })`
+## API
+
+```typescript
+import {
+  convertToMarkdown,
+  exportMarkdownToDocx,
+  exportMarkdownToPdf,
+} from '@teamsuzie/document-conversion';
+
+// Any binary → markdown
+const { markdown } = await convertToMarkdown(bytes, {
+  mime: 'application/pdf',
+  filename: 'memo.pdf',
+  markitdownAgentBaseUrl: 'http://localhost:3013',
+});
+
+// Markdown → DOCX with optional firm-style reference template
+const docxBytes = await exportMarkdownToDocx({
+  markdown,
+  filename: 'output',
+  referenceDoc: { bytes: refDocxBytes, filename: 'firm-template.docx' },
+  markitdownAgentBaseUrl: 'http://localhost:3013',
+});
+
+// Markdown → PDF (intermediate DOCX → PDF via local LibreOffice)
+const pdfBytes = await exportMarkdownToPdf({
+  markdown,
+  filename: 'output',
+  markitdownAgentBaseUrl: 'http://localhost:3013',
+});
+```
+
+## Why this exists
+
+Suzielaw and other agents previously inlined the choice between mammoth and
+markitdown-agent in each callsite (`files.ts`, `document-tools.ts`). This
+package centralises that choice so consumers ask for "markdown from this
+binary" and get the right backend automatically. The PDF export route relies
+on `@teamsuzie/pdf` (LibreOffice) — see that package for setup.

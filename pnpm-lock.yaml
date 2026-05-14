@@ -971,6 +971,9 @@ importers:
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
+      '@teamsuzie/pdf':
+        specifier: workspace:*
+        version: link:../pdf
     devDependencies:
       '@types/node':
         specifier: ^22.10.5
