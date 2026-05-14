@@ -5,7 +5,9 @@ Markdown ↔ binary conversion for Team Suzie agents. Two synchronous endpoints,
 ## What it does
 
 - **`POST /convert`** — multipart `file` upload → `{ filename, markdown }`. Uses [MarkItDown](https://github.com/microsoft/markitdown). Handles DOCX, PDF, PPTX, XLSX, HTML, EPUB, and more. (Image OCR and audio transcription require `markitdown[all]` — see Limitations.)
-- **`POST /export/docx`** — JSON `{ markdown, filename? }` → DOCX bytes (returned in the response body). Uses `pypandoc-binary` (ships pandoc with the package, no separate install).
+- **`POST /export/docx`** — Two call styles:
+  - JSON body `{ markdown, filename? }` → DOCX bytes (default pandoc styles, or `settings.reference_docx` if set)
+  - Multipart `markdown` field + optional `reference_doc` file upload → DOCX styled with the uploaded reference (`pandoc --reference-doc`)
 - **`GET /health`** — `{ status: "ok", service: "markitdown-agent" }`.
 
 This service is the conversion layer for agentic document workflows: starter-chat auto-converts uploaded binaries to markdown so the agent can read them, and uses `/export/docx` to deliver finished drafts.

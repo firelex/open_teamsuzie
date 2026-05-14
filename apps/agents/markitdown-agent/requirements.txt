@@ -8,3 +8,6 @@ pydantic-settings>=2.4,<3
 # (pulls in onnxruntime + ML deps; ~1GB install).
 markitdown>=0.1.0,<1
 pypandoc-binary>=1.13,<2
+# Testing
+pytest>=8,<9
+httpx>=0.27,<1

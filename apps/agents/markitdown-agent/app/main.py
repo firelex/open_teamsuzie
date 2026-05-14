@@ -18,8 +18,9 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from markitdown import MarkItDown
@@ -96,42 +97,83 @@ async def convert(file: UploadFile = File(...)) -> ConvertResponse:
 
 
 class ExportDocxRequest(BaseModel):
+    """JSON body shape (legacy). Kept for backwards compat with JSON callers."""
     markdown: str = Field(..., description="Markdown content to convert.")
     filename: str | None = Field(None, description="Suggested download filename (without extension).")
 
 
 @app.post("/export/docx")
-async def export_docx(req: ExportDocxRequest) -> Response:
-    """Convert Markdown to a DOCX file. Uses pandoc via pypandoc-binary.
+async def export_docx(
+    request: Request,
+    # Optional multipart fields:
+    markdown_form: Annotated[str | None, Form(alias="markdown")] = None,
+    filename_form: Annotated[str | None, Form(alias="filename")] = None,
+    reference_doc: Annotated[UploadFile | None, File()] = None,
+) -> Response:
+    """Convert markdown to DOCX. Two call styles:
 
-    If `MARKITDOWN_AGENT_REFERENCE_DOCX` is set, that path is passed as
-    `--reference-doc` so the output picks up firm/template styles.
+    - **JSON body** (legacy): ``{ markdown, filename? }`` → uses default pandoc
+      styles (or ``settings.reference_docx`` if configured via env).
+    - **Multipart** (new): ``markdown`` form field + optional ``reference_doc``
+      file → passes ``--reference-doc=<uploaded file>`` to pandoc, preserving
+      the uploaded reference's stylesheet. Falls back to
+      ``settings.reference_docx`` if no upload provided.
     """
     import pypandoc  # imported lazily so the service can boot without pandoc on the path
 
-    # pypandoc.convert_text(format='docx') needs an outputfile.
+    content_type = request.headers.get("content-type", "")
+
+    # Disambiguate request style. Both multipart (file uploads) and
+    # application/x-www-form-urlencoded (markdown-only form posts) get
+    # parsed into Form() params by FastAPI, so treat them the same.
+    is_form = content_type.startswith("multipart/") or content_type.startswith(
+        "application/x-www-form-urlencoded"
+    )
+    if is_form:
+        if markdown_form is None:
+            raise HTTPException(status_code=422, detail="Missing 'markdown' form field")
+        markdown = markdown_form
+        filename = filename_form
+    else:
+        body = await request.json()
+        markdown = body.get("markdown")
+        filename = body.get("filename")
+        if markdown is None:
+            raise HTTPException(status_code=422, detail="Missing 'markdown' in JSON body")
+
+    name = filename or "document"
+    if name.lower().endswith(".docx"):
+        name = name[:-5]
+
+    extra_args: list[str] = []
+    ref_path: str | None = None
+
+    # Priority: multipart upload > settings.reference_docx > none.
+    if reference_doc is not None:
+        ref_bytes = await reference_doc.read()
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as ref_f:
+            ref_f.write(ref_bytes)
+            ref_path = ref_f.name
+        extra_args.extend(["--reference-doc", ref_path])
+    elif settings.reference_docx:
+        ref = Path(settings.reference_docx)
+        if not ref.exists():
+            raise HTTPException(status_code=500, detail=f"reference_docx not found: {ref}")
+        extra_args.extend(["--reference-doc", str(ref)])
+
     out_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
             out_path = Path(tmp.name)
-
-        extra_args: list[str] = []
-        if settings.reference_docx:
-            ref = Path(settings.reference_docx)
-            if not ref.exists():
-                raise HTTPException(status_code=500, detail=f"reference_docx not found: {ref}")
-            extra_args.extend(["--reference-doc", str(ref)])
-
         pypandoc.convert_text(
-            req.markdown,
+            markdown,
             "docx",
             format="markdown",
             outputfile=str(out_path),
             extra_args=extra_args,
         )
-
         bytes_ = out_path.read_bytes()
-        suggested = (req.filename or "document").rstrip(".") + ".docx"
+        suggested = name + ".docx"
         return Response(
             content=bytes_,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -147,6 +189,11 @@ async def export_docx(req: ExportDocxRequest) -> Response:
             try:
                 out_path.unlink()
             except OSError:
+                pass
+        if ref_path:
+            try:
+                Path(ref_path).unlink(missing_ok=True)
+            except Exception:
                 pass
 
 
