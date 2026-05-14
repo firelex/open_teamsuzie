@@ -1072,6 +1072,9 @@ importers:
       '@teamsuzie/db-sqlite':
         specifier: workspace:*
         version: link:../db-sqlite
+      '@teamsuzie/document-conversion':
+        specifier: workspace:*
+        version: link:../document-conversion
       sqlite-vec:
         specifier: ^0.1.6
         version: 0.1.9

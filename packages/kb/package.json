@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@teamsuzie/db-sqlite": "workspace:*",
+    "@teamsuzie/document-conversion": "workspace:*",
     "sqlite-vec": "^0.1.6"
   },
   "devDependencies": {

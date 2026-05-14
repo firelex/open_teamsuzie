@@ -17,3 +17,6 @@ export type {
 } from './tool.js';
 
 export type { KbDocument, KbChunk, KbSearchHit, KbInsertInput } from './types.js';
+
+export { WorkspaceRag } from './workspace-rag.js';
+export type { WorkspaceRagOptions, WorkspaceDocRecord } from './workspace-rag.js';
