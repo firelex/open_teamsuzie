@@ -12,3 +12,7 @@ export type {
     ParagraphMatch,
     ParagraphMatchStatus,
 } from './types.js';
+export type {
+    DocumentDiffResult,
+    ParagraphDiffEvent,
+} from './document-diff-result.js';
