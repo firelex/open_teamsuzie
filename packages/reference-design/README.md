@@ -1,11 +1,36 @@
 # @teamsuzie/reference-design
 
-Reference documents (customer-uploaded canonical examples) decomposed into reusable structure and design metadata for downstream drafting agents.
+Reference documents (customer-uploaded canonical examples) decomposed into
+reusable structure + design metadata.
 
-This is a placeholder skeleton. Real exports land in tasks B5 (types + `decomposeDocx`), B6 (`decomposePptx` with continuation tagging), and B7 (prompt helper + `ReferenceDocStore` interface).
+## Two concepts
 
-## Scope
+- **Reference content** — markdown extraction of structure, sections, voice.
+  Used as system-prompt context for drafting.
+- **Reference design** — for DOCX, the original file used as
+  `pandoc --reference-doc` template at export time. For PPTX, deferred to v1.1.
 
-- Extracts markdown structure and voice from DOCX/PPTX uploads.
-- Retains the original source file path for later pandoc `--reference-doc` use.
-- Ships interfaces only — no concrete storage; agents bring their own (typically SQLite).
+## Usage
+
+```typescript
+import {
+  decomposeDocx,
+  useReferenceDesignInPrompt,
+} from '@teamsuzie/reference-design';
+
+const ref = await decomposeDocx(uploadedBytes, {
+  docType: 'ic-5pager',
+  displayName: 'IC5_Meridian.docx',
+  sourceFilePath: '/data/refs/ic5-meridian.docx',
+});
+
+// At draft time:
+const promptFragment = useReferenceDesignInPrompt(ref);
+// → include in system prompt; pass ref.sourceFilePath to exportMarkdownToDocx
+//   as the referenceDoc when generating output.
+```
+
+## Status
+
+v1: content extraction (DOCX + PPTX) + DOCX design via pandoc. v1.1:
+PPTX design preservation, structured per-section metadata.
