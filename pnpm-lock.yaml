@@ -1091,6 +1091,9 @@ importers:
       '@teamsuzie/agent-loop':
         specifier: workspace:*
         version: link:../agent-loop
+      '@teamsuzie/grid-review':
+        specifier: workspace:*
+        version: link:../grid-review
       mammoth:
         specifier: ^1.12.0
         version: 1.12.0
