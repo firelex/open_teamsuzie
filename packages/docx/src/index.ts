@@ -38,3 +38,10 @@ export {
     findEditParagraphIndex,
 } from './redline-view.js';
 export type { RedlineRun, RedlineParagraph } from './redline-view.js';
+export { proposeDocumentEdits } from './propose-edits.js';
+export type {
+    AppliedEdit,
+    ProposeEditError,
+    ProposeEditInput,
+    ProposeEditsResult,
+} from './propose-edits.js';
