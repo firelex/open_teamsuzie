@@ -33,3 +33,8 @@ export type {
 export type { Revision, AcceptRejectOptions } from './revisions.js';
 export { composeRedline, redlineDownloadFilename } from './compose-redline.js';
 export type { ComposeRedlineOptions } from './compose-redline.js';
+export {
+    extractRedlineParagraphs,
+    findEditParagraphIndex,
+} from './redline-view.js';
+export type { RedlineRun, RedlineParagraph } from './redline-view.js';
