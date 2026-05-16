@@ -1345,6 +1345,9 @@ importers:
       '@teamsuzie/citations':
         specifier: workspace:*
         version: link:../citations
+      '@teamsuzie/docx-diff':
+        specifier: workspace:*
+        version: link:../docx-diff
       '@teamsuzie/grid-review':
         specifier: workspace:*
         version: link:../grid-review
@@ -1407,6 +1410,18 @@ importers:
       typescript:
         specifier: ^5.8.2
         version: 5.9.3
+
+  packages/user-memory:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
 
   packages/workflows:
     dependencies:

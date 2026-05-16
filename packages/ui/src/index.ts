@@ -135,3 +135,4 @@ export * from './components/docx-preview.js';
 export * from './components/doc-find-bar.js';
 export * from './components/review-grid.js';
 export * from './components/column-header-editor.js';
+export * from './components/redline/index.js';
