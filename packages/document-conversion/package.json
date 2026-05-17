@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@teamsuzie/agent-loop": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/pdf": "workspace:*"
   },

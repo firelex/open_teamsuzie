@@ -968,6 +968,9 @@ importers:
 
   packages/document-conversion:
     dependencies:
+      '@teamsuzie/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
