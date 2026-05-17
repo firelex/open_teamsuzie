@@ -16,10 +16,32 @@ export interface RedlineSpanProps {
   revisionId?: number | string
   /** Truthy when the consumer wants the run to be clickable (e.g. side-panel focus sync). */
   onSelect?: (revisionId: number | string) => void
+  /** Renders the text wrapped in `<strong>`. Composes with `italic`. Does not override kind-based color/strikethrough. */
+  bold?: boolean
+  /** Renders the text wrapped in `<em>`. Composes with `bold`. */
+  italic?: boolean
 }
 
-export function RedlineSpan({ kind, text, revisionId, onSelect }: RedlineSpanProps) {
-  if (kind === 'equal') return <span>{text}</span>
+/**
+ * Wrap `text` in `<strong>`/`<em>` per the formatting flags. Kept
+ * outside the component body so both the equal and non-equal branches
+ * share the same composition rules: bold/italic add font-weight/style
+ * but never replace the kind-based color or strikethrough.
+ */
+function applyFormatting(
+  text: string,
+  bold: boolean | undefined,
+  italic: boolean | undefined,
+): React.ReactNode {
+  let inner: React.ReactNode = text
+  if (bold) inner = <strong>{inner}</strong>
+  if (italic) inner = <em>{inner}</em>
+  return inner
+}
+
+export function RedlineSpan({ kind, text, revisionId, onSelect, bold, italic }: RedlineSpanProps) {
+  const inner = applyFormatting(text, bold, italic)
+  if (kind === 'equal') return <span>{inner}</span>
   const clickable = onSelect != null && revisionId != null
   return (
     <span
@@ -45,7 +67,7 @@ export function RedlineSpan({ kind, text, revisionId, onSelect }: RedlineSpanPro
         clickable && 'cursor-pointer hover:ring-1 hover:ring-amber-400/60',
       )}
     >
-      {text}
+      {inner}
     </span>
   )
 }

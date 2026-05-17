@@ -21,12 +21,26 @@ export interface RedlineRun {
   text: string;
   /** OOXML `w:id` of the wrapping `<w:ins>` / `<w:del>`. Absent for `equal` runs. */
   revisionId?: number;
+  /** True when the run's `<w:rPr>` carries `<w:b/>` (without `w:val="0"`/`"false"`). Omitted when absent — keeps the wire payload tight. */
+  bold?: boolean;
+  /** True when the run's `<w:rPr>` carries `<w:i/>` (without `w:val="0"`/`"false"`). Omitted when absent. */
+  italic?: boolean;
 }
+
+/**
+ * Paragraph-level structural style mapped from `<w:pStyle w:val="..."/>`.
+ * We only surface heading levels 1–3; deeper levels and unrecognized
+ * style names fall back to `'normal'` because that's all the redline
+ * chrome renders.
+ */
+export type RedlineParagraphStyle = 'heading1' | 'heading2' | 'heading3' | 'normal';
 
 export interface RedlineParagraph {
   /** Body-paragraph index — matches `bodyParagraphTexts(file)[index]`. */
   index: number;
   runs: RedlineRun[];
+  /** Paragraph style derived from `<w:pPr><w:pStyle w:val="..."/>`. Omitted (treated as `'normal'`) when absent. */
+  style?: RedlineParagraphStyle;
 }
 
 /**
@@ -109,14 +123,13 @@ export function extractRedlineParagraphs(
   const out: RedlineParagraph[] = [];
   const paragraphs = collectParagraphs(body);
   for (let i = 0; i < paragraphs.length; i++) {
+    const pChildren = paragraphs[i]['w:p'] as XmlNode[];
     const runs: RedlineRun[] = [];
-    walkParagraphChildren(
-      paragraphs[i]['w:p'] as XmlNode[],
-      'equal',
-      undefined,
-      runs,
-    );
-    out.push({ index: i, runs: coalesceRuns(runs) });
+    walkParagraphChildren(pChildren, 'equal', undefined, runs);
+    const style = extractParagraphStyle(pChildren);
+    const para: RedlineParagraph = { index: i, runs: coalesceRuns(runs) };
+    if (style !== 'normal') para.style = style;
+    out.push(para);
   }
   return out;
 }
@@ -134,6 +147,9 @@ function walkParagraphChildren(
       if (text.length > 0) {
         const run: RedlineRun = { kind: inheritedKind, text };
         if (inheritedRevisionId !== undefined) run.revisionId = inheritedRevisionId;
+        const { bold, italic } = extractRunFormatting(c);
+        if (bold) run.bold = true;
+        if (italic) run.italic = true;
         out.push(run);
       }
     } else if (tag === 'w:ins' || tag === 'w:del') {
@@ -144,6 +160,74 @@ function walkParagraphChildren(
     }
     // w:pPr, w:bookmarkStart/End, w:sdt — no visible text contribution.
   }
+}
+
+/**
+ * Inspect a `<w:r>` element's `<w:rPr>` child for direct `<w:b/>` and
+ * `<w:i/>` formatting. We do NOT resolve style-table inheritance from
+ * `styles.xml` — only direct rPr is honored, which matches the
+ * markitdown → DOCX case (every bold run gets an explicit `<w:b/>`).
+ * If a theme-based bold ever shows up in the wild we'll revisit.
+ *
+ * OOXML allows `<w:b w:val="0"/>` (or `"false"`) to disable bold even
+ * when a parent style enables it — we treat those as "not bold" so the
+ * renderer doesn't over-bold. Any other `w:val` (including absent) is
+ * treated as enabled.
+ */
+function extractRunFormatting(rNode: XmlNode): {
+  bold: boolean;
+  italic: boolean;
+} {
+  const runChildren = (rNode['w:r'] ?? []) as XmlNode[];
+  const rPrNode = runChildren.find((c) => 'w:rPr' in c);
+  if (!rPrNode) return { bold: false, italic: false };
+  const rPrChildren = (rPrNode['w:rPr'] ?? []) as XmlNode[];
+  let bold = false;
+  let italic = false;
+  for (const c of rPrChildren) {
+    const tag = primary(c);
+    if (tag === 'w:b' && readToggle(c) !== false) bold = true;
+    else if (tag === 'w:i' && readToggle(c) !== false) italic = true;
+  }
+  return { bold, italic };
+}
+
+/**
+ * Read an OOXML toggle attribute (`w:val` on `<w:b>`, `<w:i>`, etc.).
+ * Returns `false` only when `w:val="0"` or `"false"`; absence of the
+ * attribute means "enabled" (the typical case for `<w:b/>`).
+ */
+function readToggle(node: XmlNode): boolean | undefined {
+  const attrs = node[':@'];
+  if (!attrs) return undefined;
+  const v = attrs['@_w:val'];
+  if (typeof v !== 'string') return undefined;
+  if (v === '0' || v.toLowerCase() === 'false') return false;
+  return true;
+}
+
+/**
+ * Read `<w:pPr><w:pStyle w:val="..."/></w:pPr>` and map the style id to
+ * a `RedlineParagraphStyle`. Matching is case-insensitive and tolerates
+ * dashes/spaces between "heading" and the level, so DOCX exports that
+ * use `"Heading2"`, `"heading 2"`, or `"heading-2"` all map to the same
+ * bucket. Anything that isn't a heading 1/2/3 falls back to `'normal'`.
+ */
+function extractParagraphStyle(pChildren: XmlNode[]): RedlineParagraphStyle {
+  const pPrNode = pChildren.find((c) => 'w:pPr' in c);
+  if (!pPrNode) return 'normal';
+  const pPrChildren = (pPrNode['w:pPr'] ?? []) as XmlNode[];
+  const pStyleNode = pPrChildren.find((c) => 'w:pStyle' in c);
+  if (!pStyleNode) return 'normal';
+  const attrs = pStyleNode[':@'];
+  if (!attrs) return 'normal';
+  const val = attrs['@_w:val'];
+  if (typeof val !== 'string') return 'normal';
+  const normalized = val.toLowerCase().replace(/[\s-]+/g, '');
+  if (normalized === 'heading1') return 'heading1';
+  if (normalized === 'heading2') return 'heading2';
+  if (normalized === 'heading3') return 'heading3';
+  return 'normal';
 }
 
 function extractRunText(rNode: XmlNode, isDeleted: boolean): string {
@@ -181,7 +265,9 @@ function coalesceRuns(runs: RedlineRun[]): RedlineRun[] {
     if (
       last &&
       last.kind === r.kind &&
-      last.revisionId === r.revisionId
+      last.revisionId === r.revisionId &&
+      !!last.bold === !!r.bold &&
+      !!last.italic === !!r.italic
     ) {
       last.text += r.text;
     } else {

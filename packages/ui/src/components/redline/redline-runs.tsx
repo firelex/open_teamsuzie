@@ -8,16 +8,34 @@ import { RedlineSpan } from "./redline-span"
  * output (drafter's `apply_playbook`).
  *
  * `kind` uses upstream nomenclature (`'insert'` / `'delete'` / `'equal'`).
+ *
+ * `bold`/`italic` are optional formatting flags forwarded from the
+ * OOXML walker — they wrap the rendered text in `<strong>`/`<em>` but
+ * never override the kind-based color/strikethrough. Omitted (undefined)
+ * means "not formatted"; both producers and consumers should keep them
+ * absent rather than emit `false` for every plain run.
  */
 export interface RedlineRun {
   kind: 'equal' | 'insert' | 'delete'
   text: string
   revisionId?: number | string
+  bold?: boolean
+  italic?: boolean
 }
+
+/**
+ * Paragraph-level structural style mapped from `<w:pPr><w:pStyle/>`.
+ * The renderer maps this to an `h1`/`h2`/`h3`/`p` element. Heading
+ * levels deeper than 3 collapse to `'normal'` upstream — we don't
+ * style anything below h3 in chrome.
+ */
+export type RedlineParagraphStyle = 'heading1' | 'heading2' | 'heading3' | 'normal'
 
 export interface RedlineParagraph {
   index: number
   runs: RedlineRun[]
+  /** Paragraph style. Defaults to `'normal'` when absent. */
+  style?: RedlineParagraphStyle
 }
 
 export interface RedlineRunsProps {
@@ -51,31 +69,51 @@ export function RedlineRuns({
   }
   return (
     <div ref={scrollRef} className={className}>
-      {paragraphs.map((p) => (
-        <p
-          key={p.index}
-          data-paragraph-index={p.index}
-          className={cn('whitespace-pre-wrap leading-relaxed', 'mb-3 last:mb-0')}
-        >
-          {p.runs.length === 0 ? (
-            <span className="text-muted-foreground">·</span>
-          ) : (
-            p.runs.map((run, i) => (
-              <RedlineSpan
-                key={i}
-                kind={run.kind}
-                text={run.text}
-                revisionId={run.revisionId}
-                onSelect={
-                  run.kind !== 'equal' && run.revisionId != null
-                    ? onRunSelect
-                    : undefined
-                }
-              />
-            ))
-          )}
-        </p>
-      ))}
+      {paragraphs.map((p) => {
+        const Tag =
+          p.style === 'heading1'
+            ? 'h1'
+            : p.style === 'heading2'
+              ? 'h2'
+              : p.style === 'heading3'
+                ? 'h3'
+                : 'p'
+        const tagClass =
+          p.style === 'heading1'
+            ? 'text-xl font-semibold mt-4 mb-2 first:mt-0'
+            : p.style === 'heading2'
+              ? 'text-lg font-semibold mt-3 mb-2 first:mt-0'
+              : p.style === 'heading3'
+                ? 'text-base font-semibold mt-2 mb-1 first:mt-0'
+                : 'mb-3 last:mb-0 leading-relaxed'
+        return (
+          <Tag
+            key={p.index}
+            data-paragraph-index={p.index}
+            className={cn('whitespace-pre-wrap', tagClass)}
+          >
+            {p.runs.length === 0 ? (
+              <span className="text-muted-foreground">·</span>
+            ) : (
+              p.runs.map((run, i) => (
+                <RedlineSpan
+                  key={i}
+                  kind={run.kind}
+                  text={run.text}
+                  revisionId={run.revisionId}
+                  bold={run.bold}
+                  italic={run.italic}
+                  onSelect={
+                    run.kind !== 'equal' && run.revisionId != null
+                      ? onRunSelect
+                      : undefined
+                  }
+                />
+              ))
+            )}
+          </Tag>
+        )
+      })}
     </div>
   )
 }
