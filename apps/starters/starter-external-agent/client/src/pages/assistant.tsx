@@ -9,8 +9,8 @@ import {
   PromptCardTitle,
   Square,
   ToolUseStatus,
-  cn,
   humanSize,
+  useChatComposer,
   useSelectedModel,
   type ArtifactSnapshot,
   type ToolEvent,
@@ -233,7 +233,6 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const prevStatus = useRef<'idle' | 'sending'>('idle');
   // Set while a /api/chat fetch is in flight so the user can stop it. The
   // server's res.on('close') handler aborts the upstream LLM call when the
   // socket goes away, so a fetch abort here propagates all the way through.
@@ -295,17 +294,6 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, historyLoaded]);
 
-  // After the agent finishes streaming (status: sending → idle), put focus
-  // back on the textarea so the user can keep typing without reaching for
-  // the mouse. useEffect (vs. inline setTimeout) ensures the focus call runs
-  // *after* React has re-rendered the textarea with disabled={false}.
-  useEffect(() => {
-    if (prevStatus.current === 'sending' && status === 'idle') {
-      textareaRef.current?.focus();
-    }
-    prevStatus.current = status;
-  }, [status]);
-
   async function uploadFiles(files: FileList) {
     setUploading(true);
     setError('');
@@ -336,9 +324,9 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     }).catch(() => undefined);
   }
 
-  async function sendMessage(overrideText?: string) {
-    const text = (overrideText ?? input).trim();
-    if (!text || status === 'sending') {
+  async function sendMessage(textArg: string) {
+    const text = textArg.trim();
+    if (!text) {
       return;
     }
 
@@ -388,7 +376,6 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
       nextUserMessage,
       { id: assistantId, role: 'assistant', content: '' },
     ]);
-    setInput('');
     setAttachments([]);
     setStatus('sending');
     setError('');
@@ -583,6 +570,17 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     abortRef.current?.abort();
   }
 
+  const isStreaming = status === 'sending';
+  const { handleKeyDown, handleSubmit, handleStop, canSend } = useChatComposer({
+    isStreaming,
+    onSend: (text) => {
+      void sendMessage(text);
+    },
+    onStop: stopStreaming,
+    text: input,
+    setText: setInput,
+  });
+
   async function newChat() {
     await fetch('/api/session/reset', {
       method: 'POST',
@@ -598,7 +596,6 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     if (chatId) navigate('/');
   }
 
-  const isStreaming = status === 'sending';
   const isEmpty = messages.length === 0;
   const showGreeting = isEmpty && historyLoaded && !chatId;
   const showLoading = !!chatId && !historyLoaded;
@@ -691,14 +688,8 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
               ref={textareaRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  void sendMessage();
-                }
-              }}
+              onKeyDown={handleKeyDown}
               placeholder={`Message ${agentName}`}
-              disabled={isStreaming}
               className="block w-full min-h-16 resize-none border-0 bg-transparent px-4 pt-3 text-[15px] outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
             <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
@@ -708,7 +699,7 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || isStreaming}
+                  disabled={uploading}
                   className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
                   aria-label="Attach files"
                 >
@@ -724,7 +715,7 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                   size="sm"
                   type="button"
                   variant="outline"
-                  onClick={stopStreaming}
+                  onClick={handleStop}
                   className="h-8 rounded-full px-4"
                   aria-label="Stop streaming"
                 >
@@ -734,8 +725,8 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
               ) : (
                 <Button
                   size="sm"
-                  onClick={() => void sendMessage()}
-                  disabled={!input.trim() && attachments.length === 0}
+                  onClick={() => handleSubmit()}
+                  disabled={!canSend && attachments.length === 0}
                   className="h-8 rounded-full px-4"
                 >
                   Send

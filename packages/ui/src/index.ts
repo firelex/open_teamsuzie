@@ -69,6 +69,11 @@ export type { LucideIcon } from 'lucide-react';
 export { useSelectedModel } from './hooks/use-selected-model.js';
 export { useAutoResizeTextarea } from './hooks/use-auto-resize-textarea.js';
 export type { UseAutoResizeTextareaOptions } from './hooks/use-auto-resize-textarea.js';
+export { useChatComposer } from './hooks/use-chat-composer.js';
+export type {
+  UseChatComposerOptions,
+  UseChatComposerResult,
+} from './hooks/use-chat-composer.js';
 export { usePersonas, useSelectedPersona } from './hooks/use-personas.js';
 export type {
   Persona,
