@@ -80,6 +80,16 @@ describe('rewriteQueryAsHypothetical', () => {
     expect(systemMsg).toContain(DEFAULT_HYDE_FORMAT_HINTS.text);
   });
 
+  it('falls back to DEFAULT_HYDE_FORMAT_HINTS.text when a custom map lacks both the formatKey and a text key', async () => {
+    const { fetchImpl, captured } = makeMockFetch('Whatever.');
+    await rewriteQueryAsHypothetical('does X apply?', 'nonexistent', {
+      ...baseOpts(fetchImpl),
+      formatHints: { qlog: 'Phrase as a single audit-trail sentence.' },
+    });
+    const systemMsg = captured[0]!.body.messages[0].content as string;
+    expect(systemMsg).toContain(DEFAULT_HYDE_FORMAT_HINTS.text);
+  });
+
   it('strips wrapping double-quotes from the response', async () => {
     const { fetchImpl } = makeMockFetch('"Delaware governs."');
     const out = await rewriteQueryAsHypothetical('q', 'text', baseOpts(fetchImpl));

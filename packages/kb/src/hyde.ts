@@ -117,9 +117,14 @@ export async function rewriteQueryAsHypothetical(
       `HyDE request returned ${response.status}: ${text.slice(0, 200)}`,
     );
   }
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
+  let data: { choices?: Array<{ message?: { content?: string } }> };
+  try {
+    data = (await response.json()) as typeof data;
+  } catch (err) {
+    throw new Error(
+      `HyDE response body was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
   const content = data.choices?.[0]?.message?.content?.trim() ?? '';
   if (!content) throw new Error('HyDE returned empty content');
   // Strip surrounding quotes the model sometimes adds despite the
