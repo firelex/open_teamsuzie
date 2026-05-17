@@ -20,3 +20,9 @@ export type { KbDocument, KbChunk, KbSearchHit, KbInsertInput } from './types.js
 
 export { WorkspaceRag } from './workspace-rag.js';
 export type { WorkspaceRagOptions, WorkspaceDocRecord } from './workspace-rag.js';
+
+export {
+  DEFAULT_HYDE_FORMAT_HINTS,
+  rewriteQueryAsHypothetical,
+} from './hyde.js';
+export type { HydeOptions } from './hyde.js';
