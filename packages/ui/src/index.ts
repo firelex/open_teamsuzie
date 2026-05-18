@@ -125,6 +125,7 @@ export * from './components/table.js';
 export * from './components/tabs.js';
 export * from './components/context-menu.js';
 export * from './components/textarea.js';
+export * from './components/theme-toggle.js';
 export * from './components/tool-call-card.js';
 export * from './components/tool-use-status.js';
 export * from './components/tooltip.js';
