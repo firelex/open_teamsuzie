@@ -1,2 +1,3 @@
-// Re-exports populated by Task 2 (buildRagRunCellAdapter) and Task 3 (makeStreamCompletion).
-export {};
+// Re-exports populated by Task 2 (makeStreamCompletion) and Task 3 (buildRagRunCellAdapter).
+export { makeStreamCompletion } from './stream-completion.js';
+export type { StreamCompletionOptions } from './stream-completion.js';
