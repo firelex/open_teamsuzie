@@ -1,0 +1,33 @@
+{
+  "name": "@teamsuzie/grid-review-rag",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RAG-driven RunCellAdapter for @teamsuzie/grid-review — HyDE retrieval + streaming completion. Extracted from suzielaw 2026-05-18.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/citations": "workspace:*",
+    "@teamsuzie/document-conversion": "workspace:*",
+    "@teamsuzie/grid-review": "workspace:*",
+    "@teamsuzie/kb": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
