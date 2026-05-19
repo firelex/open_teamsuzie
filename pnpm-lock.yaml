@@ -1247,13 +1247,28 @@ importers:
 
   packages/reference-design:
     dependencies:
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../db-sqlite
       '@teamsuzie/document-conversion':
         specifier: workspace:*
         version: link:../document-conversion
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      multer:
+        specifier: ^2.0.1
+        version: 2.1.1
     devDependencies:
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/multer':
+        specifier: ^2.0.0
+        version: 2.1.0
       '@types/node':
         specifier: ^22.10.5
         version: 22.19.17

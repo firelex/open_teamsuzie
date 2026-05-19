@@ -5,3 +5,9 @@ export { decomposePptx } from './decompose-pptx.js';
 export type { DecomposePptxOptions } from './decompose-pptx.js';
 export { useReferenceDesignInPrompt } from './prompt.js';
 export type { ReferenceDocStore } from './storage.js';
+
+// Added Phase 3a — concrete SQLite impl + Express router + migration.
+export { createReferenceStore, ReferenceStore } from './storage-sqlite.js';
+export type { ReferenceStoreOptions } from './storage-sqlite.js';
+export { REFERENCE_DESIGN_MIGRATIONS } from './migrations.js';
+export { createReferencesRouter } from './router.js';
