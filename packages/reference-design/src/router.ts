@@ -40,8 +40,8 @@ export function createReferencesRouter(store: ReferenceStore): Router {
     else res.json(ref);
   });
 
-  router.delete('/:id', (req: Request, res: Response) => {
-    store.delete(String(req.params.id));
+  router.delete('/:id', async (req: Request, res: Response) => {
+    await store.delete(String(req.params.id));
     res.status(204).end();
   });
 
