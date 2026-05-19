@@ -11,3 +11,7 @@ export { createReferenceStore, ReferenceStore } from './storage-sqlite.js';
 export type { ReferenceStoreOptions } from './storage-sqlite.js';
 export { REFERENCE_DESIGN_MIGRATIONS } from './migrations.js';
 export { createReferencesRouter } from './router.js';
+
+// Tool builder — extracted from suzie_pe_drafter Phase 3a Task 3
+export { buildDecomposeReferenceTool } from './tool.js';
+export type { DecomposeReferenceStoreLike } from './tool.js';

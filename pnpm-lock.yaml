@@ -1247,6 +1247,9 @@ importers:
 
   packages/reference-design:
     dependencies:
+      '@teamsuzie/agent-loop':
+        specifier: workspace:^
+        version: link:../agent-loop
       '@teamsuzie/db-sqlite':
         specifier: workspace:*
         version: link:../db-sqlite
