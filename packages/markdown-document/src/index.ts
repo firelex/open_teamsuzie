@@ -12,3 +12,6 @@ export type { ConvertDocxOptions, ConvertDocxResult } from './docx-import.js';
 
 export { draftColumnPrompt } from './column-draft.js';
 export type { ColumnDraftOptions, ColumnDraft } from './column-draft.js';
+
+export { buildDraftSectionTool } from './draft-section-tool.js';
+export type { LlmCall, BuildDraftSectionOptions } from './draft-section-tool.js';
