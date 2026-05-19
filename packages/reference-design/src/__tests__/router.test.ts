@@ -56,4 +56,9 @@ describe('createReferencesRouter', () => {
     });
     expect(r.status).toBe(400);
   });
+
+  it('DELETE /:id returns 404 when the reference does not exist', async () => {
+    const r = await fetch(`${baseUrl}/api/references/nope-does-not-exist`, { method: 'DELETE' });
+    expect(r.status).toBe(404);
+  });
 });

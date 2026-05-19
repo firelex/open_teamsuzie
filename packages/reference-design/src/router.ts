@@ -41,7 +41,13 @@ export function createReferencesRouter(store: ReferenceStore): Router {
   });
 
   router.delete('/:id', async (req: Request, res: Response) => {
-    await store.delete(String(req.params.id));
+    const id = String(req.params.id);
+    const existing = store.get(id);
+    if (!existing) {
+      res.status(404).end();
+      return;
+    }
+    await store.delete(id);
     res.status(204).end();
   });
 
