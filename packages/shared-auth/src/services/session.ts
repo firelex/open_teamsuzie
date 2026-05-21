@@ -34,7 +34,11 @@ export default class SessionService {
                 httpOnly: true,
                 maxAge: this.config.cookie.maxAge,
                 domain: this.config.cookie.domain || undefined,
-                sameSite: 'strict' as const
+                // Lax so the session cookie survives top-level cross-site
+                // redirects from OAuth providers (Google/Microsoft → us on
+                // /api/auth/<provider>/callback). Strict would drop the
+                // cookie on the callback and `oauthState` would be undefined.
+                sameSite: 'lax' as const
             }
         });
     }
