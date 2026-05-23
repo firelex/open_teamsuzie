@@ -2,6 +2,7 @@
 
 @source "../../../../../packages/ui/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
+@source "../node_modules/@teamsuzie/agent-runtime/dist/**/*.js";
 
 /* =============================================================================
    starter-external-agent-counsel — SuzieLaw-inspired Bauhaus law-office.

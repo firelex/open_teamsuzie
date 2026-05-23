@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "cd ../../../packages/agent-runtime && npx tsc",
-    "dev": "tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-omnibus-client dev & wait",
+    "dev": "AGENT_DEV_AUTH=true tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-omnibus-client dev & wait",
     "build": "tsc && pnpm --filter @teamsuzie/starter-external-agent-omnibus-client build",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
