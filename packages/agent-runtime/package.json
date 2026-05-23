@@ -1,0 +1,29 @@
+{
+  "name": "@teamsuzie/agent-runtime",
+  "version": "0.1.0",
+  "description": "Manifest-driven agent shell + Express boot + React app for SDK-based Team Suzie agents. The canonical runtime every starter and SuzieCode-generated app boots from.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./manifest": { "import": "./dist/manifest/index.js", "types": "./dist/manifest/index.d.ts" },
+    "./server": { "import": "./dist/server/index.js", "types": "./dist/server/index.d.ts" },
+    "./shell": { "import": "./dist/shell/AgentApp.js", "types": "./dist/shell/AgentApp.d.ts" },
+    "./presets": { "import": "./dist/presets/index.js", "types": "./dist/presets/index.d.ts" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}
