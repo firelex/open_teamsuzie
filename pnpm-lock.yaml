@@ -1414,10 +1414,62 @@ importers:
         version: 3.25.76
 
   packages/agent-runtime:
+    dependencies:
+      '@teamsuzie/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
+      '@teamsuzie/approvals':
+        specifier: workspace:*
+        version: link:../approvals
+      '@teamsuzie/chats':
+        specifier: workspace:*
+        version: link:../chats
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../db-sqlite
+      '@teamsuzie/markdown-document':
+        specifier: workspace:*
+        version: link:../markdown-document
+      '@teamsuzie/personas':
+        specifier: workspace:*
+        version: link:../personas
+      '@teamsuzie/platform-bridge':
+        specifier: workspace:*
+        version: link:../platform-bridge
+      '@teamsuzie/workflows':
+        specifier: workspace:*
+        version: link:../workflows
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      dotenv:
+        specifier: ^16.6.0
+        version: 16.6.1
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      multer:
+        specifier: ^2.0.1
+        version: 2.1.1
     devDependencies:
+      '@types/cors':
+        specifier: ^2.8.17
+        version: 2.8.19
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/multer':
+        specifier: ^2.0.0
+        version: 2.1.0
       '@types/node':
         specifier: ^22.10.5
         version: 22.19.17
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       typescript:
         specifier: ^5.7.3
         version: 5.8.3
