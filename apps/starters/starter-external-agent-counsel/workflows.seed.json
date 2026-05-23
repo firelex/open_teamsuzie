@@ -1,0 +1,26 @@
+[
+  {
+    "id": "system:explain-this",
+    "name": "Explain this in plain language",
+    "description": "Paste an excerpt and the agent rewrites it for a non-expert.",
+    "prompt": "Explain the following in plain language for a non-expert audience. Keep the structure, define jargon, and finish with three takeaways.\n\n[Paste excerpt here]",
+    "practiceAreas": [],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "system:summary-bullets",
+    "name": "Summarize as bullet points",
+    "description": "Turn a long document into a short bulleted summary.",
+    "prompt": "Summarize the following as bullet points. Lead with the headline, then 5–8 supporting bullets covering the main facts, decisions, and open questions.\n\n[Paste document here]",
+    "practiceAreas": [],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "system:checklist-from-notes",
+    "name": "Turn notes into a checklist",
+    "description": "Convert loose notes into an action checklist with owners.",
+    "prompt": "Convert the following notes into a checklist. Each item is a single action with an owner and a deadline if one is implied.\n\n[Paste notes here]",
+    "practiceAreas": [],
+    "outputMode": "inline_chat"
+  }
+]

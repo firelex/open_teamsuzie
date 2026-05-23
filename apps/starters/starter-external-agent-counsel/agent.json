@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "name": "Suzie Law",
+  "description": "AI legal assistant — drafts, reviews, and researches across practice areas.",
+  "theme": {
+    "id": "counsel",
+    "tokens": {
+      "colorScheme": "light",
+      "wordmarkStyle": "two-line",
+      "bg": "#fafaf7",
+      "panel": "#f5f5f0",
+      "border": "#e5e5dc",
+      "fg": "#0a0a0a",
+      "muted": "#6b6b66",
+      "primary": "#7a1820",
+      "sidebarBg": "#0a0a0a",
+      "sidebarFg": "#fafaf7",
+      "accentBar": {
+        "color": "#f4b400",
+        "width": "4px"
+      },
+      "fontSans": "IBM Plex Sans, system-ui, sans-serif",
+      "fontMono": "IBM Plex Mono, ui-monospace, monospace",
+      "fontDisplay": "Archivo, IBM Plex Sans, system-ui, sans-serif"
+    }
+  },
+  "modules": {
+    "assistant": true,
+    "history": true,
+    "personas": true,
+    "settings": true,
+    "library": true,
+    "matters": false,
+    "admin": false,
+    "reviews": false,
+    "billing": false,
+    "knowledgeBase": false
+  },
+  "components": {
+    "chat": true,
+    "toolActivity": true,
+    "files": true,
+    "approvals": false,
+    "citations": false,
+    "workspace": false,
+    "knowledgeBase": false
+  },
+  "persona": {
+    "id": "counsel",
+    "name": "Counsel",
+    "description": "Default legal assistant persona.",
+    "systemPrompt": "You are Counsel, a careful legal assistant. Cite sources when possible and flag uncertainty explicitly."
+  },
+  "tools": []
+}
