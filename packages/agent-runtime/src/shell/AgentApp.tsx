@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import type { Chat } from '@teamsuzie/chats';
+import { SidebarNavItem } from '@teamsuzie/ui';
 import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
@@ -83,13 +84,11 @@ export function AgentApp() {
           items={items}
           renderItem={(item) => (
             item.label === 'Assistant'
-              ? <AssistantNavLink />
-              : <NavLink to={item.to}>{item.label}</NavLink>
+              ? <SidebarNavItem asChild><AssistantNavLink /></SidebarNavItem>
+              : <SidebarNavItem asChild><NavLink to={item.to}>{item.label}</NavLink></SidebarNavItem>
           )}
           footer={mods.settings ? (
-            <div className="border-t border-current/20 px-5 py-4">
-              <NavLink to="/settings">Settings</NavLink>
-            </div>
+            <SidebarNavItem asChild><NavLink to="/settings">Settings</NavLink></SidebarNavItem>
           ) : null}
         />
       }

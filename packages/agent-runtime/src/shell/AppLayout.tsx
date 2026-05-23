@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
+import { AppShell, AppShellMain } from '@teamsuzie/ui';
 
 export function AppLayout({ sidebar, children }: { sidebar: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <AppShell>
       {sidebar}
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
+      <AppShellMain>{children}</AppShellMain>
+    </AppShell>
   );
 }
