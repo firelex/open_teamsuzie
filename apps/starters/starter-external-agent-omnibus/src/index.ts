@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { startAgent } from '@teamsuzie/agent-runtime';
+import { startAgent } from '@teamsuzie/agent-runtime/server';
 
 startAgent({
   manifestPath: './agent.json',
