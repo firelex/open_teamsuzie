@@ -857,42 +857,12 @@ importers:
 
   apps/starters/starter-external-agent-counsel:
     dependencies:
-      '@teamsuzie/agent-loop':
+      '@teamsuzie/agent-runtime':
         specifier: workspace:*
-        version: link:../../../packages/agent-loop
-      '@teamsuzie/approvals':
-        specifier: workspace:*
-        version: link:../../../packages/approvals
-      '@teamsuzie/chats':
-        specifier: workspace:*
-        version: link:../../../packages/chats
-      '@teamsuzie/db-sqlite':
-        specifier: workspace:*
-        version: link:../../../packages/db-sqlite
-      '@teamsuzie/markdown-document':
-        specifier: workspace:*
-        version: link:../../../packages/markdown-document
-      '@teamsuzie/personas':
-        specifier: workspace:*
-        version: link:../../../packages/personas
-      '@teamsuzie/platform-bridge':
-        specifier: workspace:*
-        version: link:../../../packages/platform-bridge
-      '@teamsuzie/workflows':
-        specifier: workspace:*
-        version: link:../../../packages/workflows
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.6
+        version: link:../../../packages/agent-runtime
       dotenv:
         specifier: ^16.6.0
         version: 16.6.1
-      express:
-        specifier: ^5.1.0
-        version: 5.2.1
-      multer:
-        specifier: ^2.0.1
-        version: 2.1.1
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
