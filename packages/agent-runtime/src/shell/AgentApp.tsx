@@ -9,7 +9,7 @@ import {
   AssistantPage, LibraryPage, PersonasPage, HistoryPage, SettingsPage,
 } from '../pages/index.js';
 import { DEFAULT_MODULES } from '../manifest/defaults.js';
-import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
+import type { AgentManifest, ManifestModules, ManifestPrompt } from '../manifest/schema.js';
 
 interface ManifestResponse { manifest: AgentManifest }
 interface HealthResponse {
@@ -21,9 +21,15 @@ function resolveModules(m: AgentManifest | null): ManifestModules {
   return { ...DEFAULT_MODULES, ...((m?.modules) ?? {}) };
 }
 
-function AssistantChatRoute({ agentName }: { agentName: string }) {
+function AssistantChatRoute({
+  agentName,
+  prompts,
+}: {
+  agentName: string;
+  prompts?: ManifestPrompt[];
+}) {
   const { chatId } = useParams<{ chatId: string }>();
-  return <AssistantPage agentName={agentName} chatId={chatId} />;
+  return <AssistantPage agentName={agentName} chatId={chatId} prompts={prompts} />;
 }
 
 function AssistantNavLink() {
@@ -94,9 +100,9 @@ export function AgentApp() {
       }
     >
       <Routes>
-        <Route path="/" element={<AssistantPage agentName={agentName} />} />
-        <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
-        {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
+        <Route path="/" element={<AssistantPage agentName={agentName} prompts={manifest?.prompts} />} />
+        <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} prompts={manifest?.prompts} />} />
+        {mods.library  && <Route path="/library"  element={<LibraryPage prompts={manifest?.prompts} />} />}
         {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
         {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
         {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}

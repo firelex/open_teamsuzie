@@ -36,5 +36,27 @@
     "description": "Default legal assistant persona.",
     "systemPrompt": "You are Counsel, a careful legal assistant. Cite sources when possible and flag uncertainty explicitly."
   },
+  "prompts": [
+    {
+      "title": "Summarize a contract",
+      "subtitle": "Pull out the key terms, parties, and obligations.",
+      "prompt": "Summarize the attached contract. Identify the parties, effective dates, key obligations, termination rights, and any unusual clauses worth flagging."
+    },
+    {
+      "title": "Draft a memo",
+      "subtitle": "Outline a research memo on a specific legal question.",
+      "prompt": "Draft a research memo on [legal question]. Structure it as: question presented, brief answer, facts, discussion (with authorities), conclusion."
+    },
+    {
+      "title": "Compare two clauses",
+      "subtitle": "Side-by-side analysis of differences and risk.",
+      "prompt": "Compare these two clauses side-by-side. Identify substantive differences and assess which is more favorable to [party] and why."
+    },
+    {
+      "title": "Plain-language explanation",
+      "subtitle": "Translate dense legal text for a non-lawyer.",
+      "prompt": "Explain the following in plain language for a non-lawyer client. Define jargon and finish with three takeaways.\n\n[Paste excerpt here]"
+    }
+  ],
   "tools": []
 }

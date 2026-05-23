@@ -22,6 +22,7 @@ import {
   useWorkflows,
   type Workflow,
 } from '@teamsuzie/ui';
+import type { ManifestPrompt } from '../manifest/schema.js';
 
 /**
  * Library — real workflow CRUD backed by `@teamsuzie/workflows`. The
@@ -38,7 +39,12 @@ import {
  *
  * To opt into those, see suzielaw's Library implementation.
  */
-export function LibraryPage() {
+export interface LibraryPageProps {
+  /** Optional manifest-driven starter prompts shown above the workflows list. */
+  prompts?: ManifestPrompt[];
+}
+
+export function LibraryPage({ prompts }: LibraryPageProps = {}) {
   const wf = useWorkflows();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -53,6 +59,17 @@ export function LibraryPage() {
     sessionStorage.setItem(
       'counsel:pending-workflow',
       JSON.stringify({ id: w.id, name: w.name, prompt: w.prompt }),
+    );
+    navigate('/');
+  }
+
+  function runPrompt(p: ManifestPrompt) {
+    // Mirror the workflow hand-off: stash the prompt body in sessionStorage,
+    // navigate back to the assistant which picks it up on mount and prefills
+    // the composer. Prompts don't have an id like workflows do.
+    sessionStorage.setItem(
+      'counsel:pending-prompt',
+      JSON.stringify({ name: p.title, prompt: p.prompt ?? '' }),
     );
     navigate('/');
   }
@@ -100,6 +117,35 @@ export function LibraryPage() {
           <div className="mb-4 rounded-[2px] border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive">
             {wf.error}
           </div>
+        )}
+
+        {prompts && prompts.length > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
+              Prompts
+            </h2>
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {prompts.map((p) => (
+                <li
+                  key={p.title}
+                  className="flex flex-col gap-2 border border-border bg-card p-4 transition-colors hover:border-foreground/40 hover:bg-muted/30"
+                >
+                  <button
+                    type="button"
+                    onClick={() => runPrompt(p)}
+                    className="block flex-1 text-left"
+                  >
+                    <h3 className="text-[15px] font-semibold tracking-[-0.005em] text-foreground">
+                      {p.title}
+                    </h3>
+                    <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
+                      {p.subtitle}
+                    </p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {wf.loading ? (

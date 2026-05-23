@@ -34,5 +34,27 @@
     "id": "default", "name": "Assistant",
     "systemPrompt": "You are a helpful assistant. Answer clearly and use tools when they help."
   },
+  "prompts": [
+    {
+      "title": "Explain this starter",
+      "subtitle": "Summarize what this app does and how streaming works.",
+      "prompt": "Explain what this starter chat app does and how streaming flows end to end."
+    },
+    {
+      "title": "Draft a system prompt",
+      "subtitle": "Write a system prompt for a research assistant.",
+      "prompt": "Draft a clear system prompt for a focused research assistant."
+    },
+    {
+      "title": "Walk me through SSE",
+      "subtitle": "How server-sent events carry chat chunks.",
+      "prompt": "Walk me through how SSE carries chat chunks from server to client."
+    },
+    {
+      "title": "Ways to extend",
+      "subtitle": "Suggest the next features for a real app.",
+      "prompt": "Suggest the next features I should add to turn this starter into a real app."
+    }
+  ],
   "tools": []
 }

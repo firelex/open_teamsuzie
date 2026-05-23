@@ -15,6 +15,7 @@ import {
   type Workflow,
 } from '@teamsuzie/ui';
 import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats';
+import type { ManifestPrompt } from '../manifest/schema.js';
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
 
@@ -93,11 +94,11 @@ function SparkleIcon() {
   );
 }
 
-interface PromptIdea {
-  title: string;
-  subtitle: string;
-  prompt: string;
-}
+/**
+ * Internal prompt shape mirrors {@link ManifestPrompt} from the manifest
+ * schema so callers can pass manifest prompts directly to the greeting tiles.
+ */
+type PromptIdea = ManifestPrompt;
 
 const PROMPTS: PromptIdea[] = [
   {
@@ -206,7 +207,7 @@ function Greeting({
           <button
             key={card.title}
             type="button"
-            onClick={() => onSelect(card.prompt)}
+            onClick={() => onSelect(card.prompt ?? card.title)}
             className="group rounded-[2px] border border-border bg-card p-5 text-left transition-colors hover:border-foreground/40 hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400"
           >
             <h3 className="text-[15px] font-semibold leading-[1.3] tracking-[-0.005em] text-foreground">
@@ -226,9 +227,11 @@ export interface AssistantPageProps {
   agentName: string;
   /** When set, the page is bound to a persisted top-level Assistant chat. */
   chatId?: string;
+  /** Optional starter prompts shown as tiles on the greeting page. Falls back to generic defaults. */
+  prompts?: ManifestPrompt[];
 }
 
-export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
+export function AssistantPage({ agentName, chatId, prompts }: AssistantPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   // Stable per-render-tab session id used for paperclip uploads. When chatId
@@ -265,6 +268,19 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
         setInput(parsed.prompt);
         setActiveWorkflow({ id: parsed.id, name: parsed.name });
       }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Library prompt tiles also hand off via sessionStorage; pick up once on
+  // mount and prefill the composer. Prompts (unlike workflows) don't have an
+  // id we need to track, so we just drop the body into the input.
+  useEffect(() => {
+    const raw = sessionStorage.getItem('counsel:pending-prompt');
+    if (!raw) return;
+    sessionStorage.removeItem('counsel:pending-prompt');
+    try {
+      const parsed = JSON.parse(raw) as { name?: string; prompt?: string };
+      if (parsed?.prompt) setInput(parsed.prompt);
     } catch { /* ignore */ }
   }, []);
 
@@ -671,7 +687,7 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
         ) : showGreeting ? (
           <Greeting
             name={agentName}
-            prompts={PROMPTS}
+            prompts={prompts && prompts.length > 0 ? prompts : PROMPTS}
             onSelect={(prompt) => void sendMessage(prompt)}
           />
         ) : (
