@@ -1,0 +1,106 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import type { Chat } from '@teamsuzie/chats';
+import { AppLayout } from './AppLayout.js';
+import { Sidebar, type NavItem } from './Sidebar.js';
+import { Wordmark } from './Wordmark.js';
+import {
+  AssistantPage, LibraryPage, PersonasPage, HistoryPage, SettingsPage,
+} from '../pages/index.js';
+import {
+  DEFAULT_MODULES, type AgentManifest, type ManifestModules,
+} from '../manifest/index.js';
+
+interface ManifestResponse { manifest: AgentManifest }
+interface HealthResponse {
+  title: string;
+  agent: { name: string; model?: string; reachable?: boolean };
+}
+
+function resolveModules(m: AgentManifest | null): ManifestModules {
+  return { ...DEFAULT_MODULES, ...((m?.modules) ?? {}) };
+}
+
+function AssistantChatRoute({ agentName }: { agentName: string }) {
+  const { chatId } = useParams<{ chatId: string }>();
+  return <AssistantPage agentName={agentName} chatId={chatId} />;
+}
+
+function AssistantNavLink() {
+  const [chats, setChats] = useState<Chat[]>([]);
+  const location = useLocation();
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch('/api/chats');
+      if (!res.ok) return;
+      const data = (await res.json()) as { items: Chat[] };
+      setChats(data.items);
+    } catch { /* best effort */ }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh, location.pathname]);
+  const to = chats[0]?.id ? `/c/${encodeURIComponent(chats[0].id)}` : '/';
+  const isActive = location.pathname === '/' || location.pathname.startsWith('/c/');
+  return <Link to={to} aria-current={isActive ? 'page' : undefined}>Assistant</Link>;
+}
+
+export function AgentApp() {
+  const [manifest, setManifest] = useState<AgentManifest | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const [m, h] = await Promise.all([
+          fetch('/api/manifest').then((r) => r.json() as Promise<ManifestResponse>),
+          fetch('/api/health').then((r) => r.json() as Promise<HealthResponse>),
+        ]);
+        if (!cancelled) { setManifest(m.manifest); setHealth(h); }
+      } catch { /* best effort */ }
+    };
+    void refresh();
+    const id = window.setInterval(() => void refresh(), 5000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
+
+  const mods = resolveModules(manifest);
+  const title = manifest?.name ?? health?.title ?? 'Agent';
+  const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
+  const theme = manifest?.theme ?? { id: 'default' };
+
+  const items: NavItem[] = [];
+  if (mods.library)  items.push({ to: '/library',  label: 'Library',  testId: 'nav-library' });
+  if (mods.personas) items.push({ to: '/personas', label: 'Personas', testId: 'nav-personas' });
+  if (mods.history)  items.push({ to: '/history',  label: 'History',  testId: 'nav-history' });
+
+  return (
+    <AppLayout
+      sidebar={
+        <Sidebar
+          theme={theme}
+          header={<Wordmark title={title} theme={theme} />}
+          items={items}
+          renderItem={(item) => (
+            item.label === 'Assistant'
+              ? <AssistantNavLink />
+              : <NavLink to={item.to}>{item.label}</NavLink>
+          )}
+          footer={mods.settings ? (
+            <div className="border-t border-current/20 px-5 py-4">
+              <NavLink to="/settings">Settings</NavLink>
+            </div>
+          ) : null}
+        />
+      }
+    >
+      <Routes>
+        <Route path="/" element={<AssistantPage agentName={agentName} />} />
+        <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
+        {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
+        {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
+        {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
+        {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
+      </Routes>
+    </AppLayout>
+  );
+}
