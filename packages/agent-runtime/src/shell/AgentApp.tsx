@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import type { Chat } from '@teamsuzie/chats';
 import { SidebarNavItem } from '@teamsuzie/ui';
@@ -32,7 +32,9 @@ function AssistantChatRoute({
   return <AssistantPage agentName={agentName} chatId={chatId} prompts={prompts} />;
 }
 
-function AssistantNavLink() {
+type AssistantNavLinkProps = Omit<ComponentProps<typeof Link>, 'to' | 'aria-current' | 'children'>;
+
+function AssistantNavLink(props: AssistantNavLinkProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const location = useLocation();
   const refresh = useCallback(async () => {
@@ -46,7 +48,7 @@ function AssistantNavLink() {
   useEffect(() => { void refresh(); }, [refresh, location.pathname]);
   const to = chats[0]?.id ? `/c/${encodeURIComponent(chats[0].id)}` : '/';
   const isActive = location.pathname === '/' || location.pathname.startsWith('/c/');
-  return <Link to={to} aria-current={isActive ? 'page' : undefined}>Assistant</Link>;
+  return <Link {...props} to={to} aria-current={isActive ? 'page' : undefined}>Assistant</Link>;
 }
 
 export function AgentApp() {
