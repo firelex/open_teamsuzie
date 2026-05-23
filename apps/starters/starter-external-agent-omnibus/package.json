@@ -1,0 +1,22 @@
+{
+  "name": "@teamsuzie/starter-external-agent-omnibus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "cd ../../../packages/agent-runtime && npx tsc",
+    "dev": "tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-omnibus-client dev & wait",
+    "build": "tsc && pnpm --filter @teamsuzie/starter-external-agent-omnibus-client build",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/agent-runtime": "workspace:*",
+    "dotenv": "^16.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

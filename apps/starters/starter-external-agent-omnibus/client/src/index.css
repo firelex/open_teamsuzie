@@ -1,0 +1,230 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+/* =============================================================================
+   starter-external-agent-counsel — SuzieLaw-inspired Bauhaus law-office.
+
+   Visually faithful to `../../../../suzielaw/apps/suzielaw/client/src/index.css`
+   (the reference downstream app), down to token values and font choices. The
+   point is for an agent forked from this starter to feel like SuzieLaw without
+   re-deriving the design system from scratch.
+
+   The personality:
+     - Type:  Archivo for display/headings, IBM Plex Sans for UI body,
+              IBM Plex Mono for tabular numerics, IDs, labels.
+     - Color: warm parchment ground, ink-black foreground, saffron accent,
+              oxblood reserved for destructive only. Restrained and geometric.
+     - Form:  Sharp corners (radii ≈ 0), hairline borders, decorative grid
+              rules. No drop shadows; uses crisp ink lines for separation.
+
+   TODO(open_teamsuzie): the bauhaus utilities (.display-hero, .label-caps,
+   .label-mono, .rule-hairline, .grid-rules, .stagger-in) live duplicated
+   in both this starter and `apps/suzielaw/client/src/index.css`. Once the
+   pattern stabilises they should move to `@teamsuzie/ui` (a `bauhaus.css`
+   or similar) so the starter and the real app stay in lock-step from one
+   import.
+   ========================================================================== */
+
+@theme {
+  /* Type stack — Archivo display, Plex Sans body, Plex Mono numerics. */
+  --font-sans:    "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Archivo", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif:   "IBM Plex Serif", "Iowan Old Style", Georgia, serif;
+
+  /* Core palette — light (parchment / ink / saffron) */
+  --color-background:           oklch(96.5% 0.012 90);   /* warm parchment */
+  --color-foreground:           oklch(14%   0.005 60);   /* near-black ink */
+  --color-card:                 oklch(99%   0.006 90);
+  --color-card-foreground:      oklch(14%   0.005 60);
+  --color-popover:              oklch(99%   0.006 90);
+  --color-popover-foreground:   oklch(14%   0.005 60);
+  --color-primary:              oklch(14%   0.005 60);   /* ink-black — the Bauhaus block */
+  --color-primary-foreground:   oklch(96.5% 0.012 90);
+  --color-secondary:            oklch(91%   0.018 90);
+  --color-secondary-foreground: oklch(14%   0.005 60);
+  --color-muted:                oklch(91%   0.018 90);
+  --color-muted-foreground:     oklch(38%   0.010 60);
+  --color-accent:               oklch(78%   0.155 78);   /* saffron — the warm punch */
+  --color-accent-foreground:    oklch(14%   0.005 60);
+  --color-destructive:          oklch(42%   0.150 27);   /* oxblood (destructive only) */
+  --color-destructive-foreground: oklch(96.5% 0.012 90);
+  --color-border:               oklch(14%   0.005 60 / 0.18);
+  --color-input:                oklch(14%   0.005 60 / 0.22);
+  --color-ring:                 oklch(78%   0.155 78);
+  --color-success:              oklch(45% 0.10 150);
+
+  /* Saffron ramp — explicit utility for the brand accent. */
+  --color-saffron-50:  #fdf6e3;
+  --color-saffron-100: #fae9b4;
+  --color-saffron-200: #f5d77a;
+  --color-saffron-300: #efc349;
+  --color-saffron-400: #e8b13a;
+  --color-saffron-500: #d99a2b;
+  --color-saffron-600: #b67c20;
+  --color-saffron-700: #8d5e18;
+  --color-saffron-800: #674313;
+  --color-saffron-900: #3e2b0d;
+
+  /* Ink ramp */
+  --color-ink-50:  #f5f3ee;
+  --color-ink-100: #e8e4dc;
+  --color-ink-200: #cfc8bd;
+  --color-ink-300: #a89e8e;
+  --color-ink-400: #7a7062;
+  --color-ink-500: #4f483d;
+  --color-ink-600: #34302a;
+  --color-ink-700: #221f1b;
+  --color-ink-800: #15140f;
+  --color-ink-900: #0c0b08;
+
+  /* Radii — sharp, geometric. */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+
+  --shadow-brand: 0 0 0 1px oklch(14% 0.005 60);
+}
+
+/* Dark theme — near-black ground, ivory ink, same saffron accent. */
+@layer base {
+  :root[data-theme="dark"] {
+    --color-background:           oklch(13%  0.008 80);
+    --color-foreground:           oklch(94%  0.010 90);
+    --color-card:                 oklch(17%  0.010 80);
+    --color-card-foreground:      oklch(94%  0.010 90);
+    --color-popover:              oklch(17%  0.010 80);
+    --color-popover-foreground:   oklch(94%  0.010 90);
+    --color-primary:              oklch(94%  0.010 90);
+    --color-primary-foreground:   oklch(13%  0.008 80);
+    --color-secondary:            oklch(22%  0.010 80);
+    --color-secondary-foreground: oklch(94%  0.010 90);
+    --color-muted:                oklch(22%  0.010 80);
+    --color-muted-foreground:     oklch(64%  0.012 80);
+    --color-accent:               oklch(78%  0.155 78);
+    --color-accent-foreground:    oklch(13%  0.008 80);
+    --color-destructive:          oklch(58%  0.180 27);
+    --color-destructive-foreground: oklch(94% 0.010 90);
+    --color-border:               oklch(94%  0.010 90 / 0.16);
+    --color-input:                oklch(94%  0.010 90 / 0.22);
+    --color-ring:                 oklch(78%  0.155 78);
+    --shadow-brand: 0 0 0 1px oklch(94% 0.010 90 / 0.6);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html { color-scheme: light; }
+  :root[data-theme="dark"], :root[data-theme="dark"] body { color-scheme: dark; }
+
+  body {
+    @apply m-0 min-h-screen bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Tabular numerics — legal docs are full of dates, amounts, citations. */
+  table, [data-slot="data-table"], .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  button, textarea, input { font: inherit; }
+
+  #root { @apply min-h-screen; }
+
+  /* Headings adopt the display face. Archivo 700 anchors the bauhaus block
+     without screaming; reserve 800 for the giant hero via .display-hero. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+}
+
+@layer utilities {
+  /* --- Bauhaus decorative utilities (mirror suzielaw) --- */
+
+  .text-saffron   { color: var(--color-saffron-400); }
+  .bg-saffron     { background-color: var(--color-saffron-400); }
+  .border-saffron { border-color: var(--color-saffron-400); }
+  .ring-saffron   { --tw-ring-color: var(--color-saffron-400); }
+
+  /* Hairline 1px rule — preferred separator on the parchment ground. */
+  .rule-hairline {
+    background-color: currentColor;
+    height: 1px;
+    opacity: 0.18;
+  }
+
+  /* Bold/mono section caps — engineering-doc feel for system labels. */
+  .label-caps {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.6875rem;
+  }
+  .label-mono {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    font-size: 0.6875rem;
+  }
+
+  /* Display headlines — Archivo 800, tight tracking. */
+  .display-hero {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+  }
+
+  /* Grid-rule backdrop — faint vertical lines for hero sections. */
+  .grid-rules {
+    background-image:
+      linear-gradient(to right, oklch(14% 0.005 60 / 0.05) 1px, transparent 1px);
+    background-size: 96px 100%;
+  }
+
+  /* --- Motion --- */
+
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0);    opacity: 0.35; }
+    40%           { transform: translateY(-3px); opacity: 1; }
+  }
+  .typing-dot {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bauhaus-stagger-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .stagger-in {
+    animation: bauhaus-stagger-in 0.5s ease-out both;
+  }
+  .stagger-in-1 { animation-delay: 0.05s; }
+  .stagger-in-2 { animation-delay: 0.15s; }
+  .stagger-in-3 { animation-delay: 0.25s; }
+  .stagger-in-4 { animation-delay: 0.35s; }
+  .stagger-in-5 { animation-delay: 0.45s; }
+  .stagger-in-6 { animation-delay: 0.55s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot, .stagger-in { animation: none; }
+  }
+}
