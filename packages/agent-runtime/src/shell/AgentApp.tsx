@@ -67,7 +67,9 @@ export function AgentApp() {
   const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
   const theme = manifest?.theme ?? { id: 'default' };
 
-  const items: NavItem[] = [];
+  const items: NavItem[] = [
+    { to: '/', label: 'Assistant', testId: 'nav-assistant' },
+  ];
   if (mods.library)  items.push({ to: '/library',  label: 'Library',  testId: 'nav-library' });
   if (mods.personas) items.push({ to: '/personas', label: 'Personas', testId: 'nav-personas' });
   if (mods.history)  items.push({ to: '/history',  label: 'History',  testId: 'nav-history' });

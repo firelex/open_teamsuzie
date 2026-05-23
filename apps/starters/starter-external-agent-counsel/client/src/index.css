@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../node_modules/@teamsuzie/ui/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 @source "../node_modules/@teamsuzie/agent-runtime/dist/**/*.js";
 
