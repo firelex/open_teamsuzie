@@ -7,9 +7,8 @@ import { Wordmark } from './Wordmark.js';
 import {
   AssistantPage, LibraryPage, PersonasPage, HistoryPage, SettingsPage,
 } from '../pages/index.js';
-import {
-  DEFAULT_MODULES, type AgentManifest, type ManifestModules,
-} from '../manifest/index.js';
+import { DEFAULT_MODULES } from '../manifest/defaults.js';
+import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
 
 interface ManifestResponse { manifest: AgentManifest }
 interface HealthResponse {
