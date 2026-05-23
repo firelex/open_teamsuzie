@@ -885,6 +885,9 @@ importers:
 
   apps/starters/starter-external-agent-counsel/client:
     dependencies:
+      '@teamsuzie/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../../packages/agent-runtime
       '@teamsuzie/chats':
         specifier: workspace:*
         version: link:../../../../packages/chats
