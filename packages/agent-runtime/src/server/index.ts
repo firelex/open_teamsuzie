@@ -113,6 +113,10 @@ export function createApp(opts: StartAgentOptions): AppHandles {
         practiceAreas: p.practiceAreas ?? [],
         outputMode: 'inline_chat' as const,
         columnConfig: null,
+        // Preserve the manifest's tile-on-Assistant-homepage semantic. The
+        // manifest's `featured` is opt-in; treat undefined as true so the
+        // pre-flag default of "all manifest prompts are tiles" is preserved.
+        featured: p.featured ?? true,
       }));
       workflowsStore.seedAsUserIfEmpty(
         `prompts:${manifestPath}`, promptSeeds, OWNER_ID,

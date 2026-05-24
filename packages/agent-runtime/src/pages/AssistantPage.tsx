@@ -10,12 +10,12 @@ import {
   humanSize,
   useChatComposer,
   useSelectedModel,
+  useWorkflows,
   type ArtifactSnapshot,
   type ToolEvent,
   type Workflow,
 } from '@teamsuzie/ui';
 import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats';
-import type { ManifestPrompt } from '../manifest/schema.js';
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
 
@@ -95,10 +95,17 @@ function SparkleIcon() {
 }
 
 /**
- * Internal prompt shape mirrors {@link ManifestPrompt} from the manifest
- * schema so callers can pass manifest prompts directly to the greeting tiles.
+ * Internal prompt shape for the greeting tiles. Workflows from
+ * `/api/workflows` are mapped into this shape — `title` = workflow name,
+ * `subtitle` = description, `prompt` = workflow prompt body. The static
+ * fallback below is used only when no featured workflows are available
+ * (e.g. before the workflows seed lands on first boot).
  */
-type PromptIdea = ManifestPrompt;
+interface PromptIdea {
+  title: string;
+  subtitle: string;
+  prompt: string;
+}
 
 const PROMPTS: PromptIdea[] = [
   {
@@ -207,7 +214,7 @@ function Greeting({
           <button
             key={card.title}
             type="button"
-            onClick={() => onSelect(card.prompt ?? card.title)}
+            onClick={() => onSelect(card.prompt || card.title)}
             className="group rounded-[2px] border border-border bg-card p-5 text-left transition-colors hover:border-foreground/40 hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400"
           >
             <h3 className="text-[15px] font-semibold leading-[1.3] tracking-[-0.005em] text-foreground">
@@ -227,11 +234,24 @@ export interface AssistantPageProps {
   agentName: string;
   /** When set, the page is bound to a persisted top-level Assistant chat. */
   chatId?: string;
-  /** Optional starter prompts shown as tiles on the greeting page. Falls back to generic defaults. */
-  prompts?: ManifestPrompt[];
 }
 
-export function AssistantPage({ agentName, chatId, prompts }: AssistantPageProps) {
+export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
+  // Starter tiles on the greeting page come from the workflows store —
+  // every workflow with `featured: true` is rendered (capped at 4 for
+  // layout). The workflows store is seeded from manifest.prompts on first
+  // boot, so out-of-the-box behavior matches the pre-collapse manifest read.
+  const { workflows: allWorkflows } = useWorkflows();
+  const featuredPrompts = useMemo<PromptIdea[]>(() => {
+    return allWorkflows
+      .filter((w) => w.featured)
+      .slice(0, 4)
+      .map((w) => ({
+        title: w.name,
+        subtitle: w.description,
+        prompt: w.prompt,
+      }));
+  }, [allWorkflows]);
   const navigate = useNavigate();
   const location = useLocation();
   // Stable per-render-tab session id used for paperclip uploads. When chatId
@@ -687,10 +707,7 @@ export function AssistantPage({ agentName, chatId, prompts }: AssistantPageProps
         ) : showGreeting ? (
           <Greeting
             name={agentName}
-            prompts={(() => {
-              const featured = (prompts ?? []).filter((p) => p.featured);
-              return featured.length > 0 ? featured.slice(0, 4) : PROMPTS;
-            })()}
+            prompts={featuredPrompts.length > 0 ? featuredPrompts : PROMPTS}
             onSelect={(prompt) => void sendMessage(prompt)}
           />
         ) : (

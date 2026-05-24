@@ -114,4 +114,13 @@ export const WORKFLOWS_MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    // Featured flag — when true, hosts surface the workflow as a starter
+    // tile on the Assistant landing page (typically up to 4). When false,
+    // the workflow is Library-only. Defaults to 0 so existing rows keep
+    // their pre-flag behavior; the agent-runtime seed sets this from the
+    // manifest prompt's `featured` field.
+    name: '20260524_workflows_featured',
+    up: `ALTER TABLE workflows ADD COLUMN featured INTEGER NOT NULL DEFAULT 0;`,
+  },
 ];

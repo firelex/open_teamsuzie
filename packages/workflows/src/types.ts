@@ -69,6 +69,13 @@ export interface Workflow {
   columnConfig: WorkflowColumnConfig[] | null;
   /** WD2 — see {@link WorkflowOutputMode}. */
   outputMode: WorkflowOutputMode;
+  /**
+   * When true, hosts surface this workflow as a starter tile on the
+   * Assistant landing page (typically up to 4). When false, the workflow
+   * is Library-only. Defaults to false in the DB; seed pipelines may set
+   * this from manifest-side flags.
+   */
+  featured: boolean;
   createdAt: number;
   updatedAt: number;
   /** Non-null when the workflow has been archived (still visible in "show archived"). */
@@ -85,6 +92,8 @@ export interface CreateUserWorkflowInput {
   columnConfig?: WorkflowColumnConfig[] | null;
   /** WD2 — defaults to `'inline_chat'` when omitted. */
   outputMode?: WorkflowOutputMode;
+  /** Defaults to false. See {@link Workflow.featured}. */
+  featured?: boolean;
 }
 
 /**
@@ -102,6 +111,8 @@ export interface UpsertSystemWorkflowInput {
   columnConfig?: WorkflowColumnConfig[] | null;
   /** WD2 — defaults to `'inline_chat'` when omitted. */
   outputMode?: WorkflowOutputMode;
+  /** Defaults to false. See {@link Workflow.featured}. */
+  featured?: boolean;
 }
 
 /**
@@ -123,6 +134,8 @@ export interface UpdateWorkflowInput {
   columnConfig?: WorkflowColumnConfig[] | null;
   /** WD2 — omit to leave alone, or pass a new mode to replace. */
   outputMode?: WorkflowOutputMode;
+  /** Omit to leave alone; defined to replace. See {@link Workflow.featured}. */
+  featured?: boolean;
 }
 
 export interface ListWorkflowsOptions {

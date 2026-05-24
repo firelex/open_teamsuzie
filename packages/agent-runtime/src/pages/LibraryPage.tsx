@@ -23,7 +23,6 @@ import {
   useWorkflows,
   type Workflow,
 } from '@teamsuzie/ui';
-import type { ManifestPrompt } from '../manifest/schema.js';
 
 /**
  * Library — real workflow CRUD backed by `@teamsuzie/workflows`. The
@@ -32,20 +31,19 @@ import type { ManifestPrompt } from '../manifest/schema.js';
  * into the assistant composer and pops the user over to the Assistant
  * tab.
  *
+ * All prompt data — both the manifest-seeded starter set and user-created
+ * rows — flows through `/api/workflows`. Manifest prompts are seeded into
+ * the store on first boot (see `agent-runtime` server), so this page never
+ * reads `manifest.prompts` directly.
+ *
  * What the starter intentionally does NOT do (defer to downstream apps):
- *   - practice-area filtering (legal-domain)
  *   - tabular-review workflows (need a matter/grid surface)
  *   - generate_docx output mode (needs the docx tool registered)
  *   - workflow history / archive UI
  *
  * To opt into those, see suzielaw's Library implementation.
  */
-export interface LibraryPageProps {
-  /** Optional manifest-driven starter prompts shown above the workflows list. */
-  prompts?: ManifestPrompt[];
-}
-
-export function LibraryPage({ prompts }: LibraryPageProps = {}) {
+export function LibraryPage() {
   const wf = useWorkflows();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -53,24 +51,21 @@ export function LibraryPage({ prompts }: LibraryPageProps = {}) {
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Practice-area filter: union all `practiceAreas` declared on prompts. If no
-  // prompt declares any, we hide the filter UI and show prompts as-is. This
-  // keeps the library generic — a preset that doesn't carry legal taxonomy
-  // pays no UI cost.
+  // Practice-area filter: union all `practiceAreas` declared on workflows.
+  // If no workflow declares any, we hide the filter UI and show the list
+  // as-is. Filter is applied to the workflow list below.
   const allAreas = useMemo(() => {
-    if (!prompts) return [] as string[];
     const set = new Set<string>();
-    for (const p of prompts) for (const a of p.practiceAreas ?? []) set.add(a);
+    for (const w of wf.workflows) for (const a of w.practiceAreas ?? []) set.add(a);
     return Array.from(set).sort();
-  }, [prompts]);
+  }, [wf.workflows]);
 
   const [activeArea, setActiveArea] = useState<string | null>(null);
 
-  const visiblePrompts = useMemo(() => {
-    if (!prompts) return [];
-    if (!activeArea) return prompts;
-    return prompts.filter((p) => p.practiceAreas?.includes(activeArea));
-  }, [prompts, activeArea]);
+  const visibleWorkflows = useMemo(() => {
+    if (!activeArea) return wf.workflows;
+    return wf.workflows.filter((w) => w.practiceAreas?.includes(activeArea));
+  }, [wf.workflows, activeArea]);
 
   function runWorkflow(w: Workflow) {
     // Stash the workflow's prompt + name in sessionStorage; the assistant
@@ -79,17 +74,6 @@ export function LibraryPage({ prompts }: LibraryPageProps = {}) {
     sessionStorage.setItem(
       'counsel:pending-workflow',
       JSON.stringify({ id: w.id, name: w.name, prompt: w.prompt }),
-    );
-    navigate('/');
-  }
-
-  function runPrompt(p: ManifestPrompt) {
-    // Mirror the workflow hand-off: stash the prompt body in sessionStorage,
-    // navigate back to the assistant which picks it up on mount and prefills
-    // the composer. Prompts don't have an id like workflows do.
-    sessionStorage.setItem(
-      'counsel:pending-prompt',
-      JSON.stringify({ name: p.title, prompt: p.prompt ?? '' }),
     );
     navigate('/');
   }
@@ -139,64 +123,36 @@ export function LibraryPage({ prompts }: LibraryPageProps = {}) {
           </div>
         )}
 
-        {prompts && prompts.length > 0 && (
-          <section className="mb-8">
-            <h2 className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
-              Prompts
-            </h2>
-            {allAreas.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-1.5" data-testid="practice-area-filter">
-                <button
-                  type="button"
-                  onClick={() => setActiveArea(null)}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                    activeArea === null
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  All
-                </button>
-                {allAreas.map((area) => (
-                  <button
-                    key={area}
-                    type="button"
-                    onClick={() => setActiveArea(area)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      activeArea === area
-                        ? 'border-foreground bg-foreground text-background'
-                        : 'border-border text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {area}
-                  </button>
-                ))}
-              </div>
-            )}
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {visiblePrompts.map((p) => (
-                <li
-                  key={p.title}
-                  className="flex flex-col gap-2 border border-border bg-card p-4 transition-colors hover:border-foreground/40 hover:bg-muted/30"
-                >
-                  <button
-                    type="button"
-                    onClick={() => runPrompt(p)}
-                    className="block flex-1 text-left"
-                  >
-                    <h3 className="text-[15px] font-semibold tracking-[-0.005em] text-foreground">
-                      {p.title}
-                    </h3>
-                    <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
-                      {p.subtitle}
-                    </p>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
+        {allAreas.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5" data-testid="practice-area-filter">
+            <button
+              type="button"
+              onClick={() => setActiveArea(null)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                activeArea === null
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              All
+            </button>
+            {allAreas.map((area) => (
+              <button
+                key={area}
+                type="button"
+                onClick={() => setActiveArea(area)}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  activeArea === area
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {area}
+              </button>
+            ))}
+          </div>
         )}
 
         {wf.loading ? (
@@ -210,7 +166,7 @@ export function LibraryPage({ prompts }: LibraryPageProps = {}) {
           </EmptyState>
         ) : (
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {wf.workflows.map((w) => (
+            {visibleWorkflows.map((w) => (
               <li
                 key={w.id}
                 className="group flex flex-col gap-2 border border-border bg-card p-4 transition-colors hover:border-foreground/40 hover:bg-muted/30"

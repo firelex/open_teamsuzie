@@ -52,6 +52,8 @@ interface WorkflowRow {
   practice_areas: string;
   column_config: string | null;
   output_mode: string;
+  /** SQLite stores the featured flag as 0/1 — projected to boolean on read. */
+  featured: number;
   created_at: number;
   updated_at: number;
   archived_at: number | null;
@@ -102,6 +104,7 @@ export class WorkflowsStore {
       input.outputMode,
       columnConfig !== null,
     );
+    const featured = input.featured ? 1 : 0;
     prepareCached<
       [
         string,
@@ -113,12 +116,13 @@ export class WorkflowsStore {
         string,
         number,
         number,
+        number,
       ]
     >(
       this.db,
       `INSERT INTO workflows
-       (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, created_at, updated_at, archived_at)
-       VALUES (?, 'system', NULL, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+       (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, featured, created_at, updated_at, archived_at)
+       VALUES (?, 'system', NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          description = excluded.description,
@@ -126,6 +130,7 @@ export class WorkflowsStore {
          practice_areas = excluded.practice_areas,
          column_config = excluded.column_config,
          output_mode = excluded.output_mode,
+         featured = excluded.featured,
          updated_at = excluded.updated_at`,
     ).run(
       input.id,
@@ -135,6 +140,7 @@ export class WorkflowsStore {
       practiceAreas,
       columnConfig,
       outputMode,
+      featured,
       now,
       now,
     );
@@ -192,12 +198,12 @@ export class WorkflowsStore {
     if (marker) return;
 
     const insertItem = prepareCached<
-      [string, string, string, string, string, string, string | null, string, number, number]
+      [string, string, string, string, string, string, string | null, string, number, number, number]
     >(
       this.db,
       `INSERT OR IGNORE INTO workflows
-         (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, created_at, updated_at, archived_at)
-       VALUES (?, 'user', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, featured, created_at, updated_at, archived_at)
+       VALUES (?, 'user', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     );
     const insertMarker = prepareCached<[string, number]>(
       this.db,
@@ -221,6 +227,7 @@ export class WorkflowsStore {
           JSON.stringify(item.practiceAreas ?? []),
           columnConfig,
           outputMode,
+          item.featured ? 1 : 0,
           now,
           now,
         );
@@ -243,6 +250,7 @@ export class WorkflowsStore {
       input.outputMode,
       columnConfig !== null,
     );
+    const featured = input.featured ? 1 : 0;
     prepareCached<
       [
         string,
@@ -255,12 +263,13 @@ export class WorkflowsStore {
         string,
         number,
         number,
+        number,
       ]
     >(
       this.db,
       `INSERT INTO workflows
-       (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, created_at, updated_at)
-       VALUES (?, 'user', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, featured, created_at, updated_at)
+       VALUES (?, 'user', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.ownerId,
@@ -270,6 +279,7 @@ export class WorkflowsStore {
       JSON.stringify(input.practiceAreas ?? []),
       columnConfig,
       outputMode,
+      featured,
       now,
       now,
     );
@@ -313,6 +323,8 @@ export class WorkflowsStore {
       patch.outputMode && WORKFLOW_OUTPUT_MODES.includes(patch.outputMode)
         ? patch.outputMode
         : existing.outputMode;
+    const nextFeatured =
+      patch.featured === undefined ? (existing.featured ? 1 : 0) : patch.featured ? 1 : 0;
     const next = {
       name: patch.name?.trim() ?? existing.name,
       description: patch.description ?? existing.description,
@@ -322,16 +334,17 @@ export class WorkflowsStore {
         : JSON.stringify(existing.practiceAreas),
       columnConfig: nextColumnConfigJson,
       outputMode: nextOutputMode,
+      featured: nextFeatured,
     };
     const tx = this.db.transaction(() => {
       this.insertVersionFromExisting(existing, capturedBy ?? null, 'update', now);
       prepareCached<
-        [string, string, string, string, string | null, string, number, string]
+        [string, string, string, string, string | null, string, number, number, string]
       >(
         this.db,
         `UPDATE workflows
            SET name = ?, description = ?, prompt = ?, practice_areas = ?,
-               column_config = ?, output_mode = ?, updated_at = ?
+               column_config = ?, output_mode = ?, featured = ?, updated_at = ?
          WHERE id = ?`,
       ).run(
         next.name,
@@ -340,6 +353,7 @@ export class WorkflowsStore {
         next.practiceAreas,
         next.columnConfig,
         next.outputMode,
+        next.featured,
         now,
         id,
       );
@@ -676,6 +690,7 @@ function rowToWorkflow(row: WorkflowRow): Workflow {
     )
       ? (row.output_mode as WorkflowOutputMode)
       : 'inline_chat',
+    featured: row.featured === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     archivedAt: row.archived_at,
