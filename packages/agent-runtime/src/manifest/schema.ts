@@ -81,6 +81,12 @@ export interface ManifestPrompt {
   title: string;
   subtitle: string;
   prompt?: string;
+  /** Practice areas this prompt belongs to (e.g. ["antitrust", "litigation"]).
+   *  LibraryPage builds a filter chip row from the union across all prompts. */
+  practiceAreas?: string[];
+  /** When true, show as a starter tile on the Assistant landing page (up to 4).
+   *  When false/undefined, the prompt lives in the Library only. */
+  featured?: boolean;
 }
 
 export interface AgentManifest {

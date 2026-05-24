@@ -687,7 +687,10 @@ export function AssistantPage({ agentName, chatId, prompts }: AssistantPageProps
         ) : showGreeting ? (
           <Greeting
             name={agentName}
-            prompts={prompts && prompts.length > 0 ? prompts : PROMPTS}
+            prompts={(() => {
+              const featured = (prompts ?? []).filter((p) => p.featured);
+              return featured.length > 0 ? featured.slice(0, 4) : PROMPTS;
+            })()}
             onSelect={(prompt) => void sendMessage(prompt)}
           />
         ) : (

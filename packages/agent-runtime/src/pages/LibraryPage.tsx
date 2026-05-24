@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -19,6 +19,7 @@ import {
   PageHeaderDescription,
   PageHeaderTitle,
   Textarea,
+  cn,
   useWorkflows,
   type Workflow,
 } from '@teamsuzie/ui';
@@ -51,6 +52,25 @@ export function LibraryPage({ prompts }: LibraryPageProps = {}) {
   const [pendingDelete, setPendingDelete] = useState<Workflow | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Practice-area filter: union all `practiceAreas` declared on prompts. If no
+  // prompt declares any, we hide the filter UI and show prompts as-is. This
+  // keeps the library generic — a preset that doesn't carry legal taxonomy
+  // pays no UI cost.
+  const allAreas = useMemo(() => {
+    if (!prompts) return [] as string[];
+    const set = new Set<string>();
+    for (const p of prompts) for (const a of p.practiceAreas ?? []) set.add(a);
+    return Array.from(set).sort();
+  }, [prompts]);
+
+  const [activeArea, setActiveArea] = useState<string | null>(null);
+
+  const visiblePrompts = useMemo(() => {
+    if (!prompts) return [];
+    if (!activeArea) return prompts;
+    return prompts.filter((p) => p.practiceAreas?.includes(activeArea));
+  }, [prompts, activeArea]);
 
   function runWorkflow(w: Workflow) {
     // Stash the workflow's prompt + name in sessionStorage; the assistant
@@ -124,8 +144,39 @@ export function LibraryPage({ prompts }: LibraryPageProps = {}) {
             <h2 className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
               Prompts
             </h2>
+            {allAreas.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5" data-testid="practice-area-filter">
+                <button
+                  type="button"
+                  onClick={() => setActiveArea(null)}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    activeArea === null
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  All
+                </button>
+                {allAreas.map((area) => (
+                  <button
+                    key={area}
+                    type="button"
+                    onClick={() => setActiveArea(area)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      activeArea === area
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {area}
+                  </button>
+                ))}
+              </div>
+            )}
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {prompts.map((p) => (
+              {visiblePrompts.map((p) => (
                 <li
                   key={p.title}
                   className="flex flex-col gap-2 border border-border bg-card p-4 transition-colors hover:border-foreground/40 hover:bg-muted/30"
