@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { createAiDraftRouter } from '../ai-draft.js';
+import { createAiDraftRouter, createCoreAiDraftKinds } from '../ai-draft.js';
 
 describe('POST /api/ai/draft', () => {
   it('returns 503 when no model is configured', async () => {
@@ -9,6 +9,7 @@ describe('POST /api/ai/draft', () => {
     app.use(express.json());
     app.use('/api/ai/draft', createAiDraftRouter({
       simpleModel: undefined,
+      kinds: createCoreAiDraftKinds(),
       runTurn: async () => { throw new Error('should not be called'); },
     }));
     const res = await request(app).post('/api/ai/draft').send({
@@ -26,6 +27,7 @@ describe('POST /api/ai/draft', () => {
     app.use(express.json());
     app.use('/api/ai/draft', createAiDraftRouter({
       simpleModel: { baseUrl: 'http://localhost', apiKey: 'x', model: 'm' },
+      kinds: createCoreAiDraftKinds(),
       runTurn: async ({ messages }) => {
         capturedSystem = (messages.find(m => m.role === 'system') as any)?.content ?? '';
         return { text: 'drafted body' };
@@ -46,11 +48,42 @@ describe('POST /api/ai/draft', () => {
     app.use(express.json());
     app.use('/api/ai/draft', createAiDraftRouter({
       simpleModel: { baseUrl: 'http://localhost', apiKey: 'x', model: 'm' },
+      kinds: createCoreAiDraftKinds(),
       runTurn: async () => ({ text: '' }),
     }));
     const res = await request(app).post('/api/ai/draft').send({
       kind: 'no-such-kind', context: {},
     });
     expect(res.status).toBe(400);
+  });
+
+  it('uses an extension-registered kind', async () => {
+    const kinds = createCoreAiDraftKinds();
+    kinds.register(
+      'my-extension-kind',
+      { systemPromptFor: (c: any) => `Custom: ${c.q}` },
+      { source: 'extension', extensionName: 'demo' },
+    );
+    let capturedSystem = '';
+    const app = express();
+    app.use(express.json());
+    app.use('/api/ai/draft', createAiDraftRouter({
+      simpleModel: { baseUrl: 'http://x', apiKey: 'k', model: 'm' },
+      kinds,
+      runTurn: async ({ messages }) => {
+        capturedSystem = (messages.find(m => m.role === 'system') as any)?.content ?? '';
+        return { text: 'ok' };
+      },
+    }));
+    const res = await request(app).post('/api/ai/draft').send({
+      kind: 'my-extension-kind',
+      context: { q: 'hello' },
+    });
+    expect(res.status).toBe(200);
+    expect(capturedSystem).toMatch(/Custom: hello/);
+    expect(kinds.metaFor('my-extension-kind')).toEqual({
+      source: 'extension',
+      extensionName: 'demo',
+    });
   });
 });

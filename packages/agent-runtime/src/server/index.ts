@@ -36,7 +36,7 @@ import {
   ManifestStore, resolveModules, listPersonas, findPersona,
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
-import { createAiDraftRouter } from './ai-draft.js';
+import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createAvatarsRouter } from './personas-avatars.js';
 import { ToolRegistry } from './tool-registry.js';
@@ -239,8 +239,12 @@ export function createApp(opts: StartAgentOptions): AppHandles {
   // AI-fill helper. Reads manifest.ai.simpleModel at call time so a manifest
   // edit takes effect without a restart. Returns 503 when no model is set;
   // client AI-fill affordances should hide themselves accordingly.
+  // The `aiKinds` registry is held here so Task 3.5.6 can register extension
+  // kinds onto it before the router serves a request.
+  const aiKinds = createCoreAiDraftKinds();
   app.use('/api/ai/draft', createAiDraftRouter({
     get simpleModel() { return manifestStore.get().ai?.simpleModel; },
+    kinds: aiKinds,
     runTurn: async ({ messages, model, baseUrl, apiKey }) => {
       let text = '';
       const stream = runChatTurn({
