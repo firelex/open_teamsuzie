@@ -1972,6 +1972,28 @@ importers:
         specifier: ^4.0.18
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
 
+  packages/reviews:
+    dependencies:
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../db-sqlite
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)
+
   packages/shared-auth:
     dependencies:
       bcryptjs:
