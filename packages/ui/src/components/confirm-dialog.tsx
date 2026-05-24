@@ -159,9 +159,15 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
 export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
   const ctx = React.useContext(ConfirmDialogContext)
   if (!ctx) {
-    throw new Error(
-      "useConfirm() requires <ConfirmDialogProvider> mounted near the app root.",
-    )
+    // Graceful fallback for consumers that do not mount <ConfirmDialogProvider>.
+    // Returns a stable function that delegates to window.confirm so existing
+    // behaviour is preserved without a hard render-time throw.
+    return (options: ConfirmOptions) =>
+      Promise.resolve(
+        typeof window !== "undefined"
+          ? window.confirm(options.title)
+          : false,
+      )
   }
   return ctx.confirm
 }

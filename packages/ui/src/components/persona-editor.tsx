@@ -13,6 +13,7 @@ import { Input } from "./input.js"
 import { Label } from "./label.js"
 import { Textarea } from "./textarea.js"
 import { PersonaAvatar } from "./persona-picker.js"
+import { useConfirm } from "./confirm-dialog.js"
 import {
   usePersonas,
   type Persona,
@@ -232,6 +233,7 @@ function PersonaRow({
   onEdit: (persona: Persona) => void
   onDelete: (id: string) => Promise<void>
 }) {
+  const confirmDelete = useConfirm()
   const isUser = persona.source === "user"
   return (
     <PersonaCard
@@ -260,7 +262,13 @@ function PersonaRow({
               variant="ghost"
               onClick={async (e) => {
                 e.stopPropagation()
-                if (typeof window !== "undefined" && !window.confirm(`Delete "${persona.name}"?`)) return
+                const ok = await confirmDelete({
+                  title: `Delete "${persona.name}"?`,
+                  description: "This persona will be removed.",
+                  confirmLabel: "Delete",
+                  variant: "destructive",
+                })
+                if (!ok) return
                 await onDelete(persona.id).catch(() => undefined)
               }}
               className="text-destructive hover:text-destructive"
