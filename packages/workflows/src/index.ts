@@ -12,6 +12,7 @@ export type {
   Workflow,
   WorkflowColumnConfig,
   WorkflowOutputMode,
+  WorkflowSeed,
   WorkflowSource,
   WorkflowVersion,
   WorkflowVersionReason,

@@ -104,6 +104,13 @@ export interface UpsertSystemWorkflowInput {
   outputMode?: WorkflowOutputMode;
 }
 
+/**
+ * Input for seedAsUserIfEmpty — same shape as UpsertSystemWorkflowInput
+ * (requires `id`, all other fields optional except `name` and `prompt`)
+ * but semantically these become user-owned rows, not system rows.
+ */
+export type WorkflowSeed = UpsertSystemWorkflowInput;
+
 export interface UpdateWorkflowInput {
   name?: string;
   description?: string;

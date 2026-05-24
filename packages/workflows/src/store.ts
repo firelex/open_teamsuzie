@@ -9,6 +9,7 @@ import type {
   Workflow,
   WorkflowColumnConfig,
   WorkflowOutputMode,
+  WorkflowSeed,
   WorkflowSource,
   WorkflowVersion,
   WorkflowVersionReason,
@@ -169,6 +170,64 @@ export class WorkflowsStore {
       return { upserted: inputs.length, removed };
     });
     return tx();
+  }
+
+  /**
+   * Seed items as user-owned rows exactly once per `seedKey`. On the first
+   * call the items are inserted with `INSERT OR IGNORE` (so any row the user
+   * has already created with the same `id` is left untouched) and an
+   * idempotency marker is written to `workflow_seeds_applied`. Subsequent
+   * calls for the same `seedKey` are no-ops — the marker already exists so
+   * the user's edits and deletes are preserved across restarts.
+   *
+   * Use this for copy-on-first-run defaults ("demo" prompts, starter
+   * templates, etc.).  For immutable system rows that always reflect the
+   * code-of-truth, use `seedSystem` / `upsertSystem` instead.
+   */
+  seedAsUserIfEmpty(seedKey: string, items: WorkflowSeed[], ownerId: string): void {
+    const marker = prepareCached<[string], { seed_key: string }>(
+      this.db,
+      'SELECT seed_key FROM workflow_seeds_applied WHERE seed_key = ?',
+    ).get(seedKey);
+    if (marker) return;
+
+    const insertItem = prepareCached<
+      [string, string, string, string, string, string, string | null, string, number, number]
+    >(
+      this.db,
+      `INSERT OR IGNORE INTO workflows
+         (id, source, owner_id, name, description, prompt, practice_areas, column_config, output_mode, created_at, updated_at, archived_at)
+       VALUES (?, 'user', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    );
+    const insertMarker = prepareCached<[string, number]>(
+      this.db,
+      'INSERT INTO workflow_seeds_applied (seed_key, applied_at) VALUES (?, ?)',
+    );
+
+    const now = this.clock();
+    const tx = this.db.transaction(() => {
+      for (const item of items) {
+        const columnConfig =
+          item.columnConfig === undefined || item.columnConfig === null
+            ? null
+            : JSON.stringify(item.columnConfig);
+        const outputMode = normalizeOutputMode(item.outputMode, columnConfig !== null);
+        insertItem.run(
+          item.id,
+          ownerId,
+          item.name,
+          item.description ?? '',
+          item.prompt,
+          JSON.stringify(item.practiceAreas ?? []),
+          columnConfig,
+          outputMode,
+          now,
+          now,
+        );
+      }
+      insertMarker.run(seedKey, now);
+    });
+    tx();
   }
 
   // --- User rows --------------------------------------------------------
