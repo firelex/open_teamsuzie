@@ -100,4 +100,18 @@ export const WORKFLOWS_MIGRATIONS: Migration[] = [
         ON workflow_versions(workflow_id, captured_at DESC);
     `,
   },
+  {
+    // Idempotency marker table for seedAsUserIfEmpty. One row per seed
+    // key records that a given seed has already been copied into the
+    // user store. On subsequent boots the seeder checks this table and
+    // skips re-insertion, so user edits to seeded rows are never
+    // overwritten.
+    name: '20260524_workflow_seeds_applied',
+    up: `
+      CREATE TABLE IF NOT EXISTS workflow_seeds_applied (
+        seed_key TEXT PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      );
+    `,
+  },
 ];
