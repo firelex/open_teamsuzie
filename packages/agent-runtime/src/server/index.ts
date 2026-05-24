@@ -34,6 +34,7 @@ import {
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
 import { createAiDraftRouter } from './ai-draft.js';
+import { createAvatarsRouter } from './personas-avatars.js';
 
 const OWNER_ID = 'agent-runtime-default';
 
@@ -144,6 +145,11 @@ export function createApp(opts: StartAgentOptions): AppHandles {
   app.get('/api/manifest', (_req, res) => {
     res.json({ manifest: manifestStore.get() });
   });
+
+  // ── /api/personas/avatars (always — must come before conditional block) ──
+  app.use('/api/personas/avatars', createAvatarsRouter({
+    publicDir: path.resolve('./public'),
+  }));
 
   // ── Conditional routers ───────────────────────────────────────────────
   app.use((req, res, next) => {

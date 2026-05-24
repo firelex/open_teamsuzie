@@ -15,12 +15,14 @@ import { AiFillButton, PersonaEditor, useSelectedPersona } from '@teamsuzie/ui';
  */
 interface ToolEntry { name: string; description?: string }
 interface HealthResponse { tools?: ToolEntry[] }
+interface AvatarsResponse { items?: string[] }
 
 export function PersonasPage() {
   const [selectedPersonaId, setSelectedPersonaId] = useSelectedPersona(
     'counsel:selected-persona',
   );
   const [tools, setTools] = useState<ToolEntry[]>([]);
+  const [avatars, setAvatars] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/api/health')
@@ -29,8 +31,16 @@ export function PersonasPage() {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    fetch('/api/personas/avatars')
+      .then((r) => r.json() as Promise<AvatarsResponse>)
+      .then((d) => setAvatars(d.items ?? []))
+      .catch(() => undefined);
+  }, []);
+
   return (
     <PersonaEditor
+      availableAvatars={avatars}
       availableTools={tools}
       selectedPersonaId={selectedPersonaId}
       onSelect={setSelectedPersonaId}
