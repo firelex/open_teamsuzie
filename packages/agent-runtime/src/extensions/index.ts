@@ -3,3 +3,4 @@ export type {
   AiDraftKindHandler,
   RegistrationMeta,
 } from './types.js';
+export { loadExtensions } from './loader.js';
