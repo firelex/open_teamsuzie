@@ -78,23 +78,38 @@ export function AiFillButton({
   }
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={go}
-      disabled={disabled || busy}
-      aria-label="Fill with AI"
-      aria-busy={busy || undefined}
-      title={title ?? error ?? "Fill with AI"}
-      className={cn("size-8 text-muted-foreground hover:text-foreground", className)}
-      {...rest}
-    >
-      {busy ? (
-        <Loader2 className="size-4 animate-spin" aria-hidden />
-      ) : (
-        <Sparkles className="size-4" aria-hidden />
+    <span className="inline-flex items-center gap-2">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={go}
+        disabled={disabled || busy}
+        aria-label="Fill with AI"
+        aria-busy={busy || undefined}
+        title={title ?? error ?? "Fill with AI"}
+        className={cn(
+          "size-8 text-muted-foreground hover:text-foreground",
+          error && "text-destructive hover:text-destructive",
+          className,
+        )}
+        {...rest}
+      >
+        {busy ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        ) : (
+          <Sparkles className="size-4" aria-hidden />
+        )}
+      </Button>
+      {error && (
+        <span
+          role="alert"
+          className="text-[11px] leading-tight text-destructive max-w-[28ch] truncate"
+          title={error}
+        >
+          {error}
+        </span>
       )}
-    </Button>
+    </span>
   )
 }

@@ -16,6 +16,8 @@ function mergeWithDefaults(partial: Partial<AgentManifest>): AgentManifest {
     modules: partial.modules,
     prompts: Array.isArray(partial.prompts) ? partial.prompts : undefined,
     tools: Array.isArray(partial.tools) ? partial.tools : [],
+    ai: partial.ai,
+    reviews: partial.reviews,
     source: partial.source,
   };
 }

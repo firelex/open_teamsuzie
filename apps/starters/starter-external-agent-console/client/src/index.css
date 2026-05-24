@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  /* Mono everywhere — one font, weight variation only. */
+  --font-sans: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+
+  /* Phosphor-on-graphite. Dark base, restrained foreground, single
+     phosphor-green accent for chrome and a warmer amber for warning. */
+  --color-background: oklch(15% 0.012 240);
+  --color-foreground: oklch(86% 0.020 142);
+  --color-card: oklch(18% 0.012 240);
+  --color-card-foreground: oklch(86% 0.020 142);
+  --color-popover: oklch(18% 0.012 240);
+  --color-popover-foreground: oklch(86% 0.020 142);
+  --color-primary: oklch(82% 0.21 142);
+  --color-primary-foreground: oklch(15% 0.012 240);
+  --color-secondary: oklch(22% 0.012 240);
+  --color-secondary-foreground: oklch(82% 0.020 142);
+  --color-muted: oklch(22% 0.012 240);
+  --color-muted-foreground: oklch(58% 0.025 200);
+  --color-accent: oklch(24% 0.04 145);
+  --color-accent-foreground: oklch(82% 0.21 142);
+  --color-destructive: oklch(72% 0.18 60);
+  --color-destructive-foreground: oklch(15% 0.012 240);
+  --color-border: oklch(28% 0.018 220);
+  --color-input: oklch(28% 0.018 220);
+  --color-ring: oklch(82% 0.21 142);
+
+  --radius-lg: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-sm: 0.125rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply m-0 min-h-screen text-foreground font-mono antialiased;
+    background-color: var(--color-background);
+    /* CRT scanlines + faint radial vignette + a phosphor-tinted glow. */
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0 2px,
+        oklch(0% 0 0 / 0.18) 2px 3px
+      ),
+      radial-gradient(
+        1200px 700px at 50% 110%,
+        oklch(82% 0.21 142 / 0.06),
+        transparent 70%
+      ),
+      radial-gradient(
+        700px 500px at 50% -10%,
+        oklch(50% 0.10 240 / 0.08),
+        transparent 65%
+      );
+    font-feature-settings: "calt", "ss02";
+  }
+
+  body {
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+    letter-spacing: 0;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  ::selection {
+    background: oklch(82% 0.21 142 / 0.35);
+    color: var(--color-primary);
+  }
+}
+
+@layer utilities {
+  .console-caret::after {
+    content: "▍";
+    color: var(--color-primary);
+    margin-left: 1px;
+    animation: console-blink 1s steps(2, end) infinite;
+  }
+
+  @keyframes console-blink {
+    50% { opacity: 0; }
+  }
+
+  /* Faint scan-line specific to a panel — used on prompt cards on hover. */
+  .console-scan {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      oklch(82% 0.21 142 / 0.05) 2px 3px
+    );
+  }
+
+  /* Tagged label like [INFO] / [READY]. */
+  .console-tag {
+    color: var(--color-primary);
+    font-weight: 500;
+  }
+
+  /* Bracketed comment style for headings. */
+  .console-comment {
+    color: var(--color-muted-foreground);
+  }
+  .console-comment::before { content: "// "; }
+
+  /* Pulse used by the wordmark and ready indicators. */
+  .console-pulse {
+    box-shadow: 0 0 0 0 oklch(82% 0.21 142 / 0.6);
+    animation: console-pulse 1.8s ease-out infinite;
+  }
+  @keyframes console-pulse {
+    70% { box-shadow: 0 0 0 8px oklch(82% 0.21 142 / 0); }
+    100% { box-shadow: 0 0 0 0 oklch(82% 0.21 142 / 0); }
+  }
+
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  .typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot,
+    .console-caret::after,
+    .console-pulse {
+      animation: none;
+    }
+  }
+}

@@ -38,6 +38,8 @@ import {
 } from '../manifest/index.js';
 import { loadExtensions } from '../extensions/index.js';
 import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
+import { createChatRouter } from './chat-route.js';
+import { createFilesRouter, InMemoryFileStore } from './files-route.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createAvatarsRouter } from './personas-avatars.js';
 import { ToolRegistry } from './tool-registry.js';
@@ -60,8 +62,17 @@ export interface StartAgentOptions {
   port?: number;
   /** AGENT_DEV_AUTH equivalent — synthesize an admin session on every request. */
   devAuth?: boolean;
-  /** Override the agent target (model/baseUrl). Pulled from process.env when omitted. */
-  agent?: { baseUrl: string; apiKey?: string; model: string; systemPrompt?: string };
+  /** Default LLM target (baseUrl + apiKey + model). Wired into `/api/chat`;
+   *  per-request `body.model` (Settings-page picker) overrides `.model`.
+   *  `extraBody` is merged into every chat-completion request — use for
+   *  provider-specific knobs (e.g. `{enable_thinking:false}` for Qwen). */
+  agent?: {
+    baseUrl: string;
+    apiKey?: string;
+    model: string;
+    systemPrompt?: string;
+    extraBody?: Record<string, unknown>;
+  };
   /** Directory to scan for extensions. Default './extensions' (relative to cwd). */
   extensionsDir?: string;
   /** Path to the build's public/static assets directory. Default './public'. */
@@ -99,9 +110,21 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const chats = new ChatsStore({ db });
   const workflowsStore = new WorkflowsStore({ db });
   const reviewsStore = new ReviewsStore({ db });
+  const fileStore = new InMemoryFileStore();
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
+
+  // One-shot seed: copy file-based builtin personas into the owner's editable
+  // store. Without this, the UI shows them as read-only builtins forever (the
+  // PersonaEditor gates Edit/Delete on `source === 'user'`). Idempotent —
+  // gated on a `personas_seeded` marker per owner, so safe to run every boot.
+  try {
+    personaRegistry.seedFromBuiltinsIfNeeded(OWNER_ID);
+  } catch (err) {
+    console.warn('[agent-runtime] persona seeding failed:',
+      err instanceof Error ? err.message : err);
+  }
 
   // Seed workflows from disk as user-owned defaults (idempotent per manifest path).
   const seedPath = path.resolve(opts.workflowsSeedPath ?? './workflows.seed.json');
@@ -278,12 +301,59 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   };
   registry.mount(app, mountFlags);
 
+  // ── /api/files (always) ───────────────────────────────────────────────
+  // Per-session in-memory upload store + multipart router. Lifted from the
+  // pre-runtime starter-external-agent files.ts (where it was duplicated
+  // across every starter). The AssistantPage POSTs paperclip uploads here
+  // and DELETEs them on removal; chat-route reads attachmentIds from the
+  // body and inlines their content via buildAttachmentContext.
+  app.use('/api', createFilesRouter({ store: fileStore }));
+
+  // ── /api/chat (when an agent target is configured) ────────────────────
+  // Chat completion + SSE stream. Per-request `body.model` (Settings-page
+  // picker) overrides agent.model; persona-bound chats override further down.
+  // Without opts.agent the route returns 503 so the AssistantPage's stream
+  // reader can surface "no model configured" instead of swallowing a 404.
+  if (opts.agent) {
+    app.use('/api/chat', createChatRouter({
+      agent: opts.agent,
+      chats,
+      personaRegistry,
+      ownerId: OWNER_ID,
+      workspaceId: 'assistant:default',
+      defaultSystemPrompt: manifestStore.get().persona.systemPrompt,
+      tools: toolRegistry.list(),
+      toolCtx: { approvals, vectorDbBaseUrl: '' },
+      fileStore,
+      runChatTurn,
+    }));
+  } else {
+    app.post('/api/chat', (_req, res) => {
+      res.status(503).json({
+        type: 'error',
+        message: 'no chat agent configured (pass opts.agent to startAgent)',
+      });
+    });
+  }
+
   // ── /api/ai/draft (always) ────────────────────────────────────────────
   // AI-fill helper. Reads manifest.ai.simpleModel at call time so a manifest
   // edit takes effect without a restart. Returns 503 when no model is set;
   // client AI-fill affordances should hide themselves accordingly.
   app.use('/api/ai/draft', createAiDraftRouter({
-    get simpleModel() { return manifestStore.get().ai?.simpleModel; },
+    get simpleModel() {
+      const m = manifestStore.get().ai?.simpleModel;
+      if (!m) return undefined;
+      // Fall back to opts.agent for baseUrl/apiKey when the manifest omits
+      // them. This lets agent.json declare only `model` (no credentials).
+      const baseUrl = m.baseUrl ?? opts.agent?.baseUrl;
+      if (!baseUrl) return undefined;
+      return {
+        baseUrl,
+        apiKey: m.apiKey ?? opts.agent?.apiKey,
+        model: m.model,
+      };
+    },
     kinds: aiKinds,
     runTurn: async ({ messages, model, baseUrl, apiKey }) => {
       let text = '';

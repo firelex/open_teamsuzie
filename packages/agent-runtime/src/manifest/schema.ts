@@ -102,8 +102,14 @@ export interface ManifestPrompt {
  * returns 503 and clients are expected to hide the affected affordances.
  */
 export interface ManifestAi {
+  /**
+   * Small/cheap model for AI-fill (POST /api/ai/draft) and other utility calls.
+   * Only `model` is required — `baseUrl` and `apiKey` fall back to `opts.agent`
+   * when omitted, so builds that share one LLM target don't need to repeat the
+   * baseUrl/apiKey in agent.json (and avoid putting credentials in the file).
+   */
   simpleModel?: {
-    baseUrl: string;
+    baseUrl?: string;
     apiKey?: string;
     model: string;
   };

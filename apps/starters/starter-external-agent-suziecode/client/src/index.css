@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+/* ── Lifted from apps/suziecode/client/src/index.css ─────────────────
+   Theme tokens, density, accents, dotted-violet glossary highlight, and
+   the side-rule "section" treatment all come from SuzieCode. Adapted to
+   a chat starter (no plan-markdown / conversation-builder bits). */
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+
+  --color-background: oklch(14% 0.01 270);
+  --color-foreground: oklch(93% 0.01 270);
+  --color-card: oklch(18% 0.012 270);
+  --color-card-foreground: oklch(93% 0.01 270);
+  --color-popover: oklch(18% 0.012 270);
+  --color-popover-foreground: oklch(93% 0.01 270);
+  --color-primary: oklch(68% 0.19 275);
+  --color-primary-foreground: oklch(14% 0.01 270);
+  --color-secondary: oklch(22% 0.015 270);
+  --color-secondary-foreground: oklch(85% 0.01 270);
+  --color-muted: oklch(22% 0.015 270);
+  --color-muted-foreground: oklch(60% 0.015 270);
+  --color-accent: oklch(25% 0.02 275);
+  --color-accent-foreground: oklch(85% 0.01 270);
+  --color-destructive: oklch(58% 0.22 28);
+  --color-destructive-foreground: oklch(99% 0.003 100);
+  --color-border: oklch(26% 0.015 270);
+  --color-input: oklch(26% 0.015 270);
+  --color-ring: oklch(68% 0.19 275);
+  --color-success: oklch(65% 0.20 150);
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply m-0 min-h-screen bg-background text-foreground font-sans antialiased;
+    /* Subtle indigo glow at the bottom-right + cool gradient at the top-left
+       — the SuzieCode "studio" feel without overdoing it. */
+    background-image:
+      radial-gradient(900px 700px at 110% 110%, oklch(68% 0.19 275 / 0.08), transparent 60%),
+      radial-gradient(800px 600px at -10% -10%, oklch(60% 0.10 240 / 0.05), transparent 60%);
+  }
+
+  body {
+    letter-spacing: -0.005em;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  /* Compact uppercase eyebrow used throughout SuzieCode. */
+  .suzie-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    color: var(--color-muted-foreground);
+  }
+
+  /* Side-rule used by .conv-question / .conv-answer / .qa-item in
+     SuzieCode — a 2px left border that warms to violet on focus. */
+  .suzie-rule {
+    border-left: 2px solid oklch(26% 0.015 270);
+    padding-left: 0.75rem;
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+  .suzie-rule-active {
+    border-left-color: oklch(68% 0.19 275 / 0.65);
+    background: oklch(68% 0.19 275 / 0.05);
+  }
+
+  /* Card with a violet hairline highlight on hover (lifted from .conv-chip). */
+  .suzie-card {
+    background: oklch(22% 0.015 270 / 0.5);
+    border: 1px solid oklch(26% 0.015 270);
+    border-radius: var(--radius-lg);
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+  .suzie-card:hover,
+  .suzie-card:focus-visible {
+    border-color: oklch(68% 0.19 275 / 0.55);
+    background: oklch(68% 0.19 275 / 0.06);
+    box-shadow: 0 0 0 1px oklch(68% 0.19 275 / 0.25);
+  }
+
+  /* Dotted-underline glossary highlight (lifted from .glossary-term). */
+  .suzie-term {
+    text-decoration: underline dotted;
+    text-decoration-color: oklch(68% 0.19 275 / 0.5);
+    text-underline-offset: 3px;
+    color: oklch(68% 0.19 275);
+  }
+
+  /* Monospaced pill / badge like SuzieCode's overview tags. */
+  .suzie-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    background: oklch(68% 0.19 275 / 0.10);
+    color: oklch(72% 0.18 275);
+    border: 1px solid oklch(68% 0.19 275 / 0.25);
+  }
+
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  .typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot { animation: none; }
+  }
+}

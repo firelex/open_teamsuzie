@@ -83,6 +83,17 @@ export type {
   UsePersonasOptions,
   UsePersonasResult,
 } from './hooks/use-personas.js';
+export { useWorkflows } from './hooks/use-workflows.js';
+export type {
+  Workflow,
+  WorkflowSource,
+  WorkflowOutputMode,
+  WorkflowColumnConfig,
+  CreateWorkflowInput,
+  UpdateWorkflowInput,
+  UseWorkflowsOptions,
+  UseWorkflowsResult,
+} from './hooks/use-workflows.js';
 export { usePagination } from './lib/use-pagination.js';
 export type {
   UsePaginationOptions,
@@ -118,6 +129,7 @@ export * from './components/row-actions.js';
 export * from './components/local-model-config-dialog.js';
 export * from './components/persona-editor.js';
 export * from './components/persona-picker.js';
+export * from './components/workflow-picker-dialog.js';
 export * from './components/prompt-card.js';
 export * from './components/select.js';
 export * from './components/settings-cards.js';

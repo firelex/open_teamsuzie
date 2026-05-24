@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  /* Display + body: Fraunces, single-family with optical-size + italic axes.
+     JetBrains Mono only for tool args / code spans. */
+  --font-sans: "Fraunces", "Cambria", Georgia, serif;
+  --font-serif: "Fraunces", "Cambria", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+
+  /* Warm paper + deep ink + a single ink-blue accent. */
+  --color-background: oklch(97.4% 0.014 82);
+  --color-foreground: oklch(20% 0.018 270);
+  --color-card: oklch(98.6% 0.010 82);
+  --color-card-foreground: oklch(20% 0.018 270);
+  --color-popover: oklch(98.6% 0.010 82);
+  --color-popover-foreground: oklch(20% 0.018 270);
+  --color-primary: oklch(38% 0.13 252);
+  --color-primary-foreground: oklch(98.6% 0.010 82);
+  --color-secondary: oklch(94% 0.018 80);
+  --color-secondary-foreground: oklch(26% 0.018 270);
+  --color-muted: oklch(94% 0.015 80);
+  --color-muted-foreground: oklch(42% 0.020 270);
+  --color-accent: oklch(92% 0.025 78);
+  --color-accent-foreground: oklch(26% 0.018 270);
+  --color-destructive: oklch(48% 0.18 28);
+  --color-destructive-foreground: oklch(98.6% 0.010 82);
+  --color-border: oklch(88% 0.020 78);
+  --color-input: oklch(88% 0.020 78);
+  --color-ring: oklch(38% 0.13 252);
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply m-0 min-h-screen text-foreground font-serif antialiased;
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(
+        1200px 800px at 15% -10%,
+        oklch(94% 0.030 78 / 0.7),
+        transparent 60%
+      ),
+      radial-gradient(
+        900px 700px at 110% 10%,
+        oklch(96% 0.022 80 / 0.6),
+        transparent 55%
+      ),
+      radial-gradient(
+        circle at 30% 60%,
+        oklch(95% 0.025 76 / 0.35),
+        transparent 50%
+      );
+    font-feature-settings: "ss01", "ss03", "liga", "calt";
+  }
+
+  body {
+    font-variation-settings: "opsz" 18, "SOFT" 30, "WONK" 0;
+    letter-spacing: -0.005em;
+  }
+
+  h1, h2, h3 {
+    font-variation-settings: "opsz" 96, "SOFT" 50, "WONK" 1;
+    letter-spacing: -0.022em;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  /* Display-italic with very large optical size — used for the greeting. */
+  .atelier-display {
+    font-variation-settings: "opsz" 144, "SOFT" 60, "WONK" 1;
+    font-style: italic;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  /* All-caps letterspaced label, single-line. */
+  .atelier-eyebrow {
+    font-variation-settings: "opsz" 9, "SOFT" 30, "WONK" 0;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    font-size: 0.6875rem;
+  }
+
+  /* Hairline rule with a small inked accent dot in the middle. */
+  .atelier-rule {
+    position: relative;
+    height: 1px;
+    background: var(--color-border);
+  }
+  .atelier-rule::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Drop cap on assistant prose. */
+  .atelier-drop-cap > p:first-of-type::first-letter {
+    font-family: var(--font-serif);
+    font-variation-settings: "opsz" 144, "SOFT" 60, "WONK" 1;
+    font-style: italic;
+    font-weight: 500;
+    float: left;
+    line-height: 0.88;
+    font-size: 3.6em;
+    padding: 0.05em 0.08em 0 0;
+    color: var(--color-primary);
+  }
+
+  /* Roman-numeral marker for prompt cards. */
+  .atelier-numeral {
+    font-variation-settings: "opsz" 72, "SOFT" 40, "WONK" 1;
+    font-style: italic;
+    font-weight: 500;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+  }
+
+  /* Ink-stamp circle used in the wordmark. */
+  .atelier-stamp {
+    border: 1.5px solid var(--color-foreground);
+    color: var(--color-foreground);
+    border-radius: 9999px;
+    font-variation-settings: "opsz" 72, "SOFT" 60, "WONK" 1;
+    font-style: italic;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-4deg);
+  }
+
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  .typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot { animation: none; }
+  }
+}

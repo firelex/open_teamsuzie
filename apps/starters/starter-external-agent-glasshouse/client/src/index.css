@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  /* Body: Geist sans (Neue Haas-adjacent, no-Inter). Display moment:
+     Instrument Serif (a single italic touch). Mono: JetBrains. */
+  --font-sans: "Geist", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", "Cambria", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+
+  /* Cool desaturated paper-white + deep ink + single deep-teal accent. */
+  --color-background: oklch(98.6% 0.004 230);
+  --color-foreground: oklch(18% 0.014 240);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(18% 0.014 240);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(18% 0.014 240);
+  --color-primary: oklch(34% 0.07 175);
+  --color-primary-foreground: oklch(98.6% 0.004 230);
+  --color-secondary: oklch(95.5% 0.008 220);
+  --color-secondary-foreground: oklch(26% 0.014 240);
+  --color-muted: oklch(95.5% 0.008 220);
+  --color-muted-foreground: oklch(46% 0.018 230);
+  --color-accent: oklch(95% 0.020 180);
+  --color-accent-foreground: oklch(32% 0.07 175);
+  --color-destructive: oklch(54% 0.20 28);
+  --color-destructive-foreground: oklch(98.6% 0.004 230);
+  --color-border: oklch(92% 0.008 220);
+  --color-input: oklch(92% 0.008 220);
+  --color-ring: oklch(34% 0.07 175);
+
+  --radius-lg: 0.875rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply m-0 min-h-screen text-foreground font-sans antialiased;
+    background-color: var(--color-background);
+    /* A single soft teal glow in the bottom-right, otherwise flat. */
+    background-image:
+      radial-gradient(
+        900px 700px at 110% 110%,
+        oklch(85% 0.05 180 / 0.45),
+        transparent 60%
+      ),
+      radial-gradient(
+        1000px 600px at -10% -10%,
+        oklch(96% 0.012 230 / 0.8),
+        transparent 55%
+      );
+    font-feature-settings: "ss01", "ss02", "cv11";
+  }
+
+  body {
+    letter-spacing: -0.005em;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.025em;
+    font-weight: 500;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  /* Single editorial italic moment, used in the greeting. */
+  .glasshouse-display {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  /* Tiny letterspaced label. */
+  .glasshouse-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+    font-size: 0.6875rem;
+    color: var(--color-muted-foreground);
+  }
+
+  /* Composed geometric mark used in the wordmark. */
+  .glasshouse-mark {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.375rem;
+    background: linear-gradient(
+      135deg,
+      oklch(38% 0.09 175) 0%,
+      oklch(28% 0.07 200) 100%
+    );
+    position: relative;
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.18),
+      0 1px 2px oklch(0% 0 0 / 0.08);
+  }
+  .glasshouse-mark::after {
+    content: "";
+    position: absolute;
+    inset: 0.3rem;
+    border: 1px solid oklch(100% 0 0 / 0.45);
+    border-radius: 0.125rem;
+    transform: rotate(45deg);
+  }
+
+  /* Card with a hairline that grows to a teal ring on focus / hover. */
+  .glasshouse-card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.6),
+      0 1px 1px oklch(18% 0.014 240 / 0.025);
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background 180ms ease;
+  }
+  .glasshouse-card:hover,
+  .glasshouse-card:focus-visible {
+    border-color: oklch(34% 0.07 175 / 0.5);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.7),
+      0 6px 16px -8px oklch(34% 0.07 175 / 0.18);
+  }
+
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  .typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot { animation: none; }
+  }
+}

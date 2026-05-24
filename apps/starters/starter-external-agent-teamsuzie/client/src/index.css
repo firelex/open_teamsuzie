@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+/* ── Lifted from apps/suziecode/.../client/src/index.css ─────────────────
+   "Electric Violet" light theme — originally ported from
+   suzie_monorepo/apps/admin/client/src/index.css. Inter + JetBrains Mono
+   on a near-white cool surface, with the 78° #7438FE → #D267FF signature
+   gradient reserved as a hero accent (text-fancy, bg-fancy-gradient). */
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Code", monospace;
+
+  --color-background: oklch(98% 0.002 286);
+  --color-foreground: oklch(20% 0.01 260);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(20% 0.01 260);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(20% 0.01 260);
+
+  --color-primary: oklch(48% 0.27 290);
+  --color-primary-foreground: oklch(100% 0 0);
+
+  --color-secondary: oklch(95% 0.02 290);
+  --color-secondary-foreground: oklch(30% 0.15 290);
+  --color-muted: oklch(96% 0.01 286);
+  --color-muted-foreground: oklch(50% 0.02 260);
+  --color-accent: oklch(95% 0.03 290);
+  --color-accent-foreground: oklch(30% 0.15 290);
+  --color-destructive: oklch(57.71% 0.215 27.33);
+  --color-destructive-foreground: oklch(98.51% 0.001 106.42);
+  --color-border: oklch(92% 0.004 286);
+  --color-input: oklch(92% 0.004 286);
+  --color-ring: oklch(48% 0.27 290);
+  --color-success: oklch(60% 0.16 150);
+
+  --radius-lg: 0.75rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+
+  --color-ev-50: #f4f2ff;
+  --color-ev-100: #ebe8ff;
+  --color-ev-200: #dad4ff;
+  --color-ev-300: #beb1ff;
+  --color-ev-400: #9d85ff;
+  --color-ev-500: #7547fe;
+  --color-ev-600: #6f31f6;
+  --color-ev-700: #611fe2;
+  --color-ev-800: #5019be;
+  --color-ev-900: #44179b;
+  --color-ev-950: #280c69;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply m-0 min-h-screen bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    /* Inter alternate glyphs — single-storey a, straight l, etc. */
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body {
+    letter-spacing: -0.005em;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  code, pre, .ts-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  /* Signature brand gradient — used sparingly. */
+  .ts-fancy-gradient {
+    background-image: linear-gradient(78deg, #7438FE -47.47%, #D267FF 100%);
+  }
+
+  .ts-text-fancy {
+    background-image: linear-gradient(78deg, #7438FE -47.47%, #D267FF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .ts-violet-glow {
+    box-shadow: 0 12px 32px -12px rgba(117, 71, 254, 0.35);
+  }
+
+  .ts-violet-ring {
+    box-shadow: 0 0 0 4px rgba(117, 71, 254, 0.12);
+  }
+
+  /* Atmosphere — soft violet + magenta + teal halo behind hero copy. */
+  .ts-atmosphere {
+    position: relative;
+    isolation: isolate;
+  }
+  .ts-atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: -10% -20%;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 22% 30%, rgba(116, 56, 254, 0.18), transparent 55%),
+      radial-gradient(circle at 78% 70%, rgba(210, 103, 255, 0.12), transparent 60%),
+      radial-gradient(circle at 50% 100%, rgba(224, 250, 251, 0.55), transparent 70%);
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  /* Eyebrow — admin's signature category tag. */
+  .ts-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--color-ev-700);
+  }
+
+  /* Brand chip — admin's bg-ev-100 / text-ev-700 pattern. */
+  .ts-brand-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-ev-100);
+    background: var(--color-ev-50);
+    color: var(--color-ev-700);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Mono-data — IDs, slugs, tokens. */
+  .ts-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Reveal — staggered fade-in, ported from landing. */
+  @keyframes ts-fade-in-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .ts-reveal {
+    animation: ts-fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .ts-reveal[data-delay="1"] { animation-delay: 80ms; }
+  .ts-reveal[data-delay="2"] { animation-delay: 160ms; }
+  .ts-reveal[data-delay="3"] { animation-delay: 240ms; }
+  .ts-reveal[data-delay="4"] { animation-delay: 320ms; }
+
+  @keyframes suzie-typing {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  .typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: suzie-typing 1.2s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dot,
+    .ts-reveal {
+      animation: none;
+    }
+  }
+}
