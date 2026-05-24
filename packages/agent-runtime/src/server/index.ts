@@ -34,6 +34,7 @@ import {
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
 import { createAiDraftRouter } from './ai-draft.js';
+import { ModuleRegistry } from './module-registry.js';
 import { createAvatarsRouter } from './personas-avatars.js';
 
 const OWNER_ID = 'agent-runtime-default';
@@ -146,47 +147,46 @@ export function createApp(opts: StartAgentOptions): AppHandles {
     res.json({ manifest: manifestStore.get() });
   });
 
-  // ── /api/personas/avatars (always — must come before conditional block) ──
+  // ── /api/personas/avatars (always — must come before module routers) ───
+  // Mounted unconditionally; /api/personas/* below is mounted by the
+  // ModuleRegistry only when modules.personas is enabled. Express matches in
+  // declaration order so /api/personas/avatars wins regardless.
   app.use('/api/personas/avatars', createAvatarsRouter({
     publicDir: path.resolve('./public'),
   }));
 
-  // ── Conditional routers ───────────────────────────────────────────────
-  app.use((req, res, next) => {
-    const mods = resolveModules(manifestStore.get());
-    const advertise = (flag: boolean, prefix: string) => {
-      if (req.path.startsWith(prefix) && !flag) {
-        res.status(404).json({ error: 'module_disabled', module: prefix });
-        return true;
-      }
-      return false;
-    };
-    if (advertise(mods.history, '/api/chats')) return;
-    if (advertise(mods.personas, '/api/personas')) return;
-    if (advertise(mods.library, '/api/workflows')) return;
-    next();
+  // ── Module routers (gated by manifest.modules.*) ──────────────────────
+  // Disabled modules simply aren't mounted, so Express returns its default
+  // 404 — which is what AC9 asks for and what the existing tests assert.
+  const registry = new ModuleRegistry();
+  registry.register({
+    name: 'history',
+    apiPrefix: '/api/chats',
+    router: createChatsRouter({ store: chats, getWorkspaceId: () => 'assistant:default' }),
   });
-
-  app.use('/api/chats',
-    createChatsRouter({ store: chats, getWorkspaceId: () => 'assistant:default' }));
-
-  app.use('/api/personas',
-    createPersonasRouter({
+  registry.register({
+    name: 'personas',
+    apiPrefix: '/api/personas',
+    router: createPersonasRouter({
       registry: personaRegistry,
       getOwnerId: (req) => {
         const s = (req as unknown as { session?: { user?: { email?: string } } }).session;
         return s?.user?.email ?? null;
       },
-    }));
-
-  app.use('/api/workflows',
-    createWorkflowsRouter({
+    }),
+  });
+  registry.register({
+    name: 'library',
+    apiPrefix: '/api/workflows',
+    router: createWorkflowsRouter({
       store: workflowsStore,
       getOwnerId: (req) => {
         const s = (req as unknown as { session?: { user?: { email?: string } } }).session;
         return s?.user?.email ?? null;
       },
-    }));
+    }),
+  });
+  registry.mount(app, resolveModules(manifestStore.get()) as unknown as Record<string, boolean>);
 
   // ── /api/ai/draft (always) ────────────────────────────────────────────
   // AI-fill helper. Reads manifest.ai.simpleModel at call time so a manifest
