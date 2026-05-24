@@ -135,7 +135,7 @@ export function createApp(opts: StartAgentOptions): AppHandles {
     platformToken: process.env.PLATFORM_TOKEN,
   }));
   if (opts.devAuth || process.env.AGENT_DEV_AUTH === 'true') {
-    app.use('/api', injectDevSession());
+    app.use('/api', injectDevSession(OWNER_ID));
   }
   app.use('/api', requireAgentSession());
 
@@ -230,11 +230,11 @@ function requireAgentSession(): express.RequestHandler {
   };
 }
 
-function injectDevSession(): express.RequestHandler {
+function injectDevSession(principalEmail: string): express.RequestHandler {
   return (req, _res, next) => {
     const r = req as unknown as { session?: unknown };
     if (!r.session) {
-      r.session = { user: { email: 'dev@local' } };
+      r.session = { user: { email: principalEmail } };
     }
     next();
   };

@@ -17,26 +17,14 @@
  * exercises the same invariants through the live Express stack via
  * supertest, so the wiring in `createApp` is what's actually being
  * verified.
- *
- * Owner-id note: `createApp` seeds with a hard-coded
- * `'agent-runtime-default'` owner. The built-in `devAuth` injector
- * synthesises a `'dev@local'` session, which would not match the seed
- * owner and would make seeded rows invisible to the request. We wrap
- * the returned app in a parent Express app that pre-injects a session
- * matching the seed owner; the runtime's `injectDevSession` only sets
- * the session when it's missing, so our pre-injection wins.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import express, { type Express } from 'express';
 import request from 'supertest';
 import { createApp } from '../index.js';
-
-/** Owner id the runtime seeds with — see OWNER_ID in src/server/index.ts. */
-const SEED_OWNER = 'agent-runtime-default';
 
 let tmp: string;
 beforeEach(() => {
@@ -67,28 +55,6 @@ function writeManifest(prompts: Array<{
   return path;
 }
 
-/**
- * Wrap the runtime app in a parent that pre-injects a session matching
- * the runtime's hard-coded seed owner. The runtime's `injectDevSession`
- * is a no-op when `req.session` is already set, so the seeded rows are
- * visible to the request.
- */
-function makeAppWithSeedOwnerSession(manifestPath: string, dbPath: string): {
-  wrapper: Express;
-  close: () => Promise<void>;
-} {
-  const handles = createApp({ manifestPath, dbPath, devAuth: true });
-  const wrapper = express();
-  wrapper.use((req, _res, next) => {
-    (req as unknown as { session: unknown }).session = {
-      user: { email: SEED_OWNER },
-    };
-    next();
-  });
-  wrapper.use(handles.app);
-  return { wrapper, close: handles.close };
-}
-
 describe('defaults-vs-user (end-to-end)', () => {
   it('preserves user edits to a seeded prompt across an app restart', async () => {
     const manifestPath = writeManifest([
@@ -98,15 +64,15 @@ describe('defaults-vs-user (end-to-end)', () => {
     const dbPath = join(tmp, 'agent.db');
 
     // Boot #1 — seed runs, user edits the seeded prompt.
-    const boot1 = makeAppWithSeedOwnerSession(manifestPath, dbPath);
+    const boot1 = createApp({ manifestPath, dbPath, devAuth: true });
     try {
-      let res = await request(boot1.wrapper).get('/api/workflows');
+      let res = await request(boot1.app).get('/api/workflows');
       expect(res.status).toBe(200);
       expect(res.body.items).toHaveLength(1);
       expect(res.body.items[0].prompt).toBe('world');
       const id = res.body.items[0].id as string;
 
-      res = await request(boot1.wrapper)
+      res = await request(boot1.app)
         .patch(`/api/workflows/${id}`)
         .send({ prompt: 'edited' });
       expect(res.status).toBe(200);
@@ -116,9 +82,9 @@ describe('defaults-vs-user (end-to-end)', () => {
     }
 
     // Boot #2 — new app instance, same DB. The seed must not clobber.
-    const boot2 = makeAppWithSeedOwnerSession(manifestPath, dbPath);
+    const boot2 = createApp({ manifestPath, dbPath, devAuth: true });
     try {
-      const res = await request(boot2.wrapper).get('/api/workflows');
+      const res = await request(boot2.app).get('/api/workflows');
       expect(res.status).toBe(200);
       expect(res.body.items).toHaveLength(1);
       expect(res.body.items[0].prompt).toBe('edited');
@@ -136,18 +102,18 @@ describe('defaults-vs-user (end-to-end)', () => {
     const dbPath = join(tmp, 'agent.db');
 
     // Boot #1 — seed runs, user deletes one of the two seeded prompts.
-    const boot1 = makeAppWithSeedOwnerSession(manifestPath, dbPath);
+    const boot1 = createApp({ manifestPath, dbPath, devAuth: true });
     try {
-      let res = await request(boot1.wrapper).get('/api/workflows');
+      let res = await request(boot1.app).get('/api/workflows');
       expect(res.status).toBe(200);
       expect(res.body.items).toHaveLength(2);
       const idToDelete = res.body.items[0].id as string;
 
-      res = await request(boot1.wrapper).delete(`/api/workflows/${idToDelete}`);
+      res = await request(boot1.app).delete(`/api/workflows/${idToDelete}`);
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
 
-      res = await request(boot1.wrapper).get('/api/workflows');
+      res = await request(boot1.app).get('/api/workflows');
       expect(res.body.items).toHaveLength(1);
     } finally {
       await boot1.close();
@@ -155,9 +121,9 @@ describe('defaults-vs-user (end-to-end)', () => {
 
     // Boot #2 — new app instance, same DB. The seed must not re-introduce
     // the deleted row.
-    const boot2 = makeAppWithSeedOwnerSession(manifestPath, dbPath);
+    const boot2 = createApp({ manifestPath, dbPath, devAuth: true });
     try {
-      const res = await request(boot2.wrapper).get('/api/workflows');
+      const res = await request(boot2.app).get('/api/workflows');
       expect(res.status).toBe(200);
       expect(res.body.items).toHaveLength(1);
     } finally {
