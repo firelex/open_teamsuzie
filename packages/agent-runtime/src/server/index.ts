@@ -64,6 +64,8 @@ export interface StartAgentOptions {
   agent?: { baseUrl: string; apiKey?: string; model: string; systemPrompt?: string };
   /** Directory to scan for extensions. Default './extensions' (relative to cwd). */
   extensionsDir?: string;
+  /** Path to the build's public/static assets directory. Default './public'. */
+  publicDir?: string;
 }
 
 interface AppHandles {
@@ -183,7 +185,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // ModuleRegistry only when modules.personas is enabled. Express matches in
   // declaration order so /api/personas/avatars wins regardless.
   app.use('/api/personas/avatars', createAvatarsRouter({
-    publicDir: path.resolve('./public'),
+    publicDir: path.resolve(opts.publicDir ?? './public'),
   }));
 
   // ── Tool registry (core + extensions, Task 3.5.6) ─────────────────────

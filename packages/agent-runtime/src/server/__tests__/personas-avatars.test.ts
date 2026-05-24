@@ -33,14 +33,16 @@ describe('GET /api/personas/avatars', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  it('ignores non-image files and non-directory entries', async () => {
-    const root = mkdtempSync(path.join(os.tmpdir(), 'avs-mixed-'));
+  it('ignores non-image files in buckets and flat under avatars/', async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'avs-noimg-'));
     mkdirSync(path.join(root, 'avatars', 'icons'), { recursive: true });
     writeFileSync(path.join(root, 'avatars', 'icons', 'a.jpg'), '');
     writeFileSync(path.join(root, 'avatars', 'icons', 'b.jpeg'), '');
     writeFileSync(path.join(root, 'avatars', 'icons', 'c.svg'), '');
     writeFileSync(path.join(root, 'avatars', 'icons', 'd.gif'), '');
-    // a loose file at the bucket level (not a dir) — should be skipped
+    // a loose non-image file at the flat level — should be skipped
+    writeFileSync(path.join(root, 'avatars', 'readme.txt'), '');
+    // a loose image file at the flat level — should be included
     writeFileSync(path.join(root, 'avatars', 'loose.png'), '');
     const app = express();
     app.use('/api/personas/avatars', createAvatarsRouter({ publicDir: root }));
@@ -49,6 +51,36 @@ describe('GET /api/personas/avatars', () => {
     expect(res.body.items.sort()).toEqual([
       '/avatars/icons/a.jpg',
       '/avatars/icons/b.jpeg',
+      '/avatars/loose.png',
+    ]);
+  });
+
+  it('lists image files placed flat under avatars/', async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'avs-flat-'));
+    mkdirSync(path.join(root, 'avatars'), { recursive: true });
+    writeFileSync(path.join(root, 'avatars', 'female-12.webp'), '');
+    writeFileSync(path.join(root, 'avatars', 'male-7.png'), '');
+    const app = express();
+    app.use('/api/personas/avatars', createAvatarsRouter({ publicDir: root }));
+    const res = await request(app).get('/api/personas/avatars');
+    expect(res.status).toBe(200);
+    expect(res.body.items.sort()).toEqual([
+      '/avatars/female-12.webp',
+      '/avatars/male-7.png',
+    ]);
+  });
+
+  it('handles a mixed layout (flat + buckets)', async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'avs-mixed-'));
+    mkdirSync(path.join(root, 'avatars', 'female'), { recursive: true });
+    writeFileSync(path.join(root, 'avatars', 'female', '1.webp'), '');  // bucketed
+    writeFileSync(path.join(root, 'avatars', 'male-7.png'), '');         // flat
+    const app = express();
+    app.use('/api/personas/avatars', createAvatarsRouter({ publicDir: root }));
+    const res = await request(app).get('/api/personas/avatars');
+    expect(res.body.items.sort()).toEqual([
+      '/avatars/female/1.webp',
+      '/avatars/male-7.png',
     ]);
   });
 });
