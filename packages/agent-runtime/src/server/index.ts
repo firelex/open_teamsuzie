@@ -39,6 +39,7 @@ import {
 import { createAiDraftRouter } from './ai-draft.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createAvatarsRouter } from './personas-avatars.js';
+import { ToolRegistry } from './tool-registry.js';
 
 const OWNER_ID = 'agent-runtime-default';
 
@@ -181,6 +182,14 @@ export function createApp(opts: StartAgentOptions): AppHandles {
   app.use('/api/personas/avatars', createAvatarsRouter({
     publicDir: path.resolve('./public'),
   }));
+
+  // ── Tool registry (core + extensions, Task 3.5.6) ─────────────────────
+  // Core tools route through the registry so extensions can register more
+  // via the same API. Currently only AI-draft consumes runChatTurn from
+  // within agent-runtime and it intentionally passes `tools: []`; the
+  // registry is the canonical source for any future tool-using endpoint.
+  const toolRegistry = new ToolRegistry();
+  for (const t of builtInTools) toolRegistry.register(t);
 
   // ── Module routers (gated by manifest.modules.*) ──────────────────────
   // Disabled modules simply aren't mounted, so Express returns its default
