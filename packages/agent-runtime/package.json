@@ -11,7 +11,8 @@
     "./manifest": { "import": "./dist/manifest/index.js", "types": "./dist/manifest/index.d.ts" },
     "./server": { "import": "./dist/server/index.js", "types": "./dist/server/index.d.ts" },
     "./shell": { "import": "./dist/shell/AgentApp.js", "types": "./dist/shell/AgentApp.d.ts" },
-    "./presets": { "import": "./dist/presets/index.js", "types": "./dist/presets/index.d.ts" }
+    "./presets": { "import": "./dist/presets/index.js", "types": "./dist/presets/index.d.ts" },
+    "./extensions": { "import": "./dist/extensions/index.js", "types": "./dist/extensions/index.d.ts" }
   },
   "files": ["dist"],
   "scripts": {
