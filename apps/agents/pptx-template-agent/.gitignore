@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Local secrets
+.env
+
+# Generated decks
+output/
+*.pptx
+
+# Templates are firm/customer artifacts — commit only sanitised samples
+templates/*.pptx
+!templates/sample-*.pptx
