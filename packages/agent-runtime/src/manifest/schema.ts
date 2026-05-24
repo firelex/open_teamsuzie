@@ -1,3 +1,5 @@
+import type { ReviewTemplateSeed } from '@teamsuzie/reviews';
+
 /**
  * Agent manifest contract.
  *
@@ -107,6 +109,15 @@ export interface ManifestAi {
   };
 }
 
+/**
+ * Manifest-side configuration for the Reviews module. Templates listed here
+ * are seeded into the reviews store as user-owned defaults on first boot
+ * (via `seedAsUserIfEmpty`); subsequent edits and deletes are preserved.
+ */
+export interface ManifestReviews {
+  templates?: ReviewTemplateSeed[];
+}
+
 export interface AgentManifest {
   schemaVersion: 1;
   name: string;
@@ -119,6 +130,7 @@ export interface AgentManifest {
   prompts?: ManifestPrompt[];
   tools: ManifestTool[];
   ai?: ManifestAi;
+  reviews?: ManifestReviews;
   source?: {
     builder?: string;
     builderVersion?: string;

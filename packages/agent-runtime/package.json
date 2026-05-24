@@ -28,6 +28,7 @@
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/personas": "workspace:*",
     "@teamsuzie/platform-bridge": "workspace:*",
+    "@teamsuzie/reviews": "workspace:*",
     "@teamsuzie/workflows": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.6.0",

@@ -6,7 +6,7 @@ import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
 import {
-  AssistantPage, LibraryPage, PersonasPage, HistoryPage, SettingsPage,
+  AssistantPage, LibraryPage, PersonasPage, HistoryPage, ReviewsPage, SettingsPage,
 } from '../pages/index.js';
 import { DEFAULT_MODULES } from '../manifest/defaults.js';
 import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
@@ -75,6 +75,7 @@ export function AgentApp() {
   ];
   if (mods.library)  items.push({ to: '/library',  label: 'Library',  testId: 'nav-library' });
   if (mods.personas) items.push({ to: '/personas', label: 'Personas', testId: 'nav-personas' });
+  if (mods.reviews)  items.push({ to: '/reviews',  label: 'Reviews',  testId: 'nav-reviews' });
   if (mods.history)  items.push({ to: '/history',  label: 'History',  testId: 'nav-history' });
 
   return (
@@ -101,6 +102,7 @@ export function AgentApp() {
           <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
           {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
           {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
+          {mods.reviews  && <Route path="/reviews"  element={<ReviewsPage />} />}
           {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
           {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
         </Routes>

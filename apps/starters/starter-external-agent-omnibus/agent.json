@@ -60,5 +60,19 @@
       "featured": true
     }
   ],
-  "tools": []
+  "tools": [],
+  "reviews": {
+    "templates": [
+      {
+        "id": "contract-summary",
+        "name": "Contract Summary",
+        "description": "One-line summary per contract attribute.",
+        "columns": [
+          { "id": "parties",   "title": "Parties",        "prompt": "Identify the contracting parties.", "format": "text" },
+          { "id": "effective", "title": "Effective date", "prompt": "Extract the effective date.",        "format": "date" },
+          { "id": "renewal",   "title": "Auto-renew?",    "prompt": "Does the contract auto-renew?",      "format": "boolean" }
+        ]
+      }
+    ]
+  }
 }

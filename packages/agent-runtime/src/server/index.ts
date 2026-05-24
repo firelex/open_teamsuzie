@@ -15,6 +15,9 @@ import {
   applyPersona, createPersonasRouter, PERSONAS_MIGRATIONS, PersonaRegistry,
 } from '@teamsuzie/personas';
 import {
+  createReviewsRouter, REVIEWS_MIGRATIONS, ReviewsStore,
+} from '@teamsuzie/reviews';
+import {
   createWorkflowsRouter, WORKFLOWS_MIGRATIONS, WorkflowsStore,
   type WorkflowSeed,
 } from '@teamsuzie/workflows';
@@ -77,13 +80,19 @@ export function createApp(opts: StartAgentOptions): AppHandles {
   const dbPath = path.resolve(opts.dbPath ?? './data/agent.db');
   const db = openDb({
     path: dbPath,
-    migrations: [...CHATS_MIGRATIONS, ...PERSONAS_MIGRATIONS, ...WORKFLOWS_MIGRATIONS],
+    migrations: [
+      ...CHATS_MIGRATIONS,
+      ...PERSONAS_MIGRATIONS,
+      ...WORKFLOWS_MIGRATIONS,
+      ...REVIEWS_MIGRATIONS,
+    ],
   });
 
   const approvals = new ApprovalQueue({ store: new InMemoryApprovalStore() });
   const docStore = new InMemoryDocumentStore();
   const chats = new ChatsStore({ db });
   const workflowsStore = new WorkflowsStore({ db });
+  const reviewsStore = new ReviewsStore({ db });
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
@@ -104,8 +113,26 @@ export function createApp(opts: StartAgentOptions): AppHandles {
       err instanceof Error ? err.message : err);
   }
 
-  // Seed manifest.prompts[] into workflows store as user-owned inline_chat entries.
   const manifest = manifestStore.get();
+
+  // Seed manifest.reviews.templates[] into reviews store as user-owned defaults
+  // (idempotent per manifest path). User edits and deletes are preserved
+  // across restarts — `seedAsUserIfEmpty` writes a marker on first apply.
+  if (
+    Array.isArray(manifest.reviews?.templates)
+    && manifest.reviews.templates.length > 0
+  ) {
+    try {
+      reviewsStore.seedAsUserIfEmpty(
+        `reviews:${manifestPath}`, manifest.reviews.templates, OWNER_ID,
+      );
+    } catch (err) {
+      console.warn('[agent-runtime] manifest.reviews.templates seed failed:',
+        err instanceof Error ? err.message : err);
+    }
+  }
+
+  // Seed manifest.prompts[] into workflows store as user-owned inline_chat entries.
   if (Array.isArray(manifest.prompts) && manifest.prompts.length > 0) {
     try {
       const promptSeeds: WorkflowSeed[] = manifest.prompts.map((p, i) => ({
@@ -186,6 +213,17 @@ export function createApp(opts: StartAgentOptions): AppHandles {
       },
     }),
   });
+  registry.register({
+    name: 'reviews',
+    apiPrefix: '/api/reviews',
+    router: createReviewsRouter({
+      store: reviewsStore,
+      getOwnerId: (req) => {
+        const s = (req as unknown as { session?: { user?: { email?: string } } }).session;
+        return s?.user?.email ?? null;
+      },
+    }),
+  });
   registry.mount(app, resolveModules(manifestStore.get()) as unknown as Record<string, boolean>);
 
   // ── /api/ai/draft (always) ────────────────────────────────────────────
@@ -232,7 +270,6 @@ export function createApp(opts: StartAgentOptions): AppHandles {
     const unwired: string[] = [];
     if (mods.matters) unwired.push('matters');
     if (mods.admin) unwired.push('admin');
-    if (mods.reviews) unwired.push('reviews');
     if (mods.billing) unwired.push('billing');
     if (mods.knowledgeBase) unwired.push('knowledgeBase');
     if (unwired.length > 0) {
