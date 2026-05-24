@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import type { Chat } from '@teamsuzie/chats';
-import { SidebarNavItem } from '@teamsuzie/ui';
+import { ConfirmDialogProvider, SidebarNavItem } from '@teamsuzie/ui';
 import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
@@ -78,31 +78,33 @@ export function AgentApp() {
   if (mods.history)  items.push({ to: '/history',  label: 'History',  testId: 'nav-history' });
 
   return (
-    <AppLayout
-      sidebar={
-        <Sidebar
-          theme={theme}
-          header={<Wordmark title={title} theme={theme} />}
-          items={items}
-          renderItem={(item) => (
-            item.label === 'Assistant'
-              ? <SidebarNavItem asChild><AssistantNavLink /></SidebarNavItem>
-              : <SidebarNavItem asChild><NavLink to={item.to}>{item.label}</NavLink></SidebarNavItem>
-          )}
-          footer={mods.settings ? (
-            <SidebarNavItem asChild><NavLink to="/settings">Settings</NavLink></SidebarNavItem>
-          ) : null}
-        />
-      }
-    >
-      <Routes>
-        <Route path="/" element={<AssistantPage agentName={agentName} />} />
-        <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
-        {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
-        {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
-        {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
-        {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
-      </Routes>
-    </AppLayout>
+    <ConfirmDialogProvider>
+      <AppLayout
+        sidebar={
+          <Sidebar
+            theme={theme}
+            header={<Wordmark title={title} theme={theme} />}
+            items={items}
+            renderItem={(item) => (
+              item.label === 'Assistant'
+                ? <SidebarNavItem asChild><AssistantNavLink /></SidebarNavItem>
+                : <SidebarNavItem asChild><NavLink to={item.to}>{item.label}</NavLink></SidebarNavItem>
+            )}
+            footer={mods.settings ? (
+              <SidebarNavItem asChild><NavLink to="/settings">Settings</NavLink></SidebarNavItem>
+            ) : null}
+          />
+        }
+      >
+        <Routes>
+          <Route path="/" element={<AssistantPage agentName={agentName} />} />
+          <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
+          {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
+          {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
+          {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
+          {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
+        </Routes>
+      </AppLayout>
+    </ConfirmDialogProvider>
   );
 }

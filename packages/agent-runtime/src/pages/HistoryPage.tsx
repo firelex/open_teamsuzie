@@ -11,6 +11,7 @@ import {
   PageHeaderContent,
   PageHeaderDescription,
   PageHeaderTitle,
+  useConfirm,
 } from '@teamsuzie/ui';
 import type { Chat } from '@teamsuzie/chats';
 
@@ -35,6 +36,7 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -56,7 +58,13 @@ export function HistoryPage() {
   }, [refresh]);
 
   async function handleDelete(chat: Chat) {
-    if (!window.confirm(`Delete "${chat.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete "${chat.name}"?`,
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/chats/${encodeURIComponent(chat.id)}`, {
         method: 'DELETE',

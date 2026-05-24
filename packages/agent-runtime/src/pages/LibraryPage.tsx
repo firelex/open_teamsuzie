@@ -20,6 +20,7 @@ import {
   PageHeaderTitle,
   Textarea,
   cn,
+  useConfirm,
   useWorkflows,
   type Workflow,
 } from '@teamsuzie/ui';
@@ -46,8 +47,8 @@ import {
 export function LibraryPage() {
   const wf = useWorkflows();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Workflow | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -95,13 +96,16 @@ export function LibraryPage() {
     }
   }
 
-  async function handleDelete() {
-    if (!pendingDelete) return;
-    try {
-      await wf.remove(pendingDelete.id);
-    } finally {
-      setPendingDelete(null);
-    }
+  async function handleDelete(workflow: Workflow) {
+    const ok = await confirm({
+      title: `Delete "${workflow.name}"?`,
+      description:
+        "This removes the workflow from your library. System workflows can't be deleted — only your own.",
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    await wf.remove(workflow.id);
   }
 
   return (
@@ -194,7 +198,7 @@ export function LibraryPage() {
                   <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       type="button"
-                      onClick={() => setPendingDelete(w)}
+                      onClick={() => void handleDelete(w)}
                       className="text-[10.5px] font-mono uppercase tracking-[0.06em] text-muted-foreground hover:text-destructive"
                       aria-label={`Delete ${w.name}`}
                     >
@@ -218,24 +222,6 @@ export function LibraryPage() {
         busy={createBusy}
         error={createError}
       />
-
-      <Dialog
-        open={!!pendingDelete}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{`Delete "${pendingDelete?.name ?? ''}"?`}</DialogTitle>
-            <DialogDescription>
-              This removes the workflow from your library. System workflows can't be deleted — only your own.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingDelete(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
