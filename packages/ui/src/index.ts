@@ -91,6 +91,7 @@ export type {
 
 // Components
 export * from './components/actions-menu.js';
+export { AiFillButton, type AiFillButtonProps, type AiFillKind } from './components/ai-fill-button.js';
 export * from './components/alert.js';
 export * from './components/app-shell.js';
 export * from './components/artifact-panel.js';
