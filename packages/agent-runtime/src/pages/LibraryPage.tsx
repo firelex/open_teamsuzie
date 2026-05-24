@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AiFillButton,
   Button,
   Dialog,
   DialogContent,
@@ -270,7 +271,15 @@ function CreateWorkflowDialog({ open, onOpenChange, onSubmit, busy, error }: Cre
             <Input id="wf-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="wf-prompt">Prompt</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="wf-prompt">Prompt</Label>
+              <AiFillButton
+                kind="prompt-body"
+                context={{ title: name, description }}
+                onFill={(text: string) => setPrompt(text)}
+                disabled={!name.trim()}
+              />
+            </div>
             <Textarea
               id="wf-prompt"
               value={prompt}
