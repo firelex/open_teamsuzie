@@ -27,7 +27,7 @@ function writeManifest(modules: Record<string, boolean>): string {
 
 describe('createApp (startAgent core)', () => {
   it('mounts /api/manifest always', async () => {
-    const { app, close } = createApp({
+    const { app, close } = await createApp({
       manifestPath: writeManifest({}),
       dbPath: join(tmp, 'agent.db'),
       devAuth: true,
@@ -40,7 +40,7 @@ describe('createApp (startAgent core)', () => {
   });
 
   it('mounts /api/workflows when modules.library=true', async () => {
-    const { app, close } = createApp({
+    const { app, close } = await createApp({
       manifestPath: writeManifest({ library: true }),
       dbPath: join(tmp, 'agent.db'),
       devAuth: true,
@@ -53,7 +53,7 @@ describe('createApp (startAgent core)', () => {
   });
 
   it('returns 404 for /api/workflows when modules.library=false', async () => {
-    const { app, close } = createApp({
+    const { app, close } = await createApp({
       manifestPath: writeManifest({ library: false }),
       dbPath: join(tmp, 'agent.db'),
       devAuth: true,
@@ -65,7 +65,7 @@ describe('createApp (startAgent core)', () => {
   });
 
   it('mounts /api/personas always (default module on)', async () => {
-    const { app, close } = createApp({
+    const { app, close } = await createApp({
       manifestPath: writeManifest({}),
       dbPath: join(tmp, 'agent.db'),
       devAuth: true,

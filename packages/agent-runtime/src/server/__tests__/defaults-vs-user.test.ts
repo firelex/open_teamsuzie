@@ -64,7 +64,7 @@ describe('defaults-vs-user (end-to-end)', () => {
     const dbPath = join(tmp, 'agent.db');
 
     // Boot #1 — seed runs, user edits the seeded prompt.
-    const boot1 = createApp({ manifestPath, dbPath, devAuth: true });
+    const boot1 = await createApp({ manifestPath, dbPath, devAuth: true });
     try {
       let res = await request(boot1.app).get('/api/workflows');
       expect(res.status).toBe(200);
@@ -82,7 +82,7 @@ describe('defaults-vs-user (end-to-end)', () => {
     }
 
     // Boot #2 — new app instance, same DB. The seed must not clobber.
-    const boot2 = createApp({ manifestPath, dbPath, devAuth: true });
+    const boot2 = await createApp({ manifestPath, dbPath, devAuth: true });
     try {
       const res = await request(boot2.app).get('/api/workflows');
       expect(res.status).toBe(200);
@@ -102,7 +102,7 @@ describe('defaults-vs-user (end-to-end)', () => {
     const dbPath = join(tmp, 'agent.db');
 
     // Boot #1 — seed runs, user deletes one of the two seeded prompts.
-    const boot1 = createApp({ manifestPath, dbPath, devAuth: true });
+    const boot1 = await createApp({ manifestPath, dbPath, devAuth: true });
     try {
       let res = await request(boot1.app).get('/api/workflows');
       expect(res.status).toBe(200);
@@ -121,7 +121,7 @@ describe('defaults-vs-user (end-to-end)', () => {
 
     // Boot #2 — new app instance, same DB. The seed must not re-introduce
     // the deleted row.
-    const boot2 = createApp({ manifestPath, dbPath, devAuth: true });
+    const boot2 = await createApp({ manifestPath, dbPath, devAuth: true });
     try {
       const res = await request(boot2.app).get('/api/workflows');
       expect(res.status).toBe(200);

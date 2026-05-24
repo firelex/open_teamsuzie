@@ -36,6 +36,7 @@ import {
   ManifestStore, resolveModules, listPersonas, findPersona,
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
+import { loadExtensions } from '../extensions/index.js';
 import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createAvatarsRouter } from './personas-avatars.js';
@@ -61,6 +62,8 @@ export interface StartAgentOptions {
   devAuth?: boolean;
   /** Override the agent target (model/baseUrl). Pulled from process.env when omitted. */
   agent?: { baseUrl: string; apiKey?: string; model: string; systemPrompt?: string };
+  /** Directory to scan for extensions. Default './extensions' (relative to cwd). */
+  extensionsDir?: string;
 }
 
 interface AppHandles {
@@ -74,7 +77,7 @@ interface AppHandles {
  * conditionally on manifest.modules.* so disabled modules return 404 and
  * the nav never points at a dead surface.
  */
-export function createApp(opts: StartAgentOptions): AppHandles {
+export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const manifestPath = path.resolve(opts.manifestPath);
   const manifestStore = new ManifestStore(manifestPath);
 
@@ -233,15 +236,50 @@ export function createApp(opts: StartAgentOptions): AppHandles {
       },
     }),
   });
-  registry.mount(app, resolveModules(manifestStore.get()) as unknown as Record<string, boolean>);
+
+  // ── AI-draft kinds (core + extensions, Task 3.5.6) ────────────────────
+  // Held here so extensions can register their own kinds onto it before the
+  // router serves a request.
+  const aiKinds = createCoreAiDraftKinds();
+
+  // ── Extensions (Task 3.5.6) ───────────────────────────────────────────
+  // Scan opts.extensionsDir (default './extensions') and route every
+  // extension's modules / tools / aiDraftKinds through the same registries
+  // as core code, tagged with { source: 'extension', extensionName: ... }.
+  // Must run BEFORE registry.mount(app, ...) so extension-provided modules
+  // can be mounted alongside core modules in a single pass.
+  const extensionsDir = path.resolve(opts.extensionsDir ?? './extensions');
+  const extensions = await loadExtensions(extensionsDir);
+  for (const ext of extensions) {
+    const meta = { source: 'extension' as const, extensionName: ext.name };
+    for (const m of ext.modules ?? []) registry.register(m, meta);
+    for (const t of ext.tools ?? []) toolRegistry.register(t, meta);
+    for (const [kind, handler] of Object.entries(ext.aiDraftKinds ?? {})) {
+      aiKinds.register(kind, handler, meta);
+    }
+    console.log(
+      `[agent-runtime] loaded extension '${ext.name}': `
+      + `${(ext.modules ?? []).length} modules, `
+      + `${(ext.tools ?? []).length} tools, `
+      + `${Object.keys(ext.aiDraftKinds ?? {}).length} aiDraftKinds`,
+    );
+  }
+
+  // Build the mount flags. `resolveModules` covers the canonical module set
+  // (history/library/personas/...); the raw `manifest.modules` may also
+  // include extension module names (e.g. 'ext-mod': true) that aren't part
+  // of the canonical schema. Merge so both core and extension flags resolve.
+  const rawModuleFlags = (manifestStore.get().modules ?? {}) as Record<string, boolean>;
+  const mountFlags: Record<string, boolean> = {
+    ...rawModuleFlags,
+    ...(resolveModules(manifestStore.get()) as unknown as Record<string, boolean>),
+  };
+  registry.mount(app, mountFlags);
 
   // ── /api/ai/draft (always) ────────────────────────────────────────────
   // AI-fill helper. Reads manifest.ai.simpleModel at call time so a manifest
   // edit takes effect without a restart. Returns 503 when no model is set;
   // client AI-fill affordances should hide themselves accordingly.
-  // The `aiKinds` registry is held here so Task 3.5.6 can register extension
-  // kinds onto it before the router serves a request.
-  const aiKinds = createCoreAiDraftKinds();
   app.use('/api/ai/draft', createAiDraftRouter({
     get simpleModel() { return manifestStore.get().ai?.simpleModel; },
     kinds: aiKinds,
@@ -326,7 +364,7 @@ function injectDevSession(principalEmail: string): express.RequestHandler {
 // ── startAgent — production boot wrapper ────────────────────────────────
 
 export async function startAgent(opts: StartAgentOptions): Promise<void> {
-  const { app } = createApp(opts);
+  const { app } = await createApp(opts);
   // Reserved for future per-dir resolution; kept so the import isn't dead.
   void fileURLToPath(import.meta.url);
   const clientDistDir = path.resolve(process.cwd(), 'client', 'dist');
