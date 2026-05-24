@@ -33,6 +33,7 @@ import {
   ManifestStore, resolveModules, listPersonas, findPersona,
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
+import { createAiDraftRouter } from './ai-draft.js';
 
 const OWNER_ID = 'agent-runtime-default';
 
@@ -180,6 +181,32 @@ export function createApp(opts: StartAgentOptions): AppHandles {
         return s?.user?.email ?? null;
       },
     }));
+
+  // ── /api/ai/draft (always) ────────────────────────────────────────────
+  // AI-fill helper. Reads manifest.ai.simpleModel at call time so a manifest
+  // edit takes effect without a restart. Returns 503 when no model is set;
+  // client AI-fill affordances should hide themselves accordingly.
+  app.use('/api/ai/draft', createAiDraftRouter({
+    get simpleModel() { return manifestStore.get().ai?.simpleModel; },
+    runTurn: async ({ messages, model, baseUrl, apiKey }) => {
+      let text = '';
+      const stream = runChatTurn({
+        agent: { baseUrl, apiKey, model },
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        tools: [],
+        toolCtx: {
+          approvals,
+          vectorDbBaseUrl: '',
+        },
+        maxIterations: 1,
+      });
+      for await (const event of stream) {
+        if (event.type === 'chunk') text += event.text;
+        else if (event.type === 'error') throw new Error(event.message);
+      }
+      return { text: text.trim() };
+    },
+  }));
 
   // ── /api/health ───────────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => {

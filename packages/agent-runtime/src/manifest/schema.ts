@@ -93,6 +93,20 @@ export interface ManifestPrompt {
   featured?: boolean;
 }
 
+/**
+ * Optional AI configuration. `simpleModel` is the small/cheap model used by
+ * server-side AI-fill (POST /api/ai/draft) and any other utility chat call
+ * that doesn't need the full agent loop. When undefined the AI-fill endpoint
+ * returns 503 and clients are expected to hide the affected affordances.
+ */
+export interface ManifestAi {
+  simpleModel?: {
+    baseUrl: string;
+    apiKey?: string;
+    model: string;
+  };
+}
+
 export interface AgentManifest {
   schemaVersion: 1;
   name: string;
@@ -104,6 +118,7 @@ export interface AgentManifest {
   modules?: Partial<ManifestModules>;
   prompts?: ManifestPrompt[];
   tools: ManifestTool[];
+  ai?: ManifestAi;
   source?: {
     builder?: string;
     builderVersion?: string;
