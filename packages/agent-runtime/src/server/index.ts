@@ -16,6 +16,7 @@ import {
 } from '@teamsuzie/personas';
 import {
   createWorkflowsRouter, WORKFLOWS_MIGRATIONS, WorkflowsStore,
+  type WorkflowSeed,
 } from '@teamsuzie/workflows';
 import {
   connectMcpServers, loadSkills, parseMcpConfigFile, runChatTurn,
@@ -32,6 +33,11 @@ import {
   ManifestStore, resolveModules, listPersonas, findPersona,
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
+
+const OWNER_ID = 'agent-runtime-default';
+
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
 
 export interface StartAgentOptions {
   /** Path to agent.json, resolved relative to process.cwd() if relative. */
@@ -79,16 +85,42 @@ export function createApp(opts: StartAgentOptions): AppHandles {
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
 
-  // Seed system workflows from disk (preset-shaped). Failure is logged-not-fatal.
+  // Seed workflows from disk as user-owned defaults (idempotent per manifest path).
   const seedPath = path.resolve(opts.workflowsSeedPath ?? './workflows.seed.json');
   try {
     if (existsSync(seedPath)) {
-      const seed = JSON.parse(readFileSync(seedPath, 'utf8'));
-      if (Array.isArray(seed)) workflowsStore.seedSystem(seed);
+      const seed = JSON.parse(readFileSync(seedPath, 'utf8')) as unknown;
+      if (Array.isArray(seed)) {
+        workflowsStore.seedAsUserIfEmpty(
+          `workflows:${manifestPath}`, seed as WorkflowSeed[], OWNER_ID,
+        );
+      }
     }
   } catch (err) {
     console.warn(`[agent-runtime] workflows seed at ${seedPath} failed:`,
       err instanceof Error ? err.message : err);
+  }
+
+  // Seed manifest.prompts[] into workflows store as user-owned inline_chat entries.
+  const manifest = manifestStore.get();
+  if (Array.isArray(manifest.prompts) && manifest.prompts.length > 0) {
+    try {
+      const promptSeeds: WorkflowSeed[] = manifest.prompts.map((p, i) => ({
+        id: `manifest-prompt-${i}-${slugify(p.title)}`,
+        name: p.title,
+        description: p.subtitle ?? '',
+        prompt: p.prompt ?? '',
+        practiceAreas: p.practiceAreas ?? [],
+        outputMode: 'inline_chat' as const,
+        columnConfig: null,
+      }));
+      workflowsStore.seedAsUserIfEmpty(
+        `prompts:${manifestPath}`, promptSeeds, OWNER_ID,
+      );
+    } catch (err) {
+      console.warn('[agent-runtime] manifest.prompts seed failed:',
+        err instanceof Error ? err.message : err);
+    }
   }
 
   const app = express();
