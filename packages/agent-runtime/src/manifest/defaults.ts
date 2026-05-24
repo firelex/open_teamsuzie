@@ -3,7 +3,18 @@ import type {
   ManifestComponents,
   ManifestModules,
   ManifestPersona,
+  ThemeTokens,
 } from './schema.js';
+
+/**
+ * Default values for optional theme tokens. These are *defaults only* — any
+ * value the manifest's `theme.tokens` provides wins. Consumers (e.g. Sidebar)
+ * read `tokens.<x> ?? DEFAULT_THEME_TOKENS.<x>` so an agent.json with no theme
+ * still produces a legible UI.
+ */
+export const DEFAULT_THEME_TOKENS: ThemeTokens = {
+  sidebarFgMuted: '#9a9a94',
+};
 
 export const DEFAULT_COMPONENTS: ManifestComponents = {
   chat: true,

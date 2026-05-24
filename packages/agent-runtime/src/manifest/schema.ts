@@ -25,6 +25,10 @@ export interface ThemeTokens {
   wordmarkStyle?: 'single' | 'two-line';
   sidebarBg?: string;
   sidebarFg?: string;
+  /** Color for INACTIVE sidebar nav rows. Falls back to sidebarFg if unset.
+   *  Defaults to `#9a9a94` (see DEFAULT_THEME_TOKENS) so inactive rows stay
+   *  legible against a dark sidebarBg. */
+  sidebarFgMuted?: string;
   accentBar?: { color?: string; width?: string };
 }
 
