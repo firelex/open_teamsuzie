@@ -20,6 +20,17 @@ import {
   type PersonaUpdateInput,
 } from "../hooks/use-personas.js"
 
+/** Snapshot of the persona form values the system-prompt AI-fill slot is
+ *  rendered with, plus a setter so the slot can write a drafted prompt
+ *  back into the form. Lets a consumer build an `<AiFillButton>` whose
+ *  `context` references the user's current name + description and whose
+ *  `onFill` updates the textarea. */
+export interface PersonaSystemPromptAiFillArgs {
+  name: string
+  description: string
+  setSystemPrompt: (text: string) => void
+}
+
 export interface PersonaEditorProps {
   /** Avatar URLs the user can pick from. */
   availableAvatars?: string[]
@@ -37,6 +48,11 @@ export interface PersonaEditorProps {
   fetchImpl?: typeof fetch
   /** Page size for the user-personas tab. Default 12. */
   userPageSize?: number
+  /** Optional render-prop that places a node (typically an `<AiFillButton>`)
+   *  next to the "System prompt" label in the create/edit dialog. Called with
+   *  the form's live `{ name, description }` so the consumer can wire them as
+   *  context for the AI-fill request. Not invoked in view (read-only) mode. */
+  renderSystemPromptAiFill?: (values: PersonaSystemPromptAiFillArgs) => React.ReactNode
 }
 
 export function PersonaEditor(props: PersonaEditorProps) {
@@ -48,6 +64,7 @@ export function PersonaEditor(props: PersonaEditorProps) {
     endpoint,
     fetchImpl,
     userPageSize = 10,
+    renderSystemPromptAiFill,
   } = props
   const selectable = !!onSelect
   const noPersonaActive = selectable && (selectedPersonaId == null)
@@ -169,6 +186,7 @@ export function PersonaEditor(props: PersonaEditorProps) {
           initial={editing === "new" ? null : editing}
           availableAvatars={availableAvatars}
           availableTools={availableTools}
+          renderSystemPromptAiFill={renderSystemPromptAiFill}
           onCancel={() => setEditing(null)}
           onSubmit={async (values) => {
             if (editing === "new") {
@@ -627,10 +645,14 @@ interface PersonaFormProps {
   availableTools: { name: string; description?: string }[]
   onCancel: () => void
   onSubmit: (values: PersonaCreateInput) => Promise<void>
+  /** Render-prop for the AI-fill affordance next to the System prompt label.
+   *  Invoked with the form's live `{ name, description }` so the slot's
+   *  AI-draft request can include them as context. */
+  renderSystemPromptAiFill?: (values: PersonaSystemPromptAiFillArgs) => React.ReactNode
 }
 
 function PersonaForm(props: PersonaFormProps) {
-  const { mode, initial, availableAvatars, availableTools, onCancel, onSubmit } = props
+  const { mode, initial, availableAvatars, availableTools, onCancel, onSubmit, renderSystemPromptAiFill } = props
   const readOnly = mode === "view"
   const [name, setName] = React.useState(initial?.name ?? "")
   const [description, setDescription] = React.useState(initial?.description ?? "")
@@ -739,7 +761,14 @@ function PersonaForm(props: PersonaFormProps) {
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="persona-prompt">System prompt</Label>
+            {!readOnly && renderSystemPromptAiFill ? (
+              <div className="flex items-center justify-between">
+                <Label htmlFor="persona-prompt">System prompt</Label>
+                {renderSystemPromptAiFill({ name, description, setSystemPrompt })}
+              </div>
+            ) : (
+              <Label htmlFor="persona-prompt">System prompt</Label>
+            )}
             <Textarea
               id="persona-prompt"
               value={systemPrompt}
