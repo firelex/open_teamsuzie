@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "predev": "cd ../../../packages/approvals && npx tsc && cd ../skills && npx tsc && cd ../ui && npx tsc && cd ../agent-loop && npx tsc",
-    "dev": "next dev -p 19311",
+    "dev": "agent-runtime-cleanup-port 19311 && next dev -p 19311",
     "build": "next build",
     "start": "next start -p 19311",
     "typecheck": "tsc --noEmit",
@@ -23,6 +23,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@teamsuzie/agent-runtime": "workspace:*",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^22.10.5",
     "@types/react": "^19.1.8",

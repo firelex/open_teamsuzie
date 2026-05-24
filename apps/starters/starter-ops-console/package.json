@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "predev": "cd ../../../packages/shared-auth && npx tsc",
-    "dev": "tsx watch src/bootstrap.ts & pnpm --filter @teamsuzie/starter-ops-console-client dev & wait",
+    "dev": "agent-runtime-cleanup-port 18311 && agent-runtime-cleanup-port 18276 && tsx watch src/bootstrap.ts & pnpm --filter @teamsuzie/starter-ops-console-client dev & wait",
     "build": "tsc",
     "start": "node dist/bootstrap.js",
     "seed": "tsx src/seed.ts",
@@ -31,6 +31,7 @@
     "sequelize-typescript": "^2.1.6"
   },
   "devDependencies": {
+    "@teamsuzie/agent-runtime": "workspace:*",
     "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",

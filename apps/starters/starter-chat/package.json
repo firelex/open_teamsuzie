@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "predev": "cd ../../../packages/approvals && npx tsc && cd ../skills && npx tsc && cd ../agent-loop && npx tsc",
-    "dev": "tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-chat-client dev & wait",
+    "dev": "agent-runtime-cleanup-port 16311 && agent-runtime-cleanup-port 17276 && tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-chat-client dev & wait",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
@@ -24,6 +24,7 @@
     "multer": "^2.0.1"
   },
   "devDependencies": {
+    "@teamsuzie/agent-runtime": "workspace:*",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",
     "@types/multer": "^2.0.0",

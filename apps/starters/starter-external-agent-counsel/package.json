@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "predev": "cd ../../../packages/agent-runtime && npx tsc",
-    "dev": "AGENT_DEV_AUTH=true tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-counsel-client dev & wait",
+    "dev": "agent-runtime-cleanup-port && agent-runtime-cleanup-port 17276 && AGENT_DEV_AUTH=true tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-counsel-client dev & wait",
     "build": "tsc && pnpm --filter @teamsuzie/starter-external-agent-counsel-client build",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"

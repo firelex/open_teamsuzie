@@ -1,12 +1,12 @@
 {
-  "name": "@teamsuzie/starter-external-agent",
+  "name": "@teamsuzie/starter-external-agent-suziecode",
   "version": "0.1.0",
-  "description": "Starter for an external marketplace agent: chatbot + custom tools, registers with the suzie_monorepo mothership via @teamsuzie/platform-bridge",
+  "description": "SuzieCode-themed starter for an external marketplace agent — dark graphite + indigo violet aesthetic lifted from the SuzieCode app.",
   "private": true,
   "type": "module",
   "scripts": {
     "predev": "cd ../../../packages/approvals && npx tsc && cd ../skills && npx tsc && cd ../agent-loop && npx tsc && cd ../platform-bridge && npx tsc",
-    "dev": "agent-runtime-cleanup-port 16311 && agent-runtime-cleanup-port 17276 && tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-client dev & wait",
+    "dev": "agent-runtime-cleanup-port 16311 && agent-runtime-cleanup-port 17276 && tsx watch src/index.ts & pnpm --filter @teamsuzie/starter-external-agent-suziecode-client dev & wait",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"

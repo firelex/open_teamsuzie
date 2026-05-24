@@ -14,7 +14,10 @@
     "./presets": { "import": "./dist/presets/index.js", "types": "./dist/presets/index.d.ts" },
     "./extensions": { "import": "./dist/extensions/index.js", "types": "./dist/extensions/index.d.ts" }
   },
-  "files": ["dist"],
+  "files": ["dist", "bin"],
+  "bin": {
+    "agent-runtime-cleanup-port": "./bin/cleanup-port.sh"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
