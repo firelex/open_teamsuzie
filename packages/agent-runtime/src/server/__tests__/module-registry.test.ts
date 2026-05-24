@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { ModuleRegistry } from '../module-registry.js';
+import type { RegistrationMeta } from '../../extensions/types.js';
 
 describe('ModuleRegistry', () => {
   let reg: ModuleRegistry;
@@ -44,5 +45,16 @@ describe('ModuleRegistry', () => {
     reg.register({ name: 'history' }); // router omitted
     const app = express();
     expect(() => reg.mount(app, { history: true })).not.toThrow();
+  });
+
+  it('tracks source per registration; defaults to core when omitted', () => {
+    reg.register({ name: 'library', router: express.Router() });
+    reg.register(
+      { name: 'legal-research', router: express.Router() },
+      { source: 'extension', extensionName: 'legal-research' },
+    );
+    expect(reg.metaFor('library')).toEqual({ source: 'core' });
+    expect(reg.metaFor('legal-research')).toEqual({ source: 'extension', extensionName: 'legal-research' });
+    expect(reg.metaFor('does-not-exist')).toBeUndefined();
   });
 });
