@@ -47,3 +47,12 @@ export type {
 } from './reviews-export.js';
 export { createReviewsFromWorkflowRouter } from './reviews-from-workflow.js';
 export type { CreateReviewsFromWorkflowRouterOptions } from './reviews-from-workflow.js';
+export {
+    MATTERS_METADATA_MIGRATIONS,
+    MatterMetadataStore,
+} from './metadata-store.js';
+export type {
+    MatterMetadata,
+    MatterMetadataStoreOptions,
+    UpsertMatterMetadataInput,
+} from './metadata-store.js';
