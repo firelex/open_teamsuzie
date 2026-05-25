@@ -29,9 +29,18 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.post('/api/presentations/generate', (req, res) => {
-    const { instructions } = req.body;
-    // Always use server-configured model — ignore client-provided model
-    const model = undefined;
+    const { instructions, model: requestedModel } = req.body as {
+        instructions?: string;
+        model?: string;
+    };
+
+    // Optional per-request model override. The proxy routes the named
+    // model to the appropriate provider; pptx-agent never sees keys.
+    // Falls back to env-resolved config.model in runAgentLoop when
+    // undefined.
+    const model = typeof requestedModel === 'string' && requestedModel.trim()
+        ? requestedModel.trim()
+        : undefined;
 
     if (!instructions) {
         res.status(400).json({ error: 'Missing required field: instructions' });
