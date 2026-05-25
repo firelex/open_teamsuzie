@@ -24,8 +24,10 @@
   "dependencies": {
     "@teamsuzie/chats": "workspace:*",
     "@teamsuzie/document-versions": "workspace:*",
+    "@teamsuzie/grid-review": "workspace:*",
     "@teamsuzie/sharing": "workspace:*",
     "@teamsuzie/workspaces": "workspace:*",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "multer": "^2.0.1"
   },

@@ -32,7 +32,7 @@ import { MembersStore, SHARING_MIGRATIONS } from '@teamsuzie/sharing';
 import {
   backfillMatterOwnership, createMatterMembersRouter,
   createMatterUploadsRouter, createRequireMatterAccess,
-  SUBJECT_MATTER,
+  createReviewsExportRouter, SUBJECT_MATTER,
 } from '@teamsuzie/matters';
 import { buildProposeDocumentEditsTool } from '@teamsuzie/docx';
 import {
@@ -514,6 +514,9 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
     // (see docs/GAPS.md #5). Without it, POST /:reviewId/run returns
     // 501 from the package — every other CRUD route works.
     if (resolveModules(manifestStore.get()).reviews) {
+      // xlsx export — mount before the generic reviews router so its
+      // `/:reviewId/export.xlsx` matches first. Same _matterId stash so
+      // the export router can read the parent param under Express 5.
       app.use(
         '/api/matters/:matterId/reviews',
         (req, _res, next) => {
@@ -522,6 +525,10 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
           );
           next();
         },
+        createReviewsExportRouter({
+          reviews: gridReviewsStore,
+          workspaces: workspacesStore,
+        }),
         createGridReviewsRouter({
           store: gridReviewsStore,
           getWorkspaceId: (req) =>

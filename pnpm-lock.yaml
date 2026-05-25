@@ -1909,12 +1909,18 @@ importers:
       '@teamsuzie/document-versions':
         specifier: workspace:*
         version: link:../document-versions
+      '@teamsuzie/grid-review':
+        specifier: workspace:*
+        version: link:../grid-review
       '@teamsuzie/sharing':
         specifier: workspace:*
         version: link:../sharing
       '@teamsuzie/workspaces':
         specifier: workspace:*
         version: link:../workspaces
+      exceljs:
+        specifier: ^4.4.0
+        version: 4.4.0
       express:
         specifier: ^5.1.0
         version: 5.2.1

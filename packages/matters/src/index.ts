@@ -37,3 +37,11 @@ export type {
 } from './access-middleware.js';
 export { createMatterMembersRouter } from './members-router.js';
 export type { CreateMatterMembersRouterOptions } from './members-router.js';
+export {
+    buildReviewWorkbook,
+    createReviewsExportRouter,
+} from './reviews-export.js';
+export type {
+    BuildReviewWorkbookOptions,
+    CreateReviewsExportRouterOptions,
+} from './reviews-export.js';
