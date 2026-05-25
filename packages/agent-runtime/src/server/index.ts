@@ -340,7 +340,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // across every starter). The AssistantPage POSTs paperclip uploads here
   // and DELETEs them on removal; chat-route reads attachmentIds from the
   // body and inlines their content via buildAttachmentContext.
-  app.use('/api', createFilesRouter({ store: fileStore }));
+  app.use('/api', createFilesRouter({ store: fileStore, versionsStore }));
 
   // ── /api/chat (when an agent target is configured) ────────────────────
   // Chat completion + SSE stream. Per-request `body.model` (Settings-page

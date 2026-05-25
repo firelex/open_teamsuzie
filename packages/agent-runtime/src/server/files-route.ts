@@ -119,10 +119,27 @@ export interface FileRouterOptions {
   store: InMemoryFileStore;
   /** Per-file size cap. Default 25 MB. */
   maxUploadBytes?: number;
+  /**
+   * Optional document-versions store. When supplied, every successful
+   * upload mints a `source:'upload'` row with `externalDocId = fileId`
+   * and `storageId = fileId`. Subsequent proposal/accept/reject
+   * versions chain off this row.
+   */
+  versionsStore?: {
+    addVersion(input: {
+      externalDocId: string;
+      parentId?: string | null;
+      source: 'upload';
+      storageId: string;
+      byteSize?: number | null;
+      notes?: string | null;
+    }): unknown;
+  };
 }
 
 export function createFilesRouter({
   store,
+  versionsStore,
   maxUploadBytes = 25 * 1024 * 1024,
 }: FileRouterOptions): Router {
   const router: Router = Router();
@@ -152,6 +169,23 @@ export function createFilesRouter({
       createdAt: Date.now(),
     };
     store.put(record);
+    if (versionsStore) {
+      try {
+        versionsStore.addVersion({
+          externalDocId: record.id,
+          parentId: null,
+          source: 'upload',
+          storageId: record.id,
+          byteSize: record.size,
+          notes: record.name,
+        });
+      } catch (err) {
+        console.warn(
+          '[files-route] versionsStore.addVersion failed:',
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
     const metadata: FileMetadata = {
       id: record.id,
       name: record.name,
