@@ -69,6 +69,10 @@ app.add_middleware(
 
 class GenerateRequest(BaseModel):
     instructions: str
+    # Optional per-request model override. Defaults to settings.model
+    # (XLSX_AGENT_MODEL / DEFAULT_LLM_MODEL). The proxy routes the named
+    # model to the appropriate provider; xlsx-agent never sees keys.
+    model: str | None = None
 
 
 @app.get("/api/health")
@@ -76,7 +80,7 @@ async def health():
     return {"status": "ok", "service": "xlsx-agent"}
 
 
-async def _process_job(job: Job, instructions: str) -> None:
+async def _process_job(job: Job, instructions: str, model: str | None = None) -> None:
     job_dir = settings.output_dir / job.id
     job_dir.mkdir(parents=True, exist_ok=True)
 
@@ -88,6 +92,7 @@ async def _process_job(job: Job, instructions: str) -> None:
             user_prompt=instructions,
             job_dir=job_dir,
             on_progress=log_progress,
+            model=model,
         )
         job.file_path = result.file_path
         job.filename = result.filename
@@ -141,7 +146,7 @@ async def generate(req: Request, body: GenerateRequest) -> JSONResponse:
     job = Job(id=job_id, status="processing", agent_api_key=agent_api_key)
     JOBS[job_id] = job
 
-    asyncio.create_task(_process_job(job, body.instructions))
+    asyncio.create_task(_process_job(job, body.instructions, body.model))
 
     return JSONResponse(
         status_code=202,
