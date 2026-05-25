@@ -1,0 +1,42 @@
+{
+  "name": "@teamsuzie/matters",
+  "version": "0.1.0",
+  "description": "Composition layer that glues @teamsuzie/workspaces + @teamsuzie/sharing + @teamsuzie/chats + the agent-runtime file store into a 'matter' (case / deal / project) workspace. No new data tables — uses workspaces for matter rows and sharing for member rows.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/chats": "workspace:*",
+    "@teamsuzie/document-versions": "workspace:*",
+    "@teamsuzie/sharing": "workspace:*",
+    "@teamsuzie/workspaces": "workspace:*",
+    "express": "^5.1.0",
+    "multer": "^2.0.1"
+  },
+  "devDependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.10.5",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}
