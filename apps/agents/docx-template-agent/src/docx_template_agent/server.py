@@ -70,6 +70,25 @@ async def inspect_template_endpoint(template_id: str) -> TemplateManifest:
         raise HTTPException(404, "unknown template_id")
 
 
+@app.get("/api/templates/{template_id}/binary")
+async def get_template_binary(template_id: str) -> FileResponse:
+    """Return the raw .docx bytes for a stored template.
+
+    Used by the drafter to fetch the template as a `--reference-doc` for
+    pandoc when exporting free-draft outputs — letting the firm's heading /
+    body / letterhead styles survive into the exported file.
+    """
+    try:
+        path = templates.get_template_path(template_id)
+    except FileNotFoundError:
+        raise HTTPException(404, "unknown template_id")
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=path.name,
+    )
+
+
 # ---- Precedents --------------------------------------------------------------
 
 class PrecedentUploadResponse(BaseModel):

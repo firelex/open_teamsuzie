@@ -122,3 +122,17 @@ def test_precedent_upload_and_inspect(client):
 def test_download_unknown_job(client):
     r = client.get("/api/documents/nope/download")
     assert r.status_code == 404
+
+
+def test_template_binary_returns_bytes(client, template_id):
+    r = client.get(f"/api/templates/{template_id}/binary")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith(DOCX_MIME)
+    # .docx files are zip containers — first bytes are the PK signature.
+    assert r.content[:2] == b"PK"
+    assert len(r.content) > 1000
+
+
+def test_template_binary_unknown_id(client):
+    r = client.get("/api/templates/nope/binary")
+    assert r.status_code == 404
