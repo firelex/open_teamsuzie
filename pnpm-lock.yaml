@@ -1501,6 +1501,9 @@ importers:
       '@teamsuzie/docx':
         specifier: workspace:*
         version: link:../docx
+      '@teamsuzie/docx-diff':
+        specifier: workspace:*
+        version: link:../docx-diff
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document

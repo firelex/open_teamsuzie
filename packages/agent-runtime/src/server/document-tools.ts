@@ -5,6 +5,7 @@ import {
 } from '@teamsuzie/markdown-document';
 import { convertFileToMarkdown } from '@teamsuzie/document-conversion';
 import type { FileRecord, InMemoryFileStore } from './files-route.js';
+import { buildCompareDocumentsTool } from './compare-documents-tool.js';
 import { buildFindInDocumentTool } from './find-in-document-tool.js';
 
 export interface BuildDocumentToolsOptions {
@@ -177,6 +178,14 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
     // gate. DOCX paragraph indices match the redline-view, so a find
     // result anchors a subsequent edit without re-locating.
     buildFindInDocumentTool({ sessionId, fileStore, docStore }),
+    // Two-document diff with downloadable tracked-change DOCX. Read-only
+    // for the inputs (writes a new redline file under the same session).
+    // Lives outside the drafting gate because "compare these two" is a
+    // common question even for read-only review flows.
+    buildCompareDocumentsTool({
+      sessionId, fileStore, markitdownBaseUrl,
+      author: 'AI assistant', fetchImpl,
+    }),
   ];
   if (includeDrafting) {
     tools.push(

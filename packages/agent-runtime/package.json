@@ -32,6 +32,7 @@
     "@teamsuzie/document-conversion": "workspace:*",
     "@teamsuzie/document-versions": "workspace:*",
     "@teamsuzie/docx": "workspace:*",
+    "@teamsuzie/docx-diff": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/personas": "workspace:*",
     "@teamsuzie/platform-bridge": "workspace:*",
