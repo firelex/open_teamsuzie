@@ -77,6 +77,17 @@ export interface StartAgentOptions {
   extensionsDir?: string;
   /** Path to the build's public/static assets directory. Default './public'. */
   publicDir?: string;
+  /**
+   * Optional markitdown-agent target. When set (or when
+   * `MARKITDOWN_AGENT_BASE_URL` env var is set), agent-runtime registers
+   * `convert_to_markdown` (and `propose_document_edits` when
+   * `modules.redline` is also enabled) so the model can read uploaded
+   * DOCX/PDF attachments. When unset, those tools simply don't register.
+   */
+  markitdown?: {
+    baseUrl: string;
+    fetchImpl?: typeof fetch;
+  };
 }
 
 interface AppHandles {
@@ -143,6 +154,11 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   }
 
   const manifest = manifestStore.get();
+
+  const markitdownBaseUrl = (opts.markitdown?.baseUrl
+    ?? process.env.MARKITDOWN_AGENT_BASE_URL
+    ?? '').replace(/\/$/, '');
+  const markitdownFetch = opts.markitdown?.fetchImpl;
 
   // Seed manifest.reviews.templates[] into reviews store as user-owned defaults
   // (idempotent per manifest path). User edits and deletes are preserved
@@ -384,6 +400,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       agent: { name: m.persona.name ?? m.persona.id, model: opts.agent?.model },
       tools: m.tools.filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
       modules: resolveModules(m),
+      markitdown: markitdownBaseUrl ? 'configured' : 'not configured',
     });
   });
 
