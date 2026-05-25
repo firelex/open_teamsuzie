@@ -54,6 +54,7 @@ describe('buildDocumentTools', () => {
     expect(names).toContain('create_document');
     expect(names).toContain('export_to_docx');
     expect(names).toContain('get_outline');
+    expect(names).toContain('find_in_document');
   });
 
   it('omits export_to_docx when markitdown is not configured', () => {

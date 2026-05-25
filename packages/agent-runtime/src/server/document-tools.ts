@@ -5,6 +5,7 @@ import {
 } from '@teamsuzie/markdown-document';
 import { convertFileToMarkdown } from '@teamsuzie/document-conversion';
 import type { FileRecord, InMemoryFileStore } from './files-route.js';
+import { buildFindInDocumentTool } from './find-in-document-tool.js';
 
 export interface BuildDocumentToolsOptions {
   /** Active session id for this turn — closed over by the navigation/drafting tools. */
@@ -170,6 +171,12 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
   const tools: AnyToolDefinition[] = [
     convertTool,
     ...documentNavigationTools({ store: docStore, getSessionId: () => sessionId }),
+    // Read-only "find a phrase in this uploaded file" tool. Useful for
+    // citations + grounding even when drafting tools aren't enabled, so
+    // it lives alongside the nav tools rather than behind the drafting
+    // gate. DOCX paragraph indices match the redline-view, so a find
+    // result anchors a subsequent edit without re-locating.
+    buildFindInDocumentTool({ sessionId, fileStore, docStore }),
   ];
   if (includeDrafting) {
     tools.push(
