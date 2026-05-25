@@ -21,6 +21,7 @@ import { buildConvertToMarkdownTool } from '@teamsuzie/document-conversion';
 import {
   DocumentVersionsStore, DOCUMENT_VERSIONS_MIGRATIONS,
 } from '@teamsuzie/document-versions';
+import { buildProposeDocumentEditsTool } from '@teamsuzie/docx';
 import {
   createWorkflowsRouter, WORKFLOWS_MIGRATIONS, WorkflowsStore,
   type WorkflowSeed,
@@ -45,6 +46,7 @@ import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
 import { createChatRouter } from './chat-route.js';
 import { createFilesRouter, InMemoryFileStore } from './files-route.js';
 import { ModuleRegistry } from './module-registry.js';
+import { createRedlineRouter } from './redline-router.js';
 import { createAvatarsRouter } from './personas-avatars.js';
 import { ToolRegistry } from './tool-registry.js';
 
@@ -252,6 +254,19 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
     }));
   }
 
+  const redlineEnabled = Boolean(manifest.modules?.redline);
+  if (markitdownBaseUrl && redlineEnabled) {
+    toolRegistry.register(buildProposeDocumentEditsTool({
+      fileStore,
+      versionsStore: {
+        addVersion: (input) => versionsStore.addVersion(input) as { id: string },
+      },
+      author: manifest.persona.name ?? manifest.name ?? 'AI assistant',
+      buildDownloadUrl: (sid, fid) =>
+        `/api/files/${encodeURIComponent(sid)}/${encodeURIComponent(fid)}/content`,
+    }));
+  }
+
   // ── Module routers (gated by manifest.modules.*) ──────────────────────
   // Disabled modules simply aren't mounted, so Express returns its default
   // 404 — which is what AC9 asks for and what the existing tests assert.
@@ -294,6 +309,13 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       },
     }),
   });
+  if (markitdownBaseUrl) {
+    registry.register({
+      name: 'redline',
+      apiPrefix: '/api/files',
+      router: createRedlineRouter({ fileStore, versionsStore }),
+    });
+  }
 
   // ── AI-draft kinds (core + extensions, Task 3.5.6) ────────────────────
   // Held here so extensions can register their own kinds onto it before the
