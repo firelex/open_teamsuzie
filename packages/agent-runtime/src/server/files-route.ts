@@ -1,16 +1,21 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
+import {
+  existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync,
+} from 'node:fs';
+import path from 'node:path';
 
 /**
- * Per-session in-memory file store + multipart upload router. Lifted verbatim
- * from the pre-runtime starter-external-agent-{counsel,glasshouse,...}
- * src/files.ts files (where this had been duplicated across every starter,
- * with identical content). Hoisted into agent-runtime
- * so every build that calls `startAgent` gets `/api/files` for free, matching
- * what the AssistantPage already POSTs to.
+ * Memory-cached file store with optional disk persistence so matter docs
+ * (and other long-lived buckets) survive process restarts. When
+ * `dataDir` is set, writes go through to disk and the store hydrates
+ * from disk on construction; when null, the store is purely in-memory
+ * (the original starter-external-agent behavior — fine for one-shot
+ * chat sessions where files don't outlive the process).
  *
- * Suitable for chat sessions; not for persistent libraries. Replace with disk
- * / S3 / Postgres if you need files to survive a restart.
+ * `sessionId` is the bucket key — for chat session uploads it's the
+ * chat session id; for matter docs it's the matter id. The store
+ * doesn't care about the semantics, only the namespacing.
  */
 
 export interface FileRecord {
@@ -30,8 +35,37 @@ export interface FileMetadata {
   size: number;
 }
 
+interface FileMetaSidecar {
+  id: string;
+  sessionId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  createdAt: number;
+}
+
+export interface InMemoryFileStoreOptions {
+  /**
+   * Directory to persist file bytes + metadata. Layout:
+   *   <dataDir>/<encodeURIComponent(sessionId)>/<encodeURIComponent(id)>.bin
+   *   <dataDir>/<encodeURIComponent(sessionId)>/<encodeURIComponent(id)>.meta.json
+   *
+   * `null` (or omitted) disables disk I/O — the store stays
+   * in-memory and every write is lost on process exit. agent-runtime's
+   * `startAgent` defaults this to `<dbPath dir>/files` so matter
+   * uploads survive `tsx watch` reloads alongside the SQLite db.
+   */
+  dataDir?: string | null;
+}
+
 export class InMemoryFileStore {
   private bySession: Map<string, Map<string, FileRecord>> = new Map();
+  private readonly dataDir: string | null;
+
+  constructor(opts: InMemoryFileStoreOptions = {}) {
+    this.dataDir = opts.dataDir ?? null;
+    if (this.dataDir) this.loadFromDisk(this.dataDir);
+  }
 
   put(record: FileRecord): void {
     let sess = this.bySession.get(record.sessionId);
@@ -40,6 +74,7 @@ export class InMemoryFileStore {
       this.bySession.set(record.sessionId, sess);
     }
     sess.set(record.id, record);
+    if (this.dataDir) this.writeToDisk(this.dataDir, record);
   }
 
   get(sessionId: string, fileId: string): FileRecord | undefined {
@@ -58,7 +93,11 @@ export class InMemoryFileStore {
   }
 
   delete(sessionId: string, fileId: string): boolean {
-    return this.bySession.get(sessionId)?.delete(fileId) ?? false;
+    const removed = this.bySession.get(sessionId)?.delete(fileId) ?? false;
+    if (removed && this.dataDir) {
+      this.removeFromDisk(this.dataDir, sessionId, fileId);
+    }
+    return removed;
   }
 
   /** All files currently in a session, in insertion order. */
@@ -70,6 +109,7 @@ export class InMemoryFileStore {
 
   clearSession(sessionId: string): void {
     this.bySession.delete(sessionId);
+    if (this.dataDir) this.removeBucketFromDisk(this.dataDir, sessionId);
   }
 
   /**
@@ -94,10 +134,95 @@ export class InMemoryFileStore {
       fromSess.delete(id);
       const next: FileRecord = { ...rec, sessionId: toSessionId };
       this.put(next);
+      if (this.dataDir) {
+        // The new bucket already has the bytes via `this.put(next)`
+        // above; remove the now-orphaned old-bucket files from disk.
+        this.removeFromDisk(this.dataDir, fromSessionId, id);
+      }
       out.push(next);
     }
-    if (fromSess.size === 0) this.bySession.delete(fromSessionId);
+    if (fromSess.size === 0) {
+      this.bySession.delete(fromSessionId);
+      if (this.dataDir) this.removeBucketFromDisk(this.dataDir, fromSessionId);
+    }
     return out;
+  }
+
+  // --- disk persistence ------------------------------------------------
+
+  private loadFromDisk(dataDir: string): void {
+    if (!existsSync(dataDir)) return;
+    let buckets: string[];
+    try {
+      buckets = readdirSync(dataDir);
+    } catch {
+      return;
+    }
+    for (const bucketDir of buckets) {
+      const bucketPath = path.join(dataDir, bucketDir);
+      const sessionId = decodeURIComponent(bucketDir);
+      let entries: string[];
+      try {
+        entries = readdirSync(bucketPath);
+      } catch {
+        continue;
+      }
+      const sess = new Map<string, FileRecord>();
+      for (const entry of entries) {
+        if (!entry.endsWith('.meta.json')) continue;
+        const metaPath = path.join(bucketPath, entry);
+        const dataPath = metaPath.replace(/\.meta\.json$/, '.bin');
+        if (!existsSync(dataPath)) continue;
+        try {
+          const meta = JSON.parse(
+            readFileSync(metaPath, 'utf8'),
+          ) as FileMetaSidecar;
+          const bytes = readFileSync(dataPath);
+          sess.set(meta.id, { ...meta, bytes });
+        } catch {
+          // Skip corrupt sidecars; they'll be overwritten on next put.
+        }
+      }
+      if (sess.size > 0) this.bySession.set(sessionId, sess);
+    }
+  }
+
+  private writeToDisk(dataDir: string, record: FileRecord): void {
+    const bucketPath = path.join(
+      dataDir,
+      encodeURIComponent(record.sessionId),
+    );
+    mkdirSync(bucketPath, { recursive: true });
+    const safeId = encodeURIComponent(record.id);
+    writeFileSync(path.join(bucketPath, `${safeId}.bin`), record.bytes);
+    const meta: FileMetaSidecar = {
+      id: record.id,
+      sessionId: record.sessionId,
+      name: record.name,
+      mimeType: record.mimeType,
+      size: record.size,
+      createdAt: record.createdAt,
+    };
+    writeFileSync(
+      path.join(bucketPath, `${safeId}.meta.json`),
+      JSON.stringify(meta),
+    );
+  }
+
+  private removeFromDisk(
+    dataDir: string,
+    sessionId: string,
+    fileId: string,
+  ): void {
+    const bucketPath = path.join(dataDir, encodeURIComponent(sessionId));
+    const safeId = encodeURIComponent(fileId);
+    rmSync(path.join(bucketPath, `${safeId}.bin`), { force: true });
+    rmSync(path.join(bucketPath, `${safeId}.meta.json`), { force: true });
+  }
+
+  private removeBucketFromDisk(dataDir: string, sessionId: string): void {
+    const bucketPath = path.join(dataDir, encodeURIComponent(sessionId));
+    rmSync(bucketPath, { recursive: true, force: true });
   }
 }
 

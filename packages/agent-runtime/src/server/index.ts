@@ -78,6 +78,13 @@ export interface StartAgentOptions {
   manifestPath: string;
   /** Path to SQLite db. Default './data/agent.db'. */
   dbPath?: string;
+  /**
+   * Directory for the file-store's disk persistence. Default:
+   * `<dbPath dir>/files`. Set to `null` to opt out of persistence
+   * (in-memory only — files won't survive a restart). Pass an
+   * explicit path if you want files separate from the db dir.
+   */
+  filesDataDir?: string | null;
   /** Path to a directory of PERSONA.md files; default './personas'. */
   personasDir?: string;
   /** Path to a workflows seed JSON file; default './workflows.seed.json'. */
@@ -150,7 +157,18 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const chats = new ChatsStore({ db });
   const workflowsStore = new WorkflowsStore({ db });
   const reviewsStore = new ReviewsStore({ db });
-  const fileStore = new InMemoryFileStore();
+  // Default to a `files/` directory next to the SQLite db so uploads
+  // survive process restarts alongside the rows that reference them
+  // (workspace_documents.external_doc_id is opaque — the file bucket
+  // is the source of truth for bytes). Hosts can pass
+  // `opts.filesDataDir: null` to opt out (e.g. one-shot demo builds
+  // where files shouldn't outlive the process).
+  const defaultFilesDataDir = path.join(path.dirname(dbPath), 'files');
+  const filesDataDir =
+    opts.filesDataDir === null
+      ? null
+      : (opts.filesDataDir ?? defaultFilesDataDir);
+  const fileStore = new InMemoryFileStore({ dataDir: filesDataDir });
   const versionsStore = new DocumentVersionsStore({ db });
   const workspacesStore = new WorkspacesStore({ db });
   const membersStore = new MembersStore({ db });
