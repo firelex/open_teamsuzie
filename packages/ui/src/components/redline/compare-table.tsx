@@ -110,6 +110,14 @@ export function CompareTable({
 
   const effectiveTopics = streamedTopics.length > 0 ? streamedTopics : topics
   const useTopics = (effectiveTopics?.length ?? 0) > 0
+  // When the host wired a streaming source, suppress the mechanical
+  // event-per-row fallback while we're still waiting for topics — even
+  // an empty topic table is preferable to showing the paragraph diff
+  // the user explicitly didn't want. We only fall back to mechanical
+  // when streaming errored out AND no topics ever arrived.
+  const streamingExpected = Boolean(onLoadTopics)
+  const shouldHideMechanical = streamingExpected && !streamError && !useTopics
+  const visibleEvents = shouldHideMechanical ? [] : visible
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
@@ -170,7 +178,19 @@ export function CompareTable({
               ))}
             </tbody>
           </table>
-        ) : visible.length === 0 ? (
+        ) : shouldHideMechanical ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+            <div className="size-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Synthesizing topics from {visible.length} substantive
+              difference{visible.length === 1 ? "" : "s"}…
+            </p>
+            <p className="max-w-sm text-xs text-muted-foreground/70">
+              Topics will appear here as they're identified. This usually
+              takes a few seconds.
+            </p>
+          </div>
+        ) : visibleEvents.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             The two documents are identical (after paragraph-level alignment).
           </p>
@@ -191,13 +211,13 @@ export function CompareTable({
               </tr>
             </thead>
             <tbody>
-              {visible.map((event, idx) => (
+              {visibleEvents.map((event, idx) => (
                 <CompareRow key={idx} event={event} />
               ))}
             </tbody>
           </table>
         )}
-        {!useTopics && result.stats.unchanged > 0 && visible.length > 0 && (
+        {!useTopics && !shouldHideMechanical && result.stats.unchanged > 0 && visibleEvents.length > 0 && (
           <p className="px-4 py-3 text-xs text-muted-foreground">
             {result.stats.unchanged} paragraph
             {result.stats.unchanged === 1 ? "" : "s"} unchanged (hidden).
