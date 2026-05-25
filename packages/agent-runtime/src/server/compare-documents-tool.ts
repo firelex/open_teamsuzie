@@ -3,6 +3,35 @@ import type { DocumentDiffResult } from '@teamsuzie/docx-diff';
 import type { InMemoryFileStore } from './files-route.js';
 import { runDocumentDiff } from './run-document-diff.js';
 
+/**
+ * One row of the topic-based comparison. The CompareTable renders a
+ * sticky topic header above the left/right cells per row.
+ */
+export interface CompareTopic {
+  /** Short, human-readable topic name (e.g. "Excused Investments: From
+   *  Japanese ESG to Canadian Pension Compliance"). */
+  topic: string;
+  /** Plain-English summary of what the LEFT document says about this
+   *  topic, or "(absent)" / similar when the topic is only on the right. */
+  left: string;
+  /** Same for the RIGHT document. */
+  right: string;
+}
+
+/**
+ * Async summarizer called by the tool after the mechanical diff. Given
+ * the raw markdown diff and the filenames, returns topic-grouped rows.
+ * Provided by the host (createApp wires it to the manifest's simpleModel).
+ * Should return null when no summarizer is configured / synthesis
+ * failed — the tool falls back to returning mechanical events only,
+ * and the table renders the paragraph-by-paragraph view.
+ */
+export type CompareSummarizer = (input: {
+  leftName: string;
+  rightName: string;
+  diffMarkdown: string;
+}) => Promise<CompareTopic[] | null>;
+
 export interface BuildCompareDocumentsToolOptions {
   /** Active session id for this turn. */
   sessionId: string;
@@ -10,6 +39,11 @@ export interface BuildCompareDocumentsToolOptions {
   /** markitdown-agent base URL for non-DOCX paragraph extraction. Empty
    *  string means non-DOCX comparisons error out. */
   markitdownBaseUrl: string;
+  /** Optional LLM-backed summarizer that turns the mechanical diff into
+   *  topic-grouped rows. When omitted or returning null, the tool falls
+   *  back to the mechanical event stream — the CompareTable then renders
+   *  one row per paragraph diff event instead of one row per topic. */
+  summarize?: CompareSummarizer;
   /** Optional fetch override for tests. */
   fetchImpl?: typeof fetch;
 }
@@ -33,12 +67,12 @@ export interface BuildCompareDocumentsToolOptions {
 export function buildCompareDocumentsTool(
   opts: BuildCompareDocumentsToolOptions,
 ): AnyToolDefinition {
-  const { sessionId, fileStore, markitdownBaseUrl, fetchImpl } = opts;
+  const { sessionId, fileStore, markitdownBaseUrl, summarize, fetchImpl } = opts;
 
   return {
     name: 'compare_documents',
     description:
-      'Analyze two previously-uploaded documents and produce a structured side-by-side comparison: stats + a paragraph-by-paragraph event list (modified / deleted / inserted) with word-level diff inside each modified paragraph. **Call this when the user asks "what\'s different", "how do these compare", "summarize the changes", "diff these versions" — i.e., wants to UNDERSTAND the differences.** For a downloadable Word `.docx` with tracked changes (the literal "blackline"), use `blackline_documents` instead — the two are sister tools and may both be called for the same pair. The result is rendered in the client as a two-column comparison table. Use the `markdown` field if you want to quote the diff inline in your reply.',
+      'Analyze two previously-uploaded documents and produce a topic-based comparison: substantive changes grouped by subject (not paragraph-by-paragraph), with a plain-English summary of what each side says. **Call this when the user asks "what\'s different", "how do these compare", "summarize the changes", "diff these versions" — i.e., wants to UNDERSTAND the substantive differences.** For a downloadable Word `.docx` with tracked changes (the literal "blackline"), use `blackline_documents` instead — the two are sister tools and may both be called for the same pair. The result is rendered in the client as a two-column comparison table, one row per topic. Use the `markdown` field if you want to quote the textual summary inline in your reply.',
     parameters: {
       type: 'object',
       properties: {
@@ -70,15 +104,39 @@ export function buildCompareDocumentsTool(
       }
 
       const diff = await runDocumentDiff(left, right, { markitdownBaseUrl, fetchImpl });
+      const diffMarkdown = renderDiffMarkdown(diff);
+
+      // Topic synthesis (LLM-backed). Best-effort: if no summarizer is
+      // configured or it fails, we return events only and the table
+      // renders the paragraph-by-paragraph view as a fallback.
+      let topics: CompareTopic[] | undefined;
+      if (summarize) {
+        try {
+          const result = await summarize({
+            leftName: left.name,
+            rightName: right.name,
+            diffMarkdown,
+          });
+          if (result && result.length > 0) topics = result;
+        } catch (err) {
+          console.warn(
+            '[compare_documents] topic synthesis failed, falling back to events:',
+            err instanceof Error ? err.message : err,
+          );
+        }
+      }
 
       return {
         left: diff.left,
         right: diff.right,
         stats: diff.stats,
         summary: formatStatsLine(diff),
-        markdown: renderDiffMarkdown(diff),
-        // Full event stream — the chat client uses this to render the
-        // <CompareTable> artifact in the side panel.
+        markdown: diffMarkdown,
+        // Topic-based comparison (preferred render path). When absent
+        // the client falls back to rendering one row per event.
+        topics,
+        // Full event stream — fallback render when no topics, and useful
+        // for the model to reference specific paragraphs if needed.
         events: diff.events,
       };
     },

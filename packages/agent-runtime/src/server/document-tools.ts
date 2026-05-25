@@ -6,9 +6,13 @@ import {
 import { convertFileToMarkdown } from '@teamsuzie/document-conversion';
 import type { FileRecord, InMemoryFileStore } from './files-route.js';
 import { buildBlacklineDocumentsTool } from './blackline-documents-tool.js';
-import { buildCompareDocumentsTool } from './compare-documents-tool.js';
+import {
+  buildCompareDocumentsTool, type CompareSummarizer,
+} from './compare-documents-tool.js';
 import { buildFindInDocumentTool } from './find-in-document-tool.js';
 import { buildGenerateDocxFromSpecTool } from './generate-docx-tool.js';
+
+export type { CompareSummarizer, CompareTopic } from './compare-documents-tool.js';
 
 export interface BuildDocumentToolsOptions {
   /** Active session id for this turn — closed over by the navigation/drafting tools. */
@@ -29,6 +33,13 @@ export interface BuildDocumentToolsOptions {
    * Default: true.
    */
   includeDrafting?: boolean;
+  /**
+   * Optional async summarizer used by `compare_documents` to turn the
+   * mechanical paragraph diff into topic-grouped rows. Wired by
+   * `createApp` to the manifest's simpleModel. When omitted, the table
+   * renders the paragraph-by-paragraph view as a fallback.
+   */
+  compareSummarize?: CompareSummarizer;
   /** Optional fetch override (tests). */
   fetchImpl?: typeof fetch;
 }
@@ -121,7 +132,7 @@ export async function exportDocFromMarkdown(
 export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefinition[] {
   const {
     sessionId, fileStore, docStore, markitdownBaseUrl, fetchImpl,
-    includeDrafting = true,
+    includeDrafting = true, compareSummarize,
   } = opts;
 
   const convertTool: AnyToolDefinition = {
@@ -192,6 +203,7 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
     }),
     buildCompareDocumentsTool({
       sessionId, fileStore, markitdownBaseUrl, fetchImpl,
+      summarize: compareSummarize,
     }),
   ];
   if (includeDrafting) {

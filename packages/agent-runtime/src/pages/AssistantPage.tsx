@@ -771,13 +771,20 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                 }
               }
               // compare_documents: analytical artifact. The tool returns
-              // a full DocumentDiffResult (left, right, stats, events)
-              // and no DOCX; the client reconstructs it and opens a
-              // two-column <CompareTable> in the side panel — one row
-              // per modified/deleted/inserted paragraph.
+              // the DocumentDiffResult (left, right, stats, events) plus
+              // an optional `topics` array — LLM-grouped plain-English
+              // summary rows. The CompareTable prefers topics when
+              // present, falls back to the event-per-row mechanical
+              // layout otherwise.
               if (payload.name === 'compare_documents') {
                 const compareResult = result as unknown as
-                  Partial<DocumentDiffResult>;
+                  Partial<DocumentDiffResult> & {
+                    topics?: Array<{
+                      topic?: string;
+                      left?: string;
+                      right?: string;
+                    }>;
+                  };
                 if (
                   compareResult.left
                   && compareResult.right
@@ -785,11 +792,26 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                   && Array.isArray(compareResult.events)
                 ) {
                   const fullResult = compareResult as DocumentDiffResult;
+                  const topics = Array.isArray(compareResult.topics)
+                    ? compareResult.topics
+                        .filter((t) =>
+                          typeof t?.topic === 'string'
+                          && typeof t.left === 'string'
+                          && typeof t.right === 'string',
+                        )
+                        .map((t) => ({
+                          topic: t.topic as string,
+                          left: t.left as string,
+                          right: t.right as string,
+                        }))
+                    : undefined;
                   const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
                   sidePanel.openTab({
                     id: tabId,
                     title: `${fullResult.left.name} → ${fullResult.right.name}`,
-                    render: () => <CompareTable result={fullResult} />,
+                    render: () => (
+                      <CompareTable result={fullResult} topics={topics} />
+                    ),
                   });
                 }
               }

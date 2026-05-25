@@ -8,15 +8,32 @@ import type {
 import { cn } from "../../lib/utils"
 
 /**
- * Two-column side-by-side comparison table for a `DocumentDiffResult`.
- * One row per non-`unchanged` paragraph event:
- *   - **modified**: left cell shows the left paragraph with deletions
- *     struck through, right cell shows the right paragraph with
- *     insertions highlighted.
- *   - **deleted**: left cell shows the deleted paragraph struck through,
- *     right cell is empty.
- *   - **inserted**: left cell empty, right cell shows the inserted
- *     paragraph highlighted.
+ * One row of the topic-based comparison. The host (compare_documents
+ * tool's LLM summarizer) groups raw paragraph events into topics with
+ * plain-English summaries of each side. Shape mirrors the server-side
+ * `CompareTopic` from @teamsuzie/agent-runtime.
+ */
+export interface CompareTopic {
+  topic: string
+  left: string
+  right: string
+}
+
+/**
+ * Two-column side-by-side comparison table.
+ *
+ * Two render modes, chosen by the host's data:
+ *
+ *  1. **Topic mode** (preferred) — host passes `topics`, each rendered
+ *     as one row with a sticky topic header + plain-English left/right
+ *     summaries. This is what users normally want: "what changed"
+ *     grouped by subject, not by paragraph.
+ *
+ *  2. **Mechanical mode** (fallback) — host passes only `result` (a
+ *     `DocumentDiffResult` from @teamsuzie/docx-diff). The table
+ *     renders one row per non-`unchanged` paragraph event with
+ *     word-level diff inline. Use this when no LLM summarizer is
+ *     configured.
  *
  * Sister artifact to `<RedlinePanelContent>` (continuous-flow inline
  * redline). Use this for analytical "what changed" review; use the
@@ -24,6 +41,9 @@ import { cn } from "../../lib/utils"
  */
 export interface CompareTableProps {
   result: DocumentDiffResult
+  /** Topic-grouped rows when the host has them. When present, the
+   *  topic-row layout is used; events are ignored. */
+  topics?: CompareTopic[]
   /** Optional download URL for the blackline DOCX (if the host has one). */
   downloadHref?: string
   /** Override the displayed name for the left side. */
@@ -35,6 +55,7 @@ export interface CompareTableProps {
 
 export function CompareTable({
   result,
+  topics,
   downloadHref,
   headerLeft,
   headerRight,
@@ -44,6 +65,7 @@ export function CompareTable({
   const leftName = headerLeft ?? result.left.name
   const rightName = headerRight ?? result.right.name
   const stats = formatStatsLine(result)
+  const useTopics = topics && topics.length > 0
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
@@ -69,7 +91,29 @@ export function CompareTable({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        {visible.length === 0 ? (
+        {useTopics ? (
+          <table className="w-full border-collapse text-sm">
+            <thead className="sticky top-0 bg-muted/50 backdrop-blur-sm">
+              <tr>
+                <th className="w-1/2 border-b border-border px-3 py-2 text-left font-semibold">
+                  <span className="block truncate" title={leftName}>
+                    {leftName}
+                  </span>
+                </th>
+                <th className="w-1/2 border-b border-l border-border px-3 py-2 text-left font-semibold">
+                  <span className="block truncate" title={rightName}>
+                    {rightName}
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {topics!.map((t, idx) => (
+                <TopicRows key={idx} topic={t} />
+              ))}
+            </tbody>
+          </table>
+        ) : visible.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             The two documents are identical (after paragraph-level alignment).
           </p>
@@ -96,7 +140,7 @@ export function CompareTable({
             </tbody>
           </table>
         )}
-        {result.stats.unchanged > 0 && visible.length > 0 && (
+        {!useTopics && result.stats.unchanged > 0 && visible.length > 0 && (
           <p className="px-4 py-3 text-xs text-muted-foreground">
             {result.stats.unchanged} paragraph
             {result.stats.unchanged === 1 ? "" : "s"} unchanged (hidden).
@@ -104,6 +148,45 @@ export function CompareTable({
         )}
       </div>
     </div>
+  )
+}
+
+function TopicRows({ topic }: { topic: CompareTopic }) {
+  // Each topic = two rows: a topic-name header spanning both columns,
+  // then a content row with the left/right plain-English summaries.
+  // Visually distinct so users scan topics first, then drill into the
+  // side-by-side text for the current topic.
+  const isAbsentLeft = /^\s*\(\s*absent\s*\)\s*$/i.test(topic.left)
+  const isAbsentRight = /^\s*\(\s*absent\s*\)\s*$/i.test(topic.right)
+  return (
+    <>
+      <tr className="border-t border-border bg-muted/30">
+        <td
+          colSpan={2}
+          className="px-3 py-1.5 text-[12px] font-semibold tracking-tight"
+        >
+          {topic.topic}
+        </td>
+      </tr>
+      <tr className="border-b border-border align-top">
+        <td
+          className={cn(
+            "px-3 py-2.5 leading-relaxed",
+            isAbsentLeft && "bg-muted/20 text-xs italic text-muted-foreground",
+          )}
+        >
+          {topic.left || "—"}
+        </td>
+        <td
+          className={cn(
+            "border-l border-border px-3 py-2.5 leading-relaxed",
+            isAbsentRight && "bg-muted/20 text-xs italic text-muted-foreground",
+          )}
+        >
+          {topic.right || "—"}
+        </td>
+      </tr>
+    </>
   )
 }
 

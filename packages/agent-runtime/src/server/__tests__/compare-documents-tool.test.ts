@@ -28,6 +28,68 @@ async function putDocx(
 }
 
 describe('buildCompareDocumentsTool', () => {
+  it('calls the summarizer and returns its topics in the result', async () => {
+    const fileStore = new InMemoryFileStore();
+    await putDocx(fileStore, 'L', 'nda-v1.docx', ['The Buyer keeps it secret.']);
+    await putDocx(fileStore, 'R', 'nda-v2.docx', ['The Purchaser keeps it secret.']);
+    let summarizerCalled = false;
+    const tool = buildCompareDocumentsTool({
+      sessionId: 's', fileStore, markitdownBaseUrl: '',
+      summarize: async ({ leftName, rightName }) => {
+        summarizerCalled = true;
+        return [
+          { topic: 'Party name', left: leftName, right: rightName },
+        ];
+      },
+    });
+    const result = await tool.execute(
+      { left_file_id: 'L', right_file_id: 'R' },
+      ctx(),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = result as any;
+    expect(summarizerCalled).toBe(true);
+    expect(r.topics).toEqual([
+      { topic: 'Party name', left: 'nda-v1.docx', right: 'nda-v2.docx' },
+    ]);
+    // events stream still returned as fallback.
+    expect(Array.isArray(r.events)).toBe(true);
+  });
+
+  it('falls back gracefully when summarizer throws (topics undefined, events present)', async () => {
+    const fileStore = new InMemoryFileStore();
+    await putDocx(fileStore, 'L', 'a.docx', ['First version.']);
+    await putDocx(fileStore, 'R', 'b.docx', ['Second version.']);
+    const tool = buildCompareDocumentsTool({
+      sessionId: 's', fileStore, markitdownBaseUrl: '',
+      summarize: async () => { throw new Error('LLM is on fire'); },
+    });
+    const result = await tool.execute(
+      { left_file_id: 'L', right_file_id: 'R' },
+      ctx(),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = result as any;
+    expect(r.topics).toBeUndefined();
+    expect(Array.isArray(r.events)).toBe(true);
+  });
+
+  it('falls back gracefully when summarizer returns null', async () => {
+    const fileStore = new InMemoryFileStore();
+    await putDocx(fileStore, 'L', 'a.docx', ['v1']);
+    await putDocx(fileStore, 'R', 'b.docx', ['v2']);
+    const tool = buildCompareDocumentsTool({
+      sessionId: 's', fileStore, markitdownBaseUrl: '',
+      summarize: async () => null,
+    });
+    const result = await tool.execute(
+      { left_file_id: 'L', right_file_id: 'R' },
+      ctx(),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((result as any).topics).toBeUndefined();
+  });
+
   it('returns the full DocumentDiffResult (events, stats, markdown) and NO download URL', async () => {
     const fileStore = new InMemoryFileStore();
     await putDocx(fileStore, 'L', 'nda-v1.docx', [
