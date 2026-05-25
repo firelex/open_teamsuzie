@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+    AiFillButton,
     AppShellContent,
     Archive,
     Button,
@@ -218,9 +219,25 @@ function NewMatterDialog({
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="matter-description">
-                                Description (optional)
-                            </Label>
+                            <div className="flex items-baseline justify-between">
+                                <Label htmlFor="matter-description">
+                                    Description (optional)
+                                </Label>
+                                <AiFillButton
+                                    kind="description"
+                                    context={{
+                                        subjectNoun: singularLower,
+                                        name,
+                                    }}
+                                    onFill={(text) => setDescription(text)}
+                                    disabled={!name.trim()}
+                                    title={
+                                        name.trim()
+                                            ? 'Draft a description with AI'
+                                            : 'Enter a name first'
+                                    }
+                                />
+                            </div>
                             <Textarea
                                 id="matter-description"
                                 value={description}

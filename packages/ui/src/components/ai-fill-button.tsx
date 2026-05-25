@@ -16,6 +16,7 @@ export type AiFillKind =
   | "persona-system"
   | "workflow-prompt"
   | "review-column-prompt"
+  | "description"
 
 export interface AiFillButtonProps
   extends Omit<React.ComponentProps<"button">, "onClick" | "children"> {

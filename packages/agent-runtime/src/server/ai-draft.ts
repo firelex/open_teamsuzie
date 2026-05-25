@@ -52,6 +52,19 @@ export function createCoreAiDraftKinds(): AiDraftKindRegistry {
     `produce the prompt the user would paste into an assistant to perform the task. ` +
     `Title: "${c.title ?? ''}". Description: "${c.description ?? ''}".`,
   });
+  r.register('description', { systemPromptFor: (c: any) => {
+    const subjectNoun = String(c.subjectNoun ?? 'thing').trim() || 'thing';
+    const name = String(c.name ?? '').trim();
+    const extra = String(c.extra ?? '').trim();
+    return [
+      `You draft a one-sentence description for a ${subjectNoun}.`,
+      `Return ONLY the description body — no preamble, no quotes, no "Here is...".`,
+      `Keep it ≤ 140 characters; complete grammatical sentence; lowercase first letter is fine.`,
+      ``,
+      `Name: "${name}".`,
+      extra ? `Extra context: "${extra}".` : '',
+    ].filter(Boolean).join('\n');
+  } });
   r.register('review-column-prompt', { systemPromptFor: (c: any) => {
     const title = String(c.title ?? '').trim();
     const formatHint = String(c.formatHint ?? 'text').trim() || 'text';
