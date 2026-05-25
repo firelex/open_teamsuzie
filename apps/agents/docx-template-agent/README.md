@@ -44,6 +44,19 @@ python examples/blixt_letterhead.py output/engagement-letter-blixt.docx
 soffice --headless --convert-to pdf --outdir output output/engagement-letter-blixt.docx
 ```
 
+## LLM configuration
+
+The agent talks to LLMs through a LiteLLM-compatible proxy (OpenAI
+chat-completions protocol). No provider keys live in this service — the
+proxy holds them and maps model names to providers.
+
+- `LLM_PROXY_URL` — base URL of the proxy (default `http://localhost:4000`).
+- `LLM_PROXY_API_KEY` — bearer auth for the proxy (optional).
+- `DOCX_TEMPLATE_AGENT_MODEL` or `DEFAULT_LLM_MODEL` — model name to send
+  to the proxy (e.g. `claude-sonnet-4-5-20250929`, `gpt-4o`,
+  `qwen-max-latest`). Callers can override per-request via the `model`
+  field on `POST /api/documents/generate`.
+
 ## Token format
 
 Bracket tokens follow this convention to keep prose like `[note]` or `[1]`

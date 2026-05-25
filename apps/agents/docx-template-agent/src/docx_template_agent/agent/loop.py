@@ -1,8 +1,11 @@
-"""Provider-dispatching agent loop for docx drafting.
+"""Agent loop for docx drafting.
 
-Reads `config.llm_provider` (or the `provider=` override) and routes to
-either the Anthropic-native loop or the OpenAI-compatible loop (which
-covers OpenAI, Dashscope and other OpenAI-protocol providers)."""
+All LLM traffic flows through a LiteLLM-compatible proxy (OpenAI
+chat-completions protocol). The proxy maps model names to providers,
+so this loop is provider-agnostic. We translate the Anthropic-style
+tool definitions from `agent/tools.py` into OpenAI's `function` schema,
+and translate response `tool_calls` back into the dispatcher's input
+shape."""
 
 from __future__ import annotations
 
@@ -11,19 +14,43 @@ import logging
 from pathlib import Path
 from typing import Any, Callable
 
-from anthropic import Anthropic
+from openai import OpenAI
 
 from ..config import config
-from .openai_loop import run_loop_openai
 from .system_prompt import SYSTEM_PROMPT
 from .tools import TOOL_DEFINITIONS, AgentState, dispatch
 
 log = logging.getLogger(__name__)
 
-MAX_TURNS = 30
+# Many OpenAI-protocol models (notably Qwen on Dashscope via the proxy)
+# emit ONE tool_call per turn rather than batching. A docx with ~70
+# paragraphs therefore needs ~70 turns. Per-turn cost is small.
+MAX_TURNS = 120
 
 
-def _run_loop_anthropic(
+def _to_openai_tools(anthropic_tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t["description"],
+                "parameters": t["input_schema"],
+            },
+        }
+        for t in anthropic_tools
+    ]
+
+
+def _make_client() -> OpenAI:
+    """OpenAI SDK client pointed at the LLM proxy."""
+    return OpenAI(
+        base_url=f"{config.llm_proxy_url}/v1",
+        api_key=config.llm_proxy_api_key or "no-auth",
+    )
+
+
+def run_loop(
     prompt: str,
     template_path: Path,
     output_path: Path,
@@ -32,22 +59,27 @@ def _run_loop_anthropic(
     model: str | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
+    """Run the agent loop. Returns the save report once the model calls save_doc.
+
+    Raises if the loop exceeds MAX_TURNS without saving."""
     chosen_model = model or config.llm_model
     if not chosen_model:
         raise RuntimeError(
             "No LLM model configured. Set DOCX_TEMPLATE_AGENT_MODEL or DEFAULT_LLM_MODEL."
         )
-    if not config.anthropic_api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set.")
 
+    client = _make_client()
     state = AgentState(template_path=template_path, output_path=output_path)
-    client = Anthropic(api_key=config.anthropic_api_key)
+    tools = _to_openai_tools(TOOL_DEFINITIONS)
 
     user_msg = prompt
     if precedent_ids:
         user_msg += "\n\nPrecedent IDs available for reference: " + ", ".join(precedent_ids)
 
-    messages: list[dict[str, Any]] = [{"role": "user", "content": user_msg}]
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_msg},
+    ]
 
     def event(msg: str) -> None:
         log.info(msg)
@@ -55,41 +87,66 @@ def _run_loop_anthropic(
             on_event(msg)
 
     for turn in range(MAX_TURNS):
-        event(f"turn {turn + 1}: anthropic/{chosen_model}")
-        resp = client.messages.create(
+        event(f"turn {turn + 1}: {chosen_model}")
+        resp = client.chat.completions.create(
             model=chosen_model,
             max_tokens=8192,
-            system=SYSTEM_PROMPT,
-            tools=TOOL_DEFINITIONS,
             messages=messages,
+            tools=tools,
         )
-        messages.append({"role": "assistant", "content": resp.content})
+        choice = resp.choices[0]
+        msg = choice.message
 
-        tool_uses = [b for b in resp.content if b.type == "tool_use"]
-        if not tool_uses:
-            event("model produced no tool_use; ending loop")
+        # Echo the assistant's tool_call message into the history so the next
+        # tool messages can reference the tool_call_ids.
+        assistant_entry: dict[str, Any] = {
+            "role": "assistant",
+            "content": msg.content or "",
+        }
+        if msg.tool_calls:
+            cleaned_calls = []
+            for tc in msg.tool_calls:
+                raw = tc.function.arguments or "{}"
+                # Some upstreams reject subsequent requests if the assistant's
+                # echoed tool_calls carry non-JSON arguments. Validate and
+                # collapse to "{}" when malformed so the loop can recover.
+                try:
+                    json.loads(raw)
+                    args_str = raw
+                except json.JSONDecodeError:
+                    args_str = "{}"
+                cleaned_calls.append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": args_str},
+                })
+            assistant_entry["tool_calls"] = cleaned_calls
+        messages.append(assistant_entry)
+
+        if not msg.tool_calls:
+            event("model returned no tool_calls; ending loop")
             break
 
-        tool_results: list[dict[str, Any]] = []
-        for use in tool_uses:
-            event(f"  tool: {use.name}  input_keys={list(use.input.keys())}")
+        for tc in msg.tool_calls:
+            name = tc.function.name
             try:
-                result = dispatch(state, use.name, use.input)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": use.id,
-                    "content": json.dumps(result, default=str),
-                })
+                args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError as e:
+                args = {}
+                event(f"  tool: {name} (arg parse error: {e})")
+
+            event(f"  tool: {name}  input_keys={list(args.keys())}")
+            try:
+                result = dispatch(state, name, args)
+                content = json.dumps(result, default=str)
             except Exception as e:  # noqa: BLE001
                 event(f"    error: {e}")
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": use.id,
-                    "content": f"error: {e}",
-                    "is_error": True,
-                })
-
-        messages.append({"role": "user", "content": tool_results})
+                content = json.dumps({"error": str(e)})
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": content,
+            })
 
         if state.saved:
             event("save_doc called; loop done")
@@ -100,33 +157,3 @@ def _run_loop_anthropic(
     if not state.saved or state.save_report is None:
         raise RuntimeError("agent loop ended without saving")
     return state.save_report
-
-
-def run_loop(
-    prompt: str,
-    template_path: Path,
-    output_path: Path,
-    *,
-    precedent_ids: list[str] | None = None,
-    model: str | None = None,
-    provider: str | None = None,
-    on_event: Callable[[str], None] | None = None,
-) -> dict[str, Any]:
-    """Run the agent loop against the configured (or overridden) provider.
-
-    Returns the save report when the model calls save_doc. Raises if the
-    loop exceeds the per-provider turn cap without saving."""
-    chosen_provider = (provider or config.llm_provider).lower()
-
-    if chosen_provider == "anthropic":
-        return _run_loop_anthropic(
-            prompt, template_path, output_path,
-            precedent_ids=precedent_ids, model=model, on_event=on_event,
-        )
-    if chosen_provider in ("openai", "dashscope"):
-        return run_loop_openai(
-            prompt, template_path, output_path,
-            precedent_ids=precedent_ids, model=model,
-            provider=chosen_provider, on_event=on_event,
-        )
-    raise ValueError(f"Unknown LLM provider: {chosen_provider!r}")

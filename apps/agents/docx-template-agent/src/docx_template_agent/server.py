@@ -150,6 +150,10 @@ class GenerateRequest(BaseModel):
     template_id: str
     instructions: str
     precedent_ids: list[str] = Field(default_factory=list)
+    # Optional per-request model override. Defaults to config.llm_model
+    # (DOCX_TEMPLATE_AGENT_MODEL / DEFAULT_LLM_MODEL). The proxy routes the
+    # named model to the appropriate provider; the agent never sees keys.
+    model: str | None = None
 
 
 @app.post("/api/documents/generate")
@@ -181,7 +185,7 @@ async def generate(req: GenerateRequest, request: Request) -> dict[str, str]:
                 template_path,
                 output_path,
                 precedent_ids=req.precedent_ids or None,
-                model=None,
+                model=req.model,
                 on_event=lambda m: log.info("[%s] %s", job_id[:8], m),
             )
             job.status = "completed"

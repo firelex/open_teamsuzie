@@ -23,26 +23,19 @@ class Config:
         os.environ.get("DOCX_TEMPLATE_AGENT_PRECEDENTS_DIR", "./precedents")
     )
 
-    # Provider routing. "anthropic" uses the Anthropic SDK directly.
-    # "openai" and "dashscope" both use the openai SDK; "dashscope" defaults
-    # the base_url to Alibaba's OpenAI-compatible endpoint.
-    llm_provider: str = (
-        os.environ.get("LLM_PROVIDER")
-        or ("dashscope" if os.environ.get("DASHSCOPE_API_KEY") else "anthropic")
-    ).lower()
+    # All LLM traffic flows through a LiteLLM-compatible proxy that exposes
+    # an OpenAI chat-completions endpoint. The agent does not need to know
+    # which provider serves a given model — the proxy maps model names to
+    # providers and holds provider keys centrally.
+    llm_proxy_url: str = os.environ.get(
+        "LLM_PROXY_URL", "http://localhost:4000"
+    ).rstrip("/")
+    llm_proxy_api_key: str | None = os.environ.get("LLM_PROXY_API_KEY") or None
+
     llm_model: str | None = (
         os.environ.get("DOCX_TEMPLATE_AGENT_MODEL")
         or os.environ.get("DEFAULT_LLM_MODEL")
         or None
-    )
-
-    anthropic_api_key: str | None = os.environ.get("ANTHROPIC_API_KEY") or None
-    openai_api_key: str | None = os.environ.get("OPENAI_API_KEY") or None
-    dashscope_api_key: str | None = os.environ.get("DASHSCOPE_API_KEY") or None
-    openai_base_url: str | None = os.environ.get("OPENAI_BASE_URL") or None
-    dashscope_base_url: str = (
-        os.environ.get("DASHSCOPE_BASE_URL")
-        or "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     )
 
     admin_service_url: str | None = os.environ.get("ADMIN_SERVICE_URL") or None
