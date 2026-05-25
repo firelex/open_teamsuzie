@@ -17,6 +17,7 @@ import {
 import {
   createReviewsRouter, REVIEWS_MIGRATIONS, ReviewsStore,
 } from '@teamsuzie/reviews';
+import { buildConvertToMarkdownTool } from '@teamsuzie/document-conversion';
 import {
   createWorkflowsRouter, WORKFLOWS_MIGRATIONS, WorkflowsStore,
   type WorkflowSeed,
@@ -234,6 +235,17 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // registry is the canonical source for any future tool-using endpoint.
   const toolRegistry = new ToolRegistry();
   for (const t of builtInTools) toolRegistry.register(t);
+
+  // Conditional registration: convert_to_markdown is only useful when a
+  // markitdown-agent is reachable. Without it the model would call the
+  // tool and get an error on every invocation — better not to advertise.
+  if (markitdownBaseUrl) {
+    toolRegistry.register(buildConvertToMarkdownTool({
+      fileStore,
+      markitdownBaseUrl,
+      fetchImpl: markitdownFetch,
+    }));
+  }
 
   // ── Module routers (gated by manifest.modules.*) ──────────────────────
   // Disabled modules simply aren't mounted, so Express returns its default

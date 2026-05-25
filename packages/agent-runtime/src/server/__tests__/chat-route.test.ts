@@ -158,6 +158,23 @@ describe('POST /api/chat', () => {
     expect(observedContent).toBe('hi');
   });
 
+  it('propagates body.sessionId onto toolCtx.sessionId', async () => {
+    let observedSessionId: string | undefined = undefined;
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      runChatTurn: async function* mock(opts) {
+        observedSessionId = opts.toolCtx.sessionId;
+        yield { type: 'done' };
+      },
+    }));
+    await request(app)
+      .post('/api/chat')
+      .send({ message: 'hi', sessionId: 'sess-abc' });
+    expect(observedSessionId).toBe('sess-abc');
+  });
+
   it('forwards error events on runChatTurn throw', async () => {
     const app = express();
     app.use(express.json());

@@ -29,6 +29,7 @@
     "@teamsuzie/approvals": "workspace:*",
     "@teamsuzie/chats": "workspace:*",
     "@teamsuzie/db-sqlite": "workspace:*",
+    "@teamsuzie/document-conversion": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/personas": "workspace:*",
     "@teamsuzie/platform-bridge": "workspace:*",

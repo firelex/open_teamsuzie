@@ -132,7 +132,7 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
         agent,
         messages,
         tools: turnConfig.tools,
-        toolCtx: deps.toolCtx,
+        toolCtx: { ...deps.toolCtx, sessionId: sessionId || undefined },
         systemPrompt: turnConfig.systemPrompt,
         maxIterations: deps.maxIterations ?? 30,
         signal: abort.signal,
