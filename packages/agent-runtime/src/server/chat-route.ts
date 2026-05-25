@@ -73,6 +73,12 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
     const chatId = String(body.chatId ?? '').trim();
     const requestedModel = String(body.model ?? '').trim();
     const sessionId = String(body.sessionId ?? '').trim();
+    // Optional override of the workspace check for matter-bound chats. When
+    // the client passes `workspaceId`, the chat's stored workspace_id must
+    // match it AND it must equal the file-bucket key (sessionId). Without
+    // it, the check falls back to the server-configured default
+    // (`assistant:default`) so existing top-level chats keep working.
+    const requestedWorkspaceId = String(body.workspaceId ?? '').trim();
     const attachmentIds = Array.isArray(body.attachmentIds)
       ? (body.attachmentIds as unknown[]).map((x) => String(x)).filter(Boolean)
       : [];
@@ -82,8 +88,9 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
       return;
     }
 
+    const expectedWorkspaceId = requestedWorkspaceId || deps.workspaceId;
     const persistedChat = chatId ? deps.chats.getChat(chatId) : null;
-    if (chatId && (!persistedChat || persistedChat.workspaceId !== deps.workspaceId)) {
+    if (chatId && (!persistedChat || persistedChat.workspaceId !== expectedWorkspaceId)) {
       res.status(404).json({ error: 'chat_not_found' });
       return;
     }

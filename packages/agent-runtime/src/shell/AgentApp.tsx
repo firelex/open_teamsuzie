@@ -29,6 +29,11 @@ function AssistantChatRoute({ agentName }: { agentName: string }) {
   return <AssistantPage agentName={agentName} chatId={chatId} />;
 }
 
+function MatterChatRoute({ agentName }: { agentName: string }) {
+  const { matterId, chatId } = useParams<{ matterId: string; chatId: string }>();
+  return <AssistantPage agentName={agentName} chatId={chatId} matterId={matterId} />;
+}
+
 type AssistantNavLinkProps = Omit<ComponentProps<typeof Link>, 'to' | 'aria-current' | 'children'>;
 
 function AssistantNavLink(props: AssistantNavLinkProps) {
@@ -108,8 +113,9 @@ export function AgentApp() {
         <Routes>
           <Route path="/" element={<AssistantPage agentName={agentName} />} />
           <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
-          {mods.matters  && <Route path="/matters"           element={<MattersPage manifest={manifest} />} />}
-          {mods.matters  && <Route path="/matters/:matterId"  element={<MatterDetailPage manifest={manifest} />} />}
+          {mods.matters  && <Route path="/matters"                          element={<MattersPage manifest={manifest} />} />}
+          {mods.matters  && <Route path="/matters/:matterId"                 element={<MatterDetailPage manifest={manifest} />} />}
+          {mods.matters  && <Route path="/m/:matterId/c/:chatId"             element={<MatterChatRoute agentName={agentName} />} />}
           {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
           {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
           {mods.reviews  && <Route path="/reviews"  element={<ReviewsPage />} />}

@@ -110,6 +110,65 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(404);
   });
 
+  it('matches a chat whose workspaceId is the body.workspaceId override, not the configured default', async () => {
+    const chats = {
+      ...noopChats(),
+      getChat: (id: string) =>
+        id === 'matter-chat-1'
+          ? {
+              id,
+              workspaceId: 'matter-42',
+              name: 'matter chat',
+              createdAt: 0,
+              updatedAt: 0,
+              personaId: null,
+            }
+          : null,
+    } as unknown as ChatsStore;
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      chats,
+      runChatTurn: fakeRunChatTurn([{ type: 'done' }]),
+    }));
+    // Without the workspaceId override, the chat-route would 404 because
+    // chat.workspaceId='matter-42' ≠ deps.workspaceId='assistant:default'.
+    const res = await request(app).post('/api/chat').send({
+      message: 'hi',
+      chatId: 'matter-chat-1',
+      workspaceId: 'matter-42',
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 404 when body.workspaceId does not match the chat row workspace_id', async () => {
+    const chats = {
+      ...noopChats(),
+      getChat: () => ({
+        id: 'matter-chat-1',
+        workspaceId: 'matter-42',
+        name: 'm',
+        createdAt: 0,
+        updatedAt: 0,
+        personaId: null,
+      }),
+    } as unknown as ChatsStore;
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      chats,
+      runChatTurn: fakeRunChatTurn([{ type: 'done' }]),
+    }));
+    const res = await request(app).post('/api/chat').send({
+      message: 'hi',
+      chatId: 'matter-chat-1',
+      workspaceId: 'matter-9-imposter',
+    });
+    expect(res.status).toBe(404);
+  });
+
   it('prepends [Attachments] block when attachmentIds resolve to files', async () => {
     const { InMemoryFileStore } = await import('../files-route.js');
     const fileStore = new InMemoryFileStore();

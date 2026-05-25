@@ -286,9 +286,17 @@ export interface AssistantPageProps {
   agentName: string;
   /** When set, the page is bound to a persisted top-level Assistant chat. */
   chatId?: string;
+  /**
+   * When set, the page is bound to a matter. Chat list + history fetch
+   * routes go through `/api/matters/:matterId/...`, the file bucket key
+   * is `matterId` (so uploads persist across chats in the matter), and
+   * `/api/chat` calls include `workspaceId: matterId` so the chat-route's
+   * ownership check matches the chat's stored workspace id.
+   */
+  matterId?: string;
 }
 
-export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
+export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProps) {
   // Side-panel access for tool-result artifacts (compare_documents
   // auto-opens a VersionDiff tab; redline's TrackedChangesPanel opens
   // its own tab from within the inline card). Requires <SidePanelProvider>
@@ -315,7 +323,10 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
   // is present we reuse it as the upload bucket key so paperclips persist
   // alongside the chat — same pattern as matter chats.
   const [tabSessionId] = useState(() => crypto.randomUUID());
-  const sessionId = chatId ?? tabSessionId;
+  // Matter-bound chats share one file bucket per matter so docs persist
+  // across chats in the matter. Top-level Assistant chats key off chatId
+  // (or a tab-scoped uuid for the bare route's pre-chat send).
+  const sessionId = matterId ?? chatId ?? tabSessionId;
   const [historyLoaded, setHistoryLoaded] = useState(!chatId);
   const [chatName, setChatName] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -482,11 +493,14 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     setHistoryLoaded(false);
     setMessages([]);
     setError('');
+    const chatBase = matterId
+      ? `/api/matters/${encodeURIComponent(matterId)}/chats/${encodeURIComponent(chatId)}`
+      : `/api/chats/${encodeURIComponent(chatId)}`;
     void (async () => {
       try {
         const [chatRes, msgRes] = await Promise.all([
-          fetch(`/api/chats/${encodeURIComponent(chatId)}`),
-          fetch(`/api/chats/${encodeURIComponent(chatId)}/messages`),
+          fetch(chatBase),
+          fetch(`${chatBase}/messages`),
         ]);
         if (cancelled) return;
         if (!chatRes.ok) throw new Error(`Failed to load chat (${chatRes.status})`);
@@ -505,7 +519,7 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [chatId]);
+  }, [chatId, matterId]);
 
   // After a fresh navigate from `/` to `/c/:newChatId`, pick up the message
   // we deferred from the bare-route send and dispatch it now. Attachments
@@ -567,6 +581,9 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     // from the bare-route's tabSessionId to the new chatId so the next
     // chat-route lookup resolves them, then navigate to /c/:newId carrying
     // both the message and the promoted attachments via location.state.
+    // Matter-bound mode doesn't need the bare-route path — the
+    // MatterDetailPage creates a chat first, so we always arrive here with
+    // chatId already set.
     if (!chatId) {
       try {
         setStatus('sending');
@@ -608,6 +625,10 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
         return;
       }
     }
+    // Outside the bare-route branch — matterId, when set, is forwarded
+    // to the chat-completion route via the body's `workspaceId` so the
+    // chat-route's ownership check matches the chat's stored
+    // workspace_id (=matterId) rather than the server's default.
 
     const nextUserMessage: Message = {
       id: crypto.randomUUID(),
@@ -647,6 +668,7 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
           history: nextHistory.slice(0, -1),
           attachmentIds: sentAttachmentIds,
           model: selectedModel,
+          ...(matterId ? { workspaceId: matterId } : {}),
         }),
         signal: ac.signal,
       });
@@ -922,7 +944,10 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     // Pick up any auto-titled name set on the server.
     if (chatId) {
       try {
-        const r = await fetch(`/api/chats/${encodeURIComponent(chatId)}`);
+        const titleUrl = matterId
+          ? `/api/matters/${encodeURIComponent(matterId)}/chats/${encodeURIComponent(chatId)}`
+          : `/api/chats/${encodeURIComponent(chatId)}`;
+        const r = await fetch(titleUrl);
         if (r.ok) {
           const d = (await r.json()) as { item: Chat };
           setChatName(d.item.name);
@@ -960,7 +985,11 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     setAttachments([]);
     setActiveArtifact(null);
     setError('');
-    if (chatId) navigate('/');
+    if (chatId) {
+      // Matter-bound mode goes back to the matter detail; top-level mode
+      // goes back to the bare assistant route.
+      navigate(matterId ? `/matters/${encodeURIComponent(matterId)}` : '/');
+    }
   }
 
   const isEmpty = messages.length === 0;
