@@ -4,10 +4,10 @@ import {
   ArtifactPanel,
   Button,
   MarkdownMessage,
+  RedlinePanelContent,
   Square,
   ToolUseStatus,
   TrackedChangesPanel,
-  VersionDiff,
   WorkflowPickerDialog,
   humanSize,
   useChatComposer,
@@ -21,7 +21,6 @@ import {
   type ToolEvent,
   type Workflow,
 } from '@teamsuzie/ui';
-import type { DocumentDiffResult } from '@teamsuzie/docx-diff';
 import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats';
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
@@ -728,31 +727,42 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                   });
                 }
               }
-              // compare_documents: open the VersionDiff artifact in the
-              // side panel so the user gets a structured paragraph-by-
-              // paragraph view alongside the chat-side markdown summary.
+              // compare_documents: open the generated redline DOCX in the
+              // side panel using the same continuous-flow RedlinePanelContent
+              // that propose_document_edits uses. We already wrote a
+              // tracked-change DOCX into the file store; pointing the
+              // redline-view endpoint at it gives a unified inline view
+              // (ins/del runs in document order) instead of a card list.
               if (payload.name === 'compare_documents') {
-                const diffResult = result as unknown as Partial<DocumentDiffResult> & {
-                  download_url?: string | null;
+                const compareResult = result as {
+                  download_file_id?: string;
+                  download_filename?: string;
+                  download_url?: string;
+                  left?: { name?: string };
+                  right?: { name?: string };
                 };
-                if (
-                  diffResult.left
-                  && diffResult.right
-                  && diffResult.stats
-                  && Array.isArray(diffResult.events)
-                ) {
-                  const fullResult = diffResult as DocumentDiffResult;
+                const redlineFileId = compareResult.download_file_id;
+                if (typeof redlineFileId === 'string' && redlineFileId) {
+                  const leftName = compareResult.left?.name ?? 'left';
+                  const rightName = compareResult.right?.name ?? 'right';
+                  const tabTitle =
+                    compareResult.download_filename
+                    ?? `${leftName} → ${rightName}`;
+                  const tabId = `compare:${sessionId}:${redlineFileId}`;
                   const downloadHref =
-                    typeof diffResult.download_url === 'string' && diffResult.download_url
-                      ? diffResult.download_url
+                    typeof compareResult.download_url === 'string' && compareResult.download_url
+                      ? compareResult.download_url
                       : undefined;
-                  const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
                   sidePanel.openTab({
                     id: tabId,
-                    title: `${fullResult.left.name} → ${fullResult.right.name}`,
+                    title: tabTitle,
                     render: () => (
-                      <VersionDiff
-                        result={fullResult}
+                      <RedlinePanelContent
+                        sessionId={sessionId}
+                        fileId={redlineFileId}
+                        fileName={tabTitle}
+                        chatId={chatId ?? 'assistant-default'}
+                        onLoadRedline={loadRedline}
                         downloadHref={downloadHref}
                       />
                     ),
