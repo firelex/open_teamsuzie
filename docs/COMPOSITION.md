@@ -175,6 +175,17 @@ keeps the JSON canonical (config) and the directory canonical (code); we
 don't maintain a third surface that can drift from either. If you want to
 know what extensions a build has, look in `extensions/`.
 
+For SuzieCode's own implementation of this discovery, see
+[`apps/suziecode/apps/suziecode/src/extensions.ts`](https://github.com/) —
+`readExtensions(agentRoot)` returns one entry per extension directory with
+its name, index file location, README presence flag, and the full README
+body when present. It pairs with `readManifest(agentRoot)` in
+`src/manifest.ts` to give the combined "configured menu + custom code"
+view this section describes. SuzieCode deliberately does NOT
+dynamic-import extension `index.ts` files at inspection time (side
+effects, heavy deps); for that, use the agent-runtime's
+`loadExtensions` which IS the runtime path.
+
 ## Reference: the new suzielaw
 
 Suzielaw is being rebuilt as a reference build that demonstrates this
