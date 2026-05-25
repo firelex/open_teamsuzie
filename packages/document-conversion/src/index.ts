@@ -1,5 +1,5 @@
-export { convertToMarkdown } from './convert.js';
-export type { ConvertOptions, ConvertResult } from './convert.js';
+export { convertToMarkdown, convertFileToMarkdown } from './convert.js';
+export type { ConvertOptions, ConvertResult, ConvertFileRecord } from './convert.js';
 
 export { exportMarkdownToDocx, exportMarkdownToPdf } from './export.js';
 export type { ExportDocxOptions, ExportPdfOptions } from './export.js';

@@ -1,4 +1,4 @@
-import { convertDocxToMarkdown } from '@teamsuzie/markdown-document';
+import { convertDocxToMarkdown, isDocxMimeType } from '@teamsuzie/markdown-document';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -63,4 +63,37 @@ async function convertViaMarkitdownAgent(
   }
   const body = (await response.json()) as { filename: string; markdown: string };
   return { markdown: body.markdown, backend: 'markitdown-agent' };
+}
+
+export interface ConvertFileRecord {
+  name: string;
+  mimeType: string;
+  bytes: Buffer | Uint8Array;
+}
+
+/**
+ * High-level helper: convert any uploaded file record to markdown.
+ * DOCX flows through the in-process mammoth path (no markitdown-agent
+ * needed); everything else routes to markitdown-agent and errors with a
+ * friendly message when the agent isn't configured. Tool wrappers use
+ * this so they don't have to repeat the DOCX-vs-other split each time.
+ */
+export async function convertFileToMarkdown(
+  record: ConvertFileRecord,
+  opts: { markitdownAgentBaseUrl: string; fetchImpl?: typeof fetch },
+): Promise<string> {
+  const isDocx =
+    isDocxMimeType(record.mimeType) || record.name.toLowerCase().endsWith('.docx');
+  if (!opts.markitdownAgentBaseUrl && !isDocx) {
+    throw new Error(
+      `Cannot convert ${record.mimeType || record.name}: markitdown-agent is not configured. Only DOCX is supported in standalone mode.`,
+    );
+  }
+  const { markdown } = await convertToMarkdown(record.bytes, {
+    mime: record.mimeType,
+    filename: record.name,
+    markitdownAgentBaseUrl: opts.markitdownAgentBaseUrl,
+    fetchImpl: opts.fetchImpl,
+  });
+  return markdown;
 }
