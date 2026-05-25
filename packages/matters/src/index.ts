@@ -56,3 +56,5 @@ export type {
     MatterMetadataStoreOptions,
     UpsertMatterMetadataInput,
 } from './metadata-store.js';
+export { createMatterMetadataRouter } from './metadata-router.js';
+export type { CreateMatterMetadataRouterOptions } from './metadata-router.js';

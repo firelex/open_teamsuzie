@@ -31,9 +31,10 @@ import {
 import { MembersStore, SHARING_MIGRATIONS } from '@teamsuzie/sharing';
 import {
   backfillMatterOwnership, createMatterMembersRouter,
-  createMatterUploadsRouter, createRequireMatterAccess,
-  createReviewsExportRouter, createReviewsFromWorkflowRouter,
-  SUBJECT_MATTER,
+  createMatterMetadataRouter, createMatterUploadsRouter,
+  createRequireMatterAccess, createReviewsExportRouter,
+  createReviewsFromWorkflowRouter, MATTERS_METADATA_MIGRATIONS,
+  MatterMetadataStore, SUBJECT_MATTER,
 } from '@teamsuzie/matters';
 import { buildProposeDocumentEditsTool } from '@teamsuzie/docx';
 import {
@@ -139,6 +140,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       ...WORKSPACES_MIGRATIONS,
       ...SHARING_MIGRATIONS,
       ...GRID_REVIEWS_MIGRATIONS,
+      ...MATTERS_METADATA_MIGRATIONS,
     ],
   });
 
@@ -152,6 +154,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const workspacesStore = new WorkspacesStore({ db });
   const membersStore = new MembersStore({ db });
   const gridReviewsStore = new GridReviewsStore({ db });
+  const matterMetadataStore = new MatterMetadataStore({ db });
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
@@ -407,10 +410,13 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       }
     }
 
-    // Shadow POST /api/matters — creates the workspace AND grants the
-    // session user owner in one call. The workspaces router has no hook
-    // for post-create work, and we don't want to add one upstream until
-    // a real multi-user need shows up.
+    // Shadow POST /api/matters — creates the workspace, grants the
+    // session user owner, and (when the body carries typeId /
+    // customFields) seeds the metadata row in one call. The workspaces
+    // router has no hook for post-create work, and we don't want to add
+    // one upstream until a real multi-user need shows up. Metadata
+    // shape is validated by the host's UI before POST; the route
+    // accepts whatever the client sends, mirroring the metadata router.
     app.post('/api/matters', (req, res) => {
       const user = getSessionUser(req);
       if (!user?.email) {
@@ -437,13 +443,40 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         role: 'owner',
         grantedBy: user.email,
       });
-      res.status(201).json({ item: created });
+      // Seed metadata when the create payload carries any of it. A
+      // missing typeId stays null (untyped); a missing customFields
+      // blob stays {}. We only write when at least one of them is
+      // present so untyped builds don't acquire empty rows.
+      const typeIdRaw = body?.typeId;
+      const customFieldsRaw = body?.customFields;
+      const wantsMetadata =
+        (typeof typeIdRaw === 'string' && typeIdRaw.trim().length > 0) ||
+        (customFieldsRaw && typeof customFieldsRaw === 'object' && !Array.isArray(customFieldsRaw));
+      let metadata = null;
+      if (wantsMetadata) {
+        const typeId =
+          typeof typeIdRaw === 'string' && typeIdRaw.trim().length > 0
+            ? typeIdRaw.trim()
+            : null;
+        const customFields =
+          customFieldsRaw && typeof customFieldsRaw === 'object' && !Array.isArray(customFieldsRaw)
+            ? (customFieldsRaw as Record<string, unknown>)
+            : {};
+        metadata = matterMetadataStore.upsert({
+          matterId: created.id,
+          typeId,
+          customFields,
+        });
+      }
+      res.status(201).json({ item: created, metadata });
     });
 
     // Shadow GET /api/matters — filter the workspaces list to matters
-    // the session user has any role on. The generic workspaces router
-    // (mounted below) still serves the per-id and folder/document
-    // routes, which inherit requireMatterAccess via the :matterId mount.
+    // the session user has any role on, and embed metadata so the
+    // type-grouped sidebar can render without an N+1 fetch. The
+    // generic workspaces router (mounted below) still serves the
+    // per-id and folder/document routes, which inherit
+    // requireMatterAccess via the :matterId mount.
     app.get('/api/matters', (req, res) => {
       const user = getSessionUser(req);
       if (!user?.email) {
@@ -456,7 +489,11 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         .filter(
           (w) =>
             membersStore.getRole({ type: SUBJECT_MATTER, id: w.id }, user.email!) !== null,
-        );
+        )
+        .map((w) => {
+          const m = matterMetadataStore.get(w.id);
+          return m ? { ...w, metadata: m } : w;
+        });
       res.json({ items: accessible });
     });
 
@@ -478,6 +515,21 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         workspaces: workspacesStore,
         getSessionUser,
       }),
+    );
+
+    // Type + custom-field values for one matter. requireMatterAccess
+    // already gates the parent path so any role can read; any role can
+    // write too — host UI gates the write surface separately if it
+    // wants to be stricter.
+    app.use(
+      '/api/matters/:matterId/metadata',
+      (req, _res, next) => {
+        (req as unknown as { _matterId?: string })._matterId = String(
+          req.params.matterId ?? '',
+        );
+        next();
+      },
+      createMatterMetadataRouter({ metadata: matterMetadataStore }),
     );
 
     // Matter-scoped chats — same chats store, workspace_id = matterId.
@@ -604,6 +656,10 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
           for (const r of gridReviewsStore.listReviews(workspaceId)) {
             gridReviewsStore.deleteReview(r.id);
           }
+          // Metadata row's FK already cascades on workspace delete; the
+          // explicit call is a no-op safety net for hosts that swap in
+          // a store without FK enforcement (PRAGMA foreign_keys=OFF, etc.)
+          matterMetadataStore.delete(workspaceId);
         },
       }),
     );
