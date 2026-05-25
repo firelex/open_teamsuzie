@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     AppShellContent,
     Button,
+    Download,
     EmptyState,
     EmptyStateDescription,
     EmptyStateTitle,
@@ -23,8 +24,14 @@ import {
 } from '@teamsuzie/ui';
 import { useMatter, type MatterDocument } from '../hooks/use-matter.js';
 import { useMatterChats } from '../hooks/use-matter-chats.js';
+import { useMatterReviews } from '../hooks/use-matter-reviews.js';
 import { ShareDialog } from '../components/share-dialog.js';
-import { resolveMattersLabel, type AgentManifest } from '../manifest/index.js';
+import { FromWorkflowDialog } from '../components/from-workflow-dialog.js';
+import {
+    resolveMattersLabel,
+    resolveModules,
+    type AgentManifest,
+} from '../manifest/index.js';
 
 interface Props {
     manifest: AgentManifest | null;
@@ -152,6 +159,125 @@ function ChatsSection({
     );
 }
 
+function ReviewsSection({
+    matterId,
+    documents,
+    label,
+}: {
+    matterId: string;
+    documents: MatterDocument[];
+    label: { singular: string; plural: string };
+}) {
+    const confirm = useConfirm();
+    const { reviews, loading, error, createFromWorkflow, remove } =
+        useMatterReviews(matterId);
+    const [dialogOpen, setDialogOpen] = useState(false);
+
+    return (
+        <section>
+            <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="text-sm font-semibold tracking-tight">Reviews</h2>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDialogOpen(true)}
+                    disabled={documents.length === 0}
+                    title={
+                        documents.length === 0
+                            ? `Upload documents to this ${label.singular.toLowerCase()} first`
+                            : 'New review from workflow'
+                    }
+                >
+                    <Plus className="size-4" aria-hidden />
+                    New review
+                </Button>
+            </div>
+            {error && (
+                <p className="text-xs text-destructive">{error}</p>
+            )}
+            {loading ? (
+                <LoadingState>Loading reviews…</LoadingState>
+            ) : reviews.length === 0 ? (
+                <EmptyState>
+                    <EmptyStateTitle>No reviews yet</EmptyStateTitle>
+                    <EmptyStateDescription>
+                        Pick a workflow with columns + the docs to review.
+                        Cell-running comes online once the knowledge-base
+                        module ships; for now the review provides the column
+                        + document scaffold and the xlsx export.
+                    </EmptyStateDescription>
+                </EmptyState>
+            ) : (
+                <ul className="divide-y divide-border rounded-md border border-border bg-card">
+                    {reviews.map((r) => (
+                        <li
+                            key={r.id}
+                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent/40"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                    {r.name}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                    Updated{' '}
+                                    {new Date(r.updatedAt).toLocaleDateString(
+                                        undefined,
+                                        {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: '2-digit',
+                                        },
+                                    )}
+                                </p>
+                            </div>
+                            <a
+                                href={`/api/matters/${encodeURIComponent(matterId)}/reviews/${encodeURIComponent(r.id)}/export.xlsx`}
+                                title="Download as Excel"
+                            >
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="size-8"
+                                    aria-label={`Download ${r.name} as xlsx`}
+                                >
+                                    <Download className="size-4" aria-hidden />
+                                </Button>
+                            </a>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="size-8 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                aria-label={`Delete ${r.name}`}
+                                onClick={async () => {
+                                    if (
+                                        await confirm({
+                                            title: `Delete review "${r.name}"?`,
+                                            description:
+                                                'This removes the review and its column / document scaffolding. There is no undo.',
+                                            confirmLabel: 'Delete review',
+                                            variant: 'destructive',
+                                        })
+                                    ) {
+                                        void remove(r.id);
+                                    }
+                                }}
+                            >
+                                <Trash2 className="size-4" aria-hidden />
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            <FromWorkflowDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                documents={documents}
+                onCreate={createFromWorkflow}
+            />
+        </section>
+    );
+}
+
 function DocumentRow({
     doc,
     matterId,
@@ -216,6 +342,9 @@ export function MatterDetailPage({ manifest }: Props) {
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const reviewsEnabled = manifest
+        ? resolveModules(manifest).reviews
+        : false;
 
     async function handleFiles(files: FileList | null) {
         if (!files || files.length === 0) return;
@@ -355,7 +484,16 @@ export function MatterDetailPage({ manifest }: Props) {
                             )}
                         </section>
 
-                        <ChatsSection matterId={matterId} label={label} />
+                        <div className="flex flex-col gap-8">
+                            <ChatsSection matterId={matterId} label={label} />
+                            {reviewsEnabled && (
+                                <ReviewsSection
+                                    matterId={matterId}
+                                    documents={documents}
+                                    label={label}
+                                />
+                            )}
+                        </div>
                     </div>
                 )}
             </AppShellContent>
