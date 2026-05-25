@@ -46,16 +46,16 @@ soffice --headless --convert-to pdf --outdir output output/engagement-letter-bli
 
 ## LLM configuration
 
-The agent talks to LLMs through a LiteLLM-compatible proxy (OpenAI
-chat-completions protocol). No provider keys live in this service — the
-proxy holds them and maps model names to providers.
+The agent calls the upstream LLM provider's OpenAI-compatible
+`/chat/completions` endpoint directly. No provider keys live in this
+service: configuration (base URL, API key, model) is resolved per-request
+from `pe-settings-host`.
 
-- `LLM_PROXY_URL` — base URL of the proxy (default `http://localhost:4000`).
-- `LLM_PROXY_API_KEY` — bearer auth for the proxy (optional).
-- `DOCX_TEMPLATE_AGENT_MODEL` or `DEFAULT_LLM_MODEL` — model name to send
-  to the proxy (e.g. `claude-sonnet-4-5-20250929`, `gpt-4o`,
-  `qwen-max-latest`). Callers can override per-request via the `model`
-  field on `POST /api/documents/generate`.
+- `PE_SETTINGS_HOST_URL` — base URL of pe-settings-host
+  (default `http://localhost:19271`). The Settings UI lets the user pick
+  a provider (OpenAI / Anthropic / Qwen / Custom), paste an API key, and
+  choose a default model. Callers can still override per-request via the
+  `model` field on `POST /api/documents/generate`.
 
 ## Token format
 

@@ -1,13 +1,10 @@
 """Client for pe-settings-host's `/api/settings/llm/effective` endpoint.
 
-pe-settings-host is the single source of truth for the LiteLLM proxy URL,
-proxy master key, and default LLM model across the PE suite. Every LLM
-call resolves these three values from the host (with a short in-process
-TTL cache) instead of reading them from this agent's own env vars.
-
-Env vars (`LLM_PROXY_URL`, `LLM_PROXY_API_KEY`, `DEFAULT_LLM_MODEL`) remain
-as a degraded-mode fallback used only when the host is unreachable —
-see `agent/loop.py`.
+pe-settings-host is the single source of truth for LLM configuration
+across the PE suite. Every generate call resolves
+``{base_url, api_key, model}`` from the host (with a short in-process TTL
+cache) and the agent POSTs directly to the upstream's OpenAI-compatible
+``/chat/completions`` — there is no in-suite proxy.
 """
 
 from __future__ import annotations
@@ -26,16 +23,16 @@ class SettingsHostUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class EffectiveLlmConfig:
-    proxy_url: str
-    default_model: str | None
-    master_key: str
+    base_url: str
+    api_key: str
+    model: str
 
 
 class SettingsHostClient:
     """Resolves LLM config from pe-settings-host with a 5s TTL cache.
 
     Thread-safe enough for FastAPI's threadpool — a single Lock guards
-    the cache slot, and httpx.Client is itself thread-safe for `get()`.
+    the cache slot, and httpx.Client is itself thread-safe for ``get()``.
     """
 
     def __init__(
@@ -87,20 +84,20 @@ class SettingsHostClient:
                 f"pe-settings-host returned non-JSON payload: {e}"
             ) from e
 
-        proxy_url = data.get("proxy_url")
-        master_key = data.get("master_key")
-        default_model = data.get("default_model")
-        if not isinstance(proxy_url, str) or not isinstance(master_key, str):
+        base_url_v = data.get("base_url")
+        api_key = data.get("api_key")
+        model = data.get("model")
+        if (
+            not isinstance(base_url_v, str)
+            or not isinstance(api_key, str)
+            or not isinstance(model, str)
+        ):
             raise SettingsHostUnavailable(
                 "pe-settings-host returned malformed payload "
-                "(missing proxy_url/master_key)"
+                "(missing base_url/api_key/model)"
             )
 
-        value = EffectiveLlmConfig(
-            proxy_url=proxy_url,
-            default_model=default_model if isinstance(default_model, str) and default_model else None,
-            master_key=master_key,
-        )
+        value = EffectiveLlmConfig(base_url=base_url_v, api_key=api_key, model=model)
         with self._lock:
             self._cached = value
             self._expires_at = time.monotonic() + self._ttl

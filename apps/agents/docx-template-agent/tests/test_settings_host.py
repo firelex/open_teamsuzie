@@ -17,15 +17,10 @@ def _make_client(
     responses: list[httpx.Response],
     ttl: float = 5.0,
 ) -> tuple[SettingsHostClient, dict[str, Any]]:
-    """Build a SettingsHostClient backed by a MockTransport that yields the
-    given responses in order. Returns the client + a counter dict so tests
-    can assert on the number of HTTP calls made."""
     counter = {"count": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         counter["count"] += 1
-        # Pop in order; if exhausted, repeat the last (matches real "stable"
-        # services for the cache-hit case).
         idx = min(counter["count"] - 1, len(responses) - 1)
         return responses[idx]
 
@@ -41,22 +36,22 @@ def _make_client(
 
 def _ok_response(
     *,
-    proxy_url: str = "http://localhost:4000",
-    default_model: str | None = "claude-sonnet-4-5-20250929",
-    master_key: str = "sk-test",
+    base_url: str = "https://api.anthropic.com/v1",
+    api_key: str = "sk-test",
+    model: str = "claude-sonnet-4-6",
 ) -> httpx.Response:
-    body: dict[str, Any] = {"proxy_url": proxy_url, "master_key": master_key}
-    if default_model is not None:
-        body["default_model"] = default_model
-    return httpx.Response(200, json=body)
+    return httpx.Response(
+        200,
+        json={"base_url": base_url, "api_key": api_key, "model": model},
+    )
 
 
 def test_resolve_returns_payload():
     client, _ = _make_client(responses=[_ok_response()])
     result = client.resolve()
-    assert result.proxy_url == "http://localhost:4000"
-    assert result.default_model == "claude-sonnet-4-5-20250929"
-    assert result.master_key == "sk-test"
+    assert result.base_url == "https://api.anthropic.com/v1"
+    assert result.api_key == "sk-test"
+    assert result.model == "claude-sonnet-4-6"
 
 
 def test_resolve_caches_within_ttl():
@@ -70,16 +65,16 @@ def test_resolve_caches_within_ttl():
 def test_resolve_refetches_after_ttl():
     client, counter = _make_client(
         responses=[
-            _ok_response(default_model="model-a"),
-            _ok_response(default_model="model-b"),
+            _ok_response(model="model-a"),
+            _ok_response(model="model-b"),
         ],
         ttl=0.05,
     )
     first = client.resolve()
-    assert first.default_model == "model-a"
+    assert first.model == "model-a"
     time.sleep(0.1)
     second = client.resolve()
-    assert second.default_model == "model-b"
+    assert second.model == "model-b"
     assert counter["count"] == 2
 
 
@@ -107,13 +102,6 @@ def test_resolve_raises_on_malformed_payload():
     )
     with pytest.raises(SettingsHostUnavailable, match="malformed"):
         client.resolve()
-
-
-def test_resolve_default_model_can_be_none():
-    client, _ = _make_client(responses=[_ok_response(default_model=None)])
-    result = client.resolve()
-    assert result.default_model is None
-    assert result.proxy_url == "http://localhost:4000"
 
 
 def test_resolve_sends_internal_token_header():

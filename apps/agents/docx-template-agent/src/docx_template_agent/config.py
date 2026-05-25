@@ -23,27 +23,13 @@ class Config:
         os.environ.get("DOCX_TEMPLATE_AGENT_PRECEDENTS_DIR", "./precedents")
     )
 
-    # Primary path for LLM config is pe-settings-host (see settings_host.py):
-    # for every generate call the agent resolves proxy_url + master_key +
-    # default_model from that service. The env vars below remain only as a
-    # degraded-mode fallback for when pe-settings-host is unreachable.
+    # LLM config is resolved per-request from pe-settings-host (see
+    # settings_host.py). The agent calls the upstream provider's
+    # OpenAI-compatible /chat/completions directly — there is no in-suite
+    # proxy and no env-mode fallback.
     pe_settings_host_url: str = os.environ.get(
         "PE_SETTINGS_HOST_URL", "http://localhost:19271"
     ).rstrip("/")
-
-    # FALLBACK ONLY — used when pe-settings-host is unavailable.
-    llm_proxy_url: str = os.environ.get(
-        "LLM_PROXY_URL", "http://localhost:4000"
-    ).rstrip("/")
-    llm_proxy_api_key: str | None = os.environ.get("LLM_PROXY_API_KEY") or None
-
-    # FALLBACK ONLY — used when pe-settings-host has no default_model
-    # configured AND the per-request `model` override is also empty.
-    llm_model: str | None = (
-        os.environ.get("DOCX_TEMPLATE_AGENT_MODEL")
-        or os.environ.get("DEFAULT_LLM_MODEL")
-        or None
-    )
 
     admin_service_url: str | None = os.environ.get("ADMIN_SERVICE_URL") or None
 
