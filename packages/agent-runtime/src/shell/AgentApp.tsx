@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import type { Chat } from '@teamsuzie/chats';
-import { ConfirmDialogProvider, SidebarNavItem } from '@teamsuzie/ui';
+import {
+  ConfirmDialogProvider, SidebarNavItem, SidePanelProvider,
+} from '@teamsuzie/ui';
 import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
@@ -79,6 +81,7 @@ export function AgentApp() {
   if (mods.history)  items.push({ to: '/history',  label: 'History',  testId: 'nav-history' });
 
   return (
+    <SidePanelProvider>
     <ConfirmDialogProvider>
       <AppLayout
         sidebar={
@@ -108,5 +111,6 @@ export function AgentApp() {
         </Routes>
       </AppLayout>
     </ConfirmDialogProvider>
+    </SidePanelProvider>
   );
 }
