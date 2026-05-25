@@ -1732,6 +1732,9 @@ importers:
 
   packages/docx:
     dependencies:
+      '@teamsuzie/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
       '@teamsuzie/docx-diff':
         specifier: workspace:*
         version: link:../docx-diff

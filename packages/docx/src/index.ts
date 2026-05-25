@@ -45,3 +45,10 @@ export type {
     ProposeEditInput,
     ProposeEditsResult,
 } from './propose-edits.js';
+export { buildProposeDocumentEditsTool } from './propose-edits-tool.js';
+export type {
+    BuildProposeDocumentEditsToolOptions,
+    ProposeEditsToolFileRecord,
+    ProposeEditsToolFileStore,
+    ProposeEditsToolVersionsStore,
+} from './propose-edits-tool.js';
