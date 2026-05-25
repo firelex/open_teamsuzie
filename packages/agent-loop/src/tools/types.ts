@@ -7,6 +7,13 @@ export interface ToolContext {
   /** Hostnames the http_request tool is permitted to call. */
   allowedHttpHosts?: string[];
   fetchImpl?: typeof fetch;
+  /**
+   * Per-turn session id. Optional so existing tools that don't need it
+   * continue to compile. Tools that read files via a session-scoped
+   * store (convert_to_markdown, propose_document_edits) require it and
+   * must throw a clear error when undefined.
+   */
+  sessionId?: string;
 }
 
 export interface ToolDefinition<TArgs = Record<string, unknown>, TResult = unknown> {
