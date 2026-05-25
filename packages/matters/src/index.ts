@@ -26,3 +26,12 @@ export type {
     MatterFileRecord,
     MatterFileStore,
 } from './uploads-router.js';
+export {
+    backfillMatterOwnership,
+    createRequireMatterAccess,
+} from './access-middleware.js';
+export type {
+    BackfillMatterOwnershipOptions,
+    CreateRequireMatterAccessOptions,
+    GetSessionUser,
+} from './access-middleware.js';
