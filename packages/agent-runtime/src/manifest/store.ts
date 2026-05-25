@@ -18,6 +18,7 @@ function mergeWithDefaults(partial: Partial<AgentManifest>): AgentManifest {
     tools: Array.isArray(partial.tools) ? partial.tools : [],
     ai: partial.ai,
     reviews: partial.reviews,
+    matters: partial.matters,
     source: partial.source,
   };
 }
