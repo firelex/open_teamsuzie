@@ -53,6 +53,10 @@ describe('buildCompareDocumentsTool', () => {
     expect(r.markdown).toContain('Comparing');
     expect(r.download_url).toMatch(/^\/api\/files\/s\/file_redline_/);
     expect(r.download_filename).toContain('.docx');
+    // events stream lets the client render <VersionDiff>; should at
+    // minimum surface the modified paragraph.
+    expect(Array.isArray(r.events)).toBe(true);
+    expect(r.events.some((e: { kind: string }) => e.kind === 'modified')).toBe(true);
     const fileId = r.download_file_id as string;
     const rec = fileStore.get('s', fileId);
     expect(rec).toBeDefined();

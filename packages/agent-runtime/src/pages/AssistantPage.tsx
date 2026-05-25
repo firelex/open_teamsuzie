@@ -7,10 +7,12 @@ import {
   Square,
   ToolUseStatus,
   TrackedChangesPanel,
+  VersionDiff,
   WorkflowPickerDialog,
   humanSize,
   useChatComposer,
   useSelectedModel,
+  useSidePanel,
   useWorkflows,
   type ArtifactSnapshot,
   type ProposeEditsResult,
@@ -19,6 +21,7 @@ import {
   type ToolEvent,
   type Workflow,
 } from '@teamsuzie/ui';
+import type { DocumentDiffResult } from '@teamsuzie/docx-diff';
 import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats';
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
@@ -284,6 +287,11 @@ export interface AssistantPageProps {
 }
 
 export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
+  // Side-panel access for tool-result artifacts (compare_documents
+  // auto-opens a VersionDiff tab; redline's TrackedChangesPanel opens
+  // its own tab from within the inline card). Requires <SidePanelProvider>
+  // mounted in AgentApp (we already do this).
+  const sidePanel = useSidePanel();
   // Starter tiles on the greeting page come from the workflows store —
   // every workflow with `featured: true` is rendered (capped at 4 for
   // layout). The workflows store is seeded from manifest.prompts on first
@@ -717,6 +725,37 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                       docxDownloadUrl: docxUrl ?? carry?.docxDownloadUrl,
                       docxFilename: docxName ?? carry?.docxFilename,
                     };
+                  });
+                }
+              }
+              // compare_documents: open the VersionDiff artifact in the
+              // side panel so the user gets a structured paragraph-by-
+              // paragraph view alongside the chat-side markdown summary.
+              if (payload.name === 'compare_documents') {
+                const diffResult = result as unknown as Partial<DocumentDiffResult> & {
+                  download_url?: string | null;
+                };
+                if (
+                  diffResult.left
+                  && diffResult.right
+                  && diffResult.stats
+                  && Array.isArray(diffResult.events)
+                ) {
+                  const fullResult = diffResult as DocumentDiffResult;
+                  const downloadHref =
+                    typeof diffResult.download_url === 'string' && diffResult.download_url
+                      ? diffResult.download_url
+                      : undefined;
+                  const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
+                  sidePanel.openTab({
+                    id: tabId,
+                    title: `${fullResult.left.name} → ${fullResult.right.name}`,
+                    render: () => (
+                      <VersionDiff
+                        result={fullResult}
+                        downloadHref={downloadHref}
+                      />
+                    ),
                   });
                 }
               }

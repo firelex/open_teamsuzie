@@ -116,6 +116,11 @@ export function buildCompareDocumentsTool(
         download_url: downloadUrl,
         download_file_id: downloadFileId,
         download_filename: downloadFilename,
+        // Full paragraph-diff event stream. The model already has the
+        // markdown summary so it rarely needs this; the chat client uses
+        // it to reconstruct a DocumentDiffResult and render the upstream
+        // <VersionDiff> artifact in the side panel.
+        events: diff.events,
       };
     },
   };
