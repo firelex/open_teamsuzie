@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Download } from 'lucide-react'
 import { LoadingState } from '../loading-state'
 import { RedlineRuns, type RedlineParagraph } from './redline-runs'
+import { ensureRedlineStyles } from './redline-styles'
 
 /**
  * Inline redline preview rendered as the body of a side-panel tab.
@@ -85,6 +86,7 @@ export function RedlinePanelContent({
   onLoadRedline,
   downloadHref,
 }: RedlinePanelContentProps) {
+  ensureRedlineStyles()
   const [paragraphs, setParagraphs] = React.useState<RedlineParagraph[] | null>(
     null,
   )
