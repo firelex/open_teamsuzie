@@ -184,12 +184,13 @@ composition pattern. Its shape:
   the usual `history`/`personas`/`library`. Seeds the legal-vertical
   personas, workflow prompts, and theme. All Tier 1.
 
-- **`extensions/legal-research/`** (planned) — the multi-jurisdiction legal
-  research stack currently sitting in suzielaw's main src tree. Belongs as
-  an extension because it's vertical-specific code on top of our generic
-  menu. Once moved, it becomes the **canonical example** of a Tier-3
-  extension that SuzieCode users can read to understand how to author
-  their own.
+- **`extensions/legal-research/`** — the multi-jurisdiction legal research
+  stack, lifted out of the original suzielaw's main src tree into a
+  Tier-3 extension. Acts as the **canonical example** of how to author a
+  per-build extension; a stable reference copy is committed at
+  [`docs/examples/extension-legal-research/`](examples/extension-legal-research/README.md)
+  so SuzieCode users can read it without having to chase generated build
+  artifacts.
 
 - **Everything else** — chat, files, redline UI, drafting tools, document
   export endpoint, artifact panel, side panel, persona registry — all
