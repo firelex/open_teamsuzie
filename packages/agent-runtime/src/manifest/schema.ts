@@ -127,17 +127,67 @@ export interface ManifestReviews {
 }
 
 /**
+ * One custom field on a matter type. Field values land in
+ * matter_metadata.custom_fields_json keyed by `key`. The host UI
+ * renders one input per field type:
+ *   - text    → text input
+ *   - number  → number input (numeric-string accepted; coerced server-side)
+ *   - date    → date input (YYYY-MM-DD string)
+ *   - enum    → select with `options`
+ *   - boolean → switch (true / false)
+ */
+export type ManifestCustomFieldType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'enum'
+  | 'boolean';
+
+export interface ManifestCustomField {
+  /** Stable key used in matter_metadata.custom_fields_json. */
+  key: string;
+  label: string;
+  type: ManifestCustomFieldType;
+  /** When true, the create / edit form blocks submit if the value is empty. */
+  required?: boolean;
+  /** Required for `type: 'enum'`. Ignored otherwise. */
+  options?: string[];
+  /** Optional helper copy under the input. */
+  description?: string;
+}
+
+/**
+ * One matter "type" — a vertical subtype like deal/case/engagement.
+ * Optional: a build with no `types` (or an empty array) operates in
+ * implicit-single-type mode (one untyped flat shape, no fields). Build
+ * with `types.length === 1` uses that single type without a picker;
+ * build with `types.length > 1` shows a picker at create time and
+ * groups the matter list by type in the sidebar.
+ */
+export interface ManifestMatterType {
+  /** Stable id used in matter_metadata.type_id. */
+  id: string;
+  label: string;
+  description?: string;
+  customFields?: ManifestCustomField[];
+}
+
+/**
  * Manifest-side configuration for the Matters module. The label lets each
  * vertical re-skin the noun ("Matter" → "Deal" / "Case" / "Engagement")
  * without forking the UI. Both halves are optional; missing pieces fall
  * back to the default ("Matter" / "Matters") rather than being naively
  * pluralised so copy stays predictable.
+ *
+ * `types[]` adds optional subtypes with custom fields — see
+ * `ManifestMatterType` for the shape.
  */
 export interface ManifestMatters {
   label?: {
     singular?: string;
     plural?: string;
   };
+  types?: ManifestMatterType[];
 }
 
 export interface AgentManifest {

@@ -1,6 +1,8 @@
 import type {
   AgentManifest,
   ManifestComponents,
+  ManifestCustomField,
+  ManifestMatterType,
   ManifestModules,
   ManifestPersona,
   ThemeTokens,
@@ -63,6 +65,120 @@ export function resolveMattersLabel(manifest: AgentManifest): MattersLabel {
     singular: singular.length > 0 ? singular : DEFAULT_MATTERS_LABEL.singular,
     plural: plural.length > 0 ? plural : DEFAULT_MATTERS_LABEL.plural,
   };
+}
+
+/**
+ * Read the configured matter types, dropping malformed entries. An empty
+ * array means implicit-single-type mode — the host UI renders one flat
+ * shape with no picker and no custom fields, which is the existing
+ * single-type build pattern. Trims id + label so trailing whitespace in
+ * agent.json doesn't quietly break the type picker.
+ */
+export function resolveMatterTypes(manifest: AgentManifest): ManifestMatterType[] {
+  const raw = manifest.matters?.types;
+  if (!Array.isArray(raw)) return [];
+  const out: ManifestMatterType[] = [];
+  for (const t of raw) {
+    if (!t || typeof t !== 'object') continue;
+    const id = typeof t.id === 'string' ? t.id.trim() : '';
+    const label = typeof t.label === 'string' ? t.label.trim() : '';
+    if (!id || !label) continue;
+    const entry: ManifestMatterType = { id, label };
+    if (typeof t.description === 'string' && t.description.trim().length > 0) {
+      entry.description = t.description.trim();
+    }
+    if (Array.isArray(t.customFields)) {
+      entry.customFields = t.customFields;
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * Returns the type whose id matches `typeId`, or null when no match. A
+ * null / undefined / empty typeId short-circuits to null so callers can
+ * pass through a stale `matter_metadata.type_id` without a manual guard.
+ */
+export function getMatterType(
+  manifest: AgentManifest,
+  typeId: string | null | undefined,
+): ManifestMatterType | null {
+  if (!typeId) return null;
+  return resolveMatterTypes(manifest).find((t) => t.id === typeId) ?? null;
+}
+
+export interface ValidateCustomFieldValuesResult {
+  ok: boolean;
+  /** Map of fieldKey → user-facing error string. Empty when ok. */
+  errors: Record<string, string>;
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Validate a values blob against a custom-field configuration. Returns
+ * a per-field error map so the host UI can highlight inputs. Empty
+ * strings on optional fields are treated as undefined (form-friendly).
+ * Extra keys not in the configuration are ignored — they don't trip
+ * validation but won't get persisted either when the host saves only
+ * the known keys.
+ */
+export function validateCustomFieldValues(
+  fields: ManifestCustomField[] | undefined,
+  values: Record<string, unknown>,
+): ValidateCustomFieldValuesResult {
+  const errors: Record<string, string> = {};
+  for (const field of fields ?? []) {
+    const raw = values[field.key];
+    const empty =
+      raw === undefined ||
+      raw === null ||
+      (typeof raw === 'string' && raw.trim().length === 0);
+
+    if (empty) {
+      if (field.required) {
+        errors[field.key] = `${field.label} is required`;
+      }
+      continue;
+    }
+
+    switch (field.type) {
+      case 'text':
+        if (typeof raw !== 'string') {
+          errors[field.key] = `${field.label} must be a string`;
+        }
+        break;
+      case 'number': {
+        if (typeof raw === 'number' && Number.isFinite(raw)) break;
+        // Numeric strings allowed — HTML form inputs hand back strings.
+        if (typeof raw === 'string' && raw.trim().length > 0) {
+          const n = Number(raw);
+          if (Number.isFinite(n)) break;
+        }
+        errors[field.key] = `${field.label} must be a number`;
+        break;
+      }
+      case 'date':
+        if (typeof raw !== 'string' || !DATE_PATTERN.test(raw)) {
+          errors[field.key] = `${field.label} must be a date (YYYY-MM-DD)`;
+        }
+        break;
+      case 'enum': {
+        const opts = field.options ?? [];
+        if (typeof raw !== 'string' || !opts.includes(raw)) {
+          errors[field.key] = `${field.label} must be one of: ${opts.join(', ')}`;
+        }
+        break;
+      }
+      case 'boolean':
+        if (typeof raw !== 'boolean') {
+          errors[field.key] = `${field.label} must be a boolean`;
+        }
+        break;
+    }
+  }
+  return { ok: Object.keys(errors).length === 0, errors };
 }
 
 export function defaultManifest(): AgentManifest {
