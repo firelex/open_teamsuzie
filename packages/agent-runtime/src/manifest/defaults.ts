@@ -45,6 +45,26 @@ export function resolveModules(manifest: AgentManifest): ManifestModules {
   return { ...DEFAULT_MODULES, ...(manifest.modules ?? {}) };
 }
 
+export interface MattersLabel {
+  singular: string;
+  plural: string;
+}
+
+export const DEFAULT_MATTERS_LABEL: MattersLabel = {
+  singular: 'Matter',
+  plural: 'Matters',
+};
+
+export function resolveMattersLabel(manifest: AgentManifest): MattersLabel {
+  const label = manifest.matters?.label;
+  const singular = typeof label?.singular === 'string' ? label.singular.trim() : '';
+  const plural = typeof label?.plural === 'string' ? label.plural.trim() : '';
+  return {
+    singular: singular.length > 0 ? singular : DEFAULT_MATTERS_LABEL.singular,
+    plural: plural.length > 0 ? plural : DEFAULT_MATTERS_LABEL.plural,
+  };
+}
+
 export function defaultManifest(): AgentManifest {
   return {
     schemaVersion: 1,

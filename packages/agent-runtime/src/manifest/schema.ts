@@ -126,6 +126,20 @@ export interface ManifestReviews {
   templates?: ReviewTemplateSeed[];
 }
 
+/**
+ * Manifest-side configuration for the Matters module. The label lets each
+ * vertical re-skin the noun ("Matter" → "Deal" / "Case" / "Engagement")
+ * without forking the UI. Both halves are optional; missing pieces fall
+ * back to the default ("Matter" / "Matters") rather than being naively
+ * pluralised so copy stays predictable.
+ */
+export interface ManifestMatters {
+  label?: {
+    singular?: string;
+    plural?: string;
+  };
+}
+
 export interface AgentManifest {
   schemaVersion: 1;
   name: string;
@@ -139,6 +153,7 @@ export interface AgentManifest {
   tools: ManifestTool[];
   ai?: ManifestAi;
   reviews?: ManifestReviews;
+  matters?: ManifestMatters;
   source?: {
     builder?: string;
     builderVersion?: string;
