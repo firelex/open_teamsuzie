@@ -57,6 +57,52 @@ describe('POST /api/ai/draft', () => {
     expect(res.status).toBe(400);
   });
 
+  it('review-column-prompt instructs the LLM to return JSON {prompt, format} with the format hint encoded', async () => {
+    let capturedSystem = '';
+    const app = express();
+    app.use(express.json());
+    app.use('/api/ai/draft', createAiDraftRouter({
+      simpleModel: { baseUrl: 'http://localhost', apiKey: 'x', model: 'm' },
+      kinds: createCoreAiDraftKinds(),
+      runTurn: async ({ messages }) => {
+        capturedSystem = (messages.find(m => m.role === 'system') as any)?.content ?? '';
+        // Mock a well-formed structured response — the client (use-review's
+        // draftColumnPrompt helper) parses this into { prompt, format }.
+        return { text: '{"prompt":"How long is the term?","format":"text"}' };
+      },
+    }));
+    const res = await request(app).post('/api/ai/draft').send({
+      kind: 'review-column-prompt',
+      context: { title: 'Term length', formatHint: 'short_text', formatLocked: false },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.text).toMatch(/"format":"text"/);
+    // System prompt sanity: the title, hint, and lock flag all flowed
+    // through so the LLM can honor them.
+    expect(capturedSystem).toMatch(/Term length/);
+    expect(capturedSystem).toMatch(/short_text/);
+    expect(capturedSystem).toMatch(/suggestion/i);
+  });
+
+  it('review-column-prompt flags the format hint as binding when formatLocked', async () => {
+    let capturedSystem = '';
+    const app = express();
+    app.use(express.json());
+    app.use('/api/ai/draft', createAiDraftRouter({
+      simpleModel: { baseUrl: 'http://localhost', apiKey: 'x', model: 'm' },
+      kinds: createCoreAiDraftKinds(),
+      runTurn: async ({ messages }) => {
+        capturedSystem = (messages.find(m => m.role === 'system') as any)?.content ?? '';
+        return { text: '{}' };
+      },
+    }));
+    await request(app).post('/api/ai/draft').send({
+      kind: 'review-column-prompt',
+      context: { title: 't', formatHint: 'date', formatLocked: true },
+    });
+    expect(capturedSystem).toMatch(/binding/i);
+  });
+
   it('uses an extension-registered kind', async () => {
     const kinds = createCoreAiDraftKinds();
     kinds.register(

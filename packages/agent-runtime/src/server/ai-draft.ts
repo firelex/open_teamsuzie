@@ -52,11 +52,31 @@ export function createCoreAiDraftKinds(): AiDraftKindRegistry {
     `produce the prompt the user would paste into an assistant to perform the task. ` +
     `Title: "${c.title ?? ''}". Description: "${c.description ?? ''}".`,
   });
-  r.register('review-column-prompt', { systemPromptFor: (c: any) =>
-    `You draft a column prompt for a tabular document review. Given the column title, ` +
-    `produce a concise prompt that, applied per row, yields a value of the desired format. ` +
-    `Title: "${c.title ?? ''}".`,
-  });
+  r.register('review-column-prompt', { systemPromptFor: (c: any) => {
+    const title = String(c.title ?? '').trim();
+    const formatHint = String(c.formatHint ?? 'text').trim() || 'text';
+    const formatLocked = !!c.formatLocked;
+    return [
+      `You draft a column for a tabular document review.`,
+      `Return ONLY a JSON object with this exact shape — no prose, no code fences, no preamble:`,
+      `{"prompt": "<the prompt body, 1–2 sentences>", "format": "<one of: text, short_text, date, yes_no, bullets, money>"}`,
+      ``,
+      `Title: "${title}".`,
+      `Format hint: "${formatHint}". ${
+        formatLocked
+          ? 'The hint is binding — set "format" to exactly this value.'
+          : 'The hint is a suggestion — pick whichever format the title best implies.'
+      }`,
+      ``,
+      `Format meanings:`,
+      `  text       — multi-sentence prose answer.`,
+      `  short_text — one phrase / proper noun / short clause.`,
+      `  date       — ISO date like 2026-05-25.`,
+      `  yes_no     — boolean answer; return "yes" or "no".`,
+      `  bullets    — short bulleted list (markdown bullets).`,
+      `  money      — a dollar amount.`,
+    ].join('\n');
+  } });
   return r;
 }
 
