@@ -177,5 +177,6 @@ The seam between OSS and hosted is intentional. If you're reading this and wonde
 ## Further reading
 
 - [QUICKSTART.md](QUICKSTART.md) — get it running locally.
+- [COMPOSITION.md](COMPOSITION.md) — how an agent build is composed from JSON config, upstream code, and per-build extensions. Read this before deciding where a new capability lives.
 - [EXTENSION_MODEL.md](EXTENSION_MODEL.md) — how to write skills, approval dispatchers, LLM provider adapters.
 - [ROADMAP.md](ROADMAP.md) — what's next.

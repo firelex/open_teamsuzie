@@ -4,6 +4,10 @@ Extensions are the imperative escape hatch from `agent.json`. They live in
 `extensions/<name>/` next to your `agent.json` and contribute to the runtime's
 registries (Module, Tool, AiDraftKind).
 
+> **Read first:** [`docs/COMPOSITION.md`](../../docs/COMPOSITION.md) frames
+> when to write an extension vs. when to use JSON config or request an
+> upstream capability. This doc covers the *mechanism*, not the *decision*.
+
 ## File layout
 
 ```
