@@ -64,6 +64,34 @@ export class InMemoryFileStore {
   clearSession(sessionId: string): void {
     this.bySession.delete(sessionId);
   }
+
+  /**
+   * Re-key files from `fromSessionId` to `toSessionId`. Used by the
+   * bare-route first-send flow: uploads land under a random tab session
+   * id, then once a chat row is minted the files are promoted to the
+   * chat id so the next chat-route lookup (which uses sessionId=chatId)
+   * resolves them. Files not in `fileIds` are left under the original
+   * session. Returns the new records (same ids, updated sessionId).
+   */
+  promote(
+    fromSessionId: string,
+    toSessionId: string,
+    fileIds: string[],
+  ): FileRecord[] {
+    const fromSess = this.bySession.get(fromSessionId);
+    if (!fromSess) return [];
+    const out: FileRecord[] = [];
+    for (const id of fileIds) {
+      const rec = fromSess.get(id);
+      if (!rec) continue;
+      fromSess.delete(id);
+      const next: FileRecord = { ...rec, sessionId: toSessionId };
+      this.put(next);
+      out.push(next);
+    }
+    if (fromSess.size === 0) this.bySession.delete(fromSessionId);
+    return out;
+  }
 }
 
 function generateId(): string {
@@ -193,6 +221,38 @@ export function createFilesRouter({
       size: record.size,
     };
     res.status(201).json({ item: metadata });
+  });
+
+  /**
+   * Re-key uploaded files from one session to another. The chat UI's
+   * bare-route first send uploads under a random `tabSessionId`, then
+   * after minting a chat row calls this to promote the files to the
+   * chat id so the subsequent chat-route lookup (which uses
+   * sessionId=chatId) resolves them.
+   */
+  router.post('/files/promote', (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const fromSessionId = String(body.fromSessionId ?? '').trim();
+    const toSessionId = String(body.toSessionId ?? '').trim();
+    const fileIds = Array.isArray(body.fileIds)
+      ? (body.fileIds as unknown[]).map((x) => String(x)).filter(Boolean)
+      : [];
+    if (!fromSessionId || !toSessionId) {
+      res.status(400).json({ error: 'fromSessionId and toSessionId are required' });
+      return;
+    }
+    if (fileIds.length === 0) {
+      res.status(400).json({ error: 'fileIds must be a non-empty array' });
+      return;
+    }
+    const promoted = store.promote(fromSessionId, toSessionId, fileIds);
+    const items: FileMetadata[] = promoted.map((rec) => ({
+      id: rec.id,
+      name: rec.name,
+      mimeType: rec.mimeType,
+      size: rec.size,
+    }));
+    res.json({ items });
   });
 
   router.get('/files/:sessionId/:id', (req, res) => {

@@ -451,15 +451,23 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     };
   }, [chatId]);
 
-  // After a fresh navigate from `/` to `/c/:newChatId`, dispatch the message
-  // we deferred from the bare-route send.
+  // After a fresh navigate from `/` to `/c/:newChatId`, pick up the message
+  // we deferred from the bare-route send and dispatch it now. Attachments
+  // uploaded under the bare-route's tabSessionId are promoted server-side
+  // to the new chatId before navigate; we restore them into local state so
+  // the next sendMessage call carries their ids on the wire.
   useEffect(() => {
-    const state = location.state as { pendingMessage?: string } | null;
+    const state = location.state as {
+      pendingMessage?: string;
+      pendingAttachments?: Attachment[];
+    } | null;
     if (!chatId || !historyLoaded || !state?.pendingMessage) return;
     if (messages.length > 0) return;
     const pending = state.pendingMessage;
+    const pendingAttachments = state.pendingAttachments ?? [];
+    if (pendingAttachments.length > 0) setAttachments(pendingAttachments);
     navigate(location.pathname, { replace: true, state: null });
-    void sendMessage(pending);
+    void sendMessage(pending, pendingAttachments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, historyLoaded]);
 
@@ -493,15 +501,16 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     }).catch(() => undefined);
   }
 
-  async function sendMessage(textArg: string) {
+  async function sendMessage(textArg: string, overrideAttachments?: Attachment[]) {
     const text = textArg.trim();
     if (!text) {
       return;
     }
 
-    // Bare-route first send: create a chat row and navigate to /c/:newId.
-    // The route mount picks up `pendingMessage` and re-enters this function
-    // with chatId set.
+    // Bare-route first send: create a chat row, promote any uploaded files
+    // from the bare-route's tabSessionId to the new chatId so the next
+    // chat-route lookup resolves them, then navigate to /c/:newId carrying
+    // both the message and the promoted attachments via location.state.
     if (!chatId) {
       try {
         setStatus('sending');
@@ -514,9 +523,27 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
           throw new Error(`Failed to start chat (${response.status})`);
         }
         const data = (await response.json()) as { item: Chat };
+        let promotedAttachments = attachments;
+        if (attachments.length > 0) {
+          const promoteRes = await fetch('/api/files/promote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fromSessionId: sessionId,
+              toSessionId: data.item.id,
+              fileIds: attachments.map((a) => a.id),
+            }),
+          });
+          if (!promoteRes.ok) {
+            const body = (await promoteRes.json().catch(() => ({}))) as { error?: string };
+            throw new Error(body.error || `File handoff failed (${promoteRes.status})`);
+          }
+          const promoted = (await promoteRes.json()) as { items: Attachment[] };
+          promotedAttachments = promoted.items;
+        }
         setStatus('idle');
         navigate(`/c/${encodeURIComponent(data.item.id)}`, {
-          state: { pendingMessage: text },
+          state: { pendingMessage: text, pendingAttachments: promotedAttachments },
         });
         return;
       } catch (err) {
@@ -538,7 +565,8 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     }));
     const assistantId = crypto.randomUUID();
 
-    const sentAttachmentIds = attachments.map((a) => a.id);
+    const effectiveAttachments = overrideAttachments ?? attachments;
+    const sentAttachmentIds = effectiveAttachments.map((a) => a.id);
 
     setMessages((current) => [
       ...current,
