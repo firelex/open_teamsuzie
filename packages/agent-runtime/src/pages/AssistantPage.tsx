@@ -380,6 +380,25 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     [],
   );
 
+  const exportArtifact = useCallback(
+    async (docId: string, title: string): Promise<{ downloadUrl: string; filename?: string }> => {
+      const res = await fetch(
+        `/api/documents/${encodeURIComponent(sessionId)}/${encodeURIComponent(docId)}/export`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: title }),
+        },
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Export failed: ${res.status} ${text}`);
+      }
+      return (await res.json()) as { downloadUrl: string; filename?: string };
+    },
+    [sessionId],
+  );
+
   const loadRedline = useCallback(
     async (
       sid: string,
@@ -969,6 +988,7 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
         <ArtifactPanel
           artifact={activeArtifact}
           onClose={() => setActiveArtifact(null)}
+          onExport={exportArtifact}
         />
       )}
       <WorkflowPickerDialog

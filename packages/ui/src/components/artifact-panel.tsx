@@ -102,16 +102,83 @@ function downloadBlob(content: string, mimeType: string, filename: string): void
 export function ArtifactPanel({
   artifact,
   onClose,
+  onExport,
 }: {
   artifact: ArtifactSnapshot
   onClose: () => void
+  /**
+   * Optional host-supplied DOCX exporter. When provided, the "Word (.docx)"
+   * dropdown entry becomes clickable even before the model has called
+   * export_to_docx — clicking it runs the host's export, caches the URL
+   * locally, and triggers the browser download. When omitted, the entry
+   * stays disabled with the legacy "not yet exported" hint.
+   */
+  onExport?: (docId: string, title: string) => Promise<{
+    downloadUrl: string
+    filename?: string
+  }>
 }) {
+  const [exporting, setExporting] = React.useState(false)
+  const [exportError, setExportError] = React.useState<string | null>(null)
+  // Cache the URL we got back from on-demand export so re-clicks reuse it
+  // instead of re-exporting. Keyed on docId so switching docs clears it.
+  const [exported, setExported] = React.useState<{
+    docId: string
+    downloadUrl: string
+    filename?: string
+  } | null>(null)
+
+  React.useEffect(() => {
+    setExportError(null)
+    if (exported && exported.docId !== artifact.docId) setExported(null)
+  }, [artifact.docId, exported])
+
   function downloadMarkdown() {
     downloadBlob(
       artifact.markdown,
       "text/markdown;charset=utf-8",
       safeFilename(artifact.title, ".md")
     )
+  }
+
+  // Resolution order for the DOCX link: (1) model already called
+  // export_to_docx → docxDownloadUrl on the snapshot; (2) the user
+  // previously triggered on-demand export this session → cached `exported`.
+  const docxUrl = artifact.docxDownloadUrl ?? exported?.downloadUrl
+  const docxName =
+    artifact.docxFilename
+    ?? exported?.filename
+    ?? safeFilename(artifact.title, ".docx")
+  const canTriggerExport = !docxUrl && Boolean(onExport) && !exporting
+
+  async function triggerExport(event: Event) {
+    // Prevent the dropdown from closing on click so the user sees the
+    // loading state. Radix passes the underlying KeyboardEvent/MouseEvent
+    // via the `onSelect` callback.
+    event.preventDefault()
+    if (!onExport) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      const result = await onExport(artifact.docId, artifact.title)
+      setExported({
+        docId: artifact.docId,
+        downloadUrl: result.downloadUrl,
+        filename: result.filename,
+      })
+      // Trigger the browser download by clicking a transient <a>.
+      const a = document.createElement("a")
+      a.href = result.downloadUrl
+      a.download =
+        result.filename ?? safeFilename(artifact.title, ".docx")
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed")
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -136,20 +203,28 @@ export function ArtifactPanel({
               <DropdownMenuItem onSelect={downloadMarkdown}>
                 Markdown (.md)
               </DropdownMenuItem>
-              {artifact.docxDownloadUrl ? (
+              {docxUrl ? (
                 <DropdownMenuItem asChild>
-                  <a
-                    href={artifact.docxDownloadUrl}
-                    download={
-                      artifact.docxFilename ?? safeFilename(artifact.title, ".docx")
-                    }
-                  >
+                  <a href={docxUrl} download={docxName}>
                     Word (.docx)
                   </a>
+                </DropdownMenuItem>
+              ) : canTriggerExport ? (
+                <DropdownMenuItem onSelect={triggerExport}>
+                  Word (.docx)
+                </DropdownMenuItem>
+              ) : exporting ? (
+                <DropdownMenuItem disabled>
+                  Word (.docx) — exporting…
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem disabled>
                   Word (.docx) — not yet exported
+                </DropdownMenuItem>
+              )}
+              {exportError && (
+                <DropdownMenuItem disabled className="text-destructive">
+                  {exportError}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
