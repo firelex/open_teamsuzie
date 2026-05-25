@@ -29,11 +29,8 @@ import { useMatterMetadata } from '../hooks/use-matter-metadata.js';
 import { ShareDialog } from '../components/share-dialog.js';
 import { FromWorkflowDialog } from '../components/from-workflow-dialog.js';
 import { MatterMetadataSection } from '../components/matter-metadata-section.js';
-import {
-    resolveMattersLabel,
-    resolveModules,
-    type AgentManifest,
-} from '../manifest/index.js';
+import { resolveMattersLabel, resolveModules } from '../manifest/defaults.js';
+import type { AgentManifest } from '../manifest/schema.js';
 
 interface Props {
     manifest: AgentManifest | null;

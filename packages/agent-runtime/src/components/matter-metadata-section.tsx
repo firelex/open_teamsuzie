@@ -22,10 +22,12 @@ import {
     getMatterType,
     resolveMatterTypes,
     validateCustomFieldValues,
-    type AgentManifest,
-    type ManifestCustomField,
-    type ManifestMatterType,
-} from '../manifest/index.js';
+} from '../manifest/defaults.js';
+import type {
+    AgentManifest,
+    ManifestCustomField,
+    ManifestMatterType,
+} from '../manifest/schema.js';
 import { CustomFieldsForm } from './custom-fields-form.js';
 import type { MatterMetadata } from '../hooks/use-matter-metadata.js';
 

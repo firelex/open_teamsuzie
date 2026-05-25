@@ -8,7 +8,7 @@ import {
     SelectValue,
     Switch,
 } from '@teamsuzie/ui';
-import type { ManifestCustomField } from '../manifest/index.js';
+import type { ManifestCustomField } from '../manifest/schema.js';
 
 interface CustomFieldsFormProps {
     fields: ManifestCustomField[];

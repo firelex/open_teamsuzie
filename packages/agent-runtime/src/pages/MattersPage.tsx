@@ -43,13 +43,14 @@ import { useMatters, type Matter } from '../hooks/use-matters.js';
 import { ShareDialog } from '../components/share-dialog.js';
 import { CustomFieldsForm } from '../components/custom-fields-form.js';
 import {
-    getMatterType,
     resolveMatterTypes,
     resolveMattersLabel,
     validateCustomFieldValues,
-    type AgentManifest,
-    type ManifestMatterType,
-} from '../manifest/index.js';
+} from '../manifest/defaults.js';
+import type {
+    AgentManifest,
+    ManifestMatterType,
+} from '../manifest/schema.js';
 
 interface MattersPageProps {
     manifest: AgentManifest | null;
