@@ -1,13 +1,22 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     AppShellContent,
     Button,
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
     Download,
     EmptyState,
     EmptyStateDescription,
     EmptyStateTitle,
     FileText,
+    Input,
+    Label,
     LoadingState,
     PageHeader,
     PageHeaderActions,
@@ -16,6 +25,7 @@ import {
     PageHeaderTitle,
     PendingButton,
     Plus,
+    Textarea,
     Trash2,
     Upload,
     Users,
@@ -158,6 +168,111 @@ function ChatsSection({
     );
 }
 
+function NewReviewDialog({
+    open,
+    onOpenChange,
+    onCreate,
+}: {
+    open: boolean;
+    onOpenChange: (next: boolean) => void;
+    onCreate: (input: { name: string; description?: string }) => Promise<void>;
+}) {
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (open) {
+            setName('');
+            setDescription('');
+            setErr(null);
+        }
+    }, [open]);
+
+    async function submit() {
+        const trimmed = name.trim();
+        if (!trimmed) {
+            setErr('Name is required');
+            return;
+        }
+        setBusy(true);
+        setErr(null);
+        try {
+            await onCreate({
+                name: trimmed,
+                description: description.trim() || undefined,
+            });
+            setName('');
+            setDescription('');
+            onOpenChange(false);
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : 'Failed');
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>New review</DialogTitle>
+                    <DialogDescription>
+                        Tabular review of multiple documents — one row per
+                        document, one column per question. Build the columns
+                        on the next screen.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="review-name">Name</Label>
+                        <Input
+                            id="review-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Diligence Q&A"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    void submit();
+                                }
+                            }}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="review-description">
+                            Description (optional)
+                        </Label>
+                        <Textarea
+                            id="review-description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            rows={2}
+                        />
+                    </div>
+                    {err && <p className="text-xs text-destructive">{err}</p>}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline" disabled={busy}>
+                            Cancel
+                        </Button>
+                    </DialogClose>
+                    <PendingButton
+                        onClick={() => void submit()}
+                        pending={busy}
+                        pendingLabel="Creating"
+                    >
+                        Create review
+                    </PendingButton>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function ReviewsSection({
     matterId,
     documents,
@@ -168,28 +283,47 @@ function ReviewsSection({
     label: { singular: string; plural: string };
 }) {
     const confirm = useConfirm();
-    const { reviews, loading, error, createFromWorkflow, remove } =
+    const navigate = useNavigate();
+    const { reviews, loading, error, create, createFromWorkflow, remove } =
         useMatterReviews(matterId);
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const [newReviewOpen, setNewReviewOpen] = useState(false);
+    const [fromWorkflowOpen, setFromWorkflowOpen] = useState(false);
+
+    async function handleCreate(input: { name: string; description?: string }) {
+        const review = await create(input);
+        // Navigate straight to the grid — suzielaw pattern: blank review
+        // → build columns + add documents inline.
+        navigate(
+            `/matters/${encodeURIComponent(matterId)}/reviews/${encodeURIComponent(review.id)}`,
+        );
+    }
 
     return (
         <section>
             <div className="mb-3 flex items-baseline justify-between">
                 <h2 className="text-sm font-semibold tracking-tight">Reviews</h2>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDialogOpen(true)}
-                    disabled={documents.length === 0}
-                    title={
-                        documents.length === 0
-                            ? `Upload documents to this ${label.singular.toLowerCase()} first`
-                            : 'New review from workflow'
-                    }
-                >
-                    <Plus className="size-4" aria-hidden />
-                    New review
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setFromWorkflowOpen(true)}
+                        disabled={documents.length === 0}
+                        title={
+                            documents.length === 0
+                                ? `Upload documents to this ${label.singular.toLowerCase()} first`
+                                : 'Pre-populate from a saved tabular workflow'
+                        }
+                    >
+                        From workflow…
+                    </Button>
+                    <Button
+                        size="sm"
+                        onClick={() => setNewReviewOpen(true)}
+                    >
+                        <Plus className="size-4" aria-hidden />
+                        New review
+                    </Button>
+                </div>
             </div>
             {error && (
                 <p className="text-xs text-destructive">{error}</p>
@@ -200,10 +334,9 @@ function ReviewsSection({
                 <EmptyState>
                     <EmptyStateTitle>No reviews yet</EmptyStateTitle>
                     <EmptyStateDescription>
-                        Pick a workflow with columns + the docs to review.
-                        Cell-running comes online once the knowledge-base
-                        module ships; for now the review provides the column
-                        + document scaffold and the xlsx export.
+                        Create an empty review then build columns + add
+                        documents on the review page. Or pre-fill from a
+                        saved tabular workflow.
                     </EmptyStateDescription>
                 </EmptyState>
             ) : (
@@ -270,9 +403,14 @@ function ReviewsSection({
                     ))}
                 </ul>
             )}
+            <NewReviewDialog
+                open={newReviewOpen}
+                onOpenChange={setNewReviewOpen}
+                onCreate={handleCreate}
+            />
             <FromWorkflowDialog
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
+                open={fromWorkflowOpen}
+                onOpenChange={setFromWorkflowOpen}
                 documents={documents}
                 onCreate={createFromWorkflow}
             />

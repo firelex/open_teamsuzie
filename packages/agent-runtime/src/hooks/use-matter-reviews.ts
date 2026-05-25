@@ -34,6 +34,15 @@ interface UseMatterReviewsResult {
     loading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
+    /**
+     * Create an empty review (no columns, no documents). Returns the
+     * shallow Review row so the host can navigate straight into the
+     * grid where columns get built.
+     */
+    create: (input: {
+        name: string;
+        description?: string;
+    }) => Promise<MatterReview>;
     createFromWorkflow: (input: {
         workflowId: string;
         externalDocIds: string[];
@@ -80,6 +89,37 @@ export function useMatterReviews(
             setLoading(false);
         }
     }, [matterId]);
+
+    const create = useCallback(
+        async (input: {
+            name: string;
+            description?: string;
+        }): Promise<MatterReview> => {
+            if (!matterId) throw new Error('no matter id');
+            const res = await fetch(
+                `/api/matters/${encodeURIComponent(matterId)}/reviews`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: input.name,
+                        description: input.description ?? null,
+                    }),
+                },
+            );
+            if (!res.ok) {
+                const data = (await res.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                throw new Error(data.error || `Failed (${res.status})`);
+            }
+            const data = (await res.json()) as { item: MatterReview };
+            await refresh();
+            return data.item;
+        },
+        [matterId, refresh],
+    );
 
     const createFromWorkflow = useCallback(
         async (input: {
@@ -133,5 +173,5 @@ export function useMatterReviews(
         void refresh();
     }, [refresh]);
 
-    return { reviews, loading, error, refresh, createFromWorkflow, remove };
+    return { reviews, loading, error, refresh, create, createFromWorkflow, remove };
 }
