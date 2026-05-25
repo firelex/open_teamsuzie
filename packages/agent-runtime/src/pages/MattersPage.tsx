@@ -41,7 +41,15 @@ import {
 } from '@teamsuzie/ui';
 import { useMatters, type Matter } from '../hooks/use-matters.js';
 import { ShareDialog } from '../components/share-dialog.js';
-import { resolveMattersLabel, type AgentManifest } from '../manifest/index.js';
+import { CustomFieldsForm } from '../components/custom-fields-form.js';
+import {
+    getMatterType,
+    resolveMatterTypes,
+    resolveMattersLabel,
+    validateCustomFieldValues,
+    type AgentManifest,
+    type ManifestMatterType,
+} from '../manifest/index.js';
 
 interface MattersPageProps {
     manifest: AgentManifest | null;
@@ -59,8 +67,14 @@ function formatDate(ms: number): string {
 interface NewMatterDialogProps {
     open: boolean;
     onOpenChange: (next: boolean) => void;
-    onCreate: (input: { name: string; description?: string }) => Promise<void>;
+    onCreate: (input: {
+        name: string;
+        description?: string;
+        typeId?: string | null;
+        customFields?: Record<string, unknown>;
+    }) => Promise<void>;
     label: { singular: string; plural: string };
+    types: ManifestMatterType[];
 }
 
 function NewMatterDialog({
@@ -68,24 +82,55 @@ function NewMatterDialog({
     onOpenChange,
     onCreate,
     label,
+    types,
 }: NewMatterDialogProps) {
+    const [step, setStep] = useState<'type' | 'details'>(
+        types.length > 1 ? 'type' : 'details',
+    );
+    const [selectedTypeId, setSelectedTypeId] = useState<string | null>(
+        types.length === 1 ? types[0]!.id : null,
+    );
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+    const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const selectedType = selectedTypeId
+        ? types.find((t) => t.id === selectedTypeId) ?? null
+        : null;
+    const customFields = selectedType?.customFields ?? [];
+
     useEffect(() => {
-        if (open) {
-            setName('');
-            setDescription('');
-            setError(null);
-        }
-    }, [open]);
+        if (!open) return;
+        setStep(types.length > 1 ? 'type' : 'details');
+        setSelectedTypeId(types.length === 1 ? types[0]!.id : null);
+        setName('');
+        setDescription('');
+        setCustomFieldValues({});
+        setCustomFieldErrors({});
+        setError(null);
+    }, [open, types]);
+
+    function handleSelectType(typeId: string) {
+        setSelectedTypeId(typeId);
+        setCustomFieldValues({});
+        setCustomFieldErrors({});
+        setStep('details');
+    }
 
     async function handleSubmit() {
         const trimmedName = name.trim();
         if (!trimmedName) {
             setError('Name is required');
+            return;
+        }
+        // Validate custom fields against the selected type's config.
+        const validation = validateCustomFieldValues(customFields, customFieldValues);
+        if (!validation.ok) {
+            setCustomFieldErrors(validation.errors);
+            setError('Please fix the highlighted fields.');
             return;
         }
         setSubmitting(true);
@@ -94,6 +139,9 @@ function NewMatterDialog({
             await onCreate({
                 name: trimmedName,
                 description: description.trim() || undefined,
+                typeId: selectedTypeId,
+                customFields:
+                    customFields.length > 0 ? customFieldValues : undefined,
             });
             onOpenChange(false);
         } catch (err) {
@@ -112,48 +160,119 @@ function NewMatterDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>New {singularLower}</DialogTitle>
+                    <DialogTitle>
+                        {step === 'type'
+                            ? `New ${singularLower} — pick a type`
+                            : `New ${singularLower}${selectedType ? ` · ${selectedType.label}` : ''}`}
+                    </DialogTitle>
                     <DialogDescription>
-                        Group documents, chats, and reviews together under a
-                        single {singularLower}.
+                        {step === 'type'
+                            ? `Pick the kind of ${singularLower} to determine which fields to capture.`
+                            : `Group documents, chats, and reviews together under a single ${singularLower}.`}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-1.5">
-                        <Label htmlFor="matter-name">Name</Label>
-                        <Input
-                            id="matter-name"
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="e.g. Acme acquisition"
-                            autoFocus
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter' && !event.shiftKey) {
-                                    event.preventDefault();
-                                    void handleSubmit();
+
+                {step === 'type' ? (
+                    <ul className="space-y-2">
+                        {types.map((t) => (
+                            <li key={t.id}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectType(t.id)}
+                                    className="flex w-full flex-col items-start gap-1 rounded-md border border-input bg-card p-3 text-left hover:border-foreground/30 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                                >
+                                    <span className="text-sm font-medium">
+                                        {t.label}
+                                    </span>
+                                    {t.description && (
+                                        <span className="text-xs text-muted-foreground">
+                                            {t.description}
+                                        </span>
+                                    )}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="matter-name">Name</Label>
+                            <Input
+                                id="matter-name"
+                                value={name}
+                                onChange={(event) =>
+                                    setName(event.target.value)
                                 }
-                            }}
-                        />
+                                placeholder="e.g. Acme acquisition"
+                                autoFocus
+                                onKeyDown={(event) => {
+                                    if (
+                                        event.key === 'Enter' &&
+                                        !event.shiftKey
+                                    ) {
+                                        event.preventDefault();
+                                        void handleSubmit();
+                                    }
+                                }}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="matter-description">
+                                Description (optional)
+                            </Label>
+                            <Textarea
+                                id="matter-description"
+                                value={description}
+                                onChange={(event) =>
+                                    setDescription(event.target.value)
+                                }
+                                placeholder={`What's this ${singularLower} about?`}
+                                rows={3}
+                            />
+                        </div>
+                        {customFields.length > 0 && (
+                            <div className="border-t pt-4">
+                                <CustomFieldsForm
+                                    fields={customFields}
+                                    values={customFieldValues}
+                                    errors={customFieldErrors}
+                                    disabled={submitting}
+                                    idPrefix="new-matter"
+                                    onChange={(key, value) => {
+                                        setCustomFieldValues((current) => ({
+                                            ...current,
+                                            [key]: value,
+                                        }));
+                                        // Clear the field's error as the
+                                        // user edits so the red prompt
+                                        // doesn't linger after they fix it.
+                                        setCustomFieldErrors((current) => {
+                                            if (!current[key]) return current;
+                                            const next = { ...current };
+                                            delete next[key];
+                                            return next;
+                                        });
+                                    }}
+                                />
+                            </div>
+                        )}
+                        {error && (
+                            <p className="text-xs text-destructive">{error}</p>
+                        )}
                     </div>
-                    <div className="space-y-1.5">
-                        <Label htmlFor="matter-description">
-                            Description (optional)
-                        </Label>
-                        <Textarea
-                            id="matter-description"
-                            value={description}
-                            onChange={(event) =>
-                                setDescription(event.target.value)
-                            }
-                            placeholder={`What's this ${singularLower} about?`}
-                            rows={3}
-                        />
-                    </div>
-                    {error && (
-                        <p className="text-xs text-destructive">{error}</p>
-                    )}
-                </div>
+                )}
+
                 <DialogFooter>
+                    {step === 'details' && types.length > 1 && (
+                        <Button
+                            variant="outline"
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => setStep('type')}
+                        >
+                            Back
+                        </Button>
+                    )}
                     <DialogClose asChild>
                         <Button
                             variant="outline"
@@ -163,14 +282,16 @@ function NewMatterDialog({
                             Cancel
                         </Button>
                     </DialogClose>
-                    <PendingButton
-                        type="button"
-                        onClick={() => void handleSubmit()}
-                        pending={submitting}
-                        pendingLabel="Creating"
-                    >
-                        Create {singularLower}
-                    </PendingButton>
+                    {step === 'details' && (
+                        <PendingButton
+                            type="button"
+                            onClick={() => void handleSubmit()}
+                            pending={submitting}
+                            pendingLabel="Creating"
+                        >
+                            Create {singularLower}
+                        </PendingButton>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -381,6 +502,7 @@ export function MattersPage({ manifest }: MattersPageProps) {
     const label = manifest
         ? resolveMattersLabel(manifest)
         : { singular: 'Matter', plural: 'Matters' };
+    const types = manifest ? resolveMatterTypes(manifest) : [];
     const {
         matters,
         loading,
@@ -402,10 +524,14 @@ export function MattersPage({ manifest }: MattersPageProps) {
     const handleCreate = async (input: {
         name: string;
         description?: string;
+        typeId?: string | null;
+        customFields?: Record<string, unknown>;
     }) => {
         await create({
             name: input.name,
             description: input.description,
+            typeId: input.typeId,
+            customFields: input.customFields,
         });
     };
 
@@ -465,6 +591,16 @@ export function MattersPage({ manifest }: MattersPageProps) {
                             Create your first {singularLower}
                         </Button>
                     </EmptyState>
+                ) : types.length > 1 ? (
+                    <GroupedMattersList
+                        matters={matters}
+                        types={types}
+                        label={label}
+                        onRename={handleRename}
+                        onArchive={archive}
+                        onUnarchive={unarchive}
+                        onDelete={remove}
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                         {matters.map((matter) => (
@@ -487,7 +623,108 @@ export function MattersPage({ manifest }: MattersPageProps) {
                 onOpenChange={setDialogOpen}
                 onCreate={handleCreate}
                 label={label}
+                types={types}
             />
         </>
+    );
+}
+
+interface GroupedMattersListProps {
+    matters: Matter[];
+    types: ManifestMatterType[];
+    label: { singular: string; plural: string };
+    onRename: (id: string, name: string) => Promise<void>;
+    onArchive: (id: string) => Promise<void>;
+    onUnarchive: (id: string) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
+}
+
+/**
+ * When the manifest declares multiple matter types, group the cards by
+ * type rather than rendering one flat grid. Types render in manifest
+ * declaration order. Untyped matters (no metadata row, or a metadata
+ * row with a stale type_id no longer in the manifest) land in a
+ * trailing "Untyped" section so the user can still see and re-type them.
+ */
+function GroupedMattersList({
+    matters,
+    types,
+    label,
+    onRename,
+    onArchive,
+    onUnarchive,
+    onDelete,
+}: GroupedMattersListProps) {
+    const typeIds = new Set(types.map((t) => t.id));
+    const byType = new Map<string, Matter[]>();
+    const untyped: Matter[] = [];
+    for (const m of matters) {
+        const tid = m.metadata?.typeId;
+        if (tid && typeIds.has(tid)) {
+            const list = byType.get(tid) ?? [];
+            list.push(m);
+            byType.set(tid, list);
+        } else {
+            untyped.push(m);
+        }
+    }
+
+    return (
+        <div className="space-y-8">
+            {types.map((t) => {
+                const list = byType.get(t.id) ?? [];
+                if (list.length === 0) return null;
+                return (
+                    <section key={t.id}>
+                        <div className="mb-3 flex items-baseline gap-3">
+                            <h2 className="text-sm font-semibold tracking-tight">
+                                {t.label}
+                            </h2>
+                            <span className="text-xs text-muted-foreground">
+                                {list.length}
+                            </span>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                            {list.map((matter) => (
+                                <MatterCard
+                                    key={matter.id}
+                                    matter={matter}
+                                    label={label}
+                                    onRename={onRename}
+                                    onArchive={onArchive}
+                                    onUnarchive={onUnarchive}
+                                    onDelete={onDelete}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                );
+            })}
+            {untyped.length > 0 && (
+                <section>
+                    <div className="mb-3 flex items-baseline gap-3">
+                        <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">
+                            Untyped
+                        </h2>
+                        <span className="text-xs text-muted-foreground">
+                            {untyped.length}
+                        </span>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                        {untyped.map((matter) => (
+                            <MatterCard
+                                key={matter.id}
+                                matter={matter}
+                                label={label}
+                                onRename={onRename}
+                                onArchive={onArchive}
+                                onUnarchive={onUnarchive}
+                                onDelete={onDelete}
+                            />
+                        ))}
+                    </div>
+                </section>
+            )}
+        </div>
     );
 }

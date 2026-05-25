@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
+export interface MatterMetadata {
+    matterId: string;
+    typeId: string | null;
+    customFields: Record<string, unknown>;
+    createdAt: number;
+    updatedAt: number;
+}
+
 export interface Matter {
     id: string;
     name: string;
@@ -7,11 +15,15 @@ export interface Matter {
     archivedAt: number | null;
     createdAt: number;
     updatedAt: number;
+    /** Present on list items when the matter has a metadata row. */
+    metadata?: MatterMetadata;
 }
 
 export interface CreateMatterInput {
     name: string;
     description?: string;
+    typeId?: string | null;
+    customFields?: Record<string, unknown>;
 }
 
 export interface UpdateMatterInput {
