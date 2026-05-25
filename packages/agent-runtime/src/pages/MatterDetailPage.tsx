@@ -213,7 +213,10 @@ function ReviewsSection({
                             key={r.id}
                             className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent/40"
                         >
-                            <div className="flex-1 min-w-0">
+                            <Link
+                                to={`/matters/${encodeURIComponent(matterId)}/reviews/${encodeURIComponent(r.id)}`}
+                                className="flex-1 min-w-0"
+                            >
                                 <p className="truncate text-sm font-medium text-foreground">
                                     {r.name}
                                 </p>
@@ -228,7 +231,7 @@ function ReviewsSection({
                                         },
                                     )}
                                 </p>
-                            </div>
+                            </Link>
                             <a
                                 href={`/api/matters/${encodeURIComponent(matterId)}/reviews/${encodeURIComponent(r.id)}/export.xlsx`}
                                 title="Download as Excel"

@@ -9,7 +9,7 @@ import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
 import {
   AssistantPage, LibraryPage, MattersPage, MatterDetailPage,
-  PersonasPage, HistoryPage, ReviewsPage, SettingsPage,
+  PersonasPage, HistoryPage, ReviewDetailPage, ReviewsPage, SettingsPage,
 } from '../pages/index.js';
 import { DEFAULT_MODULES, resolveMattersLabel } from '../manifest/defaults.js';
 import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
@@ -115,6 +115,7 @@ export function AgentApp() {
           <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
           {mods.matters  && <Route path="/matters"                          element={<MattersPage manifest={manifest} />} />}
           {mods.matters  && <Route path="/matters/:matterId"                 element={<MatterDetailPage manifest={manifest} />} />}
+          {mods.matters && mods.reviews && <Route path="/matters/:matterId/reviews/:reviewId" element={<ReviewDetailPage manifest={manifest} />} />}
           {mods.matters  && <Route path="/m/:matterId/c/:chatId"             element={<MatterChatRoute agentName={agentName} />} />}
           {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
           {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
