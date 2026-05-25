@@ -7,6 +7,9 @@ export type { ExportDocxOptions, ExportPdfOptions } from './export.js';
 export { buildConvertToDocxTool } from './tools.js';
 export type { BuildConvertToDocxToolOptions, ConvertFileStore } from './tools.js';
 
+export { buildConvertToMarkdownTool } from './convert-tool.js';
+export type { BuildConvertToMarkdownToolOptions } from './convert-tool.js';
+
 export { buildGenerateDocxTool, buildGeneratePdfTool } from './output-tools.js';
 export type { BuildGenerateOutputOptions, ReferenceLookupStoreLike } from './output-tools.js';
 

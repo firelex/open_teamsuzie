@@ -14,6 +14,8 @@ export interface ConvertOptions {
   markitdownAgentBaseUrl: string;
   /** Override the default Turndown configuration when using the mammoth path. */
   turndownOptions?: import('@teamsuzie/markdown-document').ConvertDocxOptions['turndown'];
+  /** Optional fetch override (tests). Defaults to globalThis.fetch. */
+  fetchImpl?: typeof fetch;
 }
 
 export interface ConvertResult {
@@ -54,7 +56,8 @@ async function convertViaMarkitdownAgent(
     new Blob([bytes], { type: options.mime || 'application/octet-stream' }),
     options.filename,
   );
-  const response = await fetch(url, { method: 'POST', body: formData });
+  const fetchFn = options.fetchImpl ?? fetch;
+  const response = await fetchFn(url, { method: 'POST', body: formData });
   if (!response.ok) {
     throw new Error(`markitdown-agent ${url} returned ${response.status}: ${await response.text()}`);
   }
