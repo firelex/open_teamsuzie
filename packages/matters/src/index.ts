@@ -20,3 +20,9 @@
  * shared MembersStore.
  */
 export { SUBJECT_MATTER } from './constants.js';
+export { createMatterUploadsRouter } from './uploads-router.js';
+export type {
+    CreateMatterUploadsRouterOptions,
+    MatterFileRecord,
+    MatterFileStore,
+} from './uploads-router.js';
