@@ -31,6 +31,7 @@
     "@teamsuzie/db-sqlite": "workspace:*",
     "@teamsuzie/document-conversion": "workspace:*",
     "@teamsuzie/document-versions": "workspace:*",
+    "@teamsuzie/docx": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/personas": "workspace:*",
     "@teamsuzie/platform-bridge": "workspace:*",

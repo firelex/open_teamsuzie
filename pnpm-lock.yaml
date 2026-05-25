@@ -1498,6 +1498,9 @@ importers:
       '@teamsuzie/document-versions':
         specifier: workspace:*
         version: link:../document-versions
+      '@teamsuzie/docx':
+        specifier: workspace:*
+        version: link:../docx
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
