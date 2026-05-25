@@ -31,9 +31,9 @@ called out below but aren't action items in this list.
 | `propose_document_edits` | `apps/suzielaw/src/tools/propose-edits.ts` | ✓ ported as upstream `buildProposeDocumentEditsTool` (gated by `modules.redline`) |
 | `legal_search` / `legal_get_document` / `legal_find_in_document` | `apps/suzielaw/src/tools/legal-research/` | ✓ lifted as Tier-3 extension in the new suzielaw |
 | `convert_to_markdown` + the markdown drafting suite (`create_document`, `set_outline`, `write_section`, `revise_section`, `append_section`, `delete_section`, `export_to_docx`) | `apps/suzielaw/src/document-tools.ts` + `@teamsuzie/markdown-document` | ✓ ported as upstream `buildDocumentTools` (gated by `modules.drafting`) |
-| **`compare_documents` / diff** | `tools/diff.ts` + `diff-engine.ts` | **gap** — explicitly out-of-scope of the redline-port plan |
-| **`find_in_document`** | `tools/find-in-document.ts` | **partial** — upstream `search_document` (from `documentNavigationTools`) covers the same query shape; suzielaw's version is just richer. Audit needed before porting. |
-| **`generate_docx` (structured)** | `tools/generate-docx.ts` | **gap** — different from `export_to_docx`. Takes a `GenerateDocxSpec` (sections/headings/tables) for structured deliverables (CP checklists, diligence questionnaires). The factory `buildGenerateDocxTool` already exists upstream in `@teamsuzie/document-conversion` but writes to disk paths instead of the in-memory file store — needs a refactor to match suzielaw's wire shape before it's usable. |
+| `compare_documents` / diff | `tools/diff.ts` + `diff-engine.ts` | ✓ ported as upstream `buildCompareDocumentsTool` + `runDocumentDiff` helper; in the `buildDocumentTools` bundle alongside `find_in_document` |
+| `find_in_document` | `tools/find-in-document.ts` | ✓ ported as upstream `buildFindInDocumentTool`. Complements (does not replace) `search_document` — `find_in_document` reads DOCX directly without requiring conversion first, and its paragraph indices match the redline-view. |
+| `generate_docx` (structured) | `tools/generate-docx.ts` | ✓ ported as upstream `buildGenerateDocxFromSpecTool` (registers as `generate_docx`); gated by `modules.drafting`. Pre-existing disk-writing tool in `@teamsuzie/document-conversion` renamed to `render_markdown_to_docx` to avoid name collision. |
 | **`replicate_document`** | `tools/replicate-document.ts` | **gap** — clone an existing uploaded doc as a new editable draft. Small. Tier-3 extension candidate or upstream. |
 | **`templates`** | `tools/templates.ts` | **gap** — load a template-based draft. Overlaps with the manifest `prompts[]` surface; may not deserve its own tool. |
 | **Playbooks (stored ruleset)** | scattered through suzielaw | **gap** — explicitly out-of-scope. Would let `propose_document_edits` bias edits per playbook (e.g. "buyer NDA standard"). Tier-3 extension candidate, possibly upstream later if every vertical wants the same shape. |
@@ -58,9 +58,9 @@ called out below but aren't action items in this list.
 In priority order:
 
 1. **Matters** — module + matter-scoped file buckets + matter-bound chat. Every legal/PE/medical vertical wants a multi-document case/deal/project container. Probably the highest-leverage remaining port.
-2. **`compare_documents` / diff** — small, well-bounded; natural sibling to redline.
-3. **`generate_docx` (structured)** — refactor the existing `buildGenerateDocxTool` factory to use the in-memory file store + return suzielaw's wire shape (`{ download_url, file_id, filename }`).
-4. **`find_in_document` audit** — decide whether upstream `search_document` already covers it; port only if richer behavior is genuinely missing.
+2. ~~`compare_documents` / diff~~ — ✓ done.
+3. ~~`generate_docx` (structured)~~ — ✓ done.
+4. ~~`find_in_document` audit~~ — ✓ done; ported because upstream `search_document` doesn't cover DOCX-direct or paragraph-index alignment with the redline-view.
 5. **Knowledge Base** — wire `apps/platform/vector-db` into `agent-runtime` behind `modules.knowledgeBase`. Bigger because of the vector substrate dependency.
 6. **`workflow-overrides`** — per-workflow tool overrides. Generalizable as a `manifest.workflows[].tools?` shape.
 7. **`reviews-export`** — natural extension of `modules.reviews`.
