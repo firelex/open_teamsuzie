@@ -5,7 +5,10 @@
 // frontend (HTML) and parse out BOE-A-YYYY-NNNNN identifiers, then fetch
 // full texts via the open-data XML endpoint.
 
-import { fetchText, stripHtml, truncateText, extractArticles, DEFAULT_MAX_TEXT_CHARS } from '../util.js';
+import {
+  fetchText, stripHtml, truncateText, extractArticles, assertDocIdShape,
+  DEFAULT_MAX_TEXT_CHARS,
+} from '../util.js';
 import type {
   LegalProvider,
   SearchOpts,
@@ -112,15 +115,21 @@ export const esBoe: LegalProvider = {
   },
 
   async getDocument(opts: GetDocumentOpts): Promise<FullDocument> {
+    // BOE doc_id is a BOE-id like "BOE-A-2021-12345". Pattern: a few uppercase
+    // letters then dash-separated alnum groups. No slashes; no '..'. The base
+    // URL has no trailing slash here, so we splice straight onto it.
+    const doc_id = assertDocIdShape(
+      'ES/BOE', opts.doc_id, /^[A-Z]+(?:-[A-Z0-9]+)+$/,
+    );
     // The /act.php endpoint renders the consolidated text as HTML.
-    const url = `${TXT_BASE}${opts.doc_id}`;
+    const url = `${TXT_BASE}${doc_id}`;
     const html = await fetchText(url);
     // The BOE XML alternative gives cleaner text — try it as a backup if HTML
     // strip yields too little. Here we just go with the HTML render.
     let text = stripHtml(html);
     if (text.length < 200) {
       try {
-        const xml = await fetchText(`${XML_BASE}${opts.doc_id}`);
+        const xml = await fetchText(`${XML_BASE}${doc_id}`);
         text = stripHtml(xml);
       } catch {
         /* keep HTML */
@@ -130,10 +139,10 @@ export const esBoe: LegalProvider = {
     const t = opts.truncate !== false ? truncateText(text, max) : { text, truncated: false, full_length_chars: text.length };
     return {
       source_id: 'ES/BOE',
-      doc_id: opts.doc_id,
+      doc_id,
       jurisdiction: 'ES',
       type: 'legislation',
-      title: opts.doc_id,
+      title: doc_id,
       text: t.text,
       url,
       full_length_chars: t.full_length_chars,
@@ -142,19 +151,22 @@ export const esBoe: LegalProvider = {
   },
 
   async findInDocument(opts: FindInDocumentOpts): Promise<FindInDocumentResult> {
+    const doc_id = assertDocIdShape(
+      'ES/BOE', opts.doc_id, /^[A-Z]+(?:-[A-Z0-9]+)+$/,
+    );
     const max = opts.max_articles ?? 5;
-    const html = await fetchText(`${TXT_BASE}${opts.doc_id}`);
+    const html = await fetchText(`${TXT_BASE}${doc_id}`);
     const text = stripHtml(html);
     const articles = extractArticles(text);
     const kw = opts.keyword.toLowerCase();
     const matches = articles.filter((a) => a.text.toLowerCase().includes(kw)).slice(0, max);
     return {
       source_id: 'ES/BOE',
-      doc_id: opts.doc_id,
+      doc_id,
       keyword: opts.keyword,
       matches,
       total_articles: articles.length,
-      url: `${TXT_BASE}${opts.doc_id}`,
+      url: `${TXT_BASE}${doc_id}`,
     };
   },
 };

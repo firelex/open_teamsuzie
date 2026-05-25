@@ -4,6 +4,7 @@ import express, { type Express } from 'express';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { timingSafeEqual } from 'node:crypto';
 
 import { ApprovalQueue, InMemoryApprovalStore } from '@teamsuzie/approvals';
 import {
@@ -255,12 +256,59 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   }
 
   const app = express();
-  app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*', credentials: true }));
+
+  // CORS allowlist: in production a single ALLOWED_ORIGIN is the norm; for
+  // SuzieCode-hosted previews we accept a comma-separated list via
+  // AGENT_ALLOWED_ORIGINS (typically the SuzieCode UI's localhost origin).
+  // We only fall back to '*' if neither is set AND no local token is wired —
+  // a permissive default + no token combination is loudly insecure and was
+  // already flagged in security review, so we now require an explicit opt-in.
+  const allowedOriginsList = (process.env.AGENT_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const allowedOriginEnv = process.env.ALLOWED_ORIGIN;
+  const localToken = process.env.AGENT_LOCAL_TOKEN || '';
+  const corsOrigin: cors.CorsOptions['origin'] = allowedOriginsList.length > 0
+    ? (origin, cb) => {
+        if (!origin || allowedOriginsList.includes(origin)) cb(null, true);
+        else cb(new Error('CORS: origin not allowed'));
+      }
+    : (allowedOriginEnv || '*');
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json({ limit: '2mb' }));
+
+  // Server-side Origin allowlist (defense-in-depth above browser CORS): the
+  // cors() middleware sets Access-Control-Allow-Origin so a malicious page
+  // can't *read* responses, but the request itself still reaches the server
+  // for non-preflighted methods (simple GETs, image-style requests). Reject
+  // here too so side-effecting routes never execute for foreign origins.
+  // /api/health stays open: SuzieCode polls it before the iframe loads.
+  if (allowedOriginsList.length > 0) {
+    app.use('/api', (req, res, next) => {
+      if (req.path === '/health' || req.path.startsWith('/webhook/')) return next();
+      const origin = req.headers.origin as string | undefined;
+      if (origin && !allowedOriginsList.includes(origin)) {
+        res.status(403).json({ error: 'origin not allowed' });
+        return;
+      }
+      next();
+    });
+  }
 
   app.use('/api', createPlatformRequestMiddleware({
     platformToken: process.env.PLATFORM_TOKEN,
   }));
+
+  // When AGENT_LOCAL_TOKEN is set, require it on every /api request as a
+  // CSRF-style proof-of-UI-origin (the dev counterpart to PLATFORM_TOKEN).
+  // Default-off because the SuzieCode iframe makes same-origin /api calls
+  // that don't carry the token; that case relies on the Origin allowlist
+  // above. Useful for non-iframe deployments (e.g. a thick client proxy).
+  if (localToken) {
+    app.use('/api', requireLocalToken(localToken));
+  }
+
   if (opts.devAuth || process.env.AGENT_DEV_AUTH === 'true') {
     app.use('/api', injectDevSession(OWNER_ID));
   }
@@ -798,11 +846,35 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
 
         // Unrecognised bucket — bare-route tab session that hasn't been
         // promoted (yet). The session that uploaded the file is already
-        // in this user's tab; we don't have a tab→user index, so allow
-        // the session-authenticated caller through here. The promote
-        // step later moves these bytes into a persisted chat / matter
-        // bucket where the real check then applies.
-        return { allowed: true };
+        // in this user's tab; we don't have a tab→user index, so we
+        // can't authenticate the bucket directly. Two policies:
+        //   - Permissive (legacy): allow any authenticated caller through
+        //     and rely on the promote step to re-key into a real bucket.
+        //     This is fine when sessions are unforgeable, but under
+        //     AGENT_DEV_AUTH=true every caller IS the user, so a local
+        //     page could enumerate buckets by id.
+        //   - Strict: only allow when the request also proves UI origin —
+        //     via PLATFORM_TOKEN, AGENT_LOCAL_TOKEN, or an allow-listed
+        //     Origin. Under dev-auth, fall through to deny unknown ids.
+        const devAuthOn = process.env.AGENT_DEV_AUTH === 'true';
+        if (!devAuthOn) {
+          return { allowed: true };
+        }
+        // Dev-auth mode: require one of the local proofs-of-UI before
+        // letting unknown bucket ids through.
+        const origin = req.headers.origin as string | undefined;
+        const allowedOrigins = (process.env.AGENT_ALLOWED_ORIGINS || '')
+          .split(',').map((o) => o.trim()).filter(Boolean);
+        const originOk = origin && allowedOrigins.length > 0
+          && allowedOrigins.includes(origin);
+        const localTokenEnv = process.env.AGENT_LOCAL_TOKEN || '';
+        const providedHeader = req.headers['x-suziecode-token'];
+        const provided = Array.isArray(providedHeader)
+          ? providedHeader[0]
+          : providedHeader;
+        const tokenOk = !!localTokenEnv && provided === localTokenEnv;
+        if (originOk || tokenOk) return { allowed: true };
+        return { allowed: false, status: 403, message: 'forbidden' };
       },
     }),
   );
@@ -963,6 +1035,46 @@ function requireAgentSession(): express.RequestHandler {
     const session = (req as unknown as { session?: unknown }).session;
     if (!session) {
       res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    next();
+  };
+}
+
+/**
+ * Per-boot local-API token. When the runtime is hosted by SuzieCode in a
+ * preview iframe, AGENT_DEV_AUTH=true skips real auth, so anything that can
+ * reach the port can act as the user. The local token (also forwarded from
+ * SuzieCode via env) restores a "proves request came from the parent UI"
+ * check: SuzieCode's vite proxy injects the same X-SuzieCode-Token header
+ * on its end, so the preview only answers requests routed through the
+ * proxy. SSE/EventSource callers can pass it as ?token=… since
+ * EventSource can't set custom headers.
+ *
+ * /api/health stays open: SuzieCode polls it from outside the proxy to
+ * decide when the preview is ready.
+ */
+function requireLocalToken(expected: string): express.RequestHandler {
+  // Pre-encode to avoid re-allocating on every request.
+  const expectedBuf = Buffer.from(expected);
+  return (req, res, next) => {
+    if (req.path === '/health' || req.path.startsWith('/webhook/')) return next();
+    const header = req.headers['x-suziecode-token'];
+    const provided = Array.isArray(header) ? header[0] : header;
+    const fallback = typeof req.query.token === 'string' ? req.query.token : undefined;
+    const candidate = provided || fallback;
+    if (!candidate || candidate.length !== expected.length) {
+      res.status(403).json({ error: 'missing or invalid local token' });
+      return;
+    }
+    try {
+      const ok = timingSafeEqual(Buffer.from(candidate), expectedBuf);
+      if (!ok) {
+        res.status(403).json({ error: 'missing or invalid local token' });
+        return;
+      }
+    } catch {
+      res.status(403).json({ error: 'missing or invalid local token' });
       return;
     }
     next();

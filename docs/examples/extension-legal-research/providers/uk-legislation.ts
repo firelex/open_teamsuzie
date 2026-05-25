@@ -4,7 +4,9 @@
 // Search uses the public ATOM feed with `title=<query>`; doc fetch hits
 // the canonical /id endpoint and parses HTML to plain text.
 
-import { fetchText, stripHtml, truncateText, DEFAULT_MAX_TEXT_CHARS } from '../util.js';
+import {
+  fetchText, stripHtml, truncateText, assertDocIdShape, DEFAULT_MAX_TEXT_CHARS,
+} from '../util.js';
 import type {
   LegalProvider,
   SearchOpts,
@@ -93,19 +95,25 @@ export const ukLegislation: LegalProvider = {
   },
 
   async getDocument(opts: GetDocumentOpts): Promise<FullDocument> {
+    // UK legislation URIs are slash-separated lowercase tokens, e.g.
+    // "ukpga/2010/15/section/2" or "uksi/2024/123". Reject odd input
+    // before splicing into the URL.
+    const doc_id = assertDocIdShape(
+      'UK/Legislation', opts.doc_id, /^[a-z0-9]+(?:[-_/][a-z0-9]+)*$/,
+    );
     // Fetch the rendered HTML; the /data.xml form is Akoma Ntoso and harder
     // to convert cleanly without an XML parser.
-    const url = `${BASE}/${opts.doc_id}`;
+    const url = `${BASE}/${doc_id}`;
     const html = await fetchText(url);
     const text = stripHtml(html);
     const max = opts.max_chars ?? DEFAULT_MAX_TEXT_CHARS;
     const t = opts.truncate !== false ? truncateText(text, max) : { text, truncated: false, full_length_chars: text.length };
     return {
       source_id: 'UK/Legislation',
-      doc_id: opts.doc_id,
+      doc_id,
       jurisdiction: 'UK',
       type: 'legislation',
-      title: opts.doc_id,
+      title: doc_id,
       text: t.text,
       url,
       full_length_chars: t.full_length_chars,

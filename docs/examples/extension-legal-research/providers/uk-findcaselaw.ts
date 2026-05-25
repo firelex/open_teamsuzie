@@ -2,7 +2,9 @@
 // "Find Case Law" service (the modern successor to BAILII for many UK
 // courts). ATOM feed for search, Akoma Ntoso XML or HTML for full text.
 
-import { fetchText, stripHtml, truncateText, DEFAULT_MAX_TEXT_CHARS } from '../util.js';
+import {
+  fetchText, stripHtml, truncateText, assertDocIdShape, DEFAULT_MAX_TEXT_CHARS,
+} from '../util.js';
 import type {
   LegalProvider,
   SearchOpts,
@@ -77,17 +79,23 @@ export const ukFindCaseLaw: LegalProvider = {
   },
 
   async getDocument(opts: GetDocumentOpts): Promise<FullDocument> {
-    const url = `${BASE}/${opts.doc_id}`;
+    // Find Case Law URIs are slash-separated alphanumeric tokens, e.g.
+    // "ewhc/ch/2026/694" or "uksc/2024/12". Reject anything else before
+    // splicing into the URL path.
+    const doc_id = assertDocIdShape(
+      'UK/FindCaseLaw', opts.doc_id, /^[a-z0-9]+(?:[-_/][a-z0-9]+)*$/,
+    );
+    const url = `${BASE}/${doc_id}`;
     const html = await fetchText(url);
     const text = stripHtml(html);
     const max = opts.max_chars ?? DEFAULT_MAX_TEXT_CHARS;
     const t = opts.truncate !== false ? truncateText(text, max) : { text, truncated: false, full_length_chars: text.length };
     return {
       source_id: 'UK/FindCaseLaw',
-      doc_id: opts.doc_id,
+      doc_id,
       jurisdiction: 'UK',
       type: 'case_law',
-      title: opts.doc_id,
+      title: doc_id,
       text: t.text,
       url,
       full_length_chars: t.full_length_chars,

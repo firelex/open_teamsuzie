@@ -16,6 +16,7 @@ import {
   stripHtml,
   truncateText,
   extractArticles,
+  assertDocIdShape,
   DEFAULT_MAX_TEXT_CHARS,
   DEFAULT_TIMEOUT_MS,
 } from '../util.js';
@@ -238,17 +239,20 @@ export const arInfoleg: LegalProvider = {
   },
 
   async getDocument(opts: GetDocumentOpts): Promise<FullDocument> {
+    // InfoLEG ids are plain integers (the "norma" numeric id). Reject
+    // anything else before it lands in a path segment or query string.
+    const doc_id = assertDocIdShape('AR/InfoLEG', opts.doc_id, /^[0-9]{1,12}$/);
     const version = (opts.version === 'original' ? 'original' : 'consolidated') as
       | 'original'
       | 'consolidated';
-    const url = textUrl(opts.doc_id, version);
+    const url = textUrl(doc_id, version);
 
     let html: string;
     try {
       html = await fetchInfoleg(url);
     } catch (err) {
       if (version === 'consolidated') {
-        html = await fetchInfoleg(textUrl(opts.doc_id, 'original'));
+        html = await fetchInfoleg(textUrl(doc_id, 'original'));
       } else {
         throw err;
       }
@@ -260,10 +264,10 @@ export const arInfoleg: LegalProvider = {
 
     return {
       source_id: 'AR/InfoLEG',
-      doc_id: opts.doc_id,
+      doc_id,
       jurisdiction: 'AR',
       type: 'legislation',
-      title: `InfoLEG ${opts.doc_id}`,
+      title: `InfoLEG ${doc_id}`,
       text: result.text,
       url,
       full_length_chars: result.full_length_chars,
@@ -273,12 +277,13 @@ export const arInfoleg: LegalProvider = {
   },
 
   async findInDocument(opts: FindInDocumentOpts): Promise<FindInDocumentResult> {
+    const doc_id = assertDocIdShape('AR/InfoLEG', opts.doc_id, /^[0-9]{1,12}$/);
     const max = opts.max_articles ?? 5;
     let html: string;
     try {
-      html = await fetchInfoleg(textUrl(opts.doc_id, 'consolidated'));
+      html = await fetchInfoleg(textUrl(doc_id, 'consolidated'));
     } catch {
-      html = await fetchInfoleg(textUrl(opts.doc_id, 'original'));
+      html = await fetchInfoleg(textUrl(doc_id, 'original'));
     }
     const plainText = stripHtml(html);
     const articles = extractArticles(plainText);
@@ -286,11 +291,11 @@ export const arInfoleg: LegalProvider = {
     const matches = articles.filter((a) => a.text.toLowerCase().includes(kw)).slice(0, max);
     return {
       source_id: 'AR/InfoLEG',
-      doc_id: opts.doc_id,
+      doc_id,
       keyword: opts.keyword,
       matches,
       total_articles: articles.length,
-      url: `${BASE}/verNorma.do?id=${opts.doc_id}`,
+      url: `${BASE}/verNorma.do?id=${doc_id}`,
     };
   },
 };

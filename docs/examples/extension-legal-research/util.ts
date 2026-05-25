@@ -10,6 +10,34 @@ export class ProviderError extends Error {
   }
 }
 
+/**
+ * Validate a model/user-supplied `doc_id` against the provider's expected
+ * shape before splicing it into a request URL. Providers concatenate this
+ * value directly into URLs (path segments or query strings) — without
+ * validation, a value like `../admin` or `?evil=1` lets an unexpected
+ * URL go to a fixed-host third party. Pattern match short-circuits the
+ * weird requests at the source; encoding is layered on top inside each
+ * provider where appropriate.
+ *
+ * Provider hosts are fixed, so this is not localhost SSRF — the concern
+ * is request well-formedness and (mildly) avoiding accidental abuse of
+ * unrelated paths on the third party's server.
+ */
+export function assertDocIdShape(
+  source_id: string,
+  doc_id: unknown,
+  pattern: RegExp,
+): string {
+  if (typeof doc_id !== 'string' || !pattern.test(doc_id)) {
+    const shown = typeof doc_id === 'string' ? doc_id.slice(0, 60) : String(doc_id);
+    throw new ProviderError(
+      `Invalid doc_id "${shown}" for ${source_id} — expected ${pattern}`,
+      source_id,
+    );
+  }
+  return doc_id;
+}
+
 export async function fetchText(url: string, init?: RequestInit & { decoder?: string }): Promise<string> {
   const response = await fetch(url, {
     ...init,
