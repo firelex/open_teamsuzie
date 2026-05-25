@@ -1915,6 +1915,9 @@ importers:
       '@teamsuzie/sharing':
         specifier: workspace:*
         version: link:../sharing
+      '@teamsuzie/workflows':
+        specifier: workspace:*
+        version: link:../workflows
       '@teamsuzie/workspaces':
         specifier: workspace:*
         version: link:../workspaces

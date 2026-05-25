@@ -45,3 +45,5 @@ export type {
     BuildReviewWorkbookOptions,
     CreateReviewsExportRouterOptions,
 } from './reviews-export.js';
+export { createReviewsFromWorkflowRouter } from './reviews-from-workflow.js';
+export type { CreateReviewsFromWorkflowRouterOptions } from './reviews-from-workflow.js';

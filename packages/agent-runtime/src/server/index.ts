@@ -32,7 +32,8 @@ import { MembersStore, SHARING_MIGRATIONS } from '@teamsuzie/sharing';
 import {
   backfillMatterOwnership, createMatterMembersRouter,
   createMatterUploadsRouter, createRequireMatterAccess,
-  createReviewsExportRouter, SUBJECT_MATTER,
+  createReviewsExportRouter, createReviewsFromWorkflowRouter,
+  SUBJECT_MATTER,
 } from '@teamsuzie/matters';
 import { buildProposeDocumentEditsTool } from '@teamsuzie/docx';
 import {
@@ -528,6 +529,12 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         createReviewsExportRouter({
           reviews: gridReviewsStore,
           workspaces: workspacesStore,
+        }),
+        createReviewsFromWorkflowRouter({
+          reviews: gridReviewsStore,
+          workspaces: workspacesStore,
+          workflows: workflowsStore,
+          getSessionUser,
         }),
         createGridReviewsRouter({
           store: gridReviewsStore,
