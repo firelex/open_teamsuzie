@@ -418,6 +418,61 @@ export class TrackedChangesEditor {
         return id;
     }
 
+    /**
+     * Insert a new paragraph after `afterIndex` whose only content is a
+     * `<w:br w:type="textWrapping" w:clear="all"/>` — Word's primitive for
+     * "drop subsequent content below all floating objects intersecting
+     * this line". Composing a letter body into a template with a
+     * right-floating letterhead text box uses this to leave the
+     * letterhead's narrow column behind in one paragraph, rather than
+     * padding with N empty paragraphs whose vertical extent we'd have to
+     * guess at. `afterIndex = -1` inserts before the first paragraph,
+     * same as `insertParagraph`. Returns the issued revision id; the
+     * paragraph-mark + content run are wrapped in `<w:ins>` so accept-all
+     * cleans the markers but leaves the break in place.
+     */
+    insertClearWrapBreak(afterIndex: number, opts?: { pPr?: XmlNode }): number {
+        const body = getBodyChildren(this.file.document());
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (afterIndex < -1 || afterIndex >= paragraphs.length) {
+            throw new Error(`afterIndex ${afterIndex} out of range`);
+        }
+        const id = this.allocId();
+
+        const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
+        const rPr = ensureRPr(pPr);
+        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+
+        const brRun: XmlNode = {
+            'w:r': [
+                {
+                    'w:br': [],
+                    ':@': {
+                        '@_w:type': 'textWrapping',
+                        '@_w:clear': 'all',
+                    },
+                },
+            ],
+        };
+
+        const newP: XmlNode = {
+            'w:p': [pPr, this.wrapInIns([brRun], id)],
+        };
+        if (afterIndex === -1) {
+            const first = paragraphs[0];
+            if (first) {
+                first.parent.splice(first.index, 0, newP);
+            } else {
+                body.splice(emptyBodyInsertIndex(body), 0, newP);
+            }
+        } else {
+            const anchor = paragraphs[afterIndex];
+            anchor.parent.splice(anchor.index + 1, 0, newP);
+        }
+        this.file.markDocumentDirty();
+        return id;
+    }
+
     private allocId(): number {
         const id = this.nextId;
         this.nextId += 1;

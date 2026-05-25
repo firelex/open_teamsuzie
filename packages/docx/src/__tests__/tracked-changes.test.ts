@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import PizZip from 'pizzip';
 import {
     TrackedChangesEditor,
+    acceptAllRevisions,
     bodyParagraphInfos,
     bodyParagraphTexts,
     computeNextRevisionId,
@@ -833,6 +834,66 @@ describe('TrackedChangesEditor.insertParagraph', () => {
             out.indexOf('</w:tc>'),
         );
         expect(out.indexOf('</w:tc>')).toBeLessThan(out.indexOf('outro'));
+    });
+});
+
+describe('TrackedChangesEditor.insertClearWrapBreak', () => {
+    it('inserts a paragraph whose only run is a textWrapping clear-all break', () => {
+        const file = loadDocx(
+            buildMinimalDocx([{ text: 'first' }, { text: 'second' }]),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        const id = editor.insertClearWrapBreak(0);
+        expect(editor.bodyParagraphCount()).toBe(3);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        // The break sits inside the inserted paragraph's <w:ins> wrapper.
+        expect(out).toContain(`<w:ins w:id="${id}"`);
+        expect(out).toMatch(
+            /<w:br [^>]*w:type="textWrapping"[^>]*w:clear="all"/,
+        );
+        // Paragraph-mark ins marker is present (same shape as
+        // insertParagraph).
+        expect(out).toMatch(
+            /<w:rPr><w:ins [^>]*(?:\/>|><\/w:ins>)<\/w:rPr>/,
+        );
+        // No <w:t> on the inserted paragraph — it's a layout break, not
+        // text content.
+        const insertedPara = out.slice(out.indexOf(`<w:ins w:id="${id}"`));
+        const insertedEnd = insertedPara.indexOf('</w:p>');
+        expect(insertedPara.slice(0, insertedEnd)).not.toContain('<w:t');
+    });
+
+    it('afterIndex = -1 inserts the break before the first paragraph', () => {
+        const file = loadDocx(
+            buildMinimalDocx([{ text: 'first' }, { text: 'second' }]),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertClearWrapBreak(-1);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        const brIdx = out.search(
+            /<w:br [^>]*w:type="textWrapping"[^>]*w:clear="all"/u,
+        );
+        const firstIdx = out.indexOf('>first<');
+        expect(brIdx).toBeGreaterThan(0);
+        expect(brIdx).toBeLessThan(firstIdx);
+    });
+
+    it('throws when afterIndex is out of range', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'only' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        expect(() => editor.insertClearWrapBreak(5)).toThrow(/out of range/);
+    });
+
+    it('accept-all leaves the clear-wrap break in place but strips the <w:ins> wrapper', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'only' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertClearWrapBreak(0);
+        acceptAllRevisions(file);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).not.toContain('<w:ins');
+        expect(out).toMatch(
+            /<w:br [^>]*w:type="textWrapping"[^>]*w:clear="all"/,
+        );
     });
 });
 
