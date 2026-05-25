@@ -5,6 +5,9 @@ import type {
 } from '@teamsuzie/agent-loop';
 import type { InMemoryFileStore } from './files-route.js';
 import { exportDocFromMarkdown } from './document-tools.js';
+import {
+  createProgressiveArtifactHandler, parseNdjsonFromLlm,
+} from './progressive-artifact.js';
 import { runDocumentDiff } from './run-document-diff.js';
 
 /**
@@ -127,144 +130,116 @@ export function createDocumentsRouter(opts: DocumentsRouterOptions): Router {
     }
   });
 
-  router.post('/compare/summary', async (req: Request, res: Response) => {
-    if (!resolveSummaryModel || !runChatTurn) {
-      res.status(503).json({ error: 'compare summary endpoint not configured' });
-      return;
-    }
-    const model = resolveSummaryModel();
-    if (!model) {
-      res.status(503).json({ error: 'no simpleModel configured for synthesis' });
-      return;
-    }
-    const body = (req.body ?? {}) as {
-      leftFileId?: string;
-      rightFileId?: string;
-      sessionId?: string;
-    };
-    const sessionId = String(body.sessionId ?? '').trim();
-    const leftFileId = String(body.leftFileId ?? '').trim();
-    const rightFileId = String(body.rightFileId ?? '').trim();
-    if (!sessionId || !leftFileId || !rightFileId) {
-      res.status(400).json({
-        error: 'sessionId, leftFileId, and rightFileId are required',
-      });
-      return;
-    }
-    const left = fileStore.get(sessionId, leftFileId);
-    const right = fileStore.get(sessionId, rightFileId);
-    if (!left || !right) {
-      res.status(404).json({ error: 'left or right file not found in session' });
-      return;
-    }
-    if (left.id === right.id) {
-      res.status(400).json({ error: 'left and right must reference different files' });
-      return;
-    }
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders?.();
-    const send = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
-
-    const abort = new AbortController();
-    res.on('close', () => { if (!res.writableEnded) abort.abort(); });
-
-    try {
-      const diff = await runDocumentDiff(left, right, { markitdownBaseUrl, fetchImpl });
-      const diffMarkdown = renderDiffMarkdownCompact(diff);
-
-      // NDJSON prompt: model emits ONE complete JSON object per line.
-      // We buffer chunks until we see a newline, then parse + forward.
-      const systemPrompt =
-        'You are summarizing the substantive differences between two versions of a legal document. '
-        + 'You receive a mechanical paragraph-level diff with `~~deletions~~` and `**insertions**` inline. '
-        + 'GROUP the changes by substantive TOPIC (e.g. "Excused Investments", "Notice Provisions", "Anti-Money Laundering"). '
-        + 'For each topic write a short plain-English summary of what the LEFT document says and what the RIGHT document says. '
-        + 'When a topic exists on only one side, the other side\'s field should be "(absent)". '
-        + 'Skip purely cosmetic differences (whitespace, formatting). '
-        + '\n\n'
-        + 'OUTPUT FORMAT: NDJSON. Emit ONE complete JSON object per line, NO comma, NO surrounding array, NO code fence, NO prose. '
-        + 'Each line: {"topic":"…","left":"…","right":"…"}. '
-        + 'Emit topics as you identify them — do not wait until you have them all.';
-      const userPrompt =
-        `LEFT document: ${left.name}\nRIGHT document: ${right.name}\n\n`
-        + `Mechanical diff:\n\n${diffMarkdown}`;
-
-      let buffer = '';
-      let emitted = 0;
-      const flushLines = () => {
-        let nl = buffer.indexOf('\n');
-        while (nl !== -1) {
-          const line = buffer.slice(0, nl).trim();
-          buffer = buffer.slice(nl + 1);
-          nl = buffer.indexOf('\n');
-          if (!line) continue;
-          const cleaned = line.replace(/^```(?:json|ndjson)?\s*|\s*```$/g, '').trim();
-          if (!cleaned || cleaned === '[' || cleaned === ']' || cleaned === ',') continue;
-          // Strip a trailing comma if the model sneaks one in.
-          const withoutComma = cleaned.endsWith(',')
-            ? cleaned.slice(0, -1)
-            : cleaned;
-          try {
-            const parsed = JSON.parse(withoutComma) as {
-              topic?: unknown; left?: unknown; right?: unknown;
-            };
-            const topic = typeof parsed.topic === 'string' ? parsed.topic.trim() : '';
-            const leftSide = typeof parsed.left === 'string' ? parsed.left.trim() : '';
-            const rightSide = typeof parsed.right === 'string' ? parsed.right.trim() : '';
-            if (topic) {
-              emitted++;
-              send({ topic, left: leftSide, right: rightSide });
-            }
-          } catch {
-            // Skip malformed lines silently — model occasionally emits
-            // commentary; we keep the stream alive.
+  // Pre-flight checks live in a tiny middleware so the helper sees a
+  // valid model + body. 503 here is a hard "endpoint not wired"
+  // signal; 400/404 inside parseBody surface as the helper's standard
+  // 400 frame.
+  if (resolveSummaryModel && runChatTurn) {
+    const run = runChatTurn;
+    router.post(
+      '/compare/summary',
+      createProgressiveArtifactHandler<
+        { sessionId: string; leftFileId: string; rightFileId: string },
+        { topic: string; left: string; right: string }
+      >({
+        parseBody(raw) {
+          const b = (raw ?? {}) as {
+            sessionId?: string; leftFileId?: string; rightFileId?: string;
+          };
+          const sessionId = String(b.sessionId ?? '').trim();
+          const leftFileId = String(b.leftFileId ?? '').trim();
+          const rightFileId = String(b.rightFileId ?? '').trim();
+          if (!sessionId || !leftFileId || !rightFileId) {
+            throw new Error(
+              'sessionId, leftFileId, and rightFileId are required',
+            );
           }
-        }
-      };
+          if (leftFileId === rightFileId) {
+            throw new Error('left and right must reference different files');
+          }
+          // Reject missing files at validation time so the client gets
+          // a 404 instead of a 200 + error frame. Validation throws
+          // surface via the helper's 400 path; we override that with a
+          // synthetic 404 below for "not found" specifically.
+          const left = fileStore.get(sessionId, leftFileId);
+          const right = fileStore.get(sessionId, rightFileId);
+          if (!left || !right) {
+            const e = new Error('left or right file not found in session');
+            (e as Error & { httpStatus?: number }).httpStatus = 404;
+            throw e;
+          }
+          return { sessionId, leftFileId, rightFileId };
+        },
+        async *run(body, signal) {
+          const model = resolveSummaryModel();
+          if (!model) {
+            throw new Error('no simpleModel configured for synthesis');
+          }
+          // Re-fetch the records (parseBody already verified existence).
+          const left = fileStore.get(body.sessionId, body.leftFileId)!;
+          const right = fileStore.get(body.sessionId, body.rightFileId)!;
 
-      // toolCtx is required by runChatTurn's signature but the summary
-      // turn passes no tools, so the value is never consulted in
-      // practice. Default to a minimal stub when host didn't provide one.
-      const safeToolCtx: ToolContext = toolCtx ?? {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        approvals: {} as any,
-        vectorDbBaseUrl: '',
-      };
-      const stream = runChatTurn({
-        agent: model,
-        messages: [{ role: 'user', content: userPrompt }],
-        systemPrompt,
-        tools: [],
-        toolCtx: safeToolCtx,
-        maxIterations: 1,
-        signal: abort.signal,
-      });
+          const diff = await runDocumentDiff(left, right, { markitdownBaseUrl, fetchImpl });
+          const diffMarkdown = renderDiffMarkdownCompact(diff);
 
-      for await (const event of stream) {
-        if (event.type === 'chunk') {
-          buffer += event.text;
-          flushLines();
-        } else if (event.type === 'error') {
-          throw new Error(event.message);
-        }
-      }
-      // Flush any trailing line that lacked a final newline.
-      if (buffer.trim().length > 0) {
-        buffer += '\n';
-        flushLines();
-      }
-      send({ done: true, total: emitted });
-    } catch (err) {
-      send({
-        error: err instanceof Error ? err.message : 'compare summary failed',
-      });
-    } finally {
-      res.end();
-    }
-  });
+          const systemPrompt =
+            'You are summarizing the substantive differences between two versions of a legal document. '
+            + 'You receive a mechanical paragraph-level diff with `~~deletions~~` and `**insertions**` inline. '
+            + 'GROUP the changes by substantive TOPIC (e.g. "Excused Investments", "Notice Provisions", "Anti-Money Laundering"). '
+            + 'For each topic write a short plain-English summary of what the LEFT document says and what the RIGHT document says. '
+            + 'When a topic exists on only one side, the other side\'s field should be "(absent)". '
+            + 'Skip purely cosmetic differences (whitespace, formatting). '
+            + '\n\n'
+            + 'OUTPUT FORMAT: NDJSON. Emit ONE complete JSON object per line, NO comma, NO surrounding array, NO code fence, NO prose. '
+            + 'Each line: {"topic":"…","left":"…","right":"…"}. '
+            + 'Emit topics as you identify them — do not wait until you have them all.';
+          const userPrompt =
+            `LEFT document: ${left.name}\nRIGHT document: ${right.name}\n\n`
+            + `Mechanical diff:\n\n${diffMarkdown}`;
+
+          const safeToolCtx: ToolContext = toolCtx ?? {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            approvals: {} as any,
+            vectorDbBaseUrl: '',
+          };
+          const llmStream = run({
+            agent: model,
+            messages: [{ role: 'user', content: userPrompt }],
+            systemPrompt,
+            tools: [],
+            toolCtx: safeToolCtx,
+            maxIterations: 1,
+            signal,
+          });
+
+          for await (const obj of parseNdjsonFromLlm<{
+            topic: string; left: string; right: string;
+          }>({
+            llmStream,
+            parseLine(line) {
+              const parsed = JSON.parse(line) as {
+                topic?: unknown; left?: unknown; right?: unknown;
+              };
+              const topic = typeof parsed.topic === 'string' ? parsed.topic.trim() : '';
+              const leftSide = typeof parsed.left === 'string' ? parsed.left.trim() : '';
+              const rightSide = typeof parsed.right === 'string' ? parsed.right.trim() : '';
+              if (!topic) return null;
+              return { topic, left: leftSide, right: rightSide };
+            },
+          })) {
+            yield obj;
+          }
+        },
+      }),
+    );
+  } else {
+    // Helper isn't wired (host didn't pass the model resolver /
+    // runChatTurn). Hard 503 so the client knows synthesis isn't
+    // available at all.
+    router.post('/compare/summary', (_req: Request, res: Response) => {
+      res.status(503).json({ error: 'compare summary endpoint not configured' });
+    });
+  }
 
   return router;
 }

@@ -11,6 +11,7 @@ import {
   TrackedChangesPanel,
   WorkflowPickerDialog,
   humanSize,
+  progressiveArtifactStream,
   useChatComposer,
   useSelectedModel,
   useSidePanel,
@@ -390,64 +391,29 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
   );
 
   /**
-   * Subscribe to `/api/documents/compare/summary`'s SSE stream and
-   * yield one CompareTopic per `data:` event. Stops cleanly when the
-   * server sends `{done:true}` or an abort signal fires. Network/parse
-   * errors raise — the panel surfaces them as "topic synthesis failed".
+   * Subscribe to `/api/documents/compare/summary` and yield one
+   * CompareTopic per SSE chunk. Built on `progressiveArtifactStream`
+   * from `@teamsuzie/ui` — generic SSE plumbing + done/error/cancel
+   * framing — with a shape-checker for the chunk payload.
    */
   const streamCompareTopics = useCallback(
     (leftFileId: string, rightFileId: string) =>
-      async function* (signal: AbortSignal) {
-        const res = await fetch('/api/documents/compare/summary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leftFileId, rightFileId, sessionId }),
-          signal,
-        });
-        if (!res.ok || !res.body) {
-          const text = await res.text().catch(() => '');
-          throw new Error(`compare summary stream failed: ${res.status} ${text}`);
-        }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const frames = buffer.split('\n\n');
-          buffer = frames.pop() ?? '';
-          for (const frame of frames) {
-            const line = frame
-              .split('\n')
-              .find((l) => l.startsWith('data: '));
-            if (!line) continue;
-            const payload = JSON.parse(line.slice(6)) as {
-              topic?: string;
-              left?: string;
-              right?: string;
-              done?: boolean;
-              error?: string;
-            };
-            if (payload.error) throw new Error(payload.error);
-            if (payload.done) {
-              try { await reader.cancel(); } catch { /* noop */ }
-              return;
-            }
-            if (
-              typeof payload.topic === 'string'
-              && typeof payload.left === 'string'
-              && typeof payload.right === 'string'
-            ) {
-              yield {
-                topic: payload.topic,
-                left: payload.left,
-                right: payload.right,
-              };
-            }
+      progressiveArtifactStream<{ topic: string; left: string; right: string }>({
+        url: '/api/documents/compare/summary',
+        body: { leftFileId, rightFileId, sessionId },
+        parseChunk(raw) {
+          if (!raw || typeof raw !== 'object') return null;
+          const p = raw as { topic?: unknown; left?: unknown; right?: unknown };
+          if (
+            typeof p.topic === 'string'
+            && typeof p.left === 'string'
+            && typeof p.right === 'string'
+          ) {
+            return { topic: p.topic, left: p.left, right: p.right };
           }
-        }
-      },
+          return null;
+        },
+      }),
     [sessionId],
   );
 

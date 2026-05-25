@@ -99,6 +99,8 @@ export type {
   UsePaginationOptions,
   UsePaginationResult,
 } from './lib/use-pagination.js';
+export { progressiveArtifactStream } from './lib/progressive-artifact.js';
+export type { ProgressiveArtifactStreamOptions } from './lib/progressive-artifact.js';
 
 // Components
 export * from './components/actions-menu.js';
