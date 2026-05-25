@@ -36,6 +36,70 @@ function generateExportFileId(): string {
   return `file_export_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export interface ExportDocFromMarkdownOptions {
+  sessionId: string;
+  markdown: string;
+  /** Stem only (with or without .docx). Sanitized before use. */
+  filename: string;
+  markitdownBaseUrl: string;
+  fileStore: InMemoryFileStore;
+  fetchImpl?: typeof fetch;
+}
+
+export interface ExportDocFromMarkdownResult {
+  fileId: string;
+  filename: string;
+  downloadUrl: string;
+}
+
+/**
+ * POST `markdown` to markitdown-agent's `/export/docx`, stash the
+ * resulting bytes in `fileStore` under the given session, and return
+ * a relative download URL. Shared by `documentDraftingTools.export_to_docx`
+ * (model-driven export) and `createDocumentsRouter` (user-driven export
+ * triggered from the ArtifactPanel).
+ */
+export async function exportDocFromMarkdown(
+  opts: ExportDocFromMarkdownOptions,
+): Promise<ExportDocFromMarkdownResult> {
+  const { sessionId, markdown, filename, markitdownBaseUrl, fileStore, fetchImpl } = opts;
+  if (!markitdownBaseUrl) {
+    throw new Error('export_to_docx requires markitdown-agent to be configured');
+  }
+  const fetchFn = fetchImpl ?? fetch;
+  const response = await fetchFn(`${markitdownBaseUrl}/export/docx`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ markdown, filename }),
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(
+      `markitdown-agent /export/docx returned ${response.status}: ${text.slice(0, 200)}`,
+    );
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const bytes = Buffer.from(arrayBuffer);
+  const finalName = filename.endsWith('.docx') ? filename : `${filename}.docx`;
+  const fileId = generateExportFileId();
+  const record: FileRecord = {
+    id: fileId,
+    sessionId,
+    name: finalName,
+    mimeType: DOCX_MIME,
+    size: bytes.length,
+    bytes,
+    createdAt: Date.now(),
+  };
+  fileStore.put(record);
+  return {
+    fileId,
+    filename: finalName,
+    downloadUrl: `/api/files/${encodeURIComponent(sessionId)}/${encodeURIComponent(fileId)}/content`,
+  };
+}
+
 /**
  * Build the per-turn drafting toolset:
  *  - `convert_to_markdown(file_id)` — puts the markdown into the docStore and
@@ -98,40 +162,10 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
     markdown: string;
     filename: string;
     docId: string;
-  }) => {
-    const fetchFn = fetchImpl ?? fetch;
-    const response = await fetchFn(`${markitdownBaseUrl}/export/docx`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markdown, filename }),
-      signal: AbortSignal.timeout(120_000),
+  }) =>
+    exportDocFromMarkdown({
+      sessionId, markdown, filename, markitdownBaseUrl, fileStore, fetchImpl,
     });
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(
-        `markitdown-agent /export/docx returned ${response.status}: ${text.slice(0, 200)}`,
-      );
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    const bytes = Buffer.from(arrayBuffer);
-    const finalName = filename.endsWith('.docx') ? filename : `${filename}.docx`;
-    const fileId = generateExportFileId();
-    const record: FileRecord = {
-      id: fileId,
-      sessionId,
-      name: finalName,
-      mimeType: DOCX_MIME,
-      size: bytes.length,
-      bytes,
-      createdAt: Date.now(),
-    };
-    fileStore.put(record);
-    return {
-      fileId,
-      filename: finalName,
-      downloadUrl: `/api/files/${encodeURIComponent(sessionId)}/${encodeURIComponent(fileId)}/content`,
-    };
-  };
 
   const tools: AnyToolDefinition[] = [
     convertTool,

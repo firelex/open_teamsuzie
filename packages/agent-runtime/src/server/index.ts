@@ -44,6 +44,7 @@ import { loadExtensions } from '../extensions/index.js';
 import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
 import { createChatRouter } from './chat-route.js';
 import { buildDocumentTools } from './document-tools.js';
+import { createDocumentsRouter } from './documents-router.js';
 import { createFilesRouter, InMemoryFileStore } from './files-route.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createRedlineRouter } from './redline-router.js';
@@ -357,6 +358,13 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // and DELETEs them on removal; chat-route reads attachmentIds from the
   // body and inlines their content via buildAttachmentContext.
   app.use('/api', createFilesRouter({ store: fileStore, versionsStore }));
+
+  // User-driven document export (counterpart to the model-driven
+  // export_to_docx tool). Always mounted; 503 when markitdown is absent,
+  // 404 when the doc isn't in the session's docStore.
+  app.use('/api/documents', createDocumentsRouter({
+    fileStore, docStore, markitdownBaseUrl, fetchImpl: markitdownFetch,
+  }));
 
   // ── /api/chat (when an agent target is configured) ────────────────────
   // Chat completion + SSE stream. Per-request `body.model` (Settings-page
