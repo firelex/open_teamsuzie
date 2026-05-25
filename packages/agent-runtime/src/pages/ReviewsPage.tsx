@@ -18,6 +18,8 @@ import {
   PageHeaderContent,
   PageHeaderDescription,
   PageHeaderTitle,
+  Pagination,
+  PaginationInfo,
   Select,
   SelectContent,
   SelectItem,
@@ -26,6 +28,7 @@ import {
   Textarea,
   Trash2,
   useConfirm,
+  usePagination,
 } from '@teamsuzie/ui';
 
 /**
@@ -80,6 +83,8 @@ export function ReviewsPage() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const pager = usePagination(templates, { defaultPageSize: 25 });
 
   async function handleCreate(form: {
     name: string;
@@ -168,7 +173,7 @@ export function ReviewsPage() {
           </EmptyState>
         ) : (
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {templates.map((t) => (
+            {pager.pageItems.map((t) => (
               <li
                 key={t.id}
                 className="group flex flex-col gap-2 border border-border bg-card p-4 transition-colors hover:border-foreground/40 hover:bg-muted/30"
@@ -211,6 +216,21 @@ export function ReviewsPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {!loading && templates.length > pager.pageSize && (
+          <div className="mt-6 flex items-center justify-between">
+            <PaginationInfo
+              currentPage={pager.page}
+              pageSize={pager.pageSize}
+              totalItems={pager.totalItems}
+            />
+            <Pagination
+              currentPage={pager.page}
+              totalPages={pager.totalPages}
+              onPageChange={pager.setPage}
+            />
+          </div>
         )}
       </div>
 

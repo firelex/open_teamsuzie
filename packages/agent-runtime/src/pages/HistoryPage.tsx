@@ -11,7 +11,10 @@ import {
   PageHeaderContent,
   PageHeaderDescription,
   PageHeaderTitle,
+  Pagination,
+  PaginationInfo,
   useConfirm,
+  usePagination,
 } from '@teamsuzie/ui';
 import type { Chat } from '@teamsuzie/chats';
 
@@ -56,6 +59,8 @@ export function HistoryPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const pager = usePagination(chats, { defaultPageSize: 25 });
 
   async function handleDelete(chat: Chat) {
     const ok = await confirm({
@@ -102,7 +107,7 @@ export function HistoryPage() {
           </EmptyState>
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {chats.map((chat) => (
+            {pager.pageItems.map((chat) => (
               <li
                 key={chat.id}
                 className="flex items-center justify-between gap-3 px-4 py-3"
@@ -133,6 +138,21 @@ export function HistoryPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {!loading && chats.length > pager.pageSize && (
+          <div className="mt-6 flex items-center justify-between">
+            <PaginationInfo
+              currentPage={pager.page}
+              pageSize={pager.pageSize}
+              totalItems={pager.totalItems}
+            />
+            <Pagination
+              currentPage={pager.page}
+              totalPages={pager.totalPages}
+              onPageChange={pager.setPage}
+            />
+          </div>
         )}
       </AppShellContent>
     </>

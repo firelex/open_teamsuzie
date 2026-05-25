@@ -19,9 +19,12 @@ import {
   PageHeaderContent,
   PageHeaderDescription,
   PageHeaderTitle,
+  Pagination,
+  PaginationInfo,
   Textarea,
   cn,
   useConfirm,
+  usePagination,
   useWorkflows,
   type Workflow,
 } from '@teamsuzie/ui';
@@ -68,6 +71,10 @@ export function LibraryPage() {
     if (!activeArea) return wf.workflows;
     return wf.workflows.filter((w) => w.practiceAreas?.includes(activeArea));
   }, [wf.workflows, activeArea]);
+
+  // Paginate the filtered list. usePagination resets to page 1 on length
+  // change, so switching the practice-area filter rewinds cleanly.
+  const pager = usePagination(visibleWorkflows, { defaultPageSize: 25 });
 
   function runWorkflow(w: Workflow) {
     // Stash the workflow's prompt + name in sessionStorage; the assistant
@@ -171,7 +178,7 @@ export function LibraryPage() {
           </EmptyState>
         ) : (
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {visibleWorkflows.map((w) => (
+            {pager.pageItems.map((w) => (
               <li
                 key={w.id}
                 className="group flex flex-col gap-2 border border-border bg-card p-4 transition-colors hover:border-foreground/40 hover:bg-muted/30"
@@ -210,6 +217,21 @@ export function LibraryPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {!wf.loading && visibleWorkflows.length > pager.pageSize && (
+          <div className="mt-6 flex items-center justify-between">
+            <PaginationInfo
+              currentPage={pager.page}
+              pageSize={pager.pageSize}
+              totalItems={pager.totalItems}
+            />
+            <Pagination
+              currentPage={pager.page}
+              totalPages={pager.totalPages}
+              onPageChange={pager.setPage}
+            />
+          </div>
         )}
       </div>
 
