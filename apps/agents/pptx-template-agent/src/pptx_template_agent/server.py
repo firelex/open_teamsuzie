@@ -29,9 +29,17 @@ from .models import DeckSpec
 from .services import jobs, templates
 from .services.jobs import Job
 from .services.webhook import fire_completion_webhook, get_agent_api_key
+from .settings_host import SettingsHostClient
 
 log = logging.getLogger(__name__)
 app = FastAPI(title="pptx-template-agent", version="0.1.0")
+
+# Module-scope settings-host client. Its 5s TTL cache is shared by every
+# generate request — pe-settings-host is queried at most once per 5s
+# regardless of concurrent load.
+settings_host_client = SettingsHostClient(
+    base_url=config.pe_settings_host_url,
+)
 
 
 @app.get("/api/health")
@@ -177,6 +185,7 @@ async def generate(req: GenerateRequest, request: Request) -> dict[str, str]:
                 output_path,
                 model=req.model,
                 on_event=lambda m: log.info("[%s] %s", job_id[:8], m),
+                settings_host=settings_host_client,
             )
             job.status = "completed"
             job.file_path = report["path"]

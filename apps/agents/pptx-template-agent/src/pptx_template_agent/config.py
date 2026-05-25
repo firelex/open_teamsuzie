@@ -28,15 +28,22 @@ class Config:
     # The agent itself never assumes any particular template.
     default_template: Path | None = _path_or_none("PPTX_TEMPLATE_AGENT_TEMPLATE")
 
-    # All LLM traffic flows through a LiteLLM-compatible proxy that exposes
-    # an OpenAI chat-completions endpoint. The agent does not need to know
-    # which provider serves a given model — the proxy maps model names to
-    # providers and holds provider keys centrally.
+    # Primary path for LLM config is pe-settings-host (see settings_host.py):
+    # for every generate call the agent resolves proxy_url + master_key +
+    # default_model from that service. The env vars below remain only as a
+    # degraded-mode fallback for when pe-settings-host is unreachable.
+    pe_settings_host_url: str = os.environ.get(
+        "PE_SETTINGS_HOST_URL", "http://localhost:19271"
+    ).rstrip("/")
+
+    # FALLBACK ONLY — used when pe-settings-host is unavailable.
     llm_proxy_url: str = os.environ.get(
         "LLM_PROXY_URL", "http://localhost:4000"
     ).rstrip("/")
     llm_proxy_api_key: str | None = os.environ.get("LLM_PROXY_API_KEY") or None
 
+    # FALLBACK ONLY — used when pe-settings-host has no default_model
+    # configured AND the per-request `model` override is also empty.
     llm_model: str | None = (
         os.environ.get("PPTX_TEMPLATE_AGENT_MODEL")
         or os.environ.get("DEFAULT_LLM_MODEL")

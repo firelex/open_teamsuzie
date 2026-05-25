@@ -5,18 +5,27 @@ chat-completions protocol). The proxy maps model names to providers,
 so this loop is provider-agnostic. We translate the Anthropic-style
 tool definitions from `agent/tools.py` into OpenAI's `function` schema,
 and translate response `tool_calls` back into the dispatcher's input
-shape."""
+shape.
+
+LLM config (proxy URL, proxy bearer key, default model) is resolved from
+pe-settings-host on every generate call via the injected
+`SettingsHostClient` — see `pptx_template_agent.settings_host`. The
+client owns a 5s TTL cache so we don't hammer the host. If the host is
+unreachable we fall back to the env-derived values on `config` so the
+agent stays runnable in a degraded state."""
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Callable
 
 from openai import OpenAI
 
 from ..config import config
+from ..settings_host import SettingsHostClient, SettingsHostUnavailable
 from .system_prompt import SYSTEM_PROMPT
 from .tools import TOOL_DEFINITIONS, AgentState, dispatch
 
@@ -42,12 +51,56 @@ def _to_openai_tools(anthropic_tools: list[dict[str, Any]]) -> list[dict[str, An
     ]
 
 
-def _make_client() -> OpenAI:
-    """OpenAI SDK client pointed at the LLM proxy."""
-    return OpenAI(
-        base_url=f"{config.llm_proxy_url}/v1",
-        api_key=config.llm_proxy_api_key or "no-auth",
-    )
+def _resolve_llm(
+    settings_host: SettingsHostClient | None,
+    requested_model: str | None,
+) -> tuple[OpenAI, str]:
+    """Resolve proxy URL + key + model.
+
+    Primary path: pe-settings-host. Fallback (when the host is down or
+    not configured): env-mode values from `config`. Per-request `model`
+    always wins if provided.
+    """
+    proxy_url: str
+    api_key: str
+    chosen_model: str | None = requested_model
+
+    if settings_host is not None:
+        try:
+            resolved = settings_host.resolve()
+            proxy_url = resolved.proxy_url
+            api_key = resolved.master_key
+            if chosen_model is None:
+                chosen_model = resolved.default_model
+        except SettingsHostUnavailable as e:
+            if not os.environ.get("LLM_PROXY_URL"):
+                raise RuntimeError(
+                    f"pe-settings-host unavailable and no LLM_PROXY_URL env "
+                    f"fallback set: {e}"
+                ) from e
+            log.warning(
+                "pe-settings-host unavailable, falling back to env-mode LLM config: %s",
+                e,
+            )
+            proxy_url = config.llm_proxy_url
+            api_key = config.llm_proxy_api_key or "no-auth"
+            if chosen_model is None:
+                chosen_model = config.llm_model
+    else:
+        proxy_url = config.llm_proxy_url
+        api_key = config.llm_proxy_api_key or "no-auth"
+        if chosen_model is None:
+            chosen_model = config.llm_model
+
+    if not chosen_model:
+        raise RuntimeError(
+            "No LLM model configured. Set a default model in pe-settings-host, "
+            "pass `model` in the request, or set DEFAULT_LLM_MODEL / "
+            "PPTX_TEMPLATE_AGENT_MODEL as a last-resort fallback."
+        )
+
+    client = OpenAI(base_url=f"{proxy_url}/v1", api_key=api_key)
+    return client, chosen_model
 
 
 def run_loop(
@@ -57,17 +110,17 @@ def run_loop(
     *,
     model: str | None = None,
     on_event: Callable[[str], None] | None = None,
+    settings_host: SettingsHostClient | None = None,
 ) -> dict[str, Any]:
     """Run the agent loop. Returns the save report once the model calls save_deck.
 
-    Raises if the loop exceeds MAX_TURNS without saving."""
-    chosen_model = model or config.llm_model
-    if not chosen_model:
-        raise RuntimeError(
-            "No LLM model configured. Set PPTX_TEMPLATE_AGENT_MODEL or DEFAULT_LLM_MODEL."
-        )
+    Raises if the loop exceeds MAX_TURNS without saving.
 
-    client = _make_client()
+    `settings_host` is the canonical source of LLM config. When None
+    (e.g. in some tests) the loop falls back to env-mode values from
+    `config`.
+    """
+    client, chosen_model = _resolve_llm(settings_host, model)
     state = AgentState(template_path=template_path, output_path=output_path)
     tools = _to_openai_tools(TOOL_DEFINITIONS)
 
