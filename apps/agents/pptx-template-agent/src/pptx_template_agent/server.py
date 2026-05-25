@@ -130,6 +130,10 @@ async def fill(req: FillRequest) -> FillResponse:
 class GenerateRequest(BaseModel):
     template_id: str
     instructions: str
+    # Optional per-request model override. Defaults to config.llm_model
+    # (PPTX_TEMPLATE_AGENT_MODEL / DEFAULT_LLM_MODEL). The proxy routes the
+    # named model to the appropriate provider; the agent never sees keys.
+    model: str | None = None
 
 
 @app.post("/api/presentations/generate")
@@ -154,8 +158,8 @@ async def generate(req: GenerateRequest, request: Request) -> dict[str, str]:
                 req.instructions,
                 template_path,
                 output_path,
-                None,
-                lambda m: log.info("[%s] %s", job_id[:8], m),
+                model=req.model,
+                on_event=lambda m: log.info("[%s] %s", job_id[:8], m),
             )
             job.status = "completed"
             job.file_path = report["path"]

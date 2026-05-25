@@ -37,9 +37,9 @@ python -m pptx_template_agent.cli inspect path/to/template.pptx
 # Spec-driven fill (no LLM)
 python -m pptx_template_agent.cli fill spec.json --template path/to/template.pptx --output out.pptx
 
-# Prompt-driven generate (needs ANTHROPIC_API_KEY + PPTX_TEMPLATE_AGENT_MODEL)
+# Prompt-driven generate (needs LLM_PROXY_URL + PPTX_TEMPLATE_AGENT_MODEL)
 python -m pptx_template_agent.cli generate "Build an IC deck for AquaPure" \
-    --template path/to/template.pptx --model claude-opus-4-7
+    --template path/to/template.pptx --model claude-sonnet-4-5-20250929
 
 # HTTP server
 python -m pptx_template_agent.cli serve --port 8081
@@ -130,6 +130,11 @@ Copy `.env.example` to `.env`. Notable env vars:
   written.
 - `PPTX_TEMPLATE_AGENT_TEMPLATES_DIR` — where uploaded templates are
   persisted (keyed by content hash).
-- `ANTHROPIC_API_KEY` + `PPTX_TEMPLATE_AGENT_MODEL` (or `DEFAULT_LLM_MODEL`)
-  — required for the prompt-driven generate path.
+- `LLM_PROXY_URL` (default `http://localhost:4000`) + optional
+  `LLM_PROXY_API_KEY` — the LiteLLM-compatible proxy the agent uses for
+  all LLM traffic. The proxy holds provider keys; this agent does not.
+- `PPTX_TEMPLATE_AGENT_MODEL` (or `DEFAULT_LLM_MODEL`) — model name to
+  send to the proxy (e.g. `claude-sonnet-4-5-20250929`, `gpt-4o`,
+  `qwen-max-latest`). Callers may override per-request via the `model`
+  field on `POST /api/presentations/generate`.
 - `ADMIN_SERVICE_URL` — base URL for completion webhook delivery (optional).

@@ -45,7 +45,7 @@ def _cmd_fill(args: argparse.Namespace) -> int:
 
 
 def _cmd_generate(args: argparse.Namespace) -> int:
-    from .agent.loop import run_loop  # lazy import — anthropic SDK is heavy
+    from .agent.loop import run_loop  # lazy import — openai SDK is heavy
 
     out = Path(args.output) if args.output else config.output_dir / "generated.pptx"
     report = run_loop(
