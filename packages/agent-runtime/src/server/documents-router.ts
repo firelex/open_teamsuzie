@@ -17,6 +17,12 @@ export interface SummaryModelTarget {
   baseUrl: string;
   apiKey?: string;
   model: string;
+  /** Provider-specific knobs merged into every chat-completion request
+   *  (e.g. {enable_thinking: false} for Qwen). Inherit from the host's
+   *  main agent target so the summary call gets the same treatment as
+   *  the chat — otherwise Qwen's thinking-on default makes synthesis
+   *  take minutes. */
+  extraBody?: Record<string, unknown>;
 }
 
 /**

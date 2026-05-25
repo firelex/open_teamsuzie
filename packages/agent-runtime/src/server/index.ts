@@ -377,6 +377,11 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         baseUrl,
         apiKey: m.apiKey ?? opts.agent?.apiKey,
         model: m.model,
+        // Inherit provider knobs from the main agent — without this,
+        // Qwen models default to thinking-on and the summary call sits
+        // in an internal reasoning loop for minutes before emitting
+        // any output, which kills the streaming UX.
+        ...(opts.agent?.extraBody ? { extraBody: opts.agent.extraBody } : {}),
       };
     },
     runChatTurn,
@@ -446,7 +451,12 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
     runTurn: async ({ messages, model, baseUrl, apiKey }) => {
       let text = '';
       const stream = runChatTurn({
-        agent: { baseUrl, apiKey, model },
+        agent: {
+          baseUrl, apiKey, model,
+          // Inherit provider knobs from the main agent so Qwen
+          // thinking-on (or similar) doesn't make AI-fill calls hang.
+          ...(opts.agent?.extraBody ? { extraBody: opts.agent.extraBody } : {}),
+        },
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         tools: [],
         toolCtx: {
