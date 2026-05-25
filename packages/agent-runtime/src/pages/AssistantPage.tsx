@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArtifactPanel,
   Button,
+  CompareTable,
   MarkdownMessage,
   RedlinePanelContent,
   Square,
@@ -21,6 +22,7 @@ import {
   type ToolEvent,
   type Workflow,
 } from '@teamsuzie/ui';
+import type { DocumentDiffResult } from '@teamsuzie/docx-diff';
 import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats';
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
@@ -727,31 +729,30 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                   });
                 }
               }
-              // compare_documents: open the generated redline DOCX in the
-              // side panel using the same continuous-flow RedlinePanelContent
-              // that propose_document_edits uses. We already wrote a
-              // tracked-change DOCX into the file store; pointing the
-              // redline-view endpoint at it gives a unified inline view
-              // (ins/del runs in document order) instead of a card list.
-              if (payload.name === 'compare_documents') {
-                const compareResult = result as {
+              // blackline_documents: the tool generates a tracked-change
+              // DOCX and stashes it in the file store. We open the
+              // continuous-flow RedlinePanelContent (same view
+              // propose_document_edits uses) pointed at that DOCX —
+              // unified inline read of the blackline.
+              if (payload.name === 'blackline_documents') {
+                const blackResult = result as {
                   download_file_id?: string;
                   download_filename?: string;
                   download_url?: string;
                   left?: { name?: string };
                   right?: { name?: string };
                 };
-                const redlineFileId = compareResult.download_file_id;
+                const redlineFileId = blackResult.download_file_id;
                 if (typeof redlineFileId === 'string' && redlineFileId) {
-                  const leftName = compareResult.left?.name ?? 'left';
-                  const rightName = compareResult.right?.name ?? 'right';
+                  const leftName = blackResult.left?.name ?? 'left';
+                  const rightName = blackResult.right?.name ?? 'right';
                   const tabTitle =
-                    compareResult.download_filename
+                    blackResult.download_filename
                     ?? `${leftName} → ${rightName}`;
-                  const tabId = `compare:${sessionId}:${redlineFileId}`;
+                  const tabId = `blackline:${sessionId}:${redlineFileId}`;
                   const downloadHref =
-                    typeof compareResult.download_url === 'string' && compareResult.download_url
-                      ? compareResult.download_url
+                    typeof blackResult.download_url === 'string' && blackResult.download_url
+                      ? blackResult.download_url
                       : undefined;
                   sidePanel.openTab({
                     id: tabId,
@@ -766,6 +767,29 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                         downloadHref={downloadHref}
                       />
                     ),
+                  });
+                }
+              }
+              // compare_documents: analytical artifact. The tool returns
+              // a full DocumentDiffResult (left, right, stats, events)
+              // and no DOCX; the client reconstructs it and opens a
+              // two-column <CompareTable> in the side panel — one row
+              // per modified/deleted/inserted paragraph.
+              if (payload.name === 'compare_documents') {
+                const compareResult = result as unknown as
+                  Partial<DocumentDiffResult>;
+                if (
+                  compareResult.left
+                  && compareResult.right
+                  && compareResult.stats
+                  && Array.isArray(compareResult.events)
+                ) {
+                  const fullResult = compareResult as DocumentDiffResult;
+                  const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
+                  sidePanel.openTab({
+                    id: tabId,
+                    title: `${fullResult.left.name} → ${fullResult.right.name}`,
+                    render: () => <CompareTable result={fullResult} />,
                   });
                 }
               }

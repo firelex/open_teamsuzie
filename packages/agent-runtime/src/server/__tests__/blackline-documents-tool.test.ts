@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateDocx } from '@teamsuzie/docx';
 import { InMemoryFileStore } from '../files-route.js';
-import { buildCompareDocumentsTool } from '../compare-documents-tool.js';
+import { buildBlacklineDocumentsTool } from '../blackline-documents-tool.js';
 
 const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -27,8 +27,8 @@ async function putDocx(
   });
 }
 
-describe('buildCompareDocumentsTool', () => {
-  it('returns the full DocumentDiffResult (events, stats, markdown) and NO download URL', async () => {
+describe('buildBlacklineDocumentsTool', () => {
+  it('returns stats + markdown + downloadable redline DOCX for two changed DOCXs', async () => {
     const fileStore = new InMemoryFileStore();
     await putDocx(fileStore, 'L', 'nda-v1.docx', [
       'The Buyer shall keep the information secret for two years.',
@@ -39,7 +39,7 @@ describe('buildCompareDocumentsTool', () => {
       'The Seller may share information with its advisors.',
     ]);
 
-    const tool = buildCompareDocumentsTool({
+    const tool = buildBlacklineDocumentsTool({
       sessionId: 's', fileStore, markitdownBaseUrl: '',
     });
     const result = await tool.execute(
@@ -48,22 +48,43 @@ describe('buildCompareDocumentsTool', () => {
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = result as any;
-    expect(r.left?.name).toBe('nda-v1.docx');
-    expect(r.right?.name).toBe('nda-v2.docx');
     expect(r.stats.modified).toBeGreaterThanOrEqual(1);
     expect(r.summary).toMatch(/modified/);
     expect(r.markdown).toContain('Comparing');
+    expect(r.download_url).toMatch(/^\/api\/files\/s\/file_redline_/);
+    expect(r.download_filename).toContain('.docx');
+    // Blackline also returns the event stream so the client can render
+    // the redline preview without re-running the diff.
     expect(Array.isArray(r.events)).toBe(true);
     expect(r.events.some((e: { kind: string }) => e.kind === 'modified')).toBe(true);
-    // Critical distinction from blackline_documents: no download URL,
-    // no new file in the store. compare_documents is analytical only.
-    expect(r.download_url).toBeUndefined();
-    expect(r.download_file_id).toBeUndefined();
-    expect(fileStore.getMany('s', ['L', 'R']).length).toBe(2); // unchanged
+    const fileId = r.download_file_id as string;
+    const rec = fileStore.get('s', fileId);
+    expect(rec).toBeDefined();
+    expect(rec!.mimeType).toBe(DOCX_MIME);
+  });
+
+  it('reports identical when both DOCXs are the same content', async () => {
+    const fileStore = new InMemoryFileStore();
+    await putDocx(fileStore, 'L', 'same.docx', ['Identical paragraph one.']);
+    await putDocx(fileStore, 'R', 'same.docx', ['Identical paragraph one.']);
+
+    const tool = buildBlacklineDocumentsTool({
+      sessionId: 's', fileStore, markitdownBaseUrl: '',
+    });
+    const result = await tool.execute(
+      { left_file_id: 'L', right_file_id: 'R' },
+      ctx(),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = result as any;
+    expect(r.stats.modified).toBe(0);
+    expect(r.stats.deleted).toBe(0);
+    expect(r.stats.inserted).toBe(0);
+    expect(r.markdown).toContain('identical');
   });
 
   it('throws when a file_id is missing', async () => {
-    const tool = buildCompareDocumentsTool({
+    const tool = buildBlacklineDocumentsTool({
       sessionId: 's', fileStore: new InMemoryFileStore(), markitdownBaseUrl: '',
     });
     await expect(
@@ -74,7 +95,7 @@ describe('buildCompareDocumentsTool', () => {
   it('throws when left and right are the same file', async () => {
     const fileStore = new InMemoryFileStore();
     await putDocx(fileStore, 'X', 'doc.docx', ['Body.']);
-    const tool = buildCompareDocumentsTool({
+    const tool = buildBlacklineDocumentsTool({
       sessionId: 's', fileStore, markitdownBaseUrl: '',
     });
     await expect(

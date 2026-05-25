@@ -5,6 +5,7 @@ import {
 } from '@teamsuzie/markdown-document';
 import { convertFileToMarkdown } from '@teamsuzie/document-conversion';
 import type { FileRecord, InMemoryFileStore } from './files-route.js';
+import { buildBlacklineDocumentsTool } from './blackline-documents-tool.js';
 import { buildCompareDocumentsTool } from './compare-documents-tool.js';
 import { buildFindInDocumentTool } from './find-in-document-tool.js';
 import { buildGenerateDocxFromSpecTool } from './generate-docx-tool.js';
@@ -179,13 +180,18 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
     // gate. DOCX paragraph indices match the redline-view, so a find
     // result anchors a subsequent edit without re-locating.
     buildFindInDocumentTool({ sessionId, fileStore, docStore }),
-    // Two-document diff with downloadable tracked-change DOCX. Read-only
-    // for the inputs (writes a new redline file under the same session).
-    // Lives outside the drafting gate because "compare these two" is a
-    // common question even for read-only review flows.
-    buildCompareDocumentsTool({
+    // Two-document diff: split into a "blackline" tool (produces a
+    // tracked-change DOCX the user can download and read in Word) and
+    // a "compare" tool (produces an analytical side-by-side artifact
+    // rendered as a two-column table in the side panel). Both share
+    // the underlying runDocumentDiff helper so their outputs agree.
+    // Always on — even read-only review flows want these.
+    buildBlacklineDocumentsTool({
       sessionId, fileStore, markitdownBaseUrl,
       author: 'AI assistant', fetchImpl,
+    }),
+    buildCompareDocumentsTool({
+      sessionId, fileStore, markitdownBaseUrl, fetchImpl,
     }),
   ];
   if (includeDrafting) {

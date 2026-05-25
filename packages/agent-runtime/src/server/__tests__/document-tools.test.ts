@@ -55,6 +55,7 @@ describe('buildDocumentTools', () => {
     expect(names).toContain('export_to_docx');
     expect(names).toContain('get_outline');
     expect(names).toContain('find_in_document');
+    expect(names).toContain('blackline_documents');
     expect(names).toContain('compare_documents');
     expect(names).toContain('generate_docx');
   });
@@ -71,7 +72,7 @@ describe('buildDocumentTools', () => {
     expect(names).toContain('generate_docx');
   });
 
-  it('omits all drafting tools when includeDrafting=false (convert + nav + find + compare still present)', () => {
+  it('omits drafting tools when includeDrafting=false (convert + nav + find + blackline + compare still present)', () => {
     const { fileStore, docStore } = makeStores();
     const tools = buildDocumentTools({
       sessionId: 'sess', fileStore, docStore,
@@ -81,6 +82,7 @@ describe('buildDocumentTools', () => {
     expect(names).toContain('convert_to_markdown');
     expect(names).toContain('get_outline');
     expect(names).toContain('find_in_document');
+    expect(names).toContain('blackline_documents');
     expect(names).toContain('compare_documents');
     expect(names).not.toContain('create_document');
     expect(names).not.toContain('export_to_docx');

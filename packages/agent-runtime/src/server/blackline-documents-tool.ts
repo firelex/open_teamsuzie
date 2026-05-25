@@ -1,44 +1,51 @@
 import type { AnyToolDefinition } from '@teamsuzie/agent-loop';
+import { composeRedline, redlineDownloadFilename } from '@teamsuzie/docx';
 import type { DocumentDiffResult } from '@teamsuzie/docx-diff';
-import type { InMemoryFileStore } from './files-route.js';
+import type { FileRecord, InMemoryFileStore } from './files-route.js';
 import { runDocumentDiff } from './run-document-diff.js';
 
-export interface BuildCompareDocumentsToolOptions {
+const DOCX_MIME =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+export interface BuildBlacklineDocumentsToolOptions {
   /** Active session id for this turn. */
   sessionId: string;
   fileStore: InMemoryFileStore;
   /** markitdown-agent base URL for non-DOCX paragraph extraction. Empty
-   *  string means non-DOCX comparisons error out. */
+   *  string means non-DOCX blacklines error out. */
   markitdownBaseUrl: string;
+  /** Author stamped on tracked changes in the redline DOCX. */
+  author?: string;
   /** Optional fetch override for tests. */
   fetchImpl?: typeof fetch;
 }
 
 /**
- * `compare_documents(left, right)` — analytical paragraph-by-paragraph
- * comparison between two uploaded files. Returns the full
- * `DocumentDiffResult` (stats + per-paragraph event stream) plus a
- * markdown summary the model can quote inline.
+ * `blackline_documents(left, right)` — produces a literal tracked-change
+ * `.docx` (the "blackline") between two uploaded files. Returns the
+ * download_url plus the markdown report and stats for the model to
+ * summarise.
  *
- * Sister tool to `blackline_documents`: compare = "show me a structured
- * analysis of what changed"; blackline = "give me the diff as a Word
- * file". Both run the same underlying diff engine
- * (`runDocumentDiff`) so their outputs always agree. The model may call
- * one, the other, or both depending on what the user asked for.
+ * Sister tool to `compare_documents`: blackline = "give me the diff as a
+ * Word file"; compare = "show me a structured analysis of what changed".
+ * Both run the same underlying diff engine (`runDocumentDiff`) so their
+ * outputs always agree. The model may call one, the other, or both
+ * depending on what the user asked for.
  *
- * The chat client renders the events as a two-column `<CompareTable>`
- * in the side panel — left filename / right filename header, one row
- * per modified/deleted/inserted paragraph with word-level diff inline.
+ * Ported from suzielaw's `tools/diff.ts`.
  */
-export function buildCompareDocumentsTool(
-  opts: BuildCompareDocumentsToolOptions,
+export function buildBlacklineDocumentsTool(
+  opts: BuildBlacklineDocumentsToolOptions,
 ): AnyToolDefinition {
-  const { sessionId, fileStore, markitdownBaseUrl, fetchImpl } = opts;
+  const {
+    sessionId, fileStore, markitdownBaseUrl,
+    author = 'AI assistant', fetchImpl,
+  } = opts;
 
   return {
-    name: 'compare_documents',
+    name: 'blackline_documents',
     description:
-      'Analyze two previously-uploaded documents and produce a structured side-by-side comparison: stats + a paragraph-by-paragraph event list (modified / deleted / inserted) with word-level diff inside each modified paragraph. **Call this when the user asks "what\'s different", "how do these compare", "summarize the changes", "diff these versions" — i.e., wants to UNDERSTAND the differences.** For a downloadable Word `.docx` with tracked changes (the literal "blackline"), use `blackline_documents` instead — the two are sister tools and may both be called for the same pair. The result is rendered in the client as a two-column comparison table. Use the `markdown` field if you want to quote the diff inline in your reply.',
+      'Produce a literal blackline (Word `.docx` with tracked changes) between two previously-uploaded documents. **Call this when the user asks for a "blackline", a "redline", a "tracked-changes file", or wants the literal word-by-word diff as a downloadable Word file.** For an analytical side-by-side view of what changed (without a downloadable file), use `compare_documents` instead — the two are sister tools and may both be called for the same pair if the user wants both. Returns a `download_url` to a `.docx` where accept-all in Word reproduces the right document and reject-all reproduces the left. NEVER fabricate a download URL; the only valid one is the one returned here. Include the `download_url` verbatim as a clickable link in your reply.',
     parameters: {
       type: 'object',
       properties: {
@@ -71,14 +78,53 @@ export function buildCompareDocumentsTool(
 
       const diff = await runDocumentDiff(left, right, { markitdownBaseUrl, fetchImpl });
 
+      // Best-effort redline DOCX. Failure here returns the markdown
+      // report only — the model can still talk about the differences.
+      let downloadUrl: string | null = null;
+      let downloadFileId: string | null = null;
+      let downloadFilename: string | null = null;
+      try {
+        const redlineBytes = composeRedline({
+          leftBytes: left.bytes,
+          rightBytes: right.bytes,
+          diff,
+          author,
+        });
+        const filename = redlineDownloadFilename(left.name, right.name);
+        const fileId = `file_redline_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+        const record: FileRecord = {
+          id: fileId,
+          sessionId,
+          name: filename,
+          mimeType: DOCX_MIME,
+          size: redlineBytes.length,
+          bytes: redlineBytes,
+          createdAt: Date.now(),
+        };
+        fileStore.put(record);
+        downloadFileId = fileId;
+        downloadFilename = filename;
+        downloadUrl = `/api/files/${encodeURIComponent(sessionId)}/${encodeURIComponent(fileId)}/content`;
+      } catch (err) {
+        console.warn(
+          '[compare_documents] redline export failed, returning markdown only:',
+          err instanceof Error ? err.message : err,
+        );
+      }
+
       return {
         left: diff.left,
         right: diff.right,
         stats: diff.stats,
         summary: formatStatsLine(diff),
         markdown: renderDiffMarkdown(diff),
-        // Full event stream — the chat client uses this to render the
-        // <CompareTable> artifact in the side panel.
+        download_url: downloadUrl,
+        download_file_id: downloadFileId,
+        download_filename: downloadFilename,
+        // Full paragraph-diff event stream. The model already has the
+        // markdown summary so it rarely needs this; the chat client uses
+        // it to reconstruct a DocumentDiffResult and render the upstream
+        // <VersionDiff> artifact in the side panel.
         events: diff.events,
       };
     },
