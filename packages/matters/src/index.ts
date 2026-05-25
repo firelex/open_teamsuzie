@@ -35,3 +35,5 @@ export type {
     CreateRequireMatterAccessOptions,
     GetSessionUser,
 } from './access-middleware.js';
+export { createMatterMembersRouter } from './members-router.js';
+export type { CreateMatterMembersRouterOptions } from './members-router.js';
