@@ -93,7 +93,10 @@ export function RedlineRuns({
             className={cn('whitespace-pre-wrap', tagClass)}
           >
             {p.runs.length === 0 ? (
-              <span className="text-muted-foreground">·</span>
+              // Preserve line height for empty paragraphs (blank lines
+              // between contract sections) without rendering a glyph —
+              // a non-breaking space keeps the <p> from collapsing.
+              ' '
             ) : (
               p.runs.map((run, i) => (
                 <RedlineSpan
