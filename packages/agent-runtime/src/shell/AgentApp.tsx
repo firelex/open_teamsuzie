@@ -8,9 +8,10 @@ import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
 import {
-  AssistantPage, LibraryPage, PersonasPage, HistoryPage, ReviewsPage, SettingsPage,
+  AssistantPage, LibraryPage, MattersPage, MatterDetailPage,
+  PersonasPage, HistoryPage, ReviewsPage, SettingsPage,
 } from '../pages/index.js';
-import { DEFAULT_MODULES } from '../manifest/defaults.js';
+import { DEFAULT_MODULES, resolveMattersLabel } from '../manifest/defaults.js';
 import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
 
 interface ManifestResponse { manifest: AgentManifest }
@@ -72,9 +73,13 @@ export function AgentApp() {
   const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
   const theme = manifest?.theme ?? { id: 'default' };
 
+  const mattersLabel = manifest
+    ? resolveMattersLabel(manifest)
+    : { singular: 'Matter', plural: 'Matters' };
   const items: NavItem[] = [
     { to: '/', label: 'Assistant', testId: 'nav-assistant' },
   ];
+  if (mods.matters)  items.push({ to: '/matters',  label: mattersLabel.plural, testId: 'nav-matters' });
   if (mods.library)  items.push({ to: '/library',  label: 'Library',  testId: 'nav-library' });
   if (mods.personas) items.push({ to: '/personas', label: 'Personas', testId: 'nav-personas' });
   if (mods.reviews)  items.push({ to: '/reviews',  label: 'Reviews',  testId: 'nav-reviews' });
@@ -103,6 +108,8 @@ export function AgentApp() {
         <Routes>
           <Route path="/" element={<AssistantPage agentName={agentName} />} />
           <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
+          {mods.matters  && <Route path="/matters"           element={<MattersPage manifest={manifest} />} />}
+          {mods.matters  && <Route path="/matters/:matterId"  element={<MatterDetailPage manifest={manifest} />} />}
           {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
           {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
           {mods.reviews  && <Route path="/reviews"  element={<ReviewsPage />} />}
