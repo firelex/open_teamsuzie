@@ -19,9 +19,13 @@ export interface BuildGenerateOutputOptions {
 
 export function buildGenerateDocxTool(opts: BuildGenerateOutputOptions): AnyToolDefinition {
   return {
-    name: 'generate_docx',
+    // Renamed from `generate_docx` to disambiguate from the spec-based
+    // structured-deliverable tool in @teamsuzie/agent-runtime. This one
+    // renders markdown to DOCX and writes to disk via `outputsDir` — for
+    // batch / reference-doc workflows, not chat.
+    name: 'render_markdown_to_docx',
     description:
-      'Render markdown to a DOCX file. Optionally apply a reference design as the pandoc reference-doc (firm styling).',
+      'Render markdown to a DOCX file (writes to the configured outputs directory). Optionally apply a reference design as the pandoc reference-doc (firm styling). For chat-driven structured deliverables, use the spec-based generate_docx tool from @teamsuzie/agent-runtime instead.',
     parameters: {
       type: 'object',
       properties: {

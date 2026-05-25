@@ -7,6 +7,7 @@ import { convertFileToMarkdown } from '@teamsuzie/document-conversion';
 import type { FileRecord, InMemoryFileStore } from './files-route.js';
 import { buildCompareDocumentsTool } from './compare-documents-tool.js';
 import { buildFindInDocumentTool } from './find-in-document-tool.js';
+import { buildGenerateDocxFromSpecTool } from './generate-docx-tool.js';
 
 export interface BuildDocumentToolsOptions {
   /** Active session id for this turn — closed over by the navigation/drafting tools. */
@@ -194,6 +195,11 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
         getSessionId: () => sessionId,
         ...(markitdownBaseUrl ? { exportToDocx } : {}),
       }),
+      // Structured-deliverable generator (CP checklists, diligence
+      // questionnaires, term-sheet tables). Sibling to the markdown
+      // drafting flow; behind the same drafting gate because both are
+      // about producing finished documents.
+      buildGenerateDocxFromSpecTool({ sessionId, fileStore }),
     );
   }
   return tools;
