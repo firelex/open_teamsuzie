@@ -6,7 +6,7 @@ pydantic-settings>=2.4,<3
 # Use `markitdown` for DOCX/PDF/PPTX/XLSX/HTML/EPUB (the common cases).
 # Switch to `markitdown[all]` if you need image OCR or audio transcription
 # (pulls in onnxruntime + ML deps; ~1GB install).
-markitdown>=0.1.0,<1
+markitdown[docx,pdf,pptx,xlsx]>=0.1.0,<1
 pypandoc-binary>=1.13,<2
 # Testing
 pytest>=8,<9
