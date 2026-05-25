@@ -66,6 +66,23 @@ async def inspect_template_endpoint(template_id: str) -> TemplateManifest:
         raise HTTPException(404, "unknown template_id")
 
 
+@app.get("/api/templates/{template_id}/binary")
+async def get_template_binary(template_id: str) -> FileResponse:
+    """Return the raw .pptx bytes for a stored template. Mirrors the docx
+    agent's analogous endpoint; consumers (the drafter) use this to fetch
+    the source deck so downstream pipelines can use it as a style reference.
+    """
+    try:
+        path = templates.get_template_path(template_id)
+    except FileNotFoundError:
+        raise HTTPException(404, "unknown template_id")
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename=path.name,
+    )
+
+
 # ---- Presentations: spec-driven ---------------------------------------------
 
 class FillRequest(BaseModel):

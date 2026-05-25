@@ -86,3 +86,22 @@ def test_fill_endpoint_e2e(client, template_id):
 def test_download_unknown_job(client):
     r = client.get("/api/presentations/nope/download")
     assert r.status_code == 404
+
+
+PPTX_MIME = (
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+)
+
+
+def test_template_binary_returns_bytes(client, template_id):
+    r = client.get(f"/api/templates/{template_id}/binary")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith(PPTX_MIME)
+    # .pptx files are zip containers — first bytes are the PK signature.
+    assert r.content[:2] == b"PK"
+    assert len(r.content) > 1000
+
+
+def test_template_binary_unknown_id(client):
+    r = client.get("/api/templates/nope/binary")
+    assert r.status_code == 404
