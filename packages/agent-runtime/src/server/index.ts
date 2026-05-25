@@ -19,6 +19,9 @@ import {
 } from '@teamsuzie/reviews';
 import { buildConvertToMarkdownTool } from '@teamsuzie/document-conversion';
 import {
+  DocumentVersionsStore, DOCUMENT_VERSIONS_MIGRATIONS,
+} from '@teamsuzie/document-versions';
+import {
   createWorkflowsRouter, WORKFLOWS_MIGRATIONS, WorkflowsStore,
   type WorkflowSeed,
 } from '@teamsuzie/workflows';
@@ -114,6 +117,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       ...PERSONAS_MIGRATIONS,
       ...WORKFLOWS_MIGRATIONS,
       ...REVIEWS_MIGRATIONS,
+      ...DOCUMENT_VERSIONS_MIGRATIONS,
     ],
   });
 
@@ -123,6 +127,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const workflowsStore = new WorkflowsStore({ db });
   const reviewsStore = new ReviewsStore({ db });
   const fileStore = new InMemoryFileStore();
+  const versionsStore = new DocumentVersionsStore({ db });
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });

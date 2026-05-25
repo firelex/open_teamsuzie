@@ -1495,6 +1495,9 @@ importers:
       '@teamsuzie/document-conversion':
         specifier: workspace:*
         version: link:../document-conversion
+      '@teamsuzie/document-versions':
+        specifier: workspace:*
+        version: link:../document-versions
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
