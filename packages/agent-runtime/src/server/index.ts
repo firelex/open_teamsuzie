@@ -515,6 +515,33 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
     // (see docs/GAPS.md #5). Without it, POST /:reviewId/run returns
     // 501 from the package — every other CRUD route works.
     if (resolveModules(manifestStore.get()).reviews) {
+      // Review-bound chats — separate workspace_id namespace (`review:<id>`)
+      // so a chat anchored to a review doesn't show up in the matter's
+      // top-level chats list and vice versa. Mounted at a deeper prefix
+      // than the reviews router below so it wins for /:reviewId/chats.
+      // Verifies the review actually belongs to the matter to keep one
+      // matter's owner from poking at another matter's review chats.
+      app.use(
+        '/api/matters/:matterId/reviews/:reviewId/chats',
+        (req, res, next) => {
+          const matterId = String(req.params.matterId ?? '');
+          const reviewId = String(req.params.reviewId ?? '');
+          const review = gridReviewsStore.getReview(reviewId);
+          if (!review || review.workspaceId !== matterId) {
+            res.status(404).json({ error: 'review not found' });
+            return;
+          }
+          (req as unknown as { _reviewWorkspaceId?: string })._reviewWorkspaceId =
+            `review:${reviewId}`;
+          next();
+        },
+        createChatsRouter({
+          store: chats,
+          getWorkspaceId: (req) =>
+            (req as unknown as { _reviewWorkspaceId?: string })._reviewWorkspaceId ?? '',
+        }),
+      );
+
       // xlsx export — mount before the generic reviews router so its
       // `/:reviewId/export.xlsx` matches first. Same _matterId stash so
       // the export router can read the parent param under Express 5.
