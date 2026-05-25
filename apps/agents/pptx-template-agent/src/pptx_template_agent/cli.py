@@ -46,6 +46,7 @@ def _cmd_fill(args: argparse.Namespace) -> int:
 
 def _cmd_generate(args: argparse.Namespace) -> int:
     from .agent.loop import run_loop  # lazy import — openai SDK is heavy
+    from .settings_host import SettingsHostClient
 
     out = Path(args.output) if args.output else config.output_dir / "generated.pptx"
     report = run_loop(
@@ -54,6 +55,7 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         out,
         model=args.model,
         on_event=lambda m: print(f"  {m}"),
+        settings_host=SettingsHostClient(base_url=config.pe_settings_host_url),
     )
     print(f"\nWrote {report['path']}")
     print(f"  fields={report['fields_applied']} tables={report['tables_applied']} rag={report['rag_applied']}")
