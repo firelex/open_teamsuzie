@@ -102,13 +102,13 @@ export function buildAttachmentContext(records: FileRecord[]): string {
   for (const rec of records) {
     if (looksLikeText(rec.mimeType)) {
       const text = rec.bytes.toString('utf-8');
-      lines.push(`- ${rec.name} (${rec.mimeType}, ${humanSize(rec.size)}):`);
+      lines.push(`- file_id=${rec.id} name=${rec.name} (${rec.mimeType}, ${humanSize(rec.size)}):`);
       lines.push('"""');
       lines.push(text);
       lines.push('"""');
     } else {
       lines.push(
-        `- ${rec.name} (${rec.mimeType}, ${humanSize(rec.size)}) — binary; no extraction tool wired. Tell the user if they expect you to read this.`,
+        `- file_id=${rec.id} name=${rec.name} (${rec.mimeType}, ${humanSize(rec.size)}) — binary. Pass this file_id to convert_to_markdown to read it, or to propose_document_edits to redline (.docx only).`,
       );
     }
   }
