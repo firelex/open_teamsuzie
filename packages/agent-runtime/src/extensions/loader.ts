@@ -4,6 +4,11 @@ import { pathToFileURL } from 'node:url';
 import type { Extension } from './types.js';
 
 const INDEX_CANDIDATES = ['index.mjs', 'index.js', 'index.ts'];
+// README convention from docs/COMPOSITION.md: every extension carries a
+// README so SuzieCode (and humans) can read what it does without parsing
+// TypeScript. Soft-enforced via boot-log warning, not a hard error —
+// older extensions keep loading.
+const README_CANDIDATES = ['README.md', 'README.MD', 'readme.md'];
 
 export async function loadExtensions(dir: string): Promise<Extension[]> {
   if (!existsSync(dir)) return [];
@@ -15,6 +20,14 @@ export async function loadExtensions(dir: string): Promise<Extension[]> {
     if (!indexFile) {
       console.warn(`[agent-runtime] extension ${name} has no index file; skipping`);
       continue;
+    }
+    const hasReadme = README_CANDIDATES.some((c) => existsSync(path.join(sub, c)));
+    if (!hasReadme) {
+      console.warn(
+        `[agent-runtime] extension '${name}' has no README.md — `
+        + `convention is one README per extension so SuzieCode + humans can `
+        + `read it without parsing source. See docs/COMPOSITION.md.`,
+      );
     }
     const mod = await import(pathToFileURL(indexFile).href);
     const ext = (mod.default ?? mod) as Extension;
