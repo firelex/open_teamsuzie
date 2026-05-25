@@ -665,6 +665,11 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
             if (payload.result && typeof payload.result === 'object') {
               const result = payload.result as {
                 _doc_state?: unknown;
+                // Upstream documentDraftingTools' export_to_docx returns
+                // camelCase keys (`downloadUrl`, `fileId`, `filename`).
+                // Some older tool wrappers still return snake_case
+                // (`download_url`) — read both so either flows through.
+                downloadUrl?: unknown;
                 download_url?: unknown;
                 filename?: unknown;
               };
@@ -672,11 +677,15 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
               if (ds && typeof ds === 'object') {
                 const obj = ds as { doc_id?: string; title?: string; markdown?: string };
                 if (typeof obj.doc_id === 'string' && typeof obj.markdown === 'string') {
-                  // Pull through the download_url if export_to_docx supplied
-                  // one; otherwise carry over what we already have for this doc.
-                  const docxUrl = typeof result.download_url === 'string'
-                    ? result.download_url
-                    : undefined;
+                  // Pull through the download URL if export_to_docx
+                  // supplied one; otherwise carry over what we already
+                  // have for this doc.
+                  const docxUrl =
+                    typeof result.downloadUrl === 'string'
+                      ? result.downloadUrl
+                      : typeof result.download_url === 'string'
+                        ? result.download_url
+                        : undefined;
                   const docxName = typeof result.filename === 'string'
                     ? result.filename
                     : undefined;
