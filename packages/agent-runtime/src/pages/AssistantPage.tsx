@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArtifactPanel,
@@ -6,12 +6,16 @@ import {
   MarkdownMessage,
   Square,
   ToolUseStatus,
+  TrackedChangesPanel,
   WorkflowPickerDialog,
   humanSize,
   useChatComposer,
   useSelectedModel,
   useWorkflows,
   type ArtifactSnapshot,
+  type ProposeEditsResult,
+  type RedlineParagraph,
+  type ResolveResponse,
   type ToolEvent,
   type Workflow,
 } from '@teamsuzie/ui';
@@ -139,6 +143,24 @@ function greetingFor(date: Date): string {
 }
 
 
+function proposeEditsResults(message: Message): ProposeEditsResult[] {
+  if (!message.toolEvents) return [];
+  const out: ProposeEditsResult[] = [];
+  for (const e of message.toolEvents) {
+    if (e.name !== 'propose_document_edits') continue;
+    if (e.status !== 'done') continue;
+    const result = e.result as ProposeEditsResult | undefined;
+    if (
+      result
+      && typeof result === 'object'
+      && 'download_file_id' in (result as unknown as Record<string, unknown>)
+    ) {
+      out.push(result);
+    }
+  }
+  return out;
+}
+
 function TypingDots() {
   return (
     <span
@@ -158,16 +180,31 @@ function MessageItem({
   message,
   agentName,
   isActive,
+  onResolve,
+  onLoadRedline,
+  chatId,
 }: {
   message: Message;
   agentName: string;
   /** True only for the message currently being streamed. */
   isActive: boolean;
+  onResolve: (
+    sessionId: string,
+    fileId: string,
+    body: { accept?: number[]; reject?: number[] },
+  ) => Promise<ResolveResponse>;
+  onLoadRedline: (
+    sessionId: string,
+    fileId: string,
+    signal?: AbortSignal,
+  ) => Promise<{ paragraphs: RedlineParagraph[] }>;
+  chatId: string;
 }) {
   const isUser = message.role === 'user';
   const hasToolEvents = !!message.toolEvents && message.toolEvents.length > 0;
   const showTyping =
     !isUser && isActive && message.content.length === 0 && !hasToolEvents;
+  const proposeResults = !isUser ? proposeEditsResults(message) : [];
 
   const roleLabel = isUser ? 'You' : agentName;
   return (
@@ -187,6 +224,16 @@ function MessageItem({
         </div>
       ) : null}
       {isActive && hasToolEvents && <ToolUseStatus events={message.toolEvents!} />}
+      {proposeResults.map((result) => (
+        <TrackedChangesPanel
+          key={`${message.id}:${result.download_file_id}`}
+          result={result}
+          chatId={chatId}
+          onResolve={onResolve}
+          onLoadRedline={onLoadRedline}
+          downloadHref={`/api/files/${encodeURIComponent(result.download_session_id)}/${encodeURIComponent(result.download_file_id)}/content`}
+        />
+      ))}
     </div>
   );
 }
@@ -309,6 +356,49 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     setActiveWorkflow({ id: w.id, name: w.name });
   }
   const [activeArtifact, setActiveArtifact] = useState<ArtifactSnapshot | null>(null);
+
+  const resolveRevisions = useCallback(
+    async (
+      sid: string,
+      fileId: string,
+      body: { accept?: number[]; reject?: number[] },
+    ): Promise<ResolveResponse> => {
+      const res = await fetch(
+        `/api/files/${encodeURIComponent(sid)}/${encodeURIComponent(fileId)}/revisions/resolve`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`resolve failed: ${res.status} ${text}`);
+      }
+      return (await res.json()) as ResolveResponse;
+    },
+    [],
+  );
+
+  const loadRedline = useCallback(
+    async (
+      sid: string,
+      fileId: string,
+      signal?: AbortSignal,
+    ): Promise<{ paragraphs: RedlineParagraph[] }> => {
+      const res = await fetch(
+        `/api/files/${encodeURIComponent(sid)}/${encodeURIComponent(fileId)}/redline-view`,
+        { signal },
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`redline-view failed: ${res.status} ${text}`);
+      }
+      return (await res.json()) as { paragraphs: RedlineParagraph[] };
+    },
+    [],
+  );
+
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -724,6 +814,9 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                 agentName={agentName}
                 // Only the last message is "active" (currently streaming).
                 isActive={isStreaming && idx === messages.length - 1}
+                onResolve={resolveRevisions}
+                onLoadRedline={loadRedline}
+                chatId={chatId ?? 'assistant-default'}
               />
             ))}
             <div ref={endRef} />
