@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Sparkles } from "lucide-react"
 import type { CellFormat, ColumnPreset } from "@teamsuzie/grid-review"
 
 import { Button } from "./button"
@@ -142,16 +142,22 @@ export function ColumnHeaderEditor({
     if (!formatDirty) setFormat(preset.format)
   }
 
-  const handleTitleBlur = async () => {
-    if (mode !== "create" || !draftFromTitle) return
+  const runDraft = async (opts: { force: boolean }) => {
+    if (!draftFromTitle) return
+    // Edit mode still allows force-drafting via the explicit AI button —
+    // the on-blur path early-returns for edit so users don't accidentally
+    // clobber an existing prompt.
+    if (!opts.force && mode !== "create") return
     const t = title.trim()
     if (!t) return
-    // Sync preset already filled it — don't pay the network cost.
-    if (matchedPresetId) return
-    // Already drafted this exact title; skip.
-    if (lastDraftedRef.current === t) return
-    // User has manually authored both fields; don't clobber.
-    if (promptDirtyRef.current && formatDirtyRef.current) return
+    if (!opts.force) {
+      // Sync preset already filled it — don't pay the network cost.
+      if (matchedPresetId) return
+      // Already drafted this exact title; skip.
+      if (lastDraftedRef.current === t) return
+      // User has manually authored both fields; don't clobber.
+      if (promptDirtyRef.current && formatDirtyRef.current) return
+    }
 
     draftAbortRef.current?.abort()
     const ctrl = new AbortController()
@@ -169,8 +175,16 @@ export function ColumnHeaderEditor({
       if (ctrl.signal.aborted) return
       if (!draft) return
       lastDraftedRef.current = t
-      if (!promptDirtyRef.current) setPrompt(draft.prompt)
-      if (!formatDirtyRef.current) setFormat(draft.format)
+      // Force mode unconditionally writes both fields — user clicked the
+      // explicit button, so they're asking to replace.
+      if (opts.force || !promptDirtyRef.current) {
+        setPrompt(draft.prompt)
+        setPromptDirty(false)
+      }
+      if (opts.force || !formatDirtyRef.current) {
+        setFormat(draft.format)
+        setFormatDirty(false)
+      }
       setDraftedTitle(t)
     } catch (err) {
       if (ctrl.signal.aborted) return
@@ -181,6 +195,8 @@ export function ColumnHeaderEditor({
       if (!ctrl.signal.aborted) setDrafting(false)
     }
   }
+
+  const handleTitleBlur = () => runDraft({ force: false })
 
   const handlePromptChange = (next: string) => {
     setPrompt(next)
@@ -249,7 +265,31 @@ export function ColumnHeaderEditor({
         )}
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="col-prompt">Prompt</Label>
+        <div className="flex items-baseline justify-between">
+          <Label htmlFor="col-prompt">Prompt</Label>
+          {draftFromTitle && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => void runDraft({ force: true })}
+              disabled={busy || drafting || !title.trim()}
+              title={
+                !title.trim()
+                  ? "Enter a title first"
+                  : "Draft prompt + format from title"
+              }
+              aria-label="Draft prompt with AI"
+              className="size-8 text-muted-foreground hover:text-foreground"
+            >
+              {drafting ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Sparkles className="size-4" aria-hidden />
+              )}
+            </Button>
+          )}
+        </div>
         <Textarea
           id="col-prompt"
           value={prompt}
