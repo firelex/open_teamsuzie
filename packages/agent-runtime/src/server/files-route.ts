@@ -285,6 +285,20 @@ export function buildAttachmentContext(
   return lines.join('\n');
 }
 
+/**
+ * Per-bucket access decision returned by a host-supplied
+ * `canAccessBucket` callback. When `allowed` is false, the host
+ * provides the http status + a short error message. Custom statuses
+ * let the router 404 to mask existence (don't leak that a bucket id
+ * is valid) vs. 403 when the caller's session has been authenticated
+ * but lacks the role.
+ */
+export interface FileBucketAccessDecision {
+  allowed: boolean;
+  status?: number;
+  message?: string;
+}
+
 export interface FileRouterOptions {
   store: InMemoryFileStore;
   /** Per-file size cap. Default 25 MB. */
@@ -305,12 +319,28 @@ export interface FileRouterOptions {
       notes?: string | null;
     }): unknown;
   };
+  /**
+   * Optional gate run before every per-bucket route (read / content /
+   * delete / upload sessionId / promote from + to). When absent, the
+   * router is permissive — anyone past the upstream session middleware
+   * can read any bucket by id. agent-runtime wires this with a
+   * bucket-shape-aware check (matter id → require membership; assistant:
+   * <email> → require self-match; review:<id> → require matter membership)
+   * so a logged-in user can't read another user's matter bytes by
+   * guessing an id. Permissive default preserves back-compat for
+   * unit tests + non-agent-runtime hosts.
+   */
+  canAccessBucket?: (
+    req: Request,
+    sessionId: string,
+  ) => FileBucketAccessDecision;
 }
 
 export function createFilesRouter({
   store,
   versionsStore,
   maxUploadBytes = 25 * 1024 * 1024,
+  canAccessBucket,
 }: FileRouterOptions): Router {
   const router: Router = Router();
   const upload = multer({
@@ -318,12 +348,27 @@ export function createFilesRouter({
     limits: { fileSize: maxUploadBytes },
   });
 
+  function denyOrPass(
+    req: Request,
+    res: Response,
+    sessionId: string,
+  ): boolean {
+    if (!canAccessBucket) return true;
+    const decision = canAccessBucket(req, sessionId);
+    if (decision.allowed) return true;
+    res
+      .status(decision.status ?? 403)
+      .json({ error: decision.message ?? 'forbidden' });
+    return false;
+  }
+
   router.post('/files', upload.single('file'), (req: Request, res: Response) => {
     const sessionId = String(req.body?.sessionId || '').trim();
     if (!sessionId) {
       res.status(400).json({ error: 'sessionId is required (form field)' });
       return;
     }
+    if (!denyOrPass(req, res, sessionId)) return;
     const file = req.file;
     if (!file) {
       res.status(400).json({ error: 'file is required (multipart field "file")' });
@@ -387,6 +432,11 @@ export function createFilesRouter({
       res.status(400).json({ error: 'fileIds must be a non-empty array' });
       return;
     }
+    // Promote crosses two buckets; check both sides so a user can't
+    // smuggle bytes between matters or escalate from a personal
+    // assistant bucket into someone else's chat session.
+    if (!denyOrPass(req, res, fromSessionId)) return;
+    if (!denyOrPass(req, res, toSessionId)) return;
     const promoted = store.promote(fromSessionId, toSessionId, fileIds);
     const items: FileMetadata[] = promoted.map((rec) => ({
       id: rec.id,
@@ -398,6 +448,7 @@ export function createFilesRouter({
   });
 
   router.get('/files/:sessionId/:id', (req, res) => {
+    if (!denyOrPass(req, res, req.params.sessionId)) return;
     const rec = store.get(req.params.sessionId, req.params.id);
     if (!rec) {
       res.status(404).json({ error: 'not found' });
@@ -414,6 +465,7 @@ export function createFilesRouter({
   });
 
   router.get('/files/:sessionId/:id/content', (req, res) => {
+    if (!denyOrPass(req, res, req.params.sessionId)) return;
     const rec = store.get(req.params.sessionId, req.params.id);
     if (!rec) {
       res.status(404).json({ error: 'not found' });
@@ -425,6 +477,7 @@ export function createFilesRouter({
   });
 
   router.delete('/files/:sessionId/:id', (req, res) => {
+    if (!denyOrPass(req, res, req.params.sessionId)) return;
     const removed = store.delete(req.params.sessionId, req.params.id);
     if (!removed) {
       res.status(404).json({ error: 'not found' });

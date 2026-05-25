@@ -706,7 +706,106 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // across every starter). The AssistantPage POSTs paperclip uploads here
   // and DELETEs them on removal; chat-route reads attachmentIds from the
   // body and inlines their content via buildAttachmentContext.
-  app.use('/api', createFilesRouter({ store: fileStore, versionsStore }));
+  // Gate per-bucket file routes (read / content / delete / upload-with-
+  // sessionId / promote) on bucket-shape-aware ownership. Without this,
+  // a logged-in user could read another user's matter bytes by guessing
+  // the matter id. The bucket key shapes the agent-runtime mints:
+  //   - `assistant:<email>`   — top-level chat session for that user
+  //   - `<matterId>`          — matter docs
+  //   - `review:<reviewId>`   — review-bound chat session
+  //   - `<chatId>` (UUID)     — pre-promote bare-route tab session, or
+  //                             persisted chat (workspaceId carries the
+  //                             real ownership signal)
+  //   - tab UUID              — a tab-local session that hasn't been
+  //                             promoted yet (no user binding stored)
+  app.use(
+    '/api',
+    createFilesRouter({
+      store: fileStore,
+      versionsStore,
+      canAccessBucket: (req, bucket) => {
+        const session = (req as unknown as {
+          session?: { user?: { email?: string } };
+        }).session;
+        const userEmail = session?.user?.email;
+        if (!userEmail) {
+          return { allowed: false, status: 401, message: 'unauthenticated' };
+        }
+
+        // assistant:<email> — only the matching email reads its bucket.
+        if (bucket.startsWith('assistant:')) {
+          const owner = bucket.slice('assistant:'.length).toLowerCase();
+          return owner === userEmail.toLowerCase()
+            ? { allowed: true }
+            : { allowed: false, status: 403, message: 'forbidden' };
+        }
+
+        // review:<reviewId> — require access to the underlying matter.
+        if (bucket.startsWith('review:')) {
+          const reviewId = bucket.slice('review:'.length);
+          const review = gridReviewsStore.getReview(reviewId);
+          if (!review) {
+            return { allowed: false, status: 404, message: 'not_found' };
+          }
+          const role = membersStore.getRole(
+            { type: SUBJECT_MATTER, id: review.workspaceId },
+            userEmail,
+          );
+          return role
+            ? { allowed: true }
+            : { allowed: false, status: 403, message: 'forbidden' };
+        }
+
+        // Bare matter bucket — membership required.
+        if (workspacesStore.getWorkspace(bucket)) {
+          const role = membersStore.getRole(
+            { type: SUBJECT_MATTER, id: bucket },
+            userEmail,
+          );
+          return role
+            ? { allowed: true }
+            : { allowed: false, status: 403, message: 'forbidden' };
+        }
+
+        // Persisted chat bucket — read the chat row's workspace_id and
+        // recurse against its semantics.
+        const chat = chats.getChat(bucket);
+        if (chat) {
+          const ws = chat.workspaceId;
+          if (ws === `assistant:${userEmail}`) return { allowed: true };
+          if (ws.startsWith('review:')) {
+            const reviewId = ws.slice('review:'.length);
+            const review = gridReviewsStore.getReview(reviewId);
+            if (review) {
+              const role = membersStore.getRole(
+                { type: SUBJECT_MATTER, id: review.workspaceId },
+                userEmail,
+              );
+              if (role) return { allowed: true };
+            }
+            return { allowed: false, status: 403, message: 'forbidden' };
+          }
+          if (workspacesStore.getWorkspace(ws)) {
+            const role = membersStore.getRole(
+              { type: SUBJECT_MATTER, id: ws },
+              userEmail,
+            );
+            if (role) return { allowed: true };
+            return { allowed: false, status: 403, message: 'forbidden' };
+          }
+          return { allowed: false, status: 403, message: 'forbidden' };
+        }
+
+        // Unrecognised bucket — bare-route tab session that hasn't been
+        // promoted (yet). The session that uploaded the file is already
+        // in this user's tab; we don't have a tab→user index, so allow
+        // the session-authenticated caller through here. The promote
+        // step later moves these bytes into a persisted chat / matter
+        // bucket where the real check then applies.
+        return { allowed: true };
+      },
+    }),
+  );
 
   // User-driven document endpoints (counterparts to the model-driven
   // tools). Always mounted; absent prerequisites surface as 503/404.
