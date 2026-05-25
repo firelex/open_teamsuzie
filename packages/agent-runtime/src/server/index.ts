@@ -20,6 +20,15 @@ import {
 import {
   DocumentVersionsStore, DOCUMENT_VERSIONS_MIGRATIONS,
 } from '@teamsuzie/document-versions';
+import {
+  createWorkspacesRouter, WORKSPACES_MIGRATIONS, WorkspacesStore,
+} from '@teamsuzie/workspaces';
+import { MembersStore, SHARING_MIGRATIONS } from '@teamsuzie/sharing';
+import {
+  backfillMatterOwnership, createMatterMembersRouter,
+  createMatterUploadsRouter, createRequireMatterAccess,
+  SUBJECT_MATTER,
+} from '@teamsuzie/matters';
 import { buildProposeDocumentEditsTool } from '@teamsuzie/docx';
 import {
   createWorkflowsRouter, WORKFLOWS_MIGRATIONS, WorkflowsStore,
@@ -121,6 +130,8 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       ...WORKFLOWS_MIGRATIONS,
       ...REVIEWS_MIGRATIONS,
       ...DOCUMENT_VERSIONS_MIGRATIONS,
+      ...WORKSPACES_MIGRATIONS,
+      ...SHARING_MIGRATIONS,
     ],
   });
 
@@ -131,6 +142,8 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const reviewsStore = new ReviewsStore({ db });
   const fileStore = new InMemoryFileStore();
   const versionsStore = new DocumentVersionsStore({ db });
+  const workspacesStore = new WorkspacesStore({ db });
+  const membersStore = new MembersStore({ db });
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
@@ -351,6 +364,164 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   };
   registry.mount(app, mountFlags);
 
+  // ── /api/matters (gated by modules.matters) ───────────────────────────
+  // Composes @teamsuzie/workspaces (matter rows + folders + doc refs),
+  // @teamsuzie/sharing (member rows), @teamsuzie/chats (matter-scoped
+  // chats), and the file store (bucket = matterId) into the matter
+  // surface. Order matters: shadow create/list go first so they win
+  // over the generic workspaces router; requireMatterAccess gates every
+  // nested /:matterId/* path before the sub-routers see it.
+  if (resolveModules(manifestStore.get()).matters) {
+    const getSessionUser = (req: express.Request) => {
+      const s = (req as unknown as { session?: { user?: { email?: string } } }).session;
+      return s?.user?.email ? { email: s.user.email } : null;
+    };
+
+    // One-shot demo bridge: grant the dev user owner on every matter
+    // that has no member row, so matters created before membership
+    // existed remain reachable. Multi-user production deployments
+    // should skip this (real auth handles ownership at creation time).
+    if (opts.devAuth || process.env.AGENT_DEV_AUTH === 'true') {
+      try {
+        const result = backfillMatterOwnership({
+          members: membersStore,
+          workspaces: workspacesStore,
+          ownerEmail: OWNER_ID,
+        });
+        if (result.granted > 0) {
+          console.log(
+            `[agent-runtime] backfilled ${result.granted} matter owner row(s) for ${OWNER_ID}`,
+          );
+        }
+      } catch (err) {
+        console.warn('[agent-runtime] matter ownership backfill failed:',
+          err instanceof Error ? err.message : err);
+      }
+    }
+
+    // Shadow POST /api/matters — creates the workspace AND grants the
+    // session user owner in one call. The workspaces router has no hook
+    // for post-create work, and we don't want to add one upstream until
+    // a real multi-user need shows up.
+    app.post('/api/matters', (req, res) => {
+      const user = getSessionUser(req);
+      if (!user?.email) {
+        res.status(401).json({ error: 'unauthenticated' });
+        return;
+      }
+      const body = req.body as Record<string, unknown> | undefined;
+      const name = String(body?.name || '').trim();
+      if (!name) {
+        res.status(400).json({ error: 'name is required' });
+        return;
+      }
+      const descriptionInput = body?.description;
+      const description =
+        typeof descriptionInput === 'string' ? descriptionInput.trim() : '';
+      const created = workspacesStore.createWorkspace({
+        name,
+        description: description.length > 0 ? description : null,
+      });
+      membersStore.addMember({
+        subjectType: SUBJECT_MATTER,
+        subjectId: created.id,
+        userId: user.email,
+        role: 'owner',
+        grantedBy: user.email,
+      });
+      res.status(201).json({ item: created });
+    });
+
+    // Shadow GET /api/matters — filter the workspaces list to matters
+    // the session user has any role on. The generic workspaces router
+    // (mounted below) still serves the per-id and folder/document
+    // routes, which inherit requireMatterAccess via the :matterId mount.
+    app.get('/api/matters', (req, res) => {
+      const user = getSessionUser(req);
+      if (!user?.email) {
+        res.status(401).json({ error: 'unauthenticated' });
+        return;
+      }
+      const includeArchived = req.query.archived === 'true';
+      const accessible = workspacesStore
+        .listWorkspaces({ includeArchived })
+        .filter(
+          (w) =>
+            membersStore.getRole({ type: SUBJECT_MATTER, id: w.id }, user.email!) !== null,
+        );
+      res.json({ items: accessible });
+    });
+
+    // Every /:matterId/* path gates on membership.
+    app.use(
+      '/api/matters/:matterId',
+      createRequireMatterAccess({
+        members: membersStore,
+        workspaces: workspacesStore,
+        getSessionUser,
+      }),
+    );
+
+    // Members CRUD — owner-only mutate, any-member read.
+    app.use(
+      '/api/matters/:matterId/members',
+      createMatterMembersRouter({
+        members: membersStore,
+        workspaces: workspacesStore,
+        getSessionUser,
+      }),
+    );
+
+    // Matter-scoped chats — same chats store, workspace_id = matterId.
+    // Express 5 doesn't merge parent params into a sub-router by default,
+    // so the chats router can't read `:matterId` directly. Stash it on the
+    // request object first; the chats router pulls it via getWorkspaceId.
+    app.use(
+      '/api/matters/:matterId/chats',
+      (req, _res, next) => {
+        (req as unknown as { _matterId?: string })._matterId = String(
+          req.params.matterId ?? '',
+        );
+        next();
+      },
+      createChatsRouter({
+        store: chats,
+        getWorkspaceId: (req) =>
+          (req as unknown as { _matterId?: string })._matterId ?? '',
+      }),
+    );
+
+    // Multipart upload → file bucket (matterId) + workspace_documents row.
+    app.use(
+      '/api/matters',
+      createMatterUploadsRouter({
+        fileStore,
+        workspaces: workspacesStore,
+        documentVersions: versionsStore,
+        maxUploadBytes: 25 * 1024 * 1024,
+      }),
+    );
+
+    // Generic workspaces router — handles PATCH/archive/delete plus
+    // folders + documents under /:id. Mounted last so the shadow GET/POST
+    // and matter-uploads above win for their specific paths.
+    app.use(
+      '/api/matters',
+      createWorkspacesRouter({
+        store: workspacesStore,
+        onDocumentRemoved: (workspace, doc) => {
+          // Cascade: file bytes follow the workspace_documents row, so
+          // re-uploading the same file produces a fresh fileId instead
+          // of orphaning the original bytes.
+          fileStore.delete(workspace.id, doc.externalDocId);
+        },
+        onWorkspaceRemoved: (workspaceId) => {
+          membersStore.removeMembersFor({ type: SUBJECT_MATTER, id: workspaceId });
+        },
+      }),
+    );
+  }
+
   // ── /api/files (always) ───────────────────────────────────────────────
   // Per-session in-memory upload store + multipart router. Lifted from the
   // pre-runtime starter-external-agent files.ts (where it was duplicated
@@ -490,7 +661,6 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   {
     const mods = resolveModules(manifestStore.get());
     const unwired: string[] = [];
-    if (mods.matters) unwired.push('matters');
     if (mods.admin) unwired.push('admin');
     if (mods.billing) unwired.push('billing');
     if (mods.knowledgeBase) unwired.push('knowledgeBase');

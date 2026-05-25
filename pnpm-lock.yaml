@@ -1507,6 +1507,9 @@ importers:
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
+      '@teamsuzie/matters':
+        specifier: workspace:*
+        version: link:../matters
       '@teamsuzie/personas':
         specifier: workspace:*
         version: link:../personas
@@ -1516,9 +1519,15 @@ importers:
       '@teamsuzie/reviews':
         specifier: workspace:*
         version: link:../reviews
+      '@teamsuzie/sharing':
+        specifier: workspace:*
+        version: link:../sharing
       '@teamsuzie/workflows':
         specifier: workspace:*
         version: link:../workflows
+      '@teamsuzie/workspaces':
+        specifier: workspace:*
+        version: link:../workspaces
       cors:
         specifier: ^2.8.5
         version: 2.8.6
