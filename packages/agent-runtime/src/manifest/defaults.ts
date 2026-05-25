@@ -38,6 +38,7 @@ export const DEFAULT_MODULES: ManifestModules = {
   reviews: false,
   billing: false,
   redline: false,
+  drafting: false,
 };
 
 export function resolveModules(manifest: AgentManifest): ManifestModules {

@@ -71,6 +71,7 @@ export interface ManifestModules {
   reviews: boolean;
   billing: boolean;
   redline: boolean;
+  drafting: boolean;
 }
 
 export type ToolStatus = 'stub' | 'implemented';
