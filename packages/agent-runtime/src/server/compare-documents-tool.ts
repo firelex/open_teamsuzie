@@ -132,6 +132,11 @@ export function buildCompareDocumentsTool(
         stats: diff.stats,
         summary: formatStatsLine(diff),
         markdown: diffMarkdown,
+        // File ids echoed back so the client can subscribe to the
+        // /api/documents/compare/summary SSE stream without having to
+        // track the original tool_call args.
+        left_file_id: args.left_file_id,
+        right_file_id: args.right_file_id,
         // Topic-based comparison (preferred render path). When absent
         // the client falls back to rendering one row per event.
         topics,

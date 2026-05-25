@@ -359,11 +359,28 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // body and inlines their content via buildAttachmentContext.
   app.use('/api', createFilesRouter({ store: fileStore, versionsStore }));
 
-  // User-driven document export (counterpart to the model-driven
-  // export_to_docx tool). Always mounted; 503 when markitdown is absent,
-  // 404 when the doc isn't in the session's docStore.
+  // User-driven document endpoints (counterparts to the model-driven
+  // tools). Always mounted; absent prerequisites surface as 503/404.
+  //   - /api/documents/:sessionId/:docId/export — export_to_docx
+  //   - /api/documents/compare/summary         — streaming SSE topic
+  //     synthesis backing CompareTable. Uses the manifest's simpleModel
+  //     (resolved per-request via the closure below so manifest edits
+  //     take effect without a restart).
   app.use('/api/documents', createDocumentsRouter({
     fileStore, docStore, markitdownBaseUrl, fetchImpl: markitdownFetch,
+    resolveSummaryModel: () => {
+      const m = manifestStore.get().ai?.simpleModel;
+      if (!m) return null;
+      const baseUrl = m.baseUrl ?? opts.agent?.baseUrl;
+      if (!baseUrl) return null;
+      return {
+        baseUrl,
+        apiKey: m.apiKey ?? opts.agent?.apiKey,
+        model: m.model,
+      };
+    },
+    runChatTurn,
+    toolCtx: { approvals, vectorDbBaseUrl: '' },
   }));
 
   // ── /api/chat (when an agent target is configured) ────────────────────
@@ -372,70 +389,12 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // Without opts.agent the route returns 503 so the AssistantPage's stream
   // reader can surface "no model configured" instead of swallowing a 404.
   if (opts.agent) {
-    // LLM-backed summarizer for compare_documents. Calls the manifest's
-    // simpleModel with a structured-JSON prompt to group the mechanical
-    // diff into topic rows. Best-effort: returns null on any error so
-    // the tool falls back to the paragraph-event view.
-    const compareSummarize = async (input: {
-      leftName: string;
-      rightName: string;
-      diffMarkdown: string;
-    }) => {
-      const m = manifestStore.get().ai?.simpleModel;
-      if (!m) return null;
-      const baseUrl = m.baseUrl ?? opts.agent?.baseUrl;
-      if (!baseUrl) return null;
-      const systemPrompt =
-        'You are summarizing the substantive differences between two versions of a legal document. '
-        + 'You receive a mechanical paragraph-level diff with `~~deletions~~` and `**insertions**` inline. '
-        + 'GROUP the changes by substantive TOPIC (e.g. "Excused Investments", "Notice Provisions", "Anti-Money Laundering"). '
-        + 'For each topic write a short plain-English summary of what the LEFT document says and what the RIGHT document says. '
-        + 'When a topic exists on only one side, the other side\'s field should be "(absent)". '
-        + 'Skip purely cosmetic differences (whitespace, formatting). '
-        + 'Return STRICT JSON ONLY (no prose, no code fence) of the form: '
-        + '{"topics":[{"topic":"…","left":"…","right":"…"}, …]}.';
-      const userPrompt =
-        `LEFT document: ${input.leftName}\nRIGHT document: ${input.rightName}\n\n`
-        + `Mechanical diff:\n\n${input.diffMarkdown}`;
-      try {
-        let text = '';
-        const stream = runChatTurn({
-          agent: {
-            baseUrl,
-            apiKey: m.apiKey ?? opts.agent?.apiKey,
-            model: m.model,
-          },
-          messages: [{ role: 'user', content: userPrompt }],
-          systemPrompt,
-          tools: [],
-          toolCtx: { approvals, vectorDbBaseUrl: '' },
-          maxIterations: 1,
-        });
-        for await (const event of stream) {
-          if (event.type === 'chunk') text += event.text;
-          else if (event.type === 'error') throw new Error(event.message);
-        }
-        const trimmed = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
-        const parsed = JSON.parse(trimmed) as {
-          topics?: Array<{ topic?: unknown; left?: unknown; right?: unknown }>;
-        };
-        if (!Array.isArray(parsed.topics)) return null;
-        return parsed.topics
-          .map((t) => ({
-            topic: typeof t.topic === 'string' ? t.topic.trim() : '',
-            left: typeof t.left === 'string' ? t.left.trim() : '',
-            right: typeof t.right === 'string' ? t.right.trim() : '',
-          }))
-          .filter((t) => t.topic.length > 0);
-      } catch (err) {
-        console.warn(
-          '[compare_documents] summarizer failed:',
-          err instanceof Error ? err.message : err,
-        );
-        return null;
-      }
-    };
-
+    // Compare-documents topic synthesis runs as an SSE stream from the
+    // /api/documents/compare/summary endpoint (mounted above), not as
+    // a synchronous tool callback — the user sees topics fill in
+    // progressively rather than waiting for the full set. The tool
+    // itself returns fast (mechanical diff only); the model uses the
+    // diff markdown for its prose reply.
     app.use('/api/chat', createChatRouter({
       agent: opts.agent,
       chats,
@@ -451,7 +410,6 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         markitdownBaseUrl,
         fetchImpl: markitdownFetch,
         includeDrafting: draftingEnabled,
-        compareSummarize,
       }),
       toolCtx: { approvals, vectorDbBaseUrl: '' },
       fileStore,

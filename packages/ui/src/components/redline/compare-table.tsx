@@ -41,9 +41,19 @@ export interface CompareTopic {
  */
 export interface CompareTableProps {
   result: DocumentDiffResult
-  /** Topic-grouped rows when the host has them. When present, the
-   *  topic-row layout is used; events are ignored. */
+  /** Topic-grouped rows when the host has them up-front. When present
+   *  (and no streaming callback fires), the topic-row layout is used
+   *  and events are ignored. */
   topics?: CompareTopic[]
+  /**
+   * Optional async iterator the panel subscribes to on mount. Each
+   * yielded topic is appended to the table in arrival order; while the
+   * stream is open the header shows "Synthesizing topics…" and the
+   * mechanical event-per-row view is shown as a fallback for any
+   * rows not yet covered by a topic. When the iterator completes,
+   * the topic view takes over fully.
+   */
+  onLoadTopics?: (signal: AbortSignal) => AsyncIterable<CompareTopic>
   /** Optional download URL for the blackline DOCX (if the host has one). */
   downloadHref?: string
   /** Override the displayed name for the left side. */
@@ -56,6 +66,7 @@ export interface CompareTableProps {
 export function CompareTable({
   result,
   topics,
+  onLoadTopics,
   downloadHref,
   headerLeft,
   headerRight,
@@ -65,7 +76,40 @@ export function CompareTable({
   const leftName = headerLeft ?? result.left.name
   const rightName = headerRight ?? result.right.name
   const stats = formatStatsLine(result)
-  const useTopics = topics && topics.length > 0
+
+  // Streaming state. If onLoadTopics is provided, subscribe on mount;
+  // accumulate topics as they arrive; mark "loading" while open.
+  const [streamedTopics, setStreamedTopics] = React.useState<CompareTopic[]>([])
+  const [streamError, setStreamError] = React.useState<string | null>(null)
+  const [isStreaming, setIsStreaming] = React.useState(Boolean(onLoadTopics))
+  React.useEffect(() => {
+    if (!onLoadTopics) return
+    const ac = new AbortController()
+    setStreamedTopics([])
+    setStreamError(null)
+    setIsStreaming(true)
+    let cancelled = false
+    void (async () => {
+      try {
+        for await (const t of onLoadTopics(ac.signal)) {
+          if (cancelled) return
+          setStreamedTopics((prev) => [...prev, t])
+        }
+      } catch (err) {
+        if (cancelled) return
+        setStreamError(err instanceof Error ? err.message : "stream failed")
+      } finally {
+        if (!cancelled) setIsStreaming(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [onLoadTopics])
+
+  const effectiveTopics = streamedTopics.length > 0 ? streamedTopics : topics
+  const useTopics = (effectiveTopics?.length ?? 0) > 0
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
@@ -75,7 +119,20 @@ export function CompareTable({
             <div className="truncate text-sm font-semibold tracking-tight">
               {leftName} → {rightName}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{stats}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {stats}
+              {isStreaming && (
+                <span className="ml-2 inline-flex items-center gap-1 text-foreground">
+                  <span className="inline-block size-1.5 animate-pulse rounded-full bg-saffron-400" />
+                  Synthesizing topics…
+                </span>
+              )}
+              {streamError && (
+                <span className="ml-2 text-destructive">
+                  topic synthesis failed — showing paragraph view
+                </span>
+              )}
+            </div>
           </div>
           {downloadHref && (
             <a
@@ -108,7 +165,7 @@ export function CompareTable({
               </tr>
             </thead>
             <tbody>
-              {topics!.map((t, idx) => (
+              {effectiveTopics!.map((t, idx) => (
                 <TopicRows key={idx} topic={t} />
               ))}
             </tbody>

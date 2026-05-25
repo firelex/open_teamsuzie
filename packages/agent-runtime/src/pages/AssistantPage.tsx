@@ -389,6 +389,68 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
     [],
   );
 
+  /**
+   * Subscribe to `/api/documents/compare/summary`'s SSE stream and
+   * yield one CompareTopic per `data:` event. Stops cleanly when the
+   * server sends `{done:true}` or an abort signal fires. Network/parse
+   * errors raise — the panel surfaces them as "topic synthesis failed".
+   */
+  const streamCompareTopics = useCallback(
+    (leftFileId: string, rightFileId: string) =>
+      async function* (signal: AbortSignal) {
+        const res = await fetch('/api/documents/compare/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leftFileId, rightFileId, sessionId }),
+          signal,
+        });
+        if (!res.ok || !res.body) {
+          const text = await res.text().catch(() => '');
+          throw new Error(`compare summary stream failed: ${res.status} ${text}`);
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() ?? '';
+          for (const frame of frames) {
+            const line = frame
+              .split('\n')
+              .find((l) => l.startsWith('data: '));
+            if (!line) continue;
+            const payload = JSON.parse(line.slice(6)) as {
+              topic?: string;
+              left?: string;
+              right?: string;
+              done?: boolean;
+              error?: string;
+            };
+            if (payload.error) throw new Error(payload.error);
+            if (payload.done) {
+              try { await reader.cancel(); } catch { /* noop */ }
+              return;
+            }
+            if (
+              typeof payload.topic === 'string'
+              && typeof payload.left === 'string'
+              && typeof payload.right === 'string'
+            ) {
+              yield {
+                topic: payload.topic,
+                left: payload.left,
+                right: payload.right,
+              };
+            }
+          }
+        }
+      },
+    [sessionId],
+  );
+
   const exportArtifact = useCallback(
     async (docId: string, title: string): Promise<{ downloadUrl: string; filename?: string }> => {
       const res = await fetch(
@@ -779,6 +841,8 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
               if (payload.name === 'compare_documents') {
                 const compareResult = result as unknown as
                   Partial<DocumentDiffResult> & {
+                    left_file_id?: string;
+                    right_file_id?: string;
                     topics?: Array<{
                       topic?: string;
                       left?: string;
@@ -805,12 +869,29 @@ export function AssistantPage({ agentName, chatId }: AssistantPageProps) {
                           right: t.right as string,
                         }))
                     : undefined;
+                  // Stream topics from the SSE endpoint when both file
+                  // ids are available. Tab id is stable per pair so
+                  // re-running the compare reuses the tab rather than
+                  // stacking new ones.
+                  const leftFileId = typeof compareResult.left_file_id === 'string'
+                    ? compareResult.left_file_id
+                    : undefined;
+                  const rightFileId = typeof compareResult.right_file_id === 'string'
+                    ? compareResult.right_file_id
+                    : undefined;
+                  const onLoadTopics = leftFileId && rightFileId
+                    ? streamCompareTopics(leftFileId, rightFileId)
+                    : undefined;
                   const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
                   sidePanel.openTab({
                     id: tabId,
                     title: `${fullResult.left.name} → ${fullResult.right.name}`,
                     render: () => (
-                      <CompareTable result={fullResult} topics={topics} />
+                      <CompareTable
+                        result={fullResult}
+                        topics={topics}
+                        onLoadTopics={onLoadTopics}
+                      />
                     ),
                   });
                 }
