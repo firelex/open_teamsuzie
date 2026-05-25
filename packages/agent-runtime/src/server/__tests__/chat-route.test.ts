@@ -139,6 +139,75 @@ describe('POST /api/chat', () => {
     expect(observedContent).toContain('What is the term?');
   });
 
+  it('includes previously-uploaded files in [Attachments] even when no attachmentIds in this turn', async () => {
+    const { InMemoryFileStore } = await import('../files-route.js');
+    const fileStore = new InMemoryFileStore();
+    // File uploaded on a prior turn — still in the session, not
+    // re-attached this turn.
+    fileStore.put({
+      id: 'old-doc', sessionId: 's1', name: 'nda.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      size: 5, bytes: Buffer.from('hello'), createdAt: 0,
+    });
+    let observedContent = '';
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      fileStore,
+      runChatTurn: async function* mock(opts) {
+        observedContent = String(opts.messages[opts.messages.length - 1].content ?? '');
+        yield { type: 'done' };
+      },
+    }));
+    // No attachmentIds in this turn's body — but the model should
+    // still see the previously-uploaded file_id.
+    await request(app).post('/api/chat').send({
+      message: 'now compare them',
+      sessionId: 's1',
+    });
+    expect(observedContent).toContain('[Attachments]');
+    expect(observedContent).toContain('file_id=old-doc');
+    expect(observedContent).toContain('nda.docx');
+  });
+
+  it('inlines text body only for files newly attached this turn (not all session text files)', async () => {
+    const { InMemoryFileStore } = await import('../files-route.js');
+    const fileStore = new InMemoryFileStore();
+    // Older text file: should NOT have its body re-inlined.
+    fileStore.put({
+      id: 'old-txt', sessionId: 's1', name: 'notes.txt',
+      mimeType: 'text/plain', size: 9, bytes: Buffer.from('Old body!'), createdAt: 0,
+    });
+    // Newly attached text file: body inlined.
+    fileStore.put({
+      id: 'new-txt', sessionId: 's1', name: 'fresh.txt',
+      mimeType: 'text/plain', size: 9, bytes: Buffer.from('Fresh one'), createdAt: 0,
+    });
+    let observedContent = '';
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      fileStore,
+      runChatTurn: async function* mock(opts) {
+        observedContent = String(opts.messages[opts.messages.length - 1].content ?? '');
+        yield { type: 'done' };
+      },
+    }));
+    await request(app).post('/api/chat').send({
+      message: 'check the new one',
+      sessionId: 's1',
+      attachmentIds: ['new-txt'],
+    });
+    // Both file_ids appear as metadata.
+    expect(observedContent).toContain('file_id=old-txt');
+    expect(observedContent).toContain('file_id=new-txt');
+    // Newly attached body is inlined; older body is not.
+    expect(observedContent).toContain('Fresh one');
+    expect(observedContent).not.toContain('Old body!');
+  });
+
   it('ignores attachmentIds when fileStore is not configured', async () => {
     let observedContent = '';
     const app = express();

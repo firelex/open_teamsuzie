@@ -61,6 +61,13 @@ export class InMemoryFileStore {
     return this.bySession.get(sessionId)?.delete(fileId) ?? false;
   }
 
+  /** All files currently in a session, in insertion order. */
+  listSession(sessionId: string): FileRecord[] {
+    const sess = this.bySession.get(sessionId);
+    if (!sess) return [];
+    return Array.from(sess.values());
+  }
+
   clearSession(sessionId: string): void {
     this.bySession.delete(sessionId);
   }
@@ -119,16 +126,26 @@ function humanSize(bytes: number): string {
 
 /**
  * Build the `[Attachments]` context block to prepend to a user message.
- * Text-like files are inlined verbatim; binaries are surfaced as metadata only
- * so the model knows they exist but doesn't hallucinate their contents — for
- * DOCX/PDF the agent should call a `convert_to_markdown` tool to actually read
- * them (wire `@teamsuzie/document-conversion` as an extension when needed).
+ * All files in the session are listed as metadata so the model knows
+ * their file_ids across turns — otherwise the model loses sight of
+ * earlier uploads after the first turn that mentions them. Text-like
+ * files attached *this turn* additionally have their body inlined for
+ * the model to read; binaries always render metadata-only (the agent
+ * uses `convert_to_markdown` etc. to read them).
+ *
+ * `newAttachmentIds` is the set of ids the user attached in the
+ * current turn — only those get their text body inlined (avoids
+ * re-emitting long bodies every turn for previously-attached text).
  */
-export function buildAttachmentContext(records: FileRecord[]): string {
+export function buildAttachmentContext(
+  records: FileRecord[],
+  newAttachmentIds?: ReadonlySet<string>,
+): string {
   if (records.length === 0) return '';
   const lines: string[] = ['[Attachments]'];
   for (const rec of records) {
-    if (looksLikeText(rec.mimeType)) {
+    const isNew = newAttachmentIds?.has(rec.id) ?? true;
+    if (isNew && looksLikeText(rec.mimeType)) {
       const text = rec.bytes.toString('utf-8');
       lines.push(`- file_id=${rec.id} name=${rec.name} (${rec.mimeType}, ${humanSize(rec.size)}):`);
       lines.push('"""');

@@ -128,13 +128,17 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
     // would abort the upstream LLM call before it ever runs.
     res.on('close', () => { if (!res.writableEnded) abort.abort(); });
 
-    // Prepend an `[Attachments]` block when the user attached files. Text-like
-    // attachments are inlined; binaries surface as metadata stubs (real
-    // extraction needs a `convert_to_markdown` tool wired via an extension).
-    const attachmentRecords = deps.fileStore && sessionId && attachmentIds.length > 0
-      ? deps.fileStore.getMany(sessionId, attachmentIds)
+    // Prepend an `[Attachments]` block listing ALL files currently in
+    // the session — not just the ones attached this turn — so the model
+    // keeps sight of earlier uploads on follow-up turns (otherwise it
+    // loses the file_ids after turn 1). Text-like files attached *this
+    // turn* additionally have their body inlined; binaries and older
+    // text files render metadata-only.
+    const sessionFiles = deps.fileStore && sessionId
+      ? deps.fileStore.listSession(sessionId)
       : [];
-    const attachmentContext = buildAttachmentContext(attachmentRecords);
+    const newAttachmentIds = new Set(attachmentIds);
+    const attachmentContext = buildAttachmentContext(sessionFiles, newAttachmentIds);
     const userContent = attachmentContext
       ? `${attachmentContext}\n\n[Message]\n${message}`
       : message;
