@@ -25,8 +25,10 @@ import {
 import { useMatter, type MatterDocument } from '../hooks/use-matter.js';
 import { useMatterChats } from '../hooks/use-matter-chats.js';
 import { useMatterReviews } from '../hooks/use-matter-reviews.js';
+import { useMatterMetadata } from '../hooks/use-matter-metadata.js';
 import { ShareDialog } from '../components/share-dialog.js';
 import { FromWorkflowDialog } from '../components/from-workflow-dialog.js';
+import { MatterMetadataSection } from '../components/matter-metadata-section.js';
 import {
     resolveMattersLabel,
     resolveModules,
@@ -345,6 +347,7 @@ export function MatterDetailPage({ manifest }: Props) {
     const reviewsEnabled = manifest
         ? resolveModules(manifest).reviews
         : false;
+    const { metadata, save: saveMetadata } = useMatterMetadata(matterId);
 
     async function handleFiles(files: FileList | null) {
         if (!files || files.length === 0) return;
@@ -441,12 +444,19 @@ export function MatterDetailPage({ manifest }: Props) {
                     </p>
                 )}
 
+                <MatterMetadataSection
+                    manifest={manifest}
+                    metadata={metadata}
+                    onSave={saveMetadata}
+                    matterLabel={label}
+                />
+
                 {loading ? (
                     <LoadingState>
                         Loading {label.singular.toLowerCase()}…
                     </LoadingState>
                 ) : (
-                    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[2fr_1fr]">
+                    <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[2fr_1fr]">
                         <section>
                             <div className="mb-3 flex items-baseline justify-between">
                                 <h2 className="text-sm font-semibold tracking-tight">
