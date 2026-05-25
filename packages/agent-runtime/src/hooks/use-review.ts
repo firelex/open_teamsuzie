@@ -49,6 +49,26 @@ interface UseReviewResult {
      * the UI can show a "cell-running needs the KB module" toast.
      */
     runAllPending: () => Promise<void>;
+    /** Run one specific cell. POSTs to /:reviewId/cells/run. */
+    runCell: (input: {
+        columnId: string;
+        reviewDocumentId: string;
+    }) => Promise<void>;
+    /**
+     * Walk every pending cell in `columnId` (optionally restricted to
+     * the row identified by `reviewDocumentId`) and re-run each via the
+     * per-cell endpoint. Re-runs from a `regenerate` action set
+     * `regenerate: true`, which the package treats as "run regardless
+     * of status" rather than the pending-only default.
+     */
+    runColumn: (input: {
+        columnId: string;
+        regenerate?: boolean;
+    }) => Promise<void>;
+    runRow: (input: {
+        reviewDocumentId: string;
+        regenerate?: boolean;
+    }) => Promise<void>;
 }
 
 function baseUrl(matterId: string, reviewId: string): string {
@@ -228,6 +248,95 @@ export function useReview(
         await refresh();
     }, [matterId, reviewId, refresh]);
 
+    const runCell = useCallback(
+        async (input: {
+            columnId: string;
+            reviewDocumentId: string;
+        }): Promise<void> => {
+            if (!matterId || !reviewId) return;
+            const res = await fetch(
+                `${baseUrl(matterId, reviewId)}/cells/run`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(input),
+                },
+            );
+            if (!res.ok) {
+                if (res.status === 501) {
+                    throw new Error(
+                        'Cell-running is not configured — no run adapter is wired upstream.',
+                    );
+                }
+                const data = (await res.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                throw new Error(data.error || `Failed (${res.status})`);
+            }
+            // The endpoint streams SSE; we drain it and then refresh.
+            // Live token streaming into the grid is a follow-up (see
+            // ReviewGrid's `runningCell` prop).
+            if (res.body) {
+                const reader = res.body.getReader();
+                // eslint-disable-next-line no-constant-condition
+                while (true) {
+                    const { done } = await reader.read();
+                    if (done) break;
+                }
+            }
+            await refresh();
+        },
+        [matterId, reviewId, refresh],
+    );
+
+    const runColumn = useCallback(
+        async (input: {
+            columnId: string;
+            regenerate?: boolean;
+        }): Promise<void> => {
+            if (!snapshot) return;
+            const cellByKey = new Map<string, string>();
+            for (const c of snapshot.cells) {
+                cellByKey.set(`${c.columnId}::${c.reviewDocumentId}`, c.status);
+            }
+            for (const doc of snapshot.documents) {
+                const status =
+                    cellByKey.get(`${input.columnId}::${doc.id}`) ?? 'pending';
+                if (!input.regenerate && status !== 'pending') continue;
+                await runCell({
+                    columnId: input.columnId,
+                    reviewDocumentId: doc.id,
+                });
+            }
+        },
+        [snapshot, runCell],
+    );
+
+    const runRow = useCallback(
+        async (input: {
+            reviewDocumentId: string;
+            regenerate?: boolean;
+        }): Promise<void> => {
+            if (!snapshot) return;
+            const cellByKey = new Map<string, string>();
+            for (const c of snapshot.cells) {
+                cellByKey.set(`${c.columnId}::${c.reviewDocumentId}`, c.status);
+            }
+            for (const col of snapshot.columns) {
+                const status =
+                    cellByKey.get(`${col.id}::${input.reviewDocumentId}`) ??
+                    'pending';
+                if (!input.regenerate && status !== 'pending') continue;
+                await runCell({
+                    columnId: col.id,
+                    reviewDocumentId: input.reviewDocumentId,
+                });
+            }
+        },
+        [snapshot, runCell],
+    );
+
     useEffect(() => {
         void refresh();
     }, [refresh]);
@@ -243,5 +352,8 @@ export function useReview(
         addDocument,
         removeDocument,
         runAllPending,
+        runCell,
+        runColumn,
+        runRow,
     };
 }

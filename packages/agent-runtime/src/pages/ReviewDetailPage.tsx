@@ -71,6 +71,9 @@ export function ReviewDetailPage({ manifest }: Props) {
         addDocument,
         removeDocument,
         runAllPending,
+        runCell,
+        runColumn,
+        runRow,
     } = useReview(matterId, reviewId);
     const matter = useMatter(matterId);
 
@@ -223,6 +226,7 @@ export function ReviewDetailPage({ manifest }: Props) {
                 ) : (
                     <ReviewGrid
                         snapshot={snapshot}
+                        busy={running}
                         onColumnClick={(c: ReviewColumn) =>
                             setColumnDialog({
                                 mode: 'edit',
@@ -258,6 +262,75 @@ export function ReviewDetailPage({ manifest }: Props) {
                                 })
                             ) {
                                 void removeDocument(d.id);
+                            }
+                        }}
+                        onColumnRun={async (c) => {
+                            setRunning(true);
+                            try {
+                                await runColumn({ columnId: c.id });
+                            } catch (err) {
+                                window.alert(
+                                    err instanceof Error ? err.message : 'Failed',
+                                );
+                            } finally {
+                                setRunning(false);
+                            }
+                        }}
+                        onColumnRegenerate={async (c) => {
+                            setRunning(true);
+                            try {
+                                await runColumn({
+                                    columnId: c.id,
+                                    regenerate: true,
+                                });
+                            } catch (err) {
+                                window.alert(
+                                    err instanceof Error ? err.message : 'Failed',
+                                );
+                            } finally {
+                                setRunning(false);
+                            }
+                        }}
+                        onRowRun={async (d) => {
+                            setRunning(true);
+                            try {
+                                await runRow({ reviewDocumentId: d.id });
+                            } catch (err) {
+                                window.alert(
+                                    err instanceof Error ? err.message : 'Failed',
+                                );
+                            } finally {
+                                setRunning(false);
+                            }
+                        }}
+                        onRowRegenerate={async (d) => {
+                            setRunning(true);
+                            try {
+                                await runRow({
+                                    reviewDocumentId: d.id,
+                                    regenerate: true,
+                                });
+                            } catch (err) {
+                                window.alert(
+                                    err instanceof Error ? err.message : 'Failed',
+                                );
+                            } finally {
+                                setRunning(false);
+                            }
+                        }}
+                        onCellRegenerate={async (col, doc) => {
+                            setRunning(true);
+                            try {
+                                await runCell({
+                                    columnId: col.id,
+                                    reviewDocumentId: doc.id,
+                                });
+                            } catch (err) {
+                                window.alert(
+                                    err instanceof Error ? err.message : 'Failed',
+                                );
+                            } finally {
+                                setRunning(false);
                             }
                         }}
                     />

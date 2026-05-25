@@ -62,6 +62,7 @@ import { createChatRouter } from './chat-route.js';
 import { buildDocumentTools } from './document-tools.js';
 import { createDocumentsRouter } from './documents-router.js';
 import { createFilesRouter, InMemoryFileStore } from './files-route.js';
+import { buildLocalRunCellAdapter } from './local-run-adapter.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createRedlineRouter } from './redline-router.js';
 import { createAvatarsRouter } from './personas-avatars.js';
@@ -619,6 +620,22 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
           store: gridReviewsStore,
           getWorkspaceId: (req) =>
             (req as unknown as { _matterId?: string })._matterId ?? '',
+          // Wire the local (non-KB) run adapter when both prerequisites
+          // are configured. Without an opts.agent the chat surface is
+          // also down (so cells couldn't run anyway); without
+          // markitdownBaseUrl conversion would fail at runtime, so we
+          // gate at boot rather than per-call. When either is missing
+          // the package's default 501 stays — host UI surfaces a toast.
+          ...(opts.agent && markitdownBaseUrl
+            ? {
+                runAdapter: buildLocalRunCellAdapter({
+                  fileStore,
+                  markitdownBaseUrl,
+                  agent: opts.agent,
+                  fetchImpl: markitdownFetch,
+                }),
+              }
+            : {}),
         }),
       );
     }

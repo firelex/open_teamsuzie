@@ -1489,6 +1489,9 @@ importers:
       '@teamsuzie/chats':
         specifier: workspace:*
         version: link:../chats
+      '@teamsuzie/citations':
+        specifier: workspace:*
+        version: link:../citations
       '@teamsuzie/db-sqlite':
         specifier: workspace:*
         version: link:../db-sqlite
@@ -1507,6 +1510,9 @@ importers:
       '@teamsuzie/grid-review':
         specifier: workspace:*
         version: link:../grid-review
+      '@teamsuzie/grid-review-rag':
+        specifier: workspace:*
+        version: link:../grid-review-rag
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document
