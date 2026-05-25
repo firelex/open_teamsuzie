@@ -83,7 +83,7 @@ export class ReviewsStore {
         const now = this.clock();
         prepareCached<[string, string, string, string | null, number, number]>(
             this.db,
-            `INSERT INTO reviews (id, workspace_id, name, description, created_at, updated_at)
+            `INSERT INTO grid_reviews(id, workspace_id, name, description, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?)`,
         ).run(id, input.workspaceId, input.name, input.description ?? null, now, now);
         return this.getReview(id)!;
@@ -92,7 +92,7 @@ export class ReviewsStore {
     getReview(id: string): Review | null {
         const row = prepareCached<[string], ReviewRow>(
             this.db,
-            `SELECT * FROM reviews WHERE id = ?`,
+            `SELECT * FROM grid_reviews WHERE id = ?`,
         ).get(id);
         return row ? rowToReview(row) : null;
     }
@@ -100,7 +100,7 @@ export class ReviewsStore {
     listReviews(workspaceId: string): Review[] {
         return prepareCached<[string], ReviewRow>(
             this.db,
-            `SELECT * FROM reviews WHERE workspace_id = ? ORDER BY created_at DESC`,
+            `SELECT * FROM grid_reviews WHERE workspace_id = ? ORDER BY created_at DESC`,
         )
             .all(workspaceId)
             .map(rowToReview);
@@ -117,7 +117,7 @@ export class ReviewsStore {
         };
         prepareCached<[string, string | null, number, string]>(
             this.db,
-            `UPDATE reviews SET name = ?, description = ?, updated_at = ? WHERE id = ?`,
+            `UPDATE grid_reviews SET name = ?, description = ?, updated_at = ? WHERE id = ?`,
         ).run(next.name, next.description, now, id);
         return this.getReview(id);
     }
@@ -125,7 +125,7 @@ export class ReviewsStore {
     deleteReview(id: string): boolean {
         const result = prepareCached<[string]>(
             this.db,
-            `DELETE FROM reviews WHERE id = ?`,
+            `DELETE FROM grid_reviews WHERE id = ?`,
         ).run(id);
         return result.changes > 0;
     }
@@ -139,7 +139,7 @@ export class ReviewsStore {
             [string, string, string, string, string, number, number, number]
         >(
             this.db,
-            `INSERT INTO review_columns (id, review_id, title, prompt, format, position, created_at, updated_at)
+            `INSERT INTO grid_review_columns(id, review_id, title, prompt, format, position, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
             id,
@@ -157,7 +157,7 @@ export class ReviewsStore {
     getColumn(id: string): ReviewColumn | null {
         const row = prepareCached<[string], ColumnRow>(
             this.db,
-            `SELECT * FROM review_columns WHERE id = ?`,
+            `SELECT * FROM grid_review_columns WHERE id = ?`,
         ).get(id);
         return row ? rowToColumn(row) : null;
     }
@@ -165,7 +165,7 @@ export class ReviewsStore {
     listColumns(reviewId: string): ReviewColumn[] {
         return prepareCached<[string], ColumnRow>(
             this.db,
-            `SELECT * FROM review_columns WHERE review_id = ? ORDER BY position, created_at`,
+            `SELECT * FROM grid_review_columns WHERE review_id = ? ORDER BY position, created_at`,
         )
             .all(reviewId)
             .map(rowToColumn);
@@ -183,7 +183,7 @@ export class ReviewsStore {
         };
         prepareCached<[string, string, string, number, number, string]>(
             this.db,
-            `UPDATE review_columns
+            `UPDATE grid_review_columns
              SET title = ?, prompt = ?, format = ?, position = ?, updated_at = ?
              WHERE id = ?`,
         ).run(next.title, next.prompt, next.format, next.position, now, id);
@@ -193,7 +193,7 @@ export class ReviewsStore {
     removeColumn(id: string): boolean {
         const result = prepareCached<[string]>(
             this.db,
-            `DELETE FROM review_columns WHERE id = ?`,
+            `DELETE FROM grid_review_columns WHERE id = ?`,
         ).run(id);
         return result.changes > 0;
     }
@@ -207,7 +207,7 @@ export class ReviewsStore {
             [string, string, string, string, string | null, number, number]
         >(
             this.db,
-            `INSERT INTO review_documents
+            `INSERT INTO grid_review_documents
              (id, review_id, external_doc_id, name, mime_type, position, added_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
         ).run(
@@ -225,7 +225,7 @@ export class ReviewsStore {
     getDocument(id: string): ReviewDocument | null {
         const row = prepareCached<[string], DocumentRow>(
             this.db,
-            `SELECT * FROM review_documents WHERE id = ?`,
+            `SELECT * FROM grid_review_documents WHERE id = ?`,
         ).get(id);
         return row ? rowToDocument(row) : null;
     }
@@ -233,7 +233,7 @@ export class ReviewsStore {
     listDocuments(reviewId: string): ReviewDocument[] {
         return prepareCached<[string], DocumentRow>(
             this.db,
-            `SELECT * FROM review_documents WHERE review_id = ? ORDER BY position, added_at`,
+            `SELECT * FROM grid_review_documents WHERE review_id = ? ORDER BY position, added_at`,
         )
             .all(reviewId)
             .map(rowToDocument);
@@ -242,7 +242,7 @@ export class ReviewsStore {
     removeDocument(id: string): boolean {
         const result = prepareCached<[string]>(
             this.db,
-            `DELETE FROM review_documents WHERE id = ?`,
+            `DELETE FROM grid_review_documents WHERE id = ?`,
         ).run(id);
         return result.changes > 0;
     }
@@ -262,10 +262,10 @@ export class ReviewsStore {
     ): number {
         const result = prepareCached<[string, string]>(
             this.db,
-            `DELETE FROM review_documents
+            `DELETE FROM grid_review_documents
               WHERE external_doc_id = ?
                 AND review_id IN (
-                  SELECT id FROM reviews WHERE workspace_id = ?
+                  SELECT id FROM grid_reviews WHERE workspace_id = ?
                 )`,
         ).run(externalDocId, workspaceId);
         return result.changes;
@@ -288,7 +288,7 @@ export class ReviewsStore {
                 [string, string | null, string | null, string | null, number, string]
             >(
                 this.db,
-                `UPDATE review_cells
+                `UPDATE grid_review_cells
                  SET status = ?, value = ?, citations = ?, error = ?, updated_at = ?
                  WHERE id = ?`,
             ).run(next.status, next.value, next.citations, next.error, now, existing.id);
@@ -309,7 +309,7 @@ export class ReviewsStore {
             ]
         >(
             this.db,
-            `INSERT INTO review_cells
+            `INSERT INTO grid_review_cells
              (id, review_id, column_id, review_document_id, status, value, citations, error, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
@@ -329,7 +329,7 @@ export class ReviewsStore {
     getCell(columnId: string, reviewDocumentId: string): ReviewCell | null {
         const row = prepareCached<[string, string], CellRow>(
             this.db,
-            `SELECT * FROM review_cells WHERE column_id = ? AND review_document_id = ?`,
+            `SELECT * FROM grid_review_cells WHERE column_id = ? AND review_document_id = ?`,
         ).get(columnId, reviewDocumentId);
         return row ? rowToCell(row) : null;
     }
@@ -337,7 +337,7 @@ export class ReviewsStore {
     getCellById(id: string): ReviewCell | null {
         const row = prepareCached<[string], CellRow>(
             this.db,
-            `SELECT * FROM review_cells WHERE id = ?`,
+            `SELECT * FROM grid_review_cells WHERE id = ?`,
         ).get(id);
         return row ? rowToCell(row) : null;
     }
@@ -345,7 +345,7 @@ export class ReviewsStore {
     listCells(reviewId: string): ReviewCell[] {
         return prepareCached<[string], CellRow>(
             this.db,
-            `SELECT * FROM review_cells WHERE review_id = ?`,
+            `SELECT * FROM grid_review_cells WHERE review_id = ?`,
         )
             .all(reviewId)
             .map(rowToCell);
@@ -355,7 +355,7 @@ export class ReviewsStore {
         const now = this.clock();
         const result = prepareCached<[string, string | null, number, string]>(
             this.db,
-            `UPDATE review_cells SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
+            `UPDATE grid_review_cells SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
         ).run(status, error, now, id);
         if (result.changes === 0) return null;
         return this.getCellById(id);
@@ -370,7 +370,7 @@ export class ReviewsStore {
     recoverStaleStreaming(): number {
         const result = prepareCached<[number]>(
             this.db,
-            `UPDATE review_cells SET status = 'pending', updated_at = ?
+            `UPDATE grid_review_cells SET status = 'pending', updated_at = ?
              WHERE status = 'streaming'`,
         ).run(this.clock());
         return result.changes;

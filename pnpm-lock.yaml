@@ -1504,6 +1504,9 @@ importers:
       '@teamsuzie/docx-diff':
         specifier: workspace:*
         version: link:../docx-diff
+      '@teamsuzie/grid-review':
+        specifier: workspace:*
+        version: link:../grid-review
       '@teamsuzie/markdown-document':
         specifier: workspace:*
         version: link:../markdown-document

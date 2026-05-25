@@ -18,6 +18,11 @@ import {
   createReviewsRouter, REVIEWS_MIGRATIONS, ReviewsStore,
 } from '@teamsuzie/reviews';
 import {
+  createReviewsRouter as createGridReviewsRouter,
+  REVIEWS_MIGRATIONS as GRID_REVIEWS_MIGRATIONS,
+  ReviewsStore as GridReviewsStore,
+} from '@teamsuzie/grid-review';
+import {
   DocumentVersionsStore, DOCUMENT_VERSIONS_MIGRATIONS,
 } from '@teamsuzie/document-versions';
 import {
@@ -132,6 +137,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       ...DOCUMENT_VERSIONS_MIGRATIONS,
       ...WORKSPACES_MIGRATIONS,
       ...SHARING_MIGRATIONS,
+      ...GRID_REVIEWS_MIGRATIONS,
     ],
   });
 
@@ -144,6 +150,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const versionsStore = new DocumentVersionsStore({ db });
   const workspacesStore = new WorkspacesStore({ db });
   const membersStore = new MembersStore({ db });
+  const gridReviewsStore = new GridReviewsStore({ db });
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
   const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
@@ -491,6 +498,38 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       }),
     );
 
+    // Matter-scoped grid reviews — tabular document review (rows=docs,
+    // columns=prompts, cells=LLM-generated answers). Lights up only when
+    // both modules.matters and modules.reviews are on, so a build can
+    // pick the matter surface without auto-mounting the library-page
+    // reviews (which uses the unrelated @teamsuzie/reviews package on
+    // /api/reviews).
+    //
+    // Same Express-5 parent-params caveat as the chats mount above —
+    // stash matterId before the sub-router so getWorkspaceId can read it.
+    //
+    // runAdapter is intentionally omitted: matter-doc cell-running needs
+    // a KB run-adapter (buildRagRunCellAdapter in @teamsuzie/grid-review-rag)
+    // which depends on the vector-db not yet wired into agent-runtime
+    // (see docs/GAPS.md #5). Without it, POST /:reviewId/run returns
+    // 501 from the package — every other CRUD route works.
+    if (resolveModules(manifestStore.get()).reviews) {
+      app.use(
+        '/api/matters/:matterId/reviews',
+        (req, _res, next) => {
+          (req as unknown as { _matterId?: string })._matterId = String(
+            req.params.matterId ?? '',
+          );
+          next();
+        },
+        createGridReviewsRouter({
+          store: gridReviewsStore,
+          getWorkspaceId: (req) =>
+            (req as unknown as { _matterId?: string })._matterId ?? '',
+        }),
+      );
+    }
+
     // Multipart upload → file bucket (matterId) + workspace_documents row.
     app.use(
       '/api/matters',
@@ -517,6 +556,13 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         },
         onWorkspaceRemoved: (workspaceId) => {
           membersStore.removeMembersFor({ type: SUBJECT_MATTER, id: workspaceId });
+          // Grid-review schema has no cross-package FK to workspaces, so
+          // cascade explicitly: list every review in the matter and
+          // delete it (within-review rows cascade via the package's own
+          // FKs). Idempotent — a no-reviews matter walks an empty list.
+          for (const r of gridReviewsStore.listReviews(workspaceId)) {
+            gridReviewsStore.deleteReview(r.id);
+          }
         },
       }),
     );

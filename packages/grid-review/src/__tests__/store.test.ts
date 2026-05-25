@@ -61,10 +61,10 @@ describe('migrations', () => {
             )
             .all()
             .map((r) => r.name);
-        expect(tables).toContain('reviews');
-        expect(tables).toContain('review_columns');
-        expect(tables).toContain('review_documents');
-        expect(tables).toContain('review_cells');
+        expect(tables).toContain('grid_reviews');
+        expect(tables).toContain('grid_review_columns');
+        expect(tables).toContain('grid_review_documents');
+        expect(tables).toContain('grid_review_cells');
         fresh.close();
     });
 });
