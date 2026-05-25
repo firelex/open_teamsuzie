@@ -158,6 +158,60 @@ describe('POST /api/chat', () => {
     expect(observedContent).toBe('hi');
   });
 
+  it('merges buildPerTurnTools output with the static tools list', async () => {
+    let observedToolNames: string[] = [];
+    const staticTool = {
+      name: 'static_tool', description: 'x', parameters: { type: 'object' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      execute: async () => ({}),
+    } as any;
+    const perTurnTool = {
+      name: 'per_turn_tool', description: 'y', parameters: { type: 'object' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      execute: async () => ({}),
+    } as any;
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      tools: [staticTool],
+      buildPerTurnTools: (sid) => sid === 'sess-1' ? [perTurnTool] : [],
+      runChatTurn: async function* mock(opts) {
+        observedToolNames = opts.tools.map((t) => t.name);
+        yield { type: 'done' };
+      },
+    }));
+    await request(app).post('/api/chat').send({ message: 'hi', sessionId: 'sess-1' });
+    expect(observedToolNames).toEqual(expect.arrayContaining(['static_tool', 'per_turn_tool']));
+  });
+
+  it('per-turn tools override static tools with the same name', async () => {
+    let observedTool: { description: string } | undefined;
+    const staticTool = {
+      name: 'shared', description: 'static-version', parameters: { type: 'object' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      execute: async () => ({}),
+    } as any;
+    const perTurnTool = {
+      name: 'shared', description: 'per-turn-version', parameters: { type: 'object' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      execute: async () => ({}),
+    } as any;
+    const app = express();
+    app.use(express.json());
+    app.use('/api/chat', createChatRouter({
+      ...baseDeps,
+      tools: [staticTool],
+      buildPerTurnTools: () => [perTurnTool],
+      runChatTurn: async function* mock(opts) {
+        observedTool = opts.tools.find((t) => t.name === 'shared');
+        yield { type: 'done' };
+      },
+    }));
+    await request(app).post('/api/chat').send({ message: 'hi', sessionId: 'sess-1' });
+    expect(observedTool?.description).toBe('per-turn-version');
+  });
+
   it('propagates body.sessionId onto toolCtx.sessionId', async () => {
     let observedSessionId: string | undefined = undefined;
     const app = express();

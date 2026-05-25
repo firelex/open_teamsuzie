@@ -17,6 +17,14 @@ export interface BuildDocumentToolsOptions {
    * `export_to_docx` are not registered.
    */
   markitdownBaseUrl: string;
+  /**
+   * When false, the drafting tools (`create_document`, `set_outline`,
+   * `write_section`, `revise_section`, `append_section`, `delete_section`,
+   * `export_to_docx`) are omitted. `convert_to_markdown` + navigation
+   * tools are always included since they're read-only and harmless.
+   * Default: true.
+   */
+  includeDrafting?: boolean;
   /** Optional fetch override (tests). */
   fetchImpl?: typeof fetch;
 }
@@ -43,7 +51,10 @@ function generateExportFileId(): string {
  * per turn so the closure-captured sessionId stays fresh.
  */
 export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefinition[] {
-  const { sessionId, fileStore, docStore, markitdownBaseUrl, fetchImpl } = opts;
+  const {
+    sessionId, fileStore, docStore, markitdownBaseUrl, fetchImpl,
+    includeDrafting = true,
+  } = opts;
 
   const convertTool: AnyToolDefinition = {
     name: 'convert_to_markdown',
@@ -122,13 +133,18 @@ export function buildDocumentTools(opts: BuildDocumentToolsOptions): AnyToolDefi
     };
   };
 
-  return [
+  const tools: AnyToolDefinition[] = [
     convertTool,
     ...documentNavigationTools({ store: docStore, getSessionId: () => sessionId }),
-    ...documentDraftingTools({
-      store: docStore,
-      getSessionId: () => sessionId,
-      ...(markitdownBaseUrl ? { exportToDocx } : {}),
-    }),
   ];
+  if (includeDrafting) {
+    tools.push(
+      ...documentDraftingTools({
+        store: docStore,
+        getSessionId: () => sessionId,
+        ...(markitdownBaseUrl ? { exportToDocx } : {}),
+      }),
+    );
+  }
+  return tools;
 }

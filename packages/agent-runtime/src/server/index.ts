@@ -17,7 +17,6 @@ import {
 import {
   createReviewsRouter, REVIEWS_MIGRATIONS, ReviewsStore,
 } from '@teamsuzie/reviews';
-import { buildConvertToMarkdownTool } from '@teamsuzie/document-conversion';
 import {
   DocumentVersionsStore, DOCUMENT_VERSIONS_MIGRATIONS,
 } from '@teamsuzie/document-versions';
@@ -44,6 +43,7 @@ import {
 import { loadExtensions } from '../extensions/index.js';
 import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
 import { createChatRouter } from './chat-route.js';
+import { buildDocumentTools } from './document-tools.js';
 import { createFilesRouter, InMemoryFileStore } from './files-route.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createRedlineRouter } from './redline-router.js';
@@ -243,18 +243,12 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const toolRegistry = new ToolRegistry();
   for (const t of builtInTools) toolRegistry.register(t);
 
-  // Conditional registration: convert_to_markdown is only useful when a
-  // markitdown-agent is reachable. Without it the model would call the
-  // tool and get an error on every invocation — better not to advertise.
-  if (markitdownBaseUrl) {
-    toolRegistry.register(buildConvertToMarkdownTool({
-      fileStore,
-      markitdownBaseUrl,
-      fetchImpl: markitdownFetch,
-    }));
-  }
+  // `convert_to_markdown` + navigation tools come from the per-turn
+  // `buildDocumentTools` bundle below (which the chat-route invokes with
+  // the live sessionId). Drafting tools are gated on `modules.drafting`.
 
   const redlineEnabled = Boolean(manifest.modules?.redline);
+  const draftingEnabled = Boolean(manifest.modules?.drafting);
   if (markitdownBaseUrl && redlineEnabled) {
     toolRegistry.register(buildProposeDocumentEditsTool({
       fileStore,
@@ -378,6 +372,14 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       workspaceId: 'assistant:default',
       defaultSystemPrompt: manifestStore.get().persona.systemPrompt,
       tools: toolRegistry.list(),
+      buildPerTurnTools: (sessionId) => buildDocumentTools({
+        sessionId,
+        fileStore,
+        docStore,
+        markitdownBaseUrl,
+        fetchImpl: markitdownFetch,
+        includeDrafting: draftingEnabled,
+      }),
       toolCtx: { approvals, vectorDbBaseUrl: '' },
       fileStore,
       runChatTurn,

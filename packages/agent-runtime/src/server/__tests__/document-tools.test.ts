@@ -66,6 +66,19 @@ describe('buildDocumentTools', () => {
     expect(names).not.toContain('export_to_docx');
   });
 
+  it('omits all drafting tools when includeDrafting=false (convert + nav still present)', () => {
+    const { fileStore, docStore } = makeStores();
+    const tools = buildDocumentTools({
+      sessionId: 'sess', fileStore, docStore,
+      markitdownBaseUrl: 'http://md.test', includeDrafting: false,
+    });
+    const names = tools.map((t) => t.name);
+    expect(names).toContain('convert_to_markdown');
+    expect(names).toContain('get_outline');
+    expect(names).not.toContain('create_document');
+    expect(names).not.toContain('export_to_docx');
+  });
+
   it('export_to_docx stashes DOCX in fileStore and returns a download URL', async () => {
     const { fileStore, docStore } = makeStores();
     // markitdown-agent stub: returns a tiny DOCX blob.

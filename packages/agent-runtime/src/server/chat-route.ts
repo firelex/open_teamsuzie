@@ -35,6 +35,14 @@ export interface CreateChatRouterDeps {
   defaultSystemPrompt?: string;
   /** Tools available to the chat loop. Default: []. */
   tools?: AnyToolDefinition[];
+  /**
+   * Optional per-turn tool factory. Returns tools that need a live
+   * sessionId baked in via closure (e.g. the markdown-document drafting
+   * tools, which take `getSessionId: () => string` at factory time
+   * rather than reading it from the per-call ctx). Merged with `tools`
+   * for the turn; tool names override the static list on collision.
+   */
+  buildPerTurnTools?: (sessionId: string) => AnyToolDefinition[];
   /** Tool execution context. Required for any non-empty `tools`. */
   toolCtx: ToolContext;
   /** Cap on tool-call iterations. Default: 30. */
@@ -84,9 +92,21 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
       ? deps.personaRegistry.get(persistedChat.personaId, deps.ownerId)
       : null;
 
+    // Static (registry) tools + per-turn tools that close over the live
+    // sessionId. Per-turn names take precedence so a per-turn convert tool
+    // overrides any registry default with the same name.
+    const perTurnTools = deps.buildPerTurnTools && sessionId
+      ? deps.buildPerTurnTools(sessionId)
+      : [];
+    const perTurnNames = new Set(perTurnTools.map((t) => t.name));
+    const mergedTools: AnyToolDefinition[] = [
+      ...(deps.tools ?? []).filter((t) => !perTurnNames.has(t.name)),
+      ...perTurnTools,
+    ];
+
     const turnConfig = applyPersona({
       defaultSystemPrompt: deps.defaultSystemPrompt,
-      tools: deps.tools ?? [],
+      tools: mergedTools,
       persona,
     });
 
