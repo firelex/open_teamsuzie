@@ -1690,6 +1690,18 @@ importers:
         specifier: ^5.7.3
         version: 5.8.3
 
+  packages/crypto:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
+
   packages/db-client:
     dependencies:
       '@teamsuzie/types':
@@ -1974,12 +1986,21 @@ importers:
         specifier: ^5.1.0
         version: 5.2.1
     devDependencies:
+      '@teamsuzie/crypto':
+        specifier: workspace:*
+        version: link:../crypto
       '@types/express':
         specifier: ^5.0.3
         version: 5.0.6
       '@types/node':
         specifier: ^22.10.5
         version: 22.19.17
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       typescript:
         specifier: ^5.7.3
         version: 5.8.3
@@ -2117,6 +2138,9 @@ importers:
 
   packages/shared-auth:
     dependencies:
+      '@teamsuzie/crypto':
+        specifier: workspace:*
+        version: link:../crypto
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3

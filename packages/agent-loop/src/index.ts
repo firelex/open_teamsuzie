@@ -19,8 +19,15 @@ export type { AgentTargetOverride, AgentTargetRegistry } from './resolve-agent.j
 export { LOCAL_MODELS, buildLocalAgentRegistry } from './local-models.js';
 export type { LocalModel } from './local-models.js';
 
-export { validateLocalAgentUrl } from './validate-local-url.js';
-export type { ValidateLocalUrlResult } from './validate-local-url.js';
+export {
+  validateLocalAgentUrl,
+  validateProviderUrl,
+} from './validate-local-url.js';
+export type {
+  ValidateLocalUrlResult,
+  ValidateProviderUrlOptions,
+  UrlPolicy,
+} from './validate-local-url.js';
 
 // Skills bridge
 export { loadSkills } from './skills.js';

@@ -1,8 +1,13 @@
-export { ModelSettingsStore } from './store.js';
+export { ModelSettingsStore, SUITE_OWNER_ID } from './store.js';
 export type {
   ModelSettingsStoreOptions,
   ModelSettingPublic,
   ProviderKeyPublic,
+  ProviderDef,
+  ProviderModelDef,
+  EncryptionAdapter,
+  StoreScope,
+  ResolvedDefault,
 } from './store.js';
 
 export { createModelSettingsRouter } from './router.js';

@@ -24,7 +24,7 @@ describe('provider keys migration', () => {
       .map((r) => r.name)
       .sort();
     expect(cols).toEqual(
-      ['api_key', 'owner_id', 'provider_id', 'updated_at'].sort(),
+      ['api_key', 'base_url', 'model', 'owner_id', 'provider_id', 'updated_at'].sort(),
     );
   });
 });
@@ -89,8 +89,22 @@ describe('publicProviderKeys', () => {
   it('returns one row per requested provider with hasKey=false when unset', () => {
     const out = store.publicProviderKeys('u@e.com', ['openai', 'dashscope']);
     expect(out).toEqual([
-      { providerId: 'openai', hasKey: false, updatedAt: 0 },
-      { providerId: 'dashscope', hasKey: false, updatedAt: 0 },
+      {
+        providerId: 'openai',
+        hasKey: false,
+        baseUrl: null,
+        hasBaseUrlOverride: false,
+        model: null,
+        updatedAt: 0,
+      },
+      {
+        providerId: 'dashscope',
+        hasKey: false,
+        baseUrl: null,
+        hasBaseUrlOverride: false,
+        model: null,
+        updatedAt: 0,
+      },
     ]);
   });
 
@@ -113,7 +127,14 @@ describe('publicProviderKeys', () => {
     store.setProviderKey('u@e.com', 'openai', 'sk-test');
     const out = store.publicProviderKeys(null, ['openai']);
     expect(out).toEqual([
-      { providerId: 'openai', hasKey: false, updatedAt: 0 },
+      {
+        providerId: 'openai',
+        hasKey: false,
+        baseUrl: null,
+        hasBaseUrlOverride: false,
+        model: null,
+        updatedAt: 0,
+      },
     ]);
   });
 });

@@ -1,7 +1,7 @@
 {
-  "name": "@teamsuzie/model-settings",
+  "name": "@teamsuzie/crypto",
   "version": "0.1.0",
-  "description": "Per-user overrides for the local-model agent registry — SQLite store + Express router. Pairs with @teamsuzie/agent-loop's validateLocalAgentUrl + resolveAgentTarget.",
+  "description": "Zero-dependency AES-256-GCM + key-hash helpers shared by Team Suzie services. Extracted so callers (PE settings host, shared-auth, future thin services) don't each duplicate byte-compatible crypto.",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -21,17 +21,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@teamsuzie/agent-loop": "workspace:*",
-    "@teamsuzie/db-sqlite": "workspace:*",
-    "express": "^5.1.0"
-  },
   "devDependencies": {
-    "@teamsuzie/crypto": "workspace:*",
-    "@types/express": "^5.0.3",
     "@types/node": "^22.10.5",
-    "@types/supertest": "^6.0.2",
-    "supertest": "^7.0.0",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18"
   }
