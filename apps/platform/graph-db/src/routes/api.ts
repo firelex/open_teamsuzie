@@ -45,7 +45,7 @@ const SearchSchema = z.object({
 const CypherQuerySchema = z.object({
     query: z.string().min(1),
     params: z.record(z.unknown()).optional(),
-    scopes: z.array(ScopeRefSchema).optional()
+    scopes: z.array(ScopeRefSchema).min(1)
 });
 
 // POST /api/v1/entities - Create or update entity
@@ -239,17 +239,27 @@ router.post('/v1/query/cypher', async (req: Request, res: Response) => {
     try {
         const body = CypherQuerySchema.parse(req.body);
 
-        // Security: Only allow read operations
+        // Security: Only allow plain read operations. CALL is rejected because
+        // Neo4j/APOC procedures may bypass scope filtering, hit the filesystem,
+        // or expose admin functions depending on plugin configuration — we
+        // cannot enforce read-only-ness on them from the proxy.
         const query = body.query.trim().toUpperCase();
-        if (!query.startsWith('MATCH') && !query.startsWith('RETURN') && !query.startsWith('CALL')) {
+        if (!query.startsWith('MATCH') && !query.startsWith('RETURN')) {
             res.status(400).json({
                 success: false,
-                error: 'Only read operations (MATCH, RETURN, CALL) are allowed'
+                error: 'Only MATCH/RETURN queries are allowed (CALL is rejected)'
             });
             return;
         }
 
-        const results = await neo4jService.runQuery(body.query, body.params);
+        // Inject the caller-supplied scopes as `$scopes` so the query can use
+        // them in `WHERE n.scope_key IN $scopes` style filters. Caller-supplied
+        // params cannot override the scopes — the spread order guarantees the
+        // authenticated value wins.
+        const scopeKeys = body.scopes.map((s) => `${s.scope}:${s.scope_id ?? '*'}`);
+        const params = { ...body.params, scopes: scopeKeys };
+
+        const results = await neo4jService.runQuery(body.query, params);
 
         res.json({
             success: true,

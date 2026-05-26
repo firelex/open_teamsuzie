@@ -109,6 +109,9 @@ export async function setupTestApp(): Promise<TestApp> {
     // runSeed stays on so admin + demo users exist for auth tests.
     runSeed: true,
     runConfigSeed: true,
+    // supertest doesn't do the CSRF cookie → header dance the SPA does;
+    // tests rely on the session cookie alone. CSRF stays on in dev + prod.
+    enableCsrf: false,
   });
 
   const request = supertest.agent(admin.app);

@@ -11,6 +11,7 @@ import {
   AuditLog,
   ConfigDefinition,
   ConfigValue,
+  CsrfMiddleware,
   OrgDomain,
   Organization,
   OrganizationMember,
@@ -67,6 +68,14 @@ export interface CreateAppOptions {
   runConfigSeed?: boolean;
   /** Subscribe to the llm-proxy's `usage:events` Redis channel and persist rows. Defaults to true. */
   runUsageCollector?: boolean;
+  /**
+   * Mount CsrfMiddleware on browser-session writes. Defaults to true. Tests
+   * (which drive routes via supertest with no XHR cookie-to-header dance)
+   * pass `false` and rely on the server-side session cookie alone for
+   * attribution; security model still holds in dev + prod where this stays
+   * enabled.
+   */
+  enableCsrf?: boolean;
 }
 
 export interface AdminApp {
@@ -87,6 +96,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AdminAp
   const runSeed = options.runSeed ?? config.nodeEnv === 'development';
   const runConfigSeed = options.runConfigSeed ?? true;
   const runUsageCollector = options.runUsageCollector ?? true;
+  const enableCsrf = options.enableCsrf ?? true;
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const clientDistDir = path.resolve(__dirname, '../client/dist');
@@ -141,6 +151,17 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AdminAp
 
   const sessionService = new SessionService(sharedAuthConfig);
   sessionService.init(app);
+
+  // CSRF for the browser/session auth lane. Bearer-auth requests (CLI tokens,
+  // service-to-service) short-circuit inside the middleware via the
+  // Authorization header check. /api/health is excluded so liveness probes
+  // work without a session. Token creation/revocation under /api/auth/tokens
+  // is deliberately NOT excluded — those are SPA writes over a session cookie
+  // and must be CSRF-protected per docs/SECURITY_MODEL.md.
+  if (enableCsrf) {
+    const csrfMiddleware = new CsrfMiddleware(sharedAuthConfig, ['/api/health']);
+    app.use(csrfMiddleware.checkCsrf);
+  }
 
   const configService = new ConfigService(config.configSecret);
   if (runConfigSeed) {

@@ -1,8 +1,11 @@
 import { Router, type IRouter } from 'express';
 import type { Request, Response } from 'express';
 import { setAgentConfigs } from '../config.js';
+import { serviceAuthMiddleware } from '../middleware/service-auth.js';
 
 const router: IRouter = Router();
+
+router.use('/admin', serviceAuthMiddleware);
 
 /**
  * POST /admin/sync-agent-configs

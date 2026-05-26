@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import { createServiceAuth } from '@teamsuzie/shared-auth';
 import config from './config/index.js';
 import apiRouter from './routes/api.js';
 
@@ -14,7 +15,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// Health check
+// Health check (must be defined before service-auth so liveness probes work
+// without holding the shared INTERNAL_SERVICE_KEY)
 app.get('/api/health', async (_req, res) => {
     res.json({
         status: 'ok',
@@ -23,6 +25,13 @@ app.get('/api/health', async (_req, res) => {
         timestamp: new Date().toISOString()
     });
 });
+
+// Service-to-service auth: every /api/* call must carry INTERNAL_SERVICE_KEY.
+// The graph store is a backend service for the agent runtime + admin — it is
+// never called from a browser, and request bodies choose the scope (global /
+// org / agent), so an unauthenticated route would let any reachable caller
+// read or wipe arbitrary tenants' data.
+app.use('/api', createServiceAuth({ serviceKey: process.env.INTERNAL_SERVICE_KEY }));
 
 // API routes
 app.use('/api', apiRouter);

@@ -1,8 +1,11 @@
 import { Router, type IRouter } from 'express';
 import crypto from 'crypto';
 import { setProviderKeys } from '../config.js';
+import { serviceAuthMiddleware } from '../middleware/service-auth.js';
 
 const router: IRouter = Router();
+
+router.use('/admin', serviceAuthMiddleware);
 
 function keyFingerprint(value: string): string {
     return `${value.length}:${crypto.createHash('sha256').update(value).digest('hex').slice(0, 12)}`;
