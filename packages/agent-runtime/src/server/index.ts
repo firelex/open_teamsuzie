@@ -1108,3 +1108,9 @@ export async function startAgent(opts: StartAgentOptions): Promise<void> {
     console.log(`[agent-runtime] listening on http://localhost:${port}`);
   });
 }
+
+// Public re-exports of the chat router so downstream apps (e.g. SuzieCode's
+// build-scoped chat) can mount the same Express router with their own tools
+// without re-implementing the streaming protocol.
+export { createChatRouter } from './chat-route.js';
+export type { CreateChatRouterDeps } from './chat-route.js';
