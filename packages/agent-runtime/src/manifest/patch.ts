@@ -26,7 +26,7 @@ export function applyAnchorPatches(text: string, patches: AnchorPatch[]): ApplyR
   let buf = text;
   for (const patch of patches) {
     if (!patch.anchor) {
-      rejected.push({ anchor: patch.anchor, reason: 'not found' });
+      rejected.push({ anchor: patch.anchor, reason: 'not unique' });
       continue;
     }
     const firstIdx = buf.indexOf(patch.anchor);

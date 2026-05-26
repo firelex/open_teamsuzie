@@ -46,6 +46,12 @@ describe('applyAnchorPatches', () => {
     expect(out.applied).toHaveLength(1);
     expect(out.rejected).toHaveLength(1);
   });
+
+  it('treats an empty anchor as not unique', () => {
+    const out = applyAnchorPatches('xyz', [{ anchor: '', replacement: 'X' }]);
+    expect(out.result).toBe('xyz');
+    expect(out.rejected).toEqual([{ anchor: '', reason: 'not unique' }]);
+  });
 });
 
 describe('applyAndPersistPatches', () => {
