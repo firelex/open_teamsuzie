@@ -162,3 +162,11 @@ export { ManifestDiffView } from './components/ManifestDiffView.js';
 export type { ManifestDiffViewProps } from './components/ManifestDiffView.js';
 export { ManifestHistoryPanel } from './components/ManifestHistoryPanel.js';
 export type { ManifestHistoryPanelProps, HistoryRevision } from './components/ManifestHistoryPanel.js';
+export { ChatThread } from './components/chat-thread/ChatThread.js';
+export { useChatThreadStream, reduceEvents } from './components/chat-thread/use-chat-thread-stream.js';
+export type {
+  ChatThreadProps,
+  ChatThreadMessage,
+  ChatToolCall,
+  ChatStreamEvent,
+} from './components/chat-thread/types.js';

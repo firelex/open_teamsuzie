@@ -22,6 +22,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -63,6 +64,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/diff": "^5.2.0",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "vitest": "^3.0.0"
   }
 }
