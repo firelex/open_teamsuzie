@@ -131,7 +131,7 @@ export function CompareTable({
               {stats}
               {isStreaming && (
                 <span className="ml-2 inline-flex items-center gap-1 text-foreground">
-                  <span className="inline-block size-1.5 animate-pulse rounded-full bg-saffron-400" />
+                  <span className="inline-block size-1.5 animate-pulse rounded-full bg-[color:var(--color-accent)]" />
                   Synthesizing topics…
                 </span>
               )}

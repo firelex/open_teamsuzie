@@ -150,42 +150,96 @@
 }
 
 @layer utilities {
-  /* --- Bauhaus decorative utilities (mirror suzielaw) --- */
+  /* Canonical decorative classes (mirror starter-external-agent-teamsuzie).
+   * Same names across every starter; each starter implements them with its
+   * own design language. SuzieCode's set_theme tool can swap a build's CSS
+   * between starters and the agent-runtime React (which references these
+   * canonical names) keeps rendering correctly.
+   *
+   * Counsel's implementation: Archivo display + IBM Plex Mono numerics +
+   * saffron accent, bauhaus-restrained motion.
+   */
 
-  .text-saffron   { color: var(--color-saffron-400); }
-  .bg-saffron     { background-color: var(--color-saffron-400); }
-  .border-saffron { border-color: var(--color-saffron-400); }
-  .ring-saffron   { --tw-ring-color: var(--color-saffron-400); }
-
-  /* Hairline 1px rule — preferred separator on the parchment ground. */
-  .rule-hairline {
-    background-color: currentColor;
-    height: 1px;
-    opacity: 0.18;
+  /* Display heading — Archivo 800, tight tracking. */
+  .ts-display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
   }
 
-  /* Bold/mono section caps — engineering-doc feel for system labels. */
-  .label-caps {
-    font-family: var(--font-sans);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 0.6875rem;
-  }
-  .label-mono {
+  /* Mono small label — caps + IBM Plex Mono. */
+  .ts-mono-data {
     font-family: var(--font-mono);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.10em;
     font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Display headlines — Archivo 800, tight tracking. */
-  .display-hero {
-    font-family: var(--font-display);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 0.95;
+  /* Brand accents — counsel uses ink-on-saffron rather than violet. The
+   * gradient surfaces still receive the design's accent token at runtime
+   * via useThemeTokens (--color-accent / --color-primary). */
+  .ts-fancy-gradient {
+    background: linear-gradient(78deg, var(--color-primary), var(--color-accent));
+  }
+  .ts-text-fancy {
+    background: linear-gradient(78deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+  .ts-violet-glow {
+    box-shadow: 0 12px 32px -12px color-mix(in oklab, var(--color-primary) 35%, transparent);
+  }
+  .ts-violet-ring {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 12%, transparent);
+  }
+  .ts-atmosphere {
+    position: relative;
+    isolation: isolate;
+  }
+  .ts-atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: -10% -20%;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 22% 30%, color-mix(in oklab, var(--color-primary) 18%, transparent), transparent 55%),
+      radial-gradient(circle at 78% 70%, color-mix(in oklab, var(--color-accent)  12%, transparent), transparent 60%);
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  /* Eyebrow + brand chip — counsel pulls from the saffron ramp via
+   * --color-accent (set to saffron by the active theme). */
+  .ts-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--color-accent);
+  }
+  .ts-brand-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklab, var(--color-accent) 20%, var(--color-background));
+    background: color-mix(in oklab, var(--color-accent) 8%, var(--color-background));
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Hairline 1px rule — counsel's signature separator. */
+  .rule-hairline {
+    background-color: currentColor;
+    height: 1px;
+    opacity: 0.18;
   }
 
   /* Grid-rule backdrop — faint vertical lines for hero sections. */
@@ -211,21 +265,20 @@
   .typing-dot:nth-child(2) { animation-delay: 0.15s; }
   .typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
-  @keyframes bauhaus-stagger-in {
+  /* Staggered reveal — canonical class + data-delay attribute. */
+  @keyframes ts-fade-in-up {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .stagger-in {
-    animation: bauhaus-stagger-in 0.5s ease-out both;
+  .ts-reveal {
+    animation: ts-fade-in-up 0.5s ease-out both;
   }
-  .stagger-in-1 { animation-delay: 0.05s; }
-  .stagger-in-2 { animation-delay: 0.15s; }
-  .stagger-in-3 { animation-delay: 0.25s; }
-  .stagger-in-4 { animation-delay: 0.35s; }
-  .stagger-in-5 { animation-delay: 0.45s; }
-  .stagger-in-6 { animation-delay: 0.55s; }
+  .ts-reveal[data-delay="1"] { animation-delay: 0.05s; }
+  .ts-reveal[data-delay="2"] { animation-delay: 0.15s; }
+  .ts-reveal[data-delay="3"] { animation-delay: 0.25s; }
+  .ts-reveal[data-delay="4"] { animation-delay: 0.35s; }
 
   @media (prefers-reduced-motion: reduce) {
-    .typing-dot, .stagger-in { animation: none; }
+    .typing-dot, .ts-reveal { animation: none; }
   }
 }

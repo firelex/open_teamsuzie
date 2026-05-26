@@ -125,6 +125,16 @@
     pointer-events: none;
   }
 
+  /* Display heading — hero-scale type on the assistant landing.
+   * Each starter implements .ts-display with its own display font and
+   * weight; TeamSuzie keeps Inter (sans does double-duty as display). */
+  .ts-display {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
   /* Eyebrow — admin's signature category tag. */
   .ts-eyebrow {
     font-size: 10px;

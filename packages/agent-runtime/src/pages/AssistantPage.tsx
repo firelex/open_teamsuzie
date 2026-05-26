@@ -171,19 +171,19 @@ function Greeting({
   const salutation = useMemo(() => greetingFor(new Date()), []);
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col justify-center px-6 py-16">
-      <h1 className="display-hero stagger-in stagger-in-1 text-[clamp(38px,5vw,64px)] text-foreground">
+      <h1 className="ts-display ts-reveal text-[clamp(38px,5vw,64px)] text-foreground" data-delay="1">
         {salutation}
       </h1>
-      <p className="stagger-in stagger-in-2 mt-3 text-[15px] leading-[1.55] text-muted-foreground">
+      <p className="ts-reveal mt-3 text-[15px] leading-[1.55] text-muted-foreground" data-delay="2">
         How can {name} help today?
       </p>
-      <div className="stagger-in stagger-in-3 mt-10 grid gap-3 sm:grid-cols-2">
+      <div className="ts-reveal mt-10 grid gap-3 sm:grid-cols-2" data-delay="3">
         {prompts.map((card) => (
           <button
             key={card.title}
             type="button"
             onClick={() => onSelect(card.prompt || card.title)}
-            className="group rounded-[2px] border border-border bg-card p-5 text-left transition-colors hover:border-foreground/40 hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400"
+            className="group rounded-[2px] border border-border bg-card p-5 text-left transition-colors hover:border-foreground/40 hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)]"
           >
             <h3 className="text-[15px] font-semibold leading-[1.3] tracking-[-0.005em] text-foreground">
               {card.title}
@@ -781,8 +781,8 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
       <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-12 items-center justify-between border-b border-border px-6">
         <div className="flex items-center gap-2.5">
-          <span className="inline-block size-1.5 rounded-full bg-saffron-400" aria-hidden />
-          <span className="label-mono text-foreground">{agentName}</span>
+          <span className="inline-block size-1.5 rounded-full bg-[color:var(--color-accent)]" aria-hidden />
+          <span className="ts-mono-data text-foreground">{agentName}</span>
         </div>
         {chatId && (
           <Button
