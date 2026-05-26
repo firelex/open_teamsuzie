@@ -14,6 +14,7 @@ import {
 import { DEFAULT_MODULES, resolveMattersLabel } from '../manifest/defaults.js';
 import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
 import { useThemeFontLinks } from './useThemeFontLinks.js';
+import { useThemeTokens } from './useThemeTokens.js';
 
 interface ManifestResponse { manifest: AgentManifest }
 interface HealthResponse {
@@ -83,6 +84,11 @@ export function AgentApp() {
   // which propagates here on the next /api/manifest poll and triggers a
   // fresh injection.
   useThemeFontLinks(theme.fontLinks);
+  // Push manifest tokens (bg, fg, primary, card, border, muted, fonts,
+  // colorScheme) to documentElement so a runtime theme swap actually
+  // re-skins the page. The build's index.css @theme defaults are
+  // overridden by these inline styles.
+  useThemeTokens(theme.tokens);
 
   const mattersLabel = manifest
     ? resolveMattersLabel(manifest)
