@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -20,6 +20,9 @@ function fresh(): string {
 describe('manifest history', () => {
   let buildDir: string;
   beforeEach(() => { buildDir = fresh(); });
+  afterEach(() => {
+    try { rmSync(buildDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+  });
 
   it('snapshot writes a timestamped file and indexes it', () => {
     const ts = snapshotManifest({ buildDir, label: 'Initial build', sourceKind: 'initial' });

@@ -4,7 +4,6 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -115,5 +114,4 @@ export function pruneHistory(buildDir: string, max: number): void {
     try { if (existsSync(file)) rmSync(file); } catch { /* best-effort */ }
   }
   saveIndex(buildDir, keep);
-  void statSync;
 }
