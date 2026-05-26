@@ -21,12 +21,16 @@ const OWNED_PROPERTIES = [
   '--color-background',
   '--color-foreground',
   '--color-primary',
+  '--color-accent',
+  '--color-accent-foreground',
+  '--color-ring',
   '--color-card',
   '--color-border',
   '--color-muted-foreground',
   '--color-muted',
   '--font-sans',
   '--font-mono',
+  '--font-display',
   'color-scheme',
 ] as const;
 
@@ -49,6 +53,21 @@ export function useThemeTokens(tokens: ThemeTokens | undefined): void {
     }
     if (tokens.fontSans)    root.style.setProperty('--font-sans', tokens.fontSans);
     if (tokens.fontMono)    root.style.setProperty('--font-mono', tokens.fontMono);
+    // Display font drives big headings ("Good evening" etc.). Without this
+    // override the build's @theme default (Archivo, baked at seed time)
+    // leaks into every theme — the user sees Inter colors but Archivo
+    // headings. Fall back to fontSans so designs without a distinct
+    // display family (TeamSuzie, Console) still pick up the new font.
+    if (tokens.fontDisplay) root.style.setProperty('--font-display', tokens.fontDisplay);
+    else if (tokens.fontSans) root.style.setProperty('--font-display', tokens.fontSans);
+    // Accent: secondary brand color (TeamSuzie's pink, paired with violet
+    // primary). Drives --color-accent + focus rings; the matching
+    // --color-accent-foreground gets foreground for readable text on top.
+    if (tokens.accent) {
+      root.style.setProperty('--color-accent', tokens.accent);
+      root.style.setProperty('--color-ring', tokens.accent);
+      if (tokens.fg) root.style.setProperty('--color-accent-foreground', tokens.fg);
+    }
     if (tokens.colorScheme) root.style.setProperty('color-scheme', tokens.colorScheme);
   }, [tokens]);
 }

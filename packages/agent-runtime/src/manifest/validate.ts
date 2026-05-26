@@ -9,6 +9,7 @@ const themeTokens = z.object({
   fg: z.string().optional(),
   muted: z.string().optional(),
   primary: z.string().optional(),
+  accent: z.string().optional(),
   fontSans: z.string().optional(),
   fontMono: z.string().optional(),
   fontLinks: z.string().optional(),

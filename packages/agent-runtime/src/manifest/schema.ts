@@ -19,6 +19,15 @@ export interface ThemeTokens {
   fg?: string;
   muted?: string;
   primary?: string;
+  /**
+   * Optional secondary accent color, distinct from `primary`. Designs with
+   * a brand gradient (TeamSuzie's violet → pink) carry the second stop
+   * here. Maps to `--color-accent` (and `--color-ring`) at runtime so the
+   * agent's accent surfaces — focus rings, accent text, decorative bars —
+   * actually use the secondary brand color instead of staying at the
+   * seed-time @theme default.
+   */
+  accent?: string;
   fontSans?: string;
   fontMono?: string;
   fontLinks?: string;
