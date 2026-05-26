@@ -3,11 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArtifactPanel,
   Button,
+  ChatThread,
   CompareTable,
   MarkdownMessage,
   RedlinePanelContent,
-  Square,
-  ToolUseStatus,
   TrackedChangesPanel,
   WorkflowPickerDialog,
   humanSize,
@@ -17,6 +16,8 @@ import {
   useSidePanel,
   useWorkflows,
   type ArtifactSnapshot,
+  type ChatThreadMessage,
+  type ChatToolCall,
   type ProposeEditsResult,
   type RedlineParagraph,
   type ResolveResponse,
@@ -28,33 +29,45 @@ import type { Chat, ChatMessage as PersistedChatMessage } from '@teamsuzie/chats
 
 const SELECTED_MODEL_KEY = 'starter-chat:selected-model';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  toolEvents?: ToolEvent[];
-}
-
 /**
- * Hydrate persisted chat messages into the same shape this page renders.
- * Past tool events are preserved on the assistant message but only the
- * currently-streaming turn shows the live status indicator.
+ * Adapt a persisted chat-message row into the ChatThread message shape.
+ * The persisted `toolEvents` JSON string carries entries with status
+ * `running|done|error`; ChatThread's ChatToolCall uses `running|ok|error`,
+ * so the `done` → `ok` rename happens here.
  */
-function hydratePersisted(messages: PersistedChatMessage[]): Message[] {
+function hydratePersistedToThread(
+  messages: PersistedChatMessage[],
+): ChatThreadMessage[] {
   return messages.map((m) => {
-    const base: Message = {
+    const out: ChatThreadMessage = {
       id: m.id,
       role: m.role,
       content: m.content,
     };
     if (m.toolEvents) {
       try {
-        base.toolEvents = JSON.parse(m.toolEvents) as ToolEvent[];
+        const events = JSON.parse(m.toolEvents) as ToolEvent[];
+        if (Array.isArray(events) && events.length > 0) {
+          out.toolCalls = events.map<ChatToolCall>((e) => ({
+            id: e.id,
+            name: e.name,
+            args: e.args,
+            // 'running' → 'running' ; 'done' → 'ok' ; 'error' → 'error'.
+            status:
+              e.status === 'done'
+                ? 'ok'
+                : e.status === 'error'
+                  ? 'error'
+                  : 'running',
+            result: e.result,
+            error: e.error,
+          }));
+        }
       } catch {
         // ignore corrupt tool_events
       }
     }
-    return base;
+    return out;
   });
 }
 
@@ -64,8 +77,6 @@ interface Attachment {
   mimeType: string;
   size: number;
 }
-
-// (humanSize, safeFilename, and ArtifactPanel now live in @teamsuzie/ui.)
 
 
 function PaperclipIcon() {
@@ -147,101 +158,6 @@ function greetingFor(date: Date): string {
   return 'Good evening';
 }
 
-
-function proposeEditsResults(message: Message): ProposeEditsResult[] {
-  if (!message.toolEvents) return [];
-  const out: ProposeEditsResult[] = [];
-  for (const e of message.toolEvents) {
-    if (e.name !== 'propose_document_edits') continue;
-    if (e.status !== 'done') continue;
-    const result = e.result as ProposeEditsResult | undefined;
-    if (
-      result
-      && typeof result === 'object'
-      && 'download_file_id' in (result as unknown as Record<string, unknown>)
-    ) {
-      out.push(result);
-    }
-  }
-  return out;
-}
-
-function TypingDots() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-muted-foreground"
-      role="status"
-      aria-label="Assistant is typing"
-    >
-      <span className="typing-dot" />
-      <span className="typing-dot" />
-      <span className="typing-dot" />
-    </span>
-  );
-}
-
-
-function MessageItem({
-  message,
-  agentName,
-  isActive,
-  onResolve,
-  onLoadRedline,
-  chatId,
-}: {
-  message: Message;
-  agentName: string;
-  /** True only for the message currently being streamed. */
-  isActive: boolean;
-  onResolve: (
-    sessionId: string,
-    fileId: string,
-    body: { accept?: number[]; reject?: number[] },
-  ) => Promise<ResolveResponse>;
-  onLoadRedline: (
-    sessionId: string,
-    fileId: string,
-    signal?: AbortSignal,
-  ) => Promise<{ paragraphs: RedlineParagraph[] }>;
-  chatId: string;
-}) {
-  const isUser = message.role === 'user';
-  const hasToolEvents = !!message.toolEvents && message.toolEvents.length > 0;
-  const showTyping =
-    !isUser && isActive && message.content.length === 0 && !hasToolEvents;
-  const proposeResults = !isUser ? proposeEditsResults(message) : [];
-
-  const roleLabel = isUser ? 'You' : agentName;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="label-mono text-muted-foreground">{roleLabel}</span>
-      {isUser ? (
-        <div className="whitespace-pre-wrap text-[15px] leading-[1.55] text-foreground">
-          {message.content}
-        </div>
-      ) : showTyping ? (
-        <div className="text-[15px] leading-relaxed text-muted-foreground">
-          <TypingDots />
-        </div>
-      ) : message.content.length > 0 ? (
-        <div className="text-[15px] leading-[1.6] text-foreground">
-          <MarkdownMessage content={message.content} />
-        </div>
-      ) : null}
-      {isActive && hasToolEvents && <ToolUseStatus events={message.toolEvents!} />}
-      {proposeResults.map((result) => (
-        <TrackedChangesPanel
-          key={`${message.id}:${result.download_file_id}`}
-          result={result}
-          chatId={chatId}
-          onResolve={onResolve}
-          onLoadRedline={onLoadRedline}
-          downloadHref={`/api/files/${encodeURIComponent(result.download_session_id)}/${encodeURIComponent(result.download_file_id)}/content`}
-        />
-      ))}
-    </div>
-  );
-}
 
 function Greeting({
   name,
@@ -327,11 +243,12 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
   // across chats in the matter. Top-level Assistant chats key off chatId
   // (or a tab-scoped uuid for the bare route's pre-chat send).
   const sessionId = matterId ?? chatId ?? tabSessionId;
-  const [historyLoaded, setHistoryLoaded] = useState(!chatId);
   const [chatName, setChatName] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending'>('idle');
+  const [bareInput, setBareInput] = useState('');
+  // Bare-route only: track in-flight chat creation so the composer can
+  // surface a sending state. Once chatId becomes set we navigate away and
+  // ChatThread owns the streaming state.
+  const [bareSending, setBareSending] = useState(false);
   const [error, setError] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -346,6 +263,11 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
 
   // The Library page hands off a workflow via sessionStorage on navigate;
   // pick it up exactly once on mount and prefill the composer.
+  //
+  // NOTE: With ChatThread owning the composer state on chat routes, this
+  // prefill only takes effect on the bare route (where we still own the
+  // composer). On chat routes the sessionStorage payload is consumed but
+  // not surfaced — follow-up to add a defaultInput prop on ChatThread.
   useEffect(() => {
     const raw = sessionStorage.getItem('counsel:pending-workflow');
     if (!raw) return;
@@ -353,27 +275,27 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     try {
       const parsed = JSON.parse(raw) as { id: string; name: string; prompt: string };
       if (parsed?.prompt) {
-        setInput(parsed.prompt);
+        setBareInput(parsed.prompt);
         setActiveWorkflow({ id: parsed.id, name: parsed.name });
       }
     } catch { /* ignore */ }
   }, []);
 
   // Library prompt tiles also hand off via sessionStorage; pick up once on
-  // mount and prefill the composer. Prompts (unlike workflows) don't have an
-  // id we need to track, so we just drop the body into the input.
+  // mount and prefill the bare-route composer. (See note above on prefill
+  // visibility on chat routes.)
   useEffect(() => {
     const raw = sessionStorage.getItem('counsel:pending-prompt');
     if (!raw) return;
     sessionStorage.removeItem('counsel:pending-prompt');
     try {
       const parsed = JSON.parse(raw) as { name?: string; prompt?: string };
-      if (parsed?.prompt) setInput(parsed.prompt);
+      if (parsed?.prompt) setBareInput(parsed.prompt);
     } catch { /* ignore */ }
   }, []);
 
   function handleWorkflowPicked(w: Workflow) {
-    setInput(w.prompt);
+    setBareInput(w.prompt);
     setActiveWorkflow({ id: w.id, name: w.name });
   }
   const [activeArtifact, setActiveArtifact] = useState<ArtifactSnapshot | null>(null);
@@ -466,23 +388,13 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     [],
   );
 
-  const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  // Set while a /api/chat fetch is in flight so the user can stop it. The
-  // server's res.on('close') handler aborts the upstream LLM call when the
-  // socket goes away, so a fetch abort here propagates all the way through.
-  const abortRef = useRef<AbortController | null>(null);
+  const bareTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Load persisted history when bound to a chatId.
+  // Load chat header (name) when bound to a chatId. ChatThread loads the
+  // messages themselves via `fetchHistory`; we only need the header here.
   useEffect(() => {
     if (!chatId) {
-      setHistoryLoaded(true);
-      setMessages([]);
       setChatName(null);
       setAttachments([]);
       setActiveArtifact(null);
@@ -490,30 +402,19 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
       return;
     }
     let cancelled = false;
-    setHistoryLoaded(false);
-    setMessages([]);
     setError('');
     const chatBase = matterId
       ? `/api/matters/${encodeURIComponent(matterId)}/chats/${encodeURIComponent(chatId)}`
       : `/api/chats/${encodeURIComponent(chatId)}`;
     void (async () => {
       try {
-        const [chatRes, msgRes] = await Promise.all([
-          fetch(chatBase),
-          fetch(`${chatBase}/messages`),
-        ]);
+        const chatRes = await fetch(chatBase);
         if (cancelled) return;
         if (!chatRes.ok) throw new Error(`Failed to load chat (${chatRes.status})`);
         const chatData = (await chatRes.json()) as { item: Chat };
         setChatName(chatData.item.name);
-        if (msgRes.ok) {
-          const msgData = (await msgRes.json()) as { items: PersistedChatMessage[] };
-          setMessages(hydratePersisted(msgData.items));
-        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load chat');
-      } finally {
-        if (!cancelled) setHistoryLoaded(true);
       }
     })();
     return () => {
@@ -521,25 +422,22 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     };
   }, [chatId, matterId]);
 
-  // After a fresh navigate from `/` to `/c/:newChatId`, pick up the message
-  // we deferred from the bare-route send and dispatch it now. Attachments
-  // uploaded under the bare-route's tabSessionId are promoted server-side
-  // to the new chatId before navigate; we restore them into local state so
-  // the next sendMessage call carries their ids on the wire.
+  // After a fresh navigate from `/` to `/c/:newChatId`, restore the
+  // attachments that were uploaded under the bare-route's tabSessionId
+  // and promoted server-side to the new chatId. The pending message is
+  // no longer auto-dispatched (ChatThread owns the composer); the user
+  // resends manually. Follow-up: ChatThread.defaultInput.
   useEffect(() => {
     const state = location.state as {
       pendingMessage?: string;
       pendingAttachments?: Attachment[];
     } | null;
-    if (!chatId || !historyLoaded || !state?.pendingMessage) return;
-    if (messages.length > 0) return;
-    const pending = state.pendingMessage;
+    if (!chatId || !state?.pendingMessage) return;
     const pendingAttachments = state.pendingAttachments ?? [];
     if (pendingAttachments.length > 0) setAttachments(pendingAttachments);
     navigate(location.pathname, { replace: true, state: null });
-    void sendMessage(pending, pendingAttachments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, historyLoaded]);
+  }, [chatId]);
 
   async function uploadFiles(files: FileList) {
     setUploading(true);
@@ -571,407 +469,279 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     }).catch(() => undefined);
   }
 
-  async function sendMessage(textArg: string, overrideAttachments?: Attachment[]) {
+  /**
+   * Bare-route only: create a chat row, promote any uploaded files
+   * from the bare-route's tabSessionId to the new chatId so the next
+   * chat-route lookup resolves them, then navigate to `/c/:newId`.
+   * The chat starts empty — ChatThread on the next page renders empty
+   * state until the user resends. (Pre-refactor we auto-dispatched
+   * the message; that handoff is the explicit follow-up below.)
+   */
+  async function startChatFromBareRoute(textArg: string) {
     const text = textArg.trim();
-    if (!text) {
-      return;
-    }
-
-    // Bare-route first send: create a chat row, promote any uploaded files
-    // from the bare-route's tabSessionId to the new chatId so the next
-    // chat-route lookup resolves them, then navigate to /c/:newId carrying
-    // both the message and the promoted attachments via location.state.
-    // Matter-bound mode doesn't need the bare-route path — the
-    // MatterDetailPage creates a chat first, so we always arrive here with
-    // chatId already set.
-    if (!chatId) {
-      try {
-        setStatus('sending');
-        const response = await fetch('/api/chats', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to start chat (${response.status})`);
-        }
-        const data = (await response.json()) as { item: Chat };
-        let promotedAttachments = attachments;
-        if (attachments.length > 0) {
-          const promoteRes = await fetch('/api/files/promote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fromSessionId: sessionId,
-              toSessionId: data.item.id,
-              fileIds: attachments.map((a) => a.id),
-            }),
-          });
-          if (!promoteRes.ok) {
-            const body = (await promoteRes.json().catch(() => ({}))) as { error?: string };
-            throw new Error(body.error || `File handoff failed (${promoteRes.status})`);
-          }
-          const promoted = (await promoteRes.json()) as { items: Attachment[] };
-          promotedAttachments = promoted.items;
-        }
-        setStatus('idle');
-        navigate(`/c/${encodeURIComponent(data.item.id)}`, {
-          state: { pendingMessage: text, pendingAttachments: promotedAttachments },
-        });
-        return;
-      } catch (err) {
-        setStatus('idle');
-        setError(err instanceof Error ? err.message : 'Failed to start chat');
-        return;
-      }
-    }
-    // Outside the bare-route branch — matterId, when set, is forwarded
-    // to the chat-completion route via the body's `workspaceId` so the
-    // chat-route's ownership check matches the chat's stored
-    // workspace_id (=matterId) rather than the server's default.
-
-    const nextUserMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: text,
-    };
-
-    const nextHistory = [...messages, nextUserMessage].map(({ role, content }) => ({
-      role,
-      content,
-    }));
-    const assistantId = crypto.randomUUID();
-
-    const effectiveAttachments = overrideAttachments ?? attachments;
-    const sentAttachmentIds = effectiveAttachments.map((a) => a.id);
-
-    setMessages((current) => [
-      ...current,
-      nextUserMessage,
-      { id: assistantId, role: 'assistant', content: '' },
-    ]);
-    setAttachments([]);
-    setStatus('sending');
-    setError('');
-
-    const ac = new AbortController();
-    abortRef.current = ac;
-
+    if (!text) return;
+    if (chatId) return;
     try {
-      const response = await fetch('/api/chat', {
+      setBareSending(true);
+      setError('');
+      const response = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          chatId,
-          message: text,
-          history: nextHistory.slice(0, -1),
-          attachmentIds: sentAttachmentIds,
-          model: selectedModel,
-          ...(matterId ? { workspaceId: matterId } : {}),
-        }),
-        signal: ac.signal,
+        body: JSON.stringify({}),
       });
-
-      if (!response.body) {
-        throw new Error('No response body from starter chat backend');
+      if (!response.ok) {
+        throw new Error(`Failed to start chat (${response.status})`);
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let streamFinished = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
+      const data = (await response.json()) as { item: Chat };
+      let promotedAttachments = attachments;
+      if (attachments.length > 0) {
+        const promoteRes = await fetch('/api/files/promote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromSessionId: sessionId,
+            toSessionId: data.item.id,
+            fileIds: attachments.map((a) => a.id),
+          }),
+        });
+        if (!promoteRes.ok) {
+          const body = (await promoteRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || `File handoff failed (${promoteRes.status})`);
         }
-
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-
-        for (const event of events) {
-          const line = event
-            .split('\n')
-            .find((candidate) => candidate.startsWith('data: '));
-
-          if (!line) {
-            continue;
-          }
-
-          const payload = JSON.parse(line.slice(6)) as
-            | { type: 'chunk'; text: string }
-            | { type: 'tool_call'; id: string; name: string; args: unknown }
-            | { type: 'tool_result'; id: string; name: string; result: unknown }
-            | { type: 'tool_error'; id: string; name: string; error: string }
-            | { type: 'done' }
-            | { type: 'error'; message: string };
-
-          if (payload.type === 'chunk') {
-            setMessages((current) =>
-              current.map((message) =>
-                message.id === assistantId
-                  ? { ...message, content: message.content + payload.text }
-                  : message,
-              ),
-            );
-          } else if (payload.type === 'tool_call') {
-            setMessages((current) =>
-              current.map((message) => {
-                if (message.id !== assistantId) return message;
-                const events = message.toolEvents ?? [];
-                return {
-                  ...message,
-                  toolEvents: [
-                    ...events,
-                    {
-                      id: payload.id,
-                      name: payload.name,
-                      args: payload.args,
-                      status: 'running' as const,
-                    },
-                  ],
-                };
-              }),
-            );
-          } else if (payload.type === 'tool_result') {
-            // Some tools (drafting + conversion) embed a `_doc_state` snapshot
-            // in their result so the client can render a live read-only
-            // artifact panel without polling. If present, surface it.
-            if (payload.result && typeof payload.result === 'object') {
-              const result = payload.result as {
-                _doc_state?: unknown;
-                // Upstream documentDraftingTools' export_to_docx returns
-                // camelCase keys (`downloadUrl`, `fileId`, `filename`).
-                // Some older tool wrappers still return snake_case
-                // (`download_url`) — read both so either flows through.
-                downloadUrl?: unknown;
-                download_url?: unknown;
-                filename?: unknown;
-              };
-              const ds = result._doc_state;
-              if (ds && typeof ds === 'object') {
-                const obj = ds as { doc_id?: string; title?: string; markdown?: string };
-                if (typeof obj.doc_id === 'string' && typeof obj.markdown === 'string') {
-                  // Pull through the download URL if export_to_docx
-                  // supplied one; otherwise carry over what we already
-                  // have for this doc.
-                  const docxUrl =
-                    typeof result.downloadUrl === 'string'
-                      ? result.downloadUrl
-                      : typeof result.download_url === 'string'
-                        ? result.download_url
-                        : undefined;
-                  const docxName = typeof result.filename === 'string'
-                    ? result.filename
-                    : undefined;
-                  setActiveArtifact((prev) => {
-                    const carry = prev && prev.docId === obj.doc_id ? prev : null;
-                    return {
-                      docId: obj.doc_id!,
-                      title: typeof obj.title === 'string' ? obj.title : 'Document',
-                      markdown: obj.markdown!,
-                      docxDownloadUrl: docxUrl ?? carry?.docxDownloadUrl,
-                      docxFilename: docxName ?? carry?.docxFilename,
-                    };
-                  });
-                }
-              }
-              // blackline_documents: the tool generates a tracked-change
-              // DOCX and stashes it in the file store. We open the
-              // continuous-flow RedlinePanelContent (same view
-              // propose_document_edits uses) pointed at that DOCX —
-              // unified inline read of the blackline.
-              if (payload.name === 'blackline_documents') {
-                const blackResult = result as {
-                  download_file_id?: string;
-                  download_filename?: string;
-                  download_url?: string;
-                  left?: { name?: string };
-                  right?: { name?: string };
-                };
-                const redlineFileId = blackResult.download_file_id;
-                if (typeof redlineFileId === 'string' && redlineFileId) {
-                  const leftName = blackResult.left?.name ?? 'left';
-                  const rightName = blackResult.right?.name ?? 'right';
-                  const tabTitle =
-                    blackResult.download_filename
-                    ?? `${leftName} → ${rightName}`;
-                  const tabId = `blackline:${sessionId}:${redlineFileId}`;
-                  const downloadHref =
-                    typeof blackResult.download_url === 'string' && blackResult.download_url
-                      ? blackResult.download_url
-                      : undefined;
-                  sidePanel.openTab({
-                    id: tabId,
-                    title: tabTitle,
-                    render: () => (
-                      <RedlinePanelContent
-                        sessionId={sessionId}
-                        fileId={redlineFileId}
-                        fileName={tabTitle}
-                        chatId={chatId ?? 'assistant-default'}
-                        onLoadRedline={loadRedline}
-                        downloadHref={downloadHref}
-                      />
-                    ),
-                  });
-                }
-              }
-              // compare_documents: analytical artifact. The tool returns
-              // the DocumentDiffResult (left, right, stats, events) plus
-              // an optional `topics` array — LLM-grouped plain-English
-              // summary rows. The CompareTable prefers topics when
-              // present, falls back to the event-per-row mechanical
-              // layout otherwise.
-              if (payload.name === 'compare_documents') {
-                const compareResult = result as unknown as
-                  Partial<DocumentDiffResult> & {
-                    left_file_id?: string;
-                    right_file_id?: string;
-                    topics?: Array<{
-                      topic?: string;
-                      left?: string;
-                      right?: string;
-                    }>;
-                  };
-                if (
-                  compareResult.left
-                  && compareResult.right
-                  && compareResult.stats
-                  && Array.isArray(compareResult.events)
-                ) {
-                  const fullResult = compareResult as DocumentDiffResult;
-                  const topics = Array.isArray(compareResult.topics)
-                    ? compareResult.topics
-                        .filter((t) =>
-                          typeof t?.topic === 'string'
-                          && typeof t.left === 'string'
-                          && typeof t.right === 'string',
-                        )
-                        .map((t) => ({
-                          topic: t.topic as string,
-                          left: t.left as string,
-                          right: t.right as string,
-                        }))
-                    : undefined;
-                  // Stream topics from the SSE endpoint when both file
-                  // ids are available. Tab id is stable per pair so
-                  // re-running the compare reuses the tab rather than
-                  // stacking new ones.
-                  const leftFileId = typeof compareResult.left_file_id === 'string'
-                    ? compareResult.left_file_id
-                    : undefined;
-                  const rightFileId = typeof compareResult.right_file_id === 'string'
-                    ? compareResult.right_file_id
-                    : undefined;
-                  const onLoadTopics = leftFileId && rightFileId
-                    ? streamCompareTopics(leftFileId, rightFileId)
-                    : undefined;
-                  const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
-                  sidePanel.openTab({
-                    id: tabId,
-                    title: `${fullResult.left.name} → ${fullResult.right.name}`,
-                    render: () => (
-                      <CompareTable
-                        result={fullResult}
-                        topics={topics}
-                        onLoadTopics={onLoadTopics}
-                      />
-                    ),
-                  });
-                }
-              }
-            }
-            setMessages((current) =>
-              current.map((message) => {
-                if (message.id !== assistantId) return message;
-                const events = (message.toolEvents ?? []).map((event) =>
-                  event.id === payload.id
-                    ? { ...event, result: payload.result, status: 'done' as const }
-                    : event,
-                );
-                return { ...message, toolEvents: events };
-              }),
-            );
-          } else if (payload.type === 'tool_error') {
-            setMessages((current) =>
-              current.map((message) => {
-                if (message.id !== assistantId) return message;
-                const events = (message.toolEvents ?? []).map((event) =>
-                  event.id === payload.id
-                    ? { ...event, error: payload.error, status: 'error' as const }
-                    : event,
-                );
-                return { ...message, toolEvents: events };
-              }),
-            );
-          } else if (payload.type === 'error') {
-            setError(payload.message);
-          } else if (payload.type === 'done') {
-            // The server sends 'done' as the last SSE event before res.end().
-            // Some proxies (Vite dev, etc.) buffer the connection-close, so
-            // relying on reader.read() returning done:true is unreliable.
-            // Re-enable the composer eagerly here, then break out of the read
-            // loop. Don't await reader.cancel() — that can also hang on a
-            // buffered proxy. (Auto-focus is handled by a useEffect that
-            // watches the sending → idle transition.)
-            setStatus('idle');
-            streamFinished = true;
-          }
-        }
-        if (streamFinished) {
-          reader.cancel().catch(() => undefined);
-          break;
-        }
+        const promoted = (await promoteRes.json()) as { items: Attachment[] };
+        promotedAttachments = promoted.items;
       }
+      navigate(`/c/${encodeURIComponent(data.item.id)}`, {
+        state: { pendingMessage: text, pendingAttachments: promotedAttachments },
+      });
     } catch (err) {
-      // User-initiated stop: signal aborted via stopStreaming(). The partial
-      // assistant text is already in `messages` from the chunks that arrived
-      // before the abort, so just bail without surfacing an error.
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        // intentional no-op
-      } else {
-        setError(err instanceof Error ? err.message : 'Chat failed');
-      }
+      setError(err instanceof Error ? err.message : 'Failed to start chat');
     } finally {
-      if (abortRef.current === ac) abortRef.current = null;
-      setStatus('idle');
-    }
-
-    // Pick up any auto-titled name set on the server.
-    if (chatId) {
-      try {
-        const titleUrl = matterId
-          ? `/api/matters/${encodeURIComponent(matterId)}/chats/${encodeURIComponent(chatId)}`
-          : `/api/chats/${encodeURIComponent(chatId)}`;
-        const r = await fetch(titleUrl);
-        if (r.ok) {
-          const d = (await r.json()) as { item: Chat };
-          setChatName(d.item.name);
-        }
-      } catch {
-        // best-effort
-      }
+      setBareSending(false);
     }
   }
 
-  function stopStreaming() {
-    abortRef.current?.abort();
-  }
-
-  const isStreaming = status === 'sending';
-  const { handleKeyDown, handleSubmit, handleStop, canSend } = useChatComposer({
-    isStreaming,
-    onSend: (text) => {
-      void sendMessage(text);
+  // ChatThread history fetch. Matches the existing route used by the
+  // pre-refactor history-load effect.
+  const fetchHistory = useCallback(
+    async (id: string): Promise<ChatThreadMessage[]> => {
+      const chatBase = matterId
+        ? `/api/matters/${encodeURIComponent(matterId)}/chats/${encodeURIComponent(id)}`
+        : `/api/chats/${encodeURIComponent(id)}`;
+      const r = await fetch(`${chatBase}/messages`);
+      if (!r.ok) return [];
+      const data = (await r.json()) as { items: PersistedChatMessage[] };
+      return hydratePersistedToThread(data.items);
     },
-    onStop: stopStreaming,
-    text: input,
-    setText: setInput,
-  });
+    [matterId],
+  );
+
+  // Lifted from the pre-refactor SSE reader's `tool_result` branch.
+  // ChatThread fires this once per terminal tool result (status ok|error),
+  // de-duped by tool-call id.
+  const handleToolResult = useCallback(
+    (call: ChatToolCall) => {
+      if (call.status !== 'ok') return;
+      const result = call.result;
+      if (!result || typeof result !== 'object') return;
+
+      // (1) drafting / export_to_docx: surface the inline ArtifactPanel for
+      // any tool that embeds a `_doc_state` snapshot in its result.
+      const carrying = result as {
+        _doc_state?: unknown;
+        downloadUrl?: unknown;
+        download_url?: unknown;
+        filename?: unknown;
+      };
+      const ds = carrying._doc_state;
+      if (ds && typeof ds === 'object') {
+        const obj = ds as { doc_id?: string; title?: string; markdown?: string };
+        if (typeof obj.doc_id === 'string' && typeof obj.markdown === 'string') {
+          const docxUrl =
+            typeof carrying.downloadUrl === 'string'
+              ? carrying.downloadUrl
+              : typeof carrying.download_url === 'string'
+                ? carrying.download_url
+                : undefined;
+          const docxName = typeof carrying.filename === 'string'
+            ? carrying.filename
+            : undefined;
+          setActiveArtifact((prev) => {
+            const carry = prev && prev.docId === obj.doc_id ? prev : null;
+            return {
+              docId: obj.doc_id!,
+              title: typeof obj.title === 'string' ? obj.title : 'Document',
+              markdown: obj.markdown!,
+              docxDownloadUrl: docxUrl ?? carry?.docxDownloadUrl,
+              docxFilename: docxName ?? carry?.docxFilename,
+            };
+          });
+        }
+      }
+
+      // (2) blackline_documents: open a continuous-flow RedlinePanelContent
+      // tab pointed at the tracked-change DOCX produced by the tool.
+      if (call.name === 'blackline_documents') {
+        const blackResult = result as {
+          download_file_id?: string;
+          download_filename?: string;
+          download_url?: string;
+          left?: { name?: string };
+          right?: { name?: string };
+        };
+        const redlineFileId = blackResult.download_file_id;
+        if (typeof redlineFileId === 'string' && redlineFileId) {
+          const leftName = blackResult.left?.name ?? 'left';
+          const rightName = blackResult.right?.name ?? 'right';
+          const tabTitle =
+            blackResult.download_filename
+            ?? `${leftName} → ${rightName}`;
+          const tabId = `blackline:${sessionId}:${redlineFileId}`;
+          const downloadHref =
+            typeof blackResult.download_url === 'string' && blackResult.download_url
+              ? blackResult.download_url
+              : undefined;
+          sidePanel.openTab({
+            id: tabId,
+            title: tabTitle,
+            render: () => (
+              <RedlinePanelContent
+                sessionId={sessionId}
+                fileId={redlineFileId}
+                fileName={tabTitle}
+                chatId={chatId ?? 'assistant-default'}
+                onLoadRedline={loadRedline}
+                downloadHref={downloadHref}
+              />
+            ),
+          });
+        }
+      }
+
+      // (3) compare_documents: open a CompareTable tab. Tab id is stable
+      // per pair so re-running the compare reuses the tab.
+      if (call.name === 'compare_documents') {
+        const compareResult = result as unknown as
+          Partial<DocumentDiffResult> & {
+            left_file_id?: string;
+            right_file_id?: string;
+            topics?: Array<{ topic?: string; left?: string; right?: string }>;
+          };
+        if (
+          compareResult.left
+          && compareResult.right
+          && compareResult.stats
+          && Array.isArray(compareResult.events)
+        ) {
+          const fullResult = compareResult as DocumentDiffResult;
+          const topics = Array.isArray(compareResult.topics)
+            ? compareResult.topics
+                .filter((t) =>
+                  typeof t?.topic === 'string'
+                  && typeof t.left === 'string'
+                  && typeof t.right === 'string',
+                )
+                .map((t) => ({
+                  topic: t.topic as string,
+                  left: t.left as string,
+                  right: t.right as string,
+                }))
+            : undefined;
+          const leftFileId = typeof compareResult.left_file_id === 'string'
+            ? compareResult.left_file_id
+            : undefined;
+          const rightFileId = typeof compareResult.right_file_id === 'string'
+            ? compareResult.right_file_id
+            : undefined;
+          const onLoadTopics = leftFileId && rightFileId
+            ? streamCompareTopics(leftFileId, rightFileId)
+            : undefined;
+          const tabId = `compare:${fullResult.left.name}→${fullResult.right.name}`;
+          sidePanel.openTab({
+            id: tabId,
+            title: `${fullResult.left.name} → ${fullResult.right.name}`,
+            render: () => (
+              <CompareTable
+                result={fullResult}
+                topics={topics}
+                onLoadTopics={onLoadTopics}
+              />
+            ),
+          });
+        }
+      }
+    },
+    [sidePanel, sessionId, chatId, loadRedline, streamCompareTopics],
+  );
+
+  // Render the assistant turn's text through MarkdownMessage so the chat
+  // looks identical to the pre-refactor render path.
+  const renderAssistantText = useCallback(
+    (text: string) => <MarkdownMessage content={text} />,
+    [],
+  );
+
+  // Render an assistant tool call. Streaming/running indicator handled by
+  // the ChatThread itself; when the tool is `propose_document_edits` we
+  // surface the dedicated TrackedChangesPanel inline (same as pre-refactor).
+  const renderToolCall = useCallback(
+    (call: ChatToolCall) => {
+      if (call.name === 'propose_document_edits' && call.status === 'ok') {
+        const result = call.result as ProposeEditsResult | undefined;
+        if (
+          result
+          && typeof result === 'object'
+          && 'download_file_id' in (result as unknown as Record<string, unknown>)
+        ) {
+          return (
+            <TrackedChangesPanel
+              result={result}
+              chatId={chatId ?? 'assistant-default'}
+              onResolve={resolveRevisions}
+              onLoadRedline={loadRedline}
+              downloadHref={`/api/files/${encodeURIComponent(result.download_session_id)}/${encodeURIComponent(result.download_file_id)}/content`}
+            />
+          );
+        }
+      }
+      // Fallback: a compact one-line status chip. We deliberately don't
+      // re-implement the rich ToolUseStatus pulsing card here — the thread
+      // shows tool calls one-per-row by default and the running indicator
+      // is handled by the chip text below.
+      const statusGlyph = call.status === 'running'
+        ? '…'
+        : call.status === 'ok'
+          ? '✓'
+          : '✗';
+      return (
+        <div className="mt-1 inline-flex items-center gap-2 rounded-[2px] border border-border bg-muted/40 px-2 py-1 font-mono text-[11px] text-muted-foreground">
+          <span className="opacity-60">tool</span>
+          <span className="text-foreground">{call.name}</span>
+          <span className="ml-1 opacity-70">{statusGlyph}</span>
+          {call.status === 'error' && call.error && (
+            <span className="ml-1 text-destructive">{call.error}</span>
+          )}
+        </div>
+      );
+    },
+    [chatId, resolveRevisions, loadRedline],
+  );
+
+  // Bare-route composer plumbing — only used when !chatId. Reuses
+  // useChatComposer for the keyboard shortcuts.
+  const { handleKeyDown: bareHandleKeyDown, handleSubmit: bareHandleSubmit, canSend: bareCanSend } =
+    useChatComposer({
+      isStreaming: bareSending,
+      onSend: (text) => {
+        void startChatFromBareRoute(text);
+      },
+      onStop: () => {
+        // Bare-route doesn't support mid-flight abort (the create-chat
+        // call is short). No-op.
+      },
+      text: bareInput,
+      setText: setBareInput,
+    });
 
   async function newChat() {
     await fetch('/api/session/reset', {
@@ -980,8 +750,7 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
       body: JSON.stringify({ sessionId }),
     }).catch(() => undefined);
 
-    setMessages([]);
-    setInput('');
+    setBareInput('');
     setAttachments([]);
     setActiveArtifact(null);
     setError('');
@@ -992,9 +761,20 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     }
   }
 
-  const isEmpty = messages.length === 0;
-  const showGreeting = isEmpty && historyLoaded && !chatId;
-  const showLoading = !!chatId && !historyLoaded;
+  // Compute extraBody fresh each render so attachmentIds reflect the
+  // current local state. Note: attachments are still cleared by the bare-
+  // route promote step before ChatThread mounts, so this stays accurate.
+  const extraBody = useMemo(
+    () => ({
+      sessionId,
+      attachmentIds: attachments.map((a) => a.id),
+      model: selectedModel,
+      ...(matterId ? { workspaceId: matterId } : {}),
+    }),
+    [sessionId, attachments, selectedModel, matterId],
+  );
+
+  const showGreeting = !chatId;
 
   return (
     <div className="flex h-full">
@@ -1004,7 +784,7 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
           <span className="inline-block size-1.5 rounded-full bg-saffron-400" aria-hidden />
           <span className="label-mono text-foreground">{agentName}</span>
         </div>
-        {(messages.length > 0 || chatId) && (
+        {chatId && (
           <Button
             size="sm"
             variant="outline"
@@ -1016,91 +796,163 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
         )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {showLoading ? (
-          <div className="mx-auto flex h-full max-w-3xl items-center justify-center px-6 py-16 text-sm text-muted-foreground">
-            Loading chat…
+      {showGreeting ? (
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Greeting
+              name={agentName}
+              prompts={featuredPrompts.length > 0 ? featuredPrompts : PROMPTS}
+              onSelect={(prompt) => {
+                setBareInput(prompt);
+                // Defer to next tick so React commits the input change before
+                // the create-chat dispatch reads it.
+                queueMicrotask(() => {
+                  void startChatFromBareRoute(prompt);
+                });
+              }}
+            />
           </div>
-        ) : showGreeting ? (
-          <Greeting
-            name={agentName}
-            prompts={featuredPrompts.length > 0 ? featuredPrompts : PROMPTS}
-            onSelect={(prompt) => void sendMessage(prompt)}
-          />
-        ) : (
-          <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-8">
-            {chatName && (
-              <div className="border-b border-border pb-3 text-xs text-muted-foreground">
-                {chatName}
-              </div>
-            )}
-            {messages.map((message, idx) => (
-              <MessageItem
-                key={message.id}
-                message={message}
-                agentName={agentName}
-                // Only the last message is "active" (currently streaming).
-                isActive={isStreaming && idx === messages.length - 1}
-                onResolve={resolveRevisions}
-                onLoadRedline={loadRedline}
-                chatId={chatId ?? 'assistant-default'}
-              />
-            ))}
-            <div ref={endRef} />
-          </div>
-        )}
-      </div>
 
-      <div className="border-t border-border bg-background px-5 py-4">
-        <div className="mx-auto w-full max-w-3xl">
-          {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              const files = event.target.files;
-              if (files && files.length > 0) void uploadFiles(files);
-              event.target.value = '';
-            }}
-          />
-          <div className="rounded-[2px] border border-border bg-card transition-colors focus-within:border-foreground/50">
-            {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 border-b border-border px-3 pb-2 pt-2.5">
-                {attachments.map((att) => (
-                  <span
-                    key={att.id}
-                    className="inline-flex items-center gap-1.5 rounded-[2px] bg-muted px-2 py-1 text-[11px] text-foreground"
-                    title={`${att.mimeType} · ${humanSize(att.size)}`}
-                  >
-                    <span className="max-w-[180px] truncate font-medium">{att.name}</span>
-                    <span className="text-muted-foreground">{humanSize(att.size)}</span>
+          {/* Bare-route composer. Mirrors the chat-route composer below
+              the thread but routes Send into the chat-create dance. */}
+          <div className="border-t border-border bg-background px-5 py-4">
+            <div className="mx-auto w-full max-w-3xl">
+              {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  const files = event.target.files;
+                  if (files && files.length > 0) void uploadFiles(files);
+                  event.target.value = '';
+                }}
+              />
+              <div className="rounded-[2px] border border-border bg-card transition-colors focus-within:border-foreground/50">
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-b border-border px-3 pb-2 pt-2.5">
+                    {attachments.map((att) => (
+                      <span
+                        key={att.id}
+                        className="inline-flex items-center gap-1.5 rounded-[2px] bg-muted px-2 py-1 text-[11px] text-foreground"
+                        title={`${att.mimeType} · ${humanSize(att.size)}`}
+                      >
+                        <span className="max-w-[180px] truncate font-medium">{att.name}</span>
+                        <span className="text-muted-foreground">{humanSize(att.size)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(att.id)}
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Remove ${att.name}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {activeWorkflow && (
+                  <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <SparkleIcon />
+                      <span className="font-medium text-foreground">{activeWorkflow.name}</span>
+                    </span>
                     <button
                       type="button"
-                      onClick={() => removeAttachment(att.id)}
+                      onClick={() => setActiveWorkflow(null)}
                       className="text-muted-foreground hover:text-foreground"
-                      aria-label={`Remove ${att.name}`}
+                      aria-label="Clear workflow"
                     >
                       ×
                     </button>
-                  </span>
-                ))}
+                  </div>
+                )}
+                <textarea
+                  ref={bareTextareaRef}
+                  value={bareInput}
+                  onChange={(event) => setBareInput(event.target.value)}
+                  onKeyDown={bareHandleKeyDown}
+                  placeholder={`Message ${agentName}`}
+                  className="block w-full min-h-20 resize-none border-0 bg-transparent px-4 pt-3.5 font-sans text-[14.5px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <div className="flex items-center justify-between border-t border-border/70 px-3 pb-2.5 pt-2">
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="h-7 gap-1.5 rounded-[2px] px-2 font-sans text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="Attach files"
+                    >
+                      <PaperclipIcon />
+                      <span>{uploading ? 'Uploading…' : 'Files'}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setWorkflowOpen(true)}
+                      className="h-7 gap-1.5 rounded-[2px] px-2 font-sans text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="Pick a workflow"
+                    >
+                      <SparkleIcon />
+                      <span>Workflow</span>
+                    </Button>
+                    <p className="hidden font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground sm:inline">
+                      Enter sends · ⇧↵ newline
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => bareHandleSubmit()}
+                    disabled={(!bareCanSend && attachments.length === 0) || bareSending}
+                    className="h-7 rounded-[2px] bg-foreground px-4 font-sans text-[11.5px] font-semibold uppercase tracking-[0.06em] text-background hover:bg-foreground/90 disabled:opacity-50"
+                  >
+                    {bareSending ? 'Starting…' : 'Send'}
+                  </Button>
+                </div>
               </div>
-            )}
-            {/* Raw <textarea> on purpose — using @teamsuzie/ui's <Textarea>
-                here drags in a default border + bg-background that conflict
-                with the outer card and don't reliably get stripped by twMerge. */}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`Message ${agentName}`}
-              className="block w-full min-h-20 resize-none border-0 bg-transparent px-4 pt-3.5 font-sans text-[14.5px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <div className="flex items-center justify-between border-t border-border/70 px-3 pb-2.5 pt-2">
-              <div className="flex items-center gap-1.5">
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {chatName && (
+            <div className="mx-auto w-full max-w-3xl border-b border-border px-6 pb-3 pt-3 text-xs text-muted-foreground">
+              {chatName}
+            </div>
+          )}
+          {error && (
+            <div className="mx-auto w-full max-w-3xl px-6 pt-2">
+              <p className="text-xs text-destructive">{error}</p>
+            </div>
+          )}
+          <ChatThread
+            endpoint="/api/chat"
+            chatId={chatId}
+            fetchHistory={fetchHistory}
+            extraBody={extraBody}
+            onError={(msg) => setError(msg)}
+            onToolResult={handleToolResult}
+            renderAssistantText={renderAssistantText}
+            renderToolCall={renderToolCall}
+            placeholder={`Message ${agentName}`}
+            composerExtras={
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    const files = event.target.files;
+                    if (files && files.length > 0) void uploadFiles(files);
+                    event.target.value = '';
+                  }}
+                />
                 <Button
                   type="button"
                   variant="ghost"
@@ -1124,36 +976,56 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
                   <SparkleIcon />
                   <span>Workflow</span>
                 </Button>
-                <p className="hidden font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground sm:inline">
-                  Enter sends · ⇧↵ newline
-                </p>
-              </div>
-              {isStreaming ? (
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={handleStop}
-                  className="h-7 rounded-[2px] border-destructive px-4 font-sans text-[11.5px] font-semibold uppercase tracking-[0.06em] text-destructive hover:bg-destructive/10"
-                  aria-label="Stop streaming"
-                >
-                  <Square className="size-3 fill-current" aria-hidden />
-                  Stop
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={() => handleSubmit()}
-                  disabled={!canSend && attachments.length === 0}
-                  className="h-7 rounded-[2px] bg-foreground px-4 font-sans text-[11.5px] font-semibold uppercase tracking-[0.06em] text-background hover:bg-foreground/90 disabled:opacity-50"
-                >
-                  Send
-                </Button>
+              </>
+            }
+          />
+          {/* Attachment chips for the chat route — rendered above the
+              thread's built-in composer so the user can see and remove
+              promoted/uploaded files. */}
+          {(attachments.length > 0 || activeWorkflow) && (
+            <div className="mx-auto w-full max-w-3xl border-t border-border px-3 py-2">
+              {activeWorkflow && (
+                <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <SparkleIcon />
+                    <span className="font-medium text-foreground">{activeWorkflow.name}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveWorkflow(null)}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Clear workflow"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {attachments.map((att) => (
+                    <span
+                      key={att.id}
+                      className="inline-flex items-center gap-1.5 rounded-[2px] bg-muted px-2 py-1 text-[11px] text-foreground"
+                      title={`${att.mimeType} · ${humanSize(att.size)}`}
+                    >
+                      <span className="max-w-[180px] truncate font-medium">{att.name}</span>
+                      <span className="text-muted-foreground">{humanSize(att.size)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(att.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${att.name}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
       </div>
       {activeArtifact && (
         <ArtifactPanel
@@ -1170,3 +1042,4 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     </div>
   );
 }
+
