@@ -126,6 +126,56 @@ const INJECTED_CSS = `
   color: var(--foreground);
   font-family: var(--font-sans, system-ui, sans-serif);
 }
+/* MarkdownMessage renders react-markdown with its own h1/h2/p defaults,
+ * which bubble to 16-24px and clash with the user-message scale. Clamp
+ * every text element inside the assistant body to the thread's 12px
+ * baseline while preserving headings as semantically bold + spaced. */
+.ct-assistant-body p,
+.ct-assistant-body li,
+.ct-assistant-body ul,
+.ct-assistant-body ol,
+.ct-assistant-body blockquote,
+.ct-assistant-body table,
+.ct-assistant-body td,
+.ct-assistant-body th,
+.ct-assistant-body code,
+.ct-assistant-body pre {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.ct-assistant-body h1,
+.ct-assistant-body h2,
+.ct-assistant-body h3,
+.ct-assistant-body h4,
+.ct-assistant-body h5,
+.ct-assistant-body h6 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 8px 0 2px;
+  line-height: 1.4;
+}
+.ct-assistant-body p { margin: 4px 0; }
+.ct-assistant-body ul,
+.ct-assistant-body ol {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.ct-assistant-body li { margin: 1px 0; }
+.ct-assistant-body code {
+  background: color-mix(in oklab, var(--foreground) 8%, var(--background));
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.ct-assistant-body pre {
+  background: color-mix(in oklab, var(--foreground) 6%, var(--background));
+  padding: 6px 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+.ct-assistant-body pre code { background: none; padding: 0; }
 .ct-tools {
   display: flex;
   flex-direction: column;
