@@ -37,6 +37,22 @@ export interface ThemeTokens {
 export interface ManifestTheme {
   id: ThemeId;
   tokens?: ThemeTokens;
+  /**
+   * Optional `<link>` HTML to load this theme's web fonts at runtime.
+   * The runtime shell parses out `href` attributes and ensures matching
+   * `<link rel="preconnect"|"stylesheet">` elements exist in `document.head`.
+   *
+   * Format: a single string with one or more `<link>` tags, same shape
+   * the seed-time `{{FONT_LINKS}}` substitution produces. When present,
+   * a theme switch persists the new font URLs via this field so the
+   * browser actually downloads the family the tokens reference (the
+   * tokens decide *what's used*; this decides *what's loaded*).
+   *
+   * When absent, the browser uses whatever fonts the host `index.html`
+   * preloaded — typically only the seed-time theme's family — and a
+   * theme switch to a different family falls back to system sans/mono.
+   */
+  fontLinks?: string;
 }
 
 export interface ManifestPersona {

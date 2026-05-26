@@ -20,7 +20,11 @@ const themeTokens = z.object({
   accentBar: z.object({ color: z.string().optional(), width: z.string().optional() }).optional(),
 }).passthrough();
 
-const theme = z.object({ id: z.string(), tokens: themeTokens.optional() });
+const theme = z.object({
+  id: z.string(),
+  tokens: themeTokens.optional(),
+  fontLinks: z.string().optional(),
+});
 
 const persona = z.object({
   id: z.string().min(1),

@@ -13,6 +13,7 @@ import {
 } from '../pages/index.js';
 import { DEFAULT_MODULES, resolveMattersLabel } from '../manifest/defaults.js';
 import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
+import { useThemeFontLinks } from './useThemeFontLinks.js';
 
 interface ManifestResponse { manifest: AgentManifest }
 interface HealthResponse {
@@ -77,6 +78,11 @@ export function AgentApp() {
   const title = manifest?.name ?? health?.title ?? 'Agent';
   const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
   const theme = manifest?.theme ?? { id: 'default' };
+  // Ensure the theme's web fonts are loaded. Idempotent + manifest-driven —
+  // a theme switch via the builder chat updates manifest.theme.fontLinks,
+  // which propagates here on the next /api/manifest poll and triggers a
+  // fresh injection.
+  useThemeFontLinks(theme.fontLinks);
 
   const mattersLabel = manifest
     ? resolveMattersLabel(manifest)
