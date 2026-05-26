@@ -9,6 +9,9 @@
   "exports": {
     ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
     "./manifest": { "import": "./dist/manifest/index.js", "types": "./dist/manifest/index.d.ts" },
+    "./manifest/validate": { "import": "./dist/manifest/validate.js", "types": "./dist/manifest/validate.d.ts" },
+    "./manifest/schema": { "import": "./dist/manifest/schema.js", "types": "./dist/manifest/schema.d.ts" },
+    "./manifest/defaults": { "import": "./dist/manifest/defaults.js", "types": "./dist/manifest/defaults.d.ts" },
     "./server": { "import": "./dist/server/index.js", "types": "./dist/server/index.d.ts" },
     "./shell": { "import": "./dist/shell/AgentApp.js", "types": "./dist/shell/AgentApp.d.ts" },
     "./presets": { "import": "./dist/presets/index.js", "types": "./dist/presets/index.d.ts" },
