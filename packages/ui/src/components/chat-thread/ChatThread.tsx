@@ -74,7 +74,7 @@ const INJECTED_CSS = `
   background-attachment: local;
 }
 .ct-empty {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted-foreground);
   letter-spacing: 0.03em;
   line-height: 1.6;
@@ -92,7 +92,7 @@ const INJECTED_CSS = `
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.75ch;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
   color: var(--foreground);
 }
@@ -115,30 +115,35 @@ const INJECTED_CSS = `
 .ct-rail {
   color: var(--muted-foreground);
   opacity: 0.5;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
   user-select: none;
 }
 .ct-assistant-body {
   min-width: 0;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.6;
   color: var(--foreground);
   font-family: var(--font-sans, system-ui, sans-serif);
+}
+.ct-tools {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
 }
 .ct-tool {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.8ch;
   align-items: baseline;
-  padding: 6px 0;
-  margin-top: 8px;
+  padding: 5px 0;
   border-top: 1px dashed var(--border);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--foreground);
 }
+.ct-tools > .ct-tool:first-child { border-top: none; }
 .ct-tool[data-flash="true"] {
   animation: _ct_statusFlash 800ms ease-out forwards;
 }
@@ -198,16 +203,16 @@ const INJECTED_CSS = `
 .ct-composer-glyph {
   color: var(--primary);
   font-family: var(--font-mono);
-  font-size: 14px;
-  padding-top: 8px;
+  font-size: 12px;
+  padding-top: 7px;
   user-select: none;
 }
 .ct-textarea {
   flex: 1;
-  min-height: 36px;
-  padding: 8px 4px;
+  min-height: 30px;
+  padding: 6px 4px;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
   background: transparent;
   color: var(--foreground);
@@ -224,11 +229,11 @@ const INJECTED_CSS = `
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 4px;
   padding-left: calc(1ch + 8px);
 }
 .ct-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted-foreground);
   letter-spacing: 0.04em;
 }
@@ -237,13 +242,13 @@ const INJECTED_CSS = `
   background: color-mix(in oklab, var(--foreground) 6%, var(--background));
   border: 1px solid var(--border);
   border-radius: 3px;
-  padding: 1px 4px;
-  font-size: 10px;
+  padding: 0 4px;
+  font-size: 9px;
   color: var(--foreground);
 }
 .ct-send {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
+  font-size: 11px;
   background: transparent;
   color: var(--primary);
   border: none;
@@ -411,16 +416,20 @@ export function ChatThread(props: ChatThreadProps) {
               <div className="ct-assistant">
                 <span aria-hidden className="ct-rail">│</span>
                 <div className="ct-assistant-body">
+                  {m.toolCalls && m.toolCalls.length > 0 && (
+                    <div className="ct-tools">
+                      {m.toolCalls.map((c) => (
+                        <div key={c.id}>
+                          {renderToolCall ? renderToolCall(c) : <DefaultToolCallCard call={c} />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {m.content && (
                     renderAssistantText
                       ? renderAssistantText(m.content)
                       : <MarkdownMessage content={m.content} />
                   )}
-                  {m.toolCalls?.map((c) => (
-                    <div key={c.id}>
-                      {renderToolCall ? renderToolCall(c) : <DefaultToolCallCard call={c} />}
-                    </div>
-                  ))}
                   {m.pending && (
                     <div className="ct-dots"><span>·</span><span>·</span><span>·</span></div>
                   )}
