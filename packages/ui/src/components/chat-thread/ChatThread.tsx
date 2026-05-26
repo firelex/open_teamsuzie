@@ -3,26 +3,32 @@ import type { ChatThreadProps, ChatToolCall } from './types.js';
 import { useChatThreadStream } from './use-chat-thread-stream.js';
 import { MarkdownMessage } from '../markdown-message.js';
 
-/* ── Editorial-terminal aesthetic ─────────────────────────────────────────
+/* ── Editorial-terminal aesthetic, tuned to the host palette ──────────────
  *
- * The chat lives inside developer surfaces (SuzieCode's BuildView dock,
- * AssistantPage). The host palette is dark, the system font is IBM Plex
- * Mono, and the accent is a yellow primary. This component leans in:
- *   - Monospace throughout. The mono character is the chat's voice.
- *   - No "bubble" cliché. Speaker is signalled by a leading glyph (▸ for
- *     user, │ rail for assistant) and indented body text.
- *   - Tool calls render as a single terminal-style row with a status glyph
- *     pinned right; on hover the args summary expands.
- *   - The composer textarea has no visible border — just an inset surface
- *     and a hairline above. Send is a primary-colored text link.
- *   - One-time CSS injection for keyframes (slide-up, pending dots, status
- *     flash). The ui package builds with tsc, so we inject at runtime
- *     instead of importing a .css sibling.
+ * The chat lives inside developer surfaces that use the host's design tokens
+ * (Inter sans / JetBrains Mono mono / electric-violet primary). This
+ * component pulls those vars directly so it matches the surrounding chrome
+ * (start page, project page) without needing per-host overrides.
  *
- * Width-agnostic: works at the 360px dock and the wider AssistantPage.
+ * Aesthetic moves:
+ *   - Mono is the chat's voice, sans (markdown) is the body.
+ *   - No "bubble" cliché. Speaker is the leading glyph: ▸ in primary for
+ *     the user, a muted │ rail for the assistant.
+ *   - Tool calls render as a single dashed-top row: tool name on the left
+ *     in primary, args summary truncated in muted, status token pinned
+ *     right. Args expand on hover. Short status flash when a tool resolves.
+ *   - Composer textarea is borderless with a leading ▸ rail. Send is a
+ *     primary-colored text link. Hint line shows keyboard shortcuts.
+ *   - Subtle 24px hairline grid in the background for atmosphere.
+ *   - One-time CSS injection for keyframes (the ui package builds with tsc
+ *     only — no CSS imports).
+ *
+ * Sizes match the host's start-page chrome: 14px body, 12px tool/hint,
+ * 11px sub-hint. Colors come from CSS vars so a future dark-mode flip
+ * works out-of-the-box.
  */
 
-const STYLE_ID = 'teamsuzie-chat-thread-styles-v1';
+const STYLE_ID = 'teamsuzie-chat-thread-styles-v2';
 const INJECTED_CSS = `
 @keyframes _ct_slideUp {
   from { opacity: 0; transform: translateY(4px); }
@@ -33,33 +39,116 @@ const INJECTED_CSS = `
   40%           { opacity: 0.85; }
 }
 @keyframes _ct_statusFlash {
-  from { background-color: rgba(244,180,0,0.18); }
+  from { background-color: color-mix(in oklab, var(--primary) 12%, transparent); }
   to   { background-color: transparent; }
+}
+.ct-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  color: var(--foreground);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  background: var(--background);
+}
+.ct-header {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.02em;
+}
+.ct-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background-image: linear-gradient(
+    transparent 23px,
+    color-mix(in oklab, var(--foreground) 4%, transparent) 23px,
+    color-mix(in oklab, var(--foreground) 4%, transparent) 24px
+  );
+  background-size: 100% 24px;
+  background-attachment: local;
+}
+.ct-empty {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+}
+.ct-empty-glyph {
+  color: var(--primary);
 }
 .ct-turn {
   animation: _ct_slideUp 140ms ease-out both;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ct-user {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--foreground);
+}
+.ct-user-glyph {
+  color: var(--primary);
+  font-weight: 600;
+  user-select: none;
+}
+.ct-user-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ct-assistant {
+  display: grid;
+  grid-template-columns: 1ch 1fr;
+  gap: 0.75ch;
+  align-items: start;
+  min-width: 0;
+}
+.ct-rail {
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  font-size: 14px;
+  line-height: 1.55;
+  user-select: none;
+}
+.ct-assistant-body {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--foreground);
+  font-family: var(--font-sans, system-ui, sans-serif);
 }
 .ct-tool {
-  position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 0.6ch;
+  gap: 0.8ch;
   align-items: baseline;
   padding: 6px 0;
-  border-top: 1px dashed var(--border, #2a2a26);
-  font-family: var(--ct-mono, ui-monospace, "IBM Plex Mono", SFMono-Regular, Menlo, monospace);
-  font-size: 11px;
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
   line-height: 1.5;
+  color: var(--foreground);
 }
 .ct-tool[data-flash="true"] {
   animation: _ct_statusFlash 800ms ease-out forwards;
 }
 .ct-tool-name {
-  color: var(--ct-accent, var(--primary, #f4b400));
+  color: var(--primary);
   letter-spacing: 0.02em;
+  font-weight: 500;
 }
 .ct-tool-args {
-  color: var(--ct-muted, #7a7a72);
+  color: var(--muted-foreground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -69,19 +158,26 @@ const INJECTED_CSS = `
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
-  color: var(--ct-fg, var(--foreground, #e6e6e2));
+  color: var(--foreground);
 }
 .ct-tool-status {
   font-variant-numeric: tabular-nums;
-  color: var(--ct-muted, #7a7a72);
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
 }
-.ct-tool-status[data-status="ok"]    { color: #8fc06b; }
-.ct-tool-status[data-status="error"] { color: #f06464; }
+.ct-tool-status[data-status="ok"]    { color: oklch(60% 0.16 150); }
+.ct-tool-status[data-status="error"] { color: oklch(58% 0.215 27); }
 .ct-tool-error {
   grid-column: 1 / -1;
-  color: #f06464;
+  color: oklch(58% 0.215 27);
   margin-top: 2px;
   white-space: pre-wrap;
+}
+.ct-dots {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--primary);
+  letter-spacing: 0.3ch;
 }
 .ct-dots > span {
   display: inline-block;
@@ -89,36 +185,75 @@ const INJECTED_CSS = `
 }
 .ct-dots > span:nth-child(2) { animation-delay: 0.16s; }
 .ct-dots > span:nth-child(3) { animation-delay: 0.32s; }
+.ct-composer {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px 12px;
+  background: color-mix(in oklab, var(--foreground) 2%, var(--background));
+}
+.ct-composer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ct-composer-glyph {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding-top: 8px;
+  user-select: none;
+}
 .ct-textarea {
   flex: 1;
   min-height: 36px;
-  padding: 8px 0 8px 18px;
-  font-family: var(--ct-mono, ui-monospace, "IBM Plex Mono", SFMono-Regular, Menlo, monospace);
+  padding: 8px 4px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   background: transparent;
-  color: var(--ct-fg, var(--foreground, #e6e6e2));
+  color: var(--foreground);
   border: none;
   outline: none;
   resize: none;
-  caret-color: var(--ct-accent, var(--primary, #f4b400));
+  caret-color: var(--primary);
 }
 .ct-textarea::placeholder {
-  color: var(--ct-muted, #7a7a72);
+  color: var(--muted-foreground);
   font-style: italic;
 }
+.ct-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-left: calc(1ch + 8px);
+}
+.ct-hint {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
+}
+.ct-hint kbd {
+  font-family: var(--font-mono);
+  background: color-mix(in oklab, var(--foreground) 6%, var(--background));
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  color: var(--foreground);
+}
 .ct-send {
-  font-family: var(--ct-mono, ui-monospace, "IBM Plex Mono", SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
   background: transparent;
-  color: var(--ct-accent, var(--primary, #f4b400));
+  color: var(--primary);
   border: none;
   padding: 4px 8px;
   cursor: pointer;
   letter-spacing: 0.04em;
+  font-weight: 500;
 }
 .ct-send:disabled {
-  color: var(--ct-muted, #7a7a72);
+  color: var(--muted-foreground);
   cursor: not-allowed;
 }
 .ct-send:not(:disabled):hover {
@@ -136,25 +271,18 @@ function ensureStyles(): void {
   document.head.appendChild(el);
 }
 
-const MONO = 'var(--ct-mono, ui-monospace, "IBM Plex Mono", SFMono-Regular, Menlo, monospace)';
-const FG = 'var(--ct-fg, var(--foreground, #e6e6e2))';
-const MUTED = 'var(--ct-muted, #7a7a72)';
-const ACCENT = 'var(--ct-accent, var(--primary, #f4b400))';
-const RULE = 'var(--ct-rule, var(--border, #2a2a26))';
-
 function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
   const summary = (() => {
     try {
       const s = JSON.stringify(call.args);
-      // Drop the outer braces — feels less JSON-y, more terminal-y.
+      // Strip outer braces for a less JSON-y read.
       return s.startsWith('{') && s.endsWith('}') ? s.slice(1, -1) : s;
     } catch {
       return '…';
     }
   })();
-  const flashKey = `${call.id}:${call.status}`;
   return (
-    <div className="ct-tool" data-flash={call.status !== 'running'} key={flashKey}>
+    <div className="ct-tool" data-flash={call.status !== 'running'}>
       <span className="ct-tool-name">⟢ {call.name}</span>
       <span className="ct-tool-args">{summary || '·'}</span>
       <span className="ct-tool-status" data-status={call.status}>
@@ -179,7 +307,6 @@ export function ChatThread(props: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // One-time style injection.
   useEffect(() => { ensureStyles(); }, []);
 
   // Initial history load.
@@ -201,12 +328,11 @@ export function ChatThread(props: ChatThreadProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
-  // Scroll-pin while streaming.
   useEffect(() => {
     if (stream.inFlight) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [stream.messages, stream.inFlight]);
 
-  // Auto-grow the textarea up to a cap so multi-line drafts don't crush the composer.
+  // Auto-grow the textarea up to a cap.
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -246,52 +372,26 @@ export function ChatThread(props: ChatThreadProps) {
     await stream.send(text, { chatId });
   }
 
-  return (
-    <div
-      className={className}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-        fontFamily: MONO,
-        color: FG,
-      }}
-    >
-      {header && (
-        <div style={{ borderBottom: `1px solid ${RULE}`, padding: '6px 12px' }}>{header}</div>
-      )}
+  const rootClass = className ? `ct-root ${className}` : 'ct-root';
 
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px 16px 8px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 18,
-          // Subtle hairline grid in the background for atmosphere — repeats
-          // every 24px vertically. Use background-image so it doesn't
-          // interact with padding.
-          backgroundImage:
-            'linear-gradient(transparent 23px, rgba(255,255,255,0.025) 23px, rgba(255,255,255,0.025) 24px)',
-          backgroundSize: '100% 24px',
-          backgroundAttachment: 'local',
-        }}
-      >
+  return (
+    <div className={rootClass}>
+      {header && <div className="ct-header">{header}</div>}
+
+      <div className="ct-scroll">
         {!loadedHistory && (
-          <div style={{ fontSize: 11, color: MUTED, letterSpacing: '0.04em' }}>· loading ·</div>
+          <div className="ct-empty">· loading ·</div>
         )}
 
         {loadedHistory && stream.messages.length === 0 && (
-          <div style={{ fontSize: 11, color: MUTED, letterSpacing: '0.04em', lineHeight: 1.6 }}>
+          <div className="ct-empty">
             <div style={{ marginBottom: 8 }}>
-              <span style={{ color: ACCENT }}>▸</span>{' '}
+              <span className="ct-empty-glyph">▸</span>{' '}
               start a conversation
             </div>
             <div style={{ paddingLeft: '2ch' }}>
               tell the agent what to change. it will read the manifest,<br />
-              call <span style={{ color: ACCENT }}>apply_manifest_patch</span>, and confirm.
+              call <span className="ct-empty-glyph">apply_manifest_patch</span>, and confirm.
             </div>
           </div>
         )}
@@ -300,55 +400,21 @@ export function ChatThread(props: ChatThreadProps) {
           <div
             key={m.id}
             className="ct-turn"
-            style={{
-              animationDelay: `${Math.min(i, 6) * 18}ms`,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}
+            style={{ animationDelay: `${Math.min(i, 6) * 18}ms` }}
           >
             {m.role === 'user' ? (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'auto 1fr',
-                  gap: '0.75ch',
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                }}
-              >
-                <span style={{ color: ACCENT }}>▸</span>
-                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.content}</span>
+              <div className="ct-user">
+                <span className="ct-user-glyph">▸</span>
+                <span className="ct-user-body">{m.content}</span>
               </div>
             ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1ch 1fr',
-                  gap: '0.75ch',
-                  alignItems: 'start',
-                }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    color: MUTED,
-                    opacity: 0.4,
-                    fontFamily: MONO,
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    userSelect: 'none',
-                  }}
-                >
-                  │
-                </span>
-                <div style={{ minWidth: 0 }}>
+              <div className="ct-assistant">
+                <span aria-hidden className="ct-rail">│</span>
+                <div className="ct-assistant-body">
                   {m.content && (
-                    <div style={{ fontSize: 13, lineHeight: 1.55 }}>
-                      {renderAssistantText
-                        ? renderAssistantText(m.content)
-                        : <MarkdownMessage content={m.content} />}
-                    </div>
+                    renderAssistantText
+                      ? renderAssistantText(m.content)
+                      : <MarkdownMessage content={m.content} />
                   )}
                   {m.toolCalls?.map((c) => (
                     <div key={c.id}>
@@ -356,9 +422,7 @@ export function ChatThread(props: ChatThreadProps) {
                     </div>
                   ))}
                   {m.pending && (
-                    <div className="ct-dots" style={{ marginTop: 6, fontSize: 14, color: ACCENT, letterSpacing: '0.3ch' }}>
-                      <span>·</span><span>·</span><span>·</span>
-                    </div>
+                    <div className="ct-dots"><span>·</span><span>·</span><span>·</span></div>
                   )}
                 </div>
               </div>
@@ -368,26 +432,9 @@ export function ChatThread(props: ChatThreadProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div
-        style={{
-          borderTop: `1px solid ${RULE}`,
-          padding: '8px 12px 10px',
-          background: 'rgba(0,0,0,0.18)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
-          <span
-            aria-hidden
-            style={{
-              color: ACCENT,
-              fontFamily: MONO,
-              fontSize: 13,
-              paddingTop: 8,
-              userSelect: 'none',
-            }}
-          >
-            ▸
-          </span>
+      <div className="ct-composer">
+        <div className="ct-composer-row">
+          <span aria-hidden className="ct-composer-glyph">▸</span>
           <textarea
             ref={textareaRef}
             className="ct-textarea"
@@ -404,20 +451,11 @@ export function ChatThread(props: ChatThreadProps) {
                 stream.abort();
               }
             }}
-            style={{ paddingLeft: 4 }}
           />
         </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1ch',
-            marginTop: 6,
-            paddingLeft: '2ch',
-          }}
-        >
-          <span style={{ fontSize: 10, color: MUTED, letterSpacing: '0.06em' }}>
-            enter · send  shift-enter · newline  esc · abort
+        <div className="ct-meta">
+          <span className="ct-hint">
+            <kbd>↵</kbd> send  <kbd>⇧↵</kbd> newline  <kbd>esc</kbd> abort
           </span>
           <span style={{ flex: 1 }} />
           {composerExtras}
