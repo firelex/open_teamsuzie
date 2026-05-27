@@ -131,6 +131,20 @@ export default function App() {
       .finally(() => setHealthLoaded(true));
   }, []);
 
+  useEffect(() => {
+    const assetId = health?.brand?.favicon?.assetId;
+    if (!assetId) return;
+    const href = `/assets/${assetId}`;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    if (link.href.endsWith(href)) return; // already set
+    link.href = href;
+  }, [health?.brand?.favicon?.assetId]);
+
   const title = health?.brand?.name || health?.title || 'Starter Chat';
   const sidebarTitle = health?.brand?.shortName || title;
   const logo = health?.brand?.logo;
