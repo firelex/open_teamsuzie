@@ -38,6 +38,9 @@ interface CsrfSession {
  *
  * Mount AFTER your session middleware and BEFORE any router that handles
  * mutating requests.
+ *
+ * Client-side helpers ship from `@teamsuzie/hosted-demo/client`
+ * (`installCsrfFetch` / `csrfFetch`).
  */
 export function createCsrfMiddleware(opts: CsrfMiddlewareOptions = {}): RequestHandler {
   const cookieName = opts.cookieName ?? 'csrf-token';
