@@ -38,6 +38,21 @@ function brandOf(m: AgentManifest | null): BrandBlock | undefined {
   return (m as unknown as { brand?: BrandBlock } | null)?.brand;
 }
 
+type HomeRead = {
+  disclaimerPlacement?: 'prominent' | 'footer' | 'hidden';
+};
+type LegalRead = {
+  jurisdictions?: string[];
+  disclaimer?: string;
+  clientFacing?: boolean;
+};
+function homeOf(m: AgentManifest | null): HomeRead | undefined {
+  return (m as unknown as { home?: HomeRead } | null)?.home;
+}
+function legalOf(m: AgentManifest | null): LegalRead | undefined {
+  return (m as unknown as { legal?: LegalRead } | null)?.legal;
+}
+
 function resolveModules(m: AgentManifest | null): ManifestModules {
   return { ...DEFAULT_MODULES, ...((m?.modules) ?? {}) };
 }
@@ -93,6 +108,13 @@ export function AgentApp() {
 
   const mods = resolveModules(manifest);
   const brand = brandOf(manifest);
+  const home = homeOf(manifest);
+  const legal = legalOf(manifest);
+  const disclaimerText = legal?.disclaimer?.trim() ?? '';
+  const placement = home?.disclaimerPlacement ?? 'footer';
+  const showProminent = placement === 'prominent' && disclaimerText.length > 0;
+  const showFooterDisclaimer = placement === 'footer' && disclaimerText.length > 0;
+  const jurisdictionsText = (legal?.jurisdictions ?? []).join(', ');
   const title = brand?.name ?? manifest?.name ?? health?.title ?? 'Agent';
   const sidebarTitle = brand?.shortName ?? title;
   const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
@@ -163,12 +185,33 @@ export function AgentApp() {
                 ? <SidebarNavItem asChild><AssistantNavLink /></SidebarNavItem>
                 : <SidebarNavItem asChild><NavLink to={item.to}>{item.label}</NavLink></SidebarNavItem>
             )}
-            footer={mods.settings ? (
-              <SidebarNavItem asChild><NavLink to="/settings">Settings</NavLink></SidebarNavItem>
-            ) : null}
+            footer={
+              <>
+                {mods.settings && (
+                  <SidebarNavItem asChild>
+                    <NavLink to="/settings">Settings</NavLink>
+                  </SidebarNavItem>
+                )}
+                {(jurisdictionsText.length > 0 || showFooterDisclaimer) && (
+                  <div className="mt-2 border-t border-border pt-2 px-2 text-[10.5px] leading-[1.4] text-muted-foreground">
+                    {jurisdictionsText.length > 0 && (
+                      <div>Jurisdictions: {jurisdictionsText}</div>
+                    )}
+                    {showFooterDisclaimer && (
+                      <div className="mt-1 italic">{disclaimerText}</div>
+                    )}
+                  </div>
+                )}
+              </>
+            }
           />
         }
       >
+        {showProminent && (
+          <div className="border-b border-border bg-muted/50 px-6 py-2 text-[12.5px] text-foreground">
+            {disclaimerText}
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<AssistantPage agentName={agentName} />} />
           <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
