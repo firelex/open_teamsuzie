@@ -1,7 +1,8 @@
 import express, { type Router } from 'express';
 import type {
-  AgentTarget, AnyToolDefinition, ChatMessage, ChatStreamEvent, ToolContext,
+  AgentTarget, AgentTargetRegistry, AnyToolDefinition, ChatMessage, ChatStreamEvent, ToolContext,
 } from '@teamsuzie/agent-loop';
+import { resolveAgentTarget } from '@teamsuzie/agent-loop';
 import type { ChatsStore } from '@teamsuzie/chats';
 import { applyPersona, type PersonaRegistry } from '@teamsuzie/personas';
 import {
@@ -23,6 +24,16 @@ import {
 export interface CreateChatRouterDeps {
   /** Default LLM target. Per-request `body.model` overrides `.model`. */
   agent: AgentTarget;
+  /**
+   * Optional per-model overrides. When the picker stores a prefixed UI id
+   * (e.g. `openai/gpt-5.5`), the corresponding registry entry should set
+   * `model` to the wire id (e.g. `gpt-5.5`) and `baseUrl` (+ `apiKey`)
+   * to the actual provider. Without this, a picker selection that doesn't
+   * match the default agent's provider sends the prefixed id straight to
+   * the configured `baseUrl` and the provider 404s. See
+   * `resolveAgentTarget` in @teamsuzie/agent-loop for the merge semantics.
+   */
+  agentRegistry?: AgentTargetRegistry;
   /** Persistent chats store; both messages and auto-title go through this. */
   chats: ChatsStore;
   /** Persona registry. Looks up `chat.personaId` for system-prompt + tool filter. */
@@ -31,8 +42,10 @@ export interface CreateChatRouterDeps {
   ownerId: string;
   /** Workspace scope. Must equal the `getWorkspaceId` the chats router uses. */
   workspaceId: string;
-  /** Default system prompt when no persona is bound. Typically `manifest.persona.systemPrompt`. */
-  defaultSystemPrompt?: string;
+  /** Default system prompt when no persona is bound. Typically `manifest.persona.systemPrompt`.
+   *  Pass a function to compose the prompt per request (e.g. to inject legal guardrails that
+   *  may change after server boot). */
+  defaultSystemPrompt?: string | (() => string);
   /** Tools available to the chat loop. Default: []. */
   tools?: AnyToolDefinition[];
   /**
@@ -111,14 +124,27 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
       ...perTurnTools,
     ];
 
+    const resolvedDefaultSystemPrompt =
+      typeof deps.defaultSystemPrompt === 'function'
+        ? deps.defaultSystemPrompt()
+        : deps.defaultSystemPrompt;
+
     const turnConfig = applyPersona({
-      defaultSystemPrompt: deps.defaultSystemPrompt,
+      defaultSystemPrompt: resolvedDefaultSystemPrompt,
       tools: mergedTools,
       persona,
     });
 
     const effectiveModel = requestedModel || turnConfig.modelOverride || deps.agent.model;
-    const agent: AgentTarget = { ...deps.agent, model: effectiveModel };
+    // Route through `resolveAgentTarget` so a prefixed UI model id
+    // (e.g. `openai/gpt-5.5`) gets remapped to the registry's wire id +
+    // matching baseUrl/apiKey. With no registry entry, the agent falls
+    // back to the default with `model` substituted — the prior behavior.
+    const agent: AgentTarget = resolveAgentTarget(
+      effectiveModel,
+      deps.agentRegistry ?? {},
+      deps.agent,
+    );
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');

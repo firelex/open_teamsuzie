@@ -937,7 +937,40 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       personaRegistry,
       ownerId: OWNER_ID,
       workspaceId: 'assistant:default',
-      defaultSystemPrompt: manifestStore.get().persona.systemPrompt,
+      defaultSystemPrompt: () => {
+        const m = manifestStore.get() as { persona: { systemPrompt: string }; legal?: {
+          jurisdictions?: string[];
+          disclaimer?: string;
+          clientFacing?: boolean;
+          requireHumanReviewFor?: string[];
+          forbid?: string[];
+        } };
+        const base = m.persona.systemPrompt;
+        const legal = m.legal;
+        if (!legal) return base;
+        const lines: string[] = [];
+        if (legal.disclaimer && legal.disclaimer.trim()) {
+          lines.push(`Disclaimer: ${legal.disclaimer.trim()}`);
+        }
+        if (Array.isArray(legal.jurisdictions) && legal.jurisdictions.length > 0) {
+          lines.push(`Jurisdictions in scope: ${legal.jurisdictions.join(', ')}.`);
+        }
+        if (Array.isArray(legal.forbid) && legal.forbid.length > 0) {
+          lines.push(`You MUST refuse anything related to: ${legal.forbid.join(', ')}.`);
+        }
+        if (Array.isArray(legal.requireHumanReviewFor) && legal.requireHumanReviewFor.length > 0) {
+          lines.push(
+            `Any of the following topics MUST be escalated for human review before action: ${legal.requireHumanReviewFor.join(', ')}.`,
+          );
+        }
+        if (legal.clientFacing) {
+          lines.push(
+            'This assistant is client-facing. Communicate carefully, do not create a lawyer-client relationship, and always defer to a qualified lawyer for legal advice.',
+          );
+        }
+        if (lines.length === 0) return base;
+        return `${base}\n\n[Legal guardrails]\n${lines.map((l) => `- ${l}`).join('\n')}`;
+      },
       tools: toolRegistry.list(),
       buildPerTurnTools: (sessionId) => buildDocumentTools({
         sessionId,
