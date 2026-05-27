@@ -1022,6 +1022,13 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         starterPrompts?: string[];
         disclaimerPlacement?: 'prominent' | 'footer' | 'hidden';
       };
+      legal?: {
+        jurisdictions?: string[];
+        disclaimer?: string;
+        clientFacing?: boolean;
+        requireHumanReviewFor?: string[];
+        forbid?: string[];
+      };
       persona?: { name?: string; id?: string };
       tools?: Array<{ name: string; description?: string; enabled?: boolean }>;
     };
@@ -1031,6 +1038,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       title,
       brand: m.brand,
       home: m.home,
+      legal: m.legal,
       agent: { name: m.persona?.name ?? m.persona?.id, model: opts.agent?.model },
       tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
       modules: resolveModules(m as never),
