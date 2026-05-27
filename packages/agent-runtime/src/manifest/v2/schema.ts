@@ -102,6 +102,24 @@ export interface CapabilitiesBlock {
 }
 
 /**
+ * Single sidebar nav item. `id` references a built-in route key (e.g.
+ * 'assistant', 'matters', 'library', 'personas', 'reviews', 'history').
+ * `label` is the visible text. `visible` controls whether the item renders
+ * at all (false hides it but persists in the array — set_navigation can
+ * restore it). `order` is an optional integer; ties broken by array order.
+ */
+export interface NavItem {
+  id: string;
+  label: string;
+  visible: boolean;
+  order?: number;
+}
+
+export interface NavigationBlock {
+  items: NavItem[];
+}
+
+/**
  * Manifest v2. Plan 01 introduces:
  *   - `version: 2` (renamed from v1's `schemaVersion: 1`)
  *   - `brand` (replaces v1's top-level `name`)
@@ -117,6 +135,7 @@ export interface AgentManifestV2 {
   home: HomeBlock;
   legal: LegalBlock;
   capabilities: CapabilitiesBlock;
+  navigation: NavigationBlock;
   description: string;
   theme: ManifestTheme;
   persona: ManifestPersona;

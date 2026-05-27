@@ -44,6 +44,17 @@ const capabilities = z.object({
   workspace: z.boolean(),
 });
 
+const navItem = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  visible: z.boolean(),
+  order: z.number().int().optional(),
+});
+
+const navigation = z.object({
+  items: z.array(navItem),
+});
+
 const passthroughObject = z.object({}).passthrough();
 
 /**
@@ -59,6 +70,7 @@ export const manifestV2Schema = z.object({
   home,
   legal,
   capabilities,
+  navigation,
   description: z.string(),
   theme: passthroughObject,
   persona: passthroughObject,

@@ -25,6 +25,7 @@ const baseValid = {
     approvals: false,
     workspace: false,
   },
+  navigation: { items: [] as Array<{ id: string; label: string; visible: boolean; order?: number }> },
   description: 'Employment law assistant',
   persona: { id: 'default', systemPrompt: 'You are an assistant.' },
   ai: { model: 'claude-sonnet-4-6' },
@@ -145,5 +146,23 @@ describe('validateManifestV2', () => {
   it('accepts capabilities with all booleans set', () => {
     const m = { ...baseValid, capabilities: { ...baseValid.capabilities, fileUploads: true, citations: true } };
     expect(validateManifestV2(m).capabilities.fileUploads).toBe(true);
+  });
+
+  it('rejects missing navigation block', () => {
+    const { navigation, ...rest } = baseValid;
+    expect(() => validateManifestV2(rest)).toThrow();
+  });
+
+  it('accepts navigation.items with valid entries', () => {
+    const m = { ...baseValid, navigation: { items: [
+      { id: 'assistant', label: 'Assistant', visible: true },
+      { id: 'matters', label: 'Client Matters', visible: false, order: 5 },
+    ]}};
+    expect(validateManifestV2(m).navigation.items[0].label).toBe('Assistant');
+  });
+
+  it('rejects navigation.items with missing required fields', () => {
+    const m = { ...baseValid, navigation: { items: [{ id: 'x' } as never] }};
+    expect(() => validateManifestV2(m)).toThrow();
   });
 });
