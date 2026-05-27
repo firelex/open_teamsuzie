@@ -248,11 +248,11 @@ export function ArtifactPanel({
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {artifact.markdown.length === 0 && artifact.html === undefined ? (
+        {artifact.markdown.length === 0 && !artifact.html ? (
           <p className="text-sm italic text-muted-foreground">
             Empty document — content will appear here as the agent writes.
           </p>
-        ) : artifact.html !== undefined ? (
+        ) : artifact.html ? (
           <div
             className="prose prose-sm max-w-none"
             // eslint-disable-next-line react/no-danger -- host-generated HTML (mammoth output); never accept from user input.
