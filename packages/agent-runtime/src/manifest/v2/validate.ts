@@ -45,5 +45,5 @@ export const manifestV2Schema = z.object({
 });
 
 export function validateManifestV2(raw: unknown): AgentManifestV2 {
-  return manifestV2Schema.parse(raw) as AgentManifestV2;
+  return manifestV2Schema.parse(raw) as unknown as AgentManifestV2;
 }
