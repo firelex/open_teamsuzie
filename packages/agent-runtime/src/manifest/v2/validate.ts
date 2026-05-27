@@ -14,6 +14,14 @@ const brand = z.object({
   favicon: z.object({ assetId: z.string().min(1) }).optional(),
 });
 
+const home = z.object({
+  headline: z.string().optional(),
+  subheadline: z.string().optional(),
+  welcomeMessage: z.string().optional(),
+  starterPrompts: z.array(z.string()),
+  disclaimerPlacement: z.enum(['prominent', 'footer', 'hidden']),
+});
+
 const passthroughObject = z.object({}).passthrough();
 
 /**
@@ -26,6 +34,7 @@ const passthroughObject = z.object({}).passthrough();
 export const manifestV2Schema = z.object({
   version: z.literal(2),
   brand,
+  home,
   description: z.string(),
   theme: passthroughObject,
   persona: passthroughObject,

@@ -4,6 +4,7 @@ import { validateManifestV2 } from '../validate.js';
 const baseValid = {
   version: 2 as const,
   brand: { name: 'Blixt Counsel' },
+  home: { starterPrompts: [] as string[], disclaimerPlacement: 'footer' as const },
   description: 'Employment law assistant',
   persona: { id: 'default', systemPrompt: 'You are an assistant.' },
   ai: { model: 'claude-sonnet-4-6' },
@@ -59,5 +60,29 @@ describe('validateManifestV2', () => {
   it('accepts a manifest without optional fields (ai, modules, prompts, source, etc.)', () => {
     const { ai, modules, ...minimal } = baseValid;
     expect(() => validateManifestV2(minimal)).not.toThrow();
+  });
+
+  it('rejects missing home', () => {
+    const { home, ...withoutHome } = baseValid;
+    expect(() => validateManifestV2(withoutHome)).toThrow();
+  });
+
+  it('rejects unknown disclaimerPlacement', () => {
+    const m = { ...baseValid, home: { starterPrompts: [], disclaimerPlacement: 'sidebar' } };
+    expect(() => validateManifestV2(m as never)).toThrow();
+  });
+
+  it('accepts home with headline, subheadline, welcomeMessage, starterPrompts', () => {
+    const m = {
+      ...baseValid,
+      home: {
+        headline: 'Hi',
+        subheadline: 'Welcome',
+        welcomeMessage: 'Tell me about your case.',
+        starterPrompts: ['summarize_policy', 'draft_hr_email'],
+        disclaimerPlacement: 'prominent' as const,
+      },
+    };
+    expect(validateManifestV2(m).home.starterPrompts).toEqual(['summarize_policy', 'draft_hr_email']);
   });
 });
