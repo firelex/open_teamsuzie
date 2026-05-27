@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -9,7 +10,7 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from app.agent.loop import run_agent_loop
@@ -280,3 +281,46 @@ async def xlsx_to_csv_proxy(
         media_type=CSV_MEDIA_TYPE,
     )
     return _conversion_response(job)
+
+
+@app.post("/api/spreadsheets/populate")
+async def populate_endpoint(
+    template: UploadFile = File(...),
+    cellmap: str = Form(...),
+    assumptions: str = Form(...),
+) -> Response:
+    """Synchronous endpoint: populate a workbook with cellmap-driven assumptions.
+
+    Multipart body:
+      - template: the .xlsx file to populate
+      - cellmap: JSON string matching the Cellmap shape from @teamsuzie/pe-lbo-schema
+      - assumptions: JSON string keyed by canonical name -> {base, low?, high?}
+
+    Returns the populated .xlsx bytes (200) or a JSON error (400 / 422).
+    """
+    try:
+        cellmap_dict = json.loads(cellmap)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"invalid cellmap JSON: {e}") from e
+    try:
+        assumptions_dict = json.loads(assumptions)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"invalid assumptions JSON: {e}") from e
+
+    template_bytes = await template.read()
+    if not template_bytes:
+        raise HTTPException(status_code=400, detail="empty template upload")
+
+    from app.services.populate import populate_workbook, PopulateError
+
+    try:
+        populated = populate_workbook(template_bytes, cellmap_dict, assumptions_dict)
+    except PopulateError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    filename = template.filename or "populated.xlsx"
+    return Response(
+        content=populated,
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="populated-{filename}"'},
+    )
