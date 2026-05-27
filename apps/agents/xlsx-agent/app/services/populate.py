@@ -108,7 +108,12 @@ def populate_workbook(
             )
         value = spec["base"]
         cell = _resolve_address(wb, addr)
-        cell.value = value
+        try:
+            cell.value = value
+        except (ValueError, TypeError) as e:
+            raise PopulateError(
+                f"could not write value for {path!r} at {addr}: {e}"
+            ) from e
 
     out = io.BytesIO()
     wb.save(out)

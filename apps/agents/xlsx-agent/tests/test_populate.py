@@ -174,3 +174,32 @@ def test_populate_unknown_assumption_is_ignored(client: TestClient) -> None:
     assert resp.status_code == 200
     wb = load_workbook(io.BytesIO(resp.content))
     assert wb["LBO"]["L13"].value == "Test Project"
+
+
+def test_populate_rejects_non_scalar_value(client: TestClient, tiny_template_bytes: bytes) -> None:
+    """A list/dict assumption value yields 400, not 500."""
+    cellmap = {
+        "templateId": "tiny",
+        "schemaVersion": "suzie-lbo-v1",
+        "profile": "uk_mid_market_lbo",
+        "modules": {
+            "transaction_inputs": {
+                "moduleVersion": "v1",
+                "scalars": {"base_rate": "Sheet1!B1"},
+                "slots": {},
+            },
+        },
+        "other": [],
+    }
+    assumptions = {"transaction_inputs.base_rate": {"base": [1, 2, 3]}}
+    resp = client.post(
+        "/api/spreadsheets/populate",
+        files={"template": ("tiny.xlsx", tiny_template_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        data={
+            "cellmap": json.dumps(cellmap),
+            "assumptions": json.dumps(assumptions),
+        },
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", "")
+    assert "base_rate" in detail.lower() or "could not write" in detail.lower()
