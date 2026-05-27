@@ -116,6 +116,7 @@ export * from './components/button.js';
 export * from './components/card.js';
 export * from './components/checkbox.js';
 export * from './components/confirm-dialog.js';
+export * from './components/toast.js';
 export * from './components/data-table.js';
 export * from './components/dialog.js';
 export * from './components/dropdown-menu.js';

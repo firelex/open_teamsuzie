@@ -50,6 +50,7 @@ const ConfirmDialogContext = React.createContext<ConfirmDialogContextValue | nul
  * every `window.confirm()` / `window.alert()` site — those have no
  * theme, no async support, no a11y, and trap focus poorly.
  */
+// Companion: <ToastProvider> + useToast (./toast) for non-blocking feedback.
 export function ConfirmDialogProvider({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = React.useState<PendingConfirm | null>(null)
   const [running, setRunning] = React.useState(false)
