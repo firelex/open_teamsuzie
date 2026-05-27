@@ -5,6 +5,13 @@ const baseValid = {
   version: 2 as const,
   brand: { name: 'Blixt Counsel' },
   home: { starterPrompts: [] as string[], disclaimerPlacement: 'footer' as const },
+  legal: {
+    jurisdictions: [] as string[],
+    disclaimer: '',
+    clientFacing: false,
+    requireHumanReviewFor: [] as string[],
+    forbid: [] as string[],
+  },
   description: 'Employment law assistant',
   persona: { id: 'default', systemPrompt: 'You are an assistant.' },
   ai: { model: 'claude-sonnet-4-6' },
@@ -84,5 +91,31 @@ describe('validateManifestV2', () => {
       },
     };
     expect(validateManifestV2(m).home.starterPrompts).toEqual(['summarize_policy', 'draft_hr_email']);
+  });
+
+  it('rejects missing legal block', () => {
+    const { legal, ...withoutLegal } = baseValid;
+    expect(() => validateManifestV2(withoutLegal)).toThrow();
+  });
+
+  it('rejects legal with non-array jurisdictions', () => {
+    const m = { ...baseValid, legal: { ...baseValid.legal, jurisdictions: 'UK' as never } };
+    expect(() => validateManifestV2(m)).toThrow();
+  });
+
+  it('accepts legal with populated arrays + disclaimer', () => {
+    const m = {
+      ...baseValid,
+      legal: {
+        jurisdictions: ['England and Wales'],
+        disclaimer: 'This tool provides general information, not legal advice.',
+        clientFacing: true,
+        requireHumanReviewFor: ['filings', 'termination_advice'],
+        forbid: ['submitting_filings'],
+      },
+    };
+    const out = validateManifestV2(m);
+    expect(out.legal.jurisdictions).toEqual(['England and Wales']);
+    expect(out.legal.clientFacing).toBe(true);
   });
 });

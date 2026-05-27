@@ -22,6 +22,14 @@ const home = z.object({
   disclaimerPlacement: z.enum(['prominent', 'footer', 'hidden']),
 });
 
+const legal = z.object({
+  jurisdictions: z.array(z.string()),
+  disclaimer: z.string(),
+  clientFacing: z.boolean(),
+  requireHumanReviewFor: z.array(z.string()),
+  forbid: z.array(z.string()),
+});
+
 const passthroughObject = z.object({}).passthrough();
 
 /**
@@ -35,6 +43,7 @@ export const manifestV2Schema = z.object({
   version: z.literal(2),
   brand,
   home,
+  legal,
   description: z.string(),
   theme: passthroughObject,
   persona: passthroughObject,
