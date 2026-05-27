@@ -61,9 +61,11 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.1.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/diff": "^5.2.0",
+    "jsdom": "^25.0.1",
     "typescript": "~5.8.3",
     "vitest": "^3.0.0"
   }
