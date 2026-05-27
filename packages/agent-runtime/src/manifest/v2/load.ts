@@ -28,6 +28,20 @@ export function loadManifestV2(raw: unknown): AgentManifestV2 {
         forbid: [],
         ...((rawV2.legal ?? {}) as object),
       },
+      capabilities: {
+        chat: true,
+        fileUploads: false,
+        docxDrafting: false,
+        redlines: false,
+        legalResearch: false,
+        citations: false,
+        matters: false,
+        reviewGrids: false,
+        clientSharing: false,
+        approvals: false,
+        workspace: false,
+        ...(rawV2.capabilities ?? {}),
+      },
     };
     return validateManifestV2(withDefaults);
   }

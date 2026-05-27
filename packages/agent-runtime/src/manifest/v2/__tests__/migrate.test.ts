@@ -106,4 +106,49 @@ describe('migrateV1ToV2', () => {
       forbid: [],
     });
   });
+
+  it('derives capabilities from v1 modules + components', () => {
+    const v1 = {
+      ...v1Base,
+      modules: {
+        chat: true,
+        files: true,
+        knowledgeBase: false,
+        citations: true,
+        matters: false,
+        workspace: true,
+        approvals: false,
+      },
+      components: {
+        chat: true,
+        files: false,
+        knowledgeBase: false,
+        citations: true,
+        workspace: false,
+        approvals: false,
+      },
+    };
+    const v2 = migrateV1ToV2(v1);
+    expect(v2.capabilities).toEqual({
+      chat: true,
+      fileUploads: true,
+      docxDrafting: false,
+      redlines: false,
+      legalResearch: false,
+      citations: true,
+      matters: false,
+      reviewGrids: true,
+      clientSharing: false,
+      approvals: false,
+      workspace: true,
+    });
+  });
+
+  it('defaults capabilities with chat=true when v1 has no modules/components', () => {
+    const { modules, components, ...v1NoMods } = v1Base;
+    const v2 = migrateV1ToV2(v1NoMods as never);
+    expect(v2.capabilities.chat).toBe(true);
+    expect(v2.capabilities.fileUploads).toBe(false);
+    expect(v2.capabilities.legalResearch).toBe(false);
+  });
 });

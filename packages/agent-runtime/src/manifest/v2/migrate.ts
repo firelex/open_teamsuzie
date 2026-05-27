@@ -39,6 +39,24 @@ export function migrateV1ToV2(
       requireHumanReviewFor: [],
       forbid: [],
     },
+    capabilities: (() => {
+      const mods = (v1.modules ?? {}) as Record<string, unknown>;
+      const comps = (v1.components ?? {}) as Record<string, unknown>;
+      const or = (a: unknown, b: unknown) => Boolean(a) || Boolean(b);
+      return {
+        chat: true,
+        fileUploads: or(mods.files, comps.files),
+        docxDrafting: false,
+        redlines: false,
+        legalResearch: or(mods.knowledgeBase, comps.knowledgeBase),
+        citations: or(mods.citations, comps.citations),
+        matters: Boolean(mods.matters),
+        reviewGrids: or(mods.workspace, comps.workspace),
+        clientSharing: false,
+        approvals: or(mods.approvals, comps.approvals),
+        workspace: or(mods.workspace, comps.workspace),
+      };
+    })(),
     description: v1.description as string,
     theme: v1.theme as AgentManifestV2['theme'],
     persona: v1.persona as AgentManifestV2['persona'],
