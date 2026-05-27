@@ -3,11 +3,20 @@ import path from 'node:path';
 import { defaultManifest } from './defaults.js';
 import type { AgentManifest } from './schema.js';
 
-function mergeWithDefaults(partial: Partial<AgentManifest>): AgentManifest {
+function mergeWithDefaults(partial: Partial<AgentManifest> & Record<string, unknown>): AgentManifest {
   const base = defaultManifest();
+  // For v2 manifests, the lawyer-app-shape `brand.name` replaces the v1 top-level
+  // `name`. Fall back across both so the store returns a sensible `name` whether
+  // the file is v1 or v2.
+  const v2Brand = (partial as { brand?: { name?: string } }).brand;
+  const resolvedName = partial.name ?? v2Brand?.name ?? base.name;
   return {
+    // Spread first so any v2-only fields the runtime now reads (brand, version,
+    // favicon, tagline, etc.) survive into the returned object. The explicit
+    // fields below override the v1-typed shape for back-compat.
+    ...partial,
     schemaVersion: 1,
-    name: partial.name ?? base.name,
+    name: resolvedName,
     description: partial.description ?? base.description,
     theme: { ...base.theme, ...(partial.theme ?? {}) },
     persona: { ...base.persona, ...(partial.persona ?? {}) },
@@ -20,7 +29,7 @@ function mergeWithDefaults(partial: Partial<AgentManifest>): AgentManifest {
     reviews: partial.reviews,
     matters: partial.matters,
     source: partial.source,
-  };
+  } as AgentManifest;
 }
 
 export function loadManifest(manifestPath: string): AgentManifest {
