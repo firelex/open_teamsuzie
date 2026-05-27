@@ -1015,6 +1015,13 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         logo?: { type: 'text'; wordmark: string } | { type: 'asset'; assetId: string };
         favicon?: { assetId: string };
       };
+      home?: {
+        headline?: string;
+        subheadline?: string;
+        welcomeMessage?: string;
+        starterPrompts?: string[];
+        disclaimerPlacement?: 'prominent' | 'footer' | 'hidden';
+      };
       persona?: { name?: string; id?: string };
       tools?: Array<{ name: string; description?: string; enabled?: boolean }>;
     };
@@ -1023,6 +1030,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       status: 'ok',
       title,
       brand: m.brand,
+      home: m.home,
       agent: { name: m.persona?.name ?? m.persona?.id, model: opts.agent?.model },
       tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
       modules: resolveModules(m as never),
