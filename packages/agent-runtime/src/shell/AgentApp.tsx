@@ -22,6 +22,22 @@ interface HealthResponse {
   agent: { name: string; model?: string; reachable?: boolean };
 }
 
+// v2 brand fields. Read from manifest via a runtime cast — v1 manifests
+// don't have `brand` and v2 manifests don't have a top-level `name`.
+type BrandLogo =
+  | { type: 'text'; wordmark: string }
+  | { type: 'asset'; assetId: string };
+type BrandBlock = {
+  name?: string;
+  shortName?: string;
+  tagline?: string;
+  logo?: BrandLogo;
+  favicon?: { assetId: string };
+};
+function brandOf(m: AgentManifest | null): BrandBlock | undefined {
+  return (m as unknown as { brand?: BrandBlock } | null)?.brand;
+}
+
 function resolveModules(m: AgentManifest | null): ManifestModules {
   return { ...DEFAULT_MODULES, ...((m?.modules) ?? {}) };
 }
@@ -76,9 +92,31 @@ export function AgentApp() {
   }, []);
 
   const mods = resolveModules(manifest);
-  const title = manifest?.name ?? health?.title ?? 'Agent';
+  const brand = brandOf(manifest);
+  const title = brand?.name ?? manifest?.name ?? health?.title ?? 'Agent';
+  const sidebarTitle = brand?.shortName ?? title;
   const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
   const theme = manifest?.theme ?? { id: 'default' };
+
+  // Push the brand name into the browser tab title.
+  useEffect(() => {
+    if (title && title !== 'Agent') document.title = title;
+  }, [title]);
+
+  // Inject / update <link rel="icon"> from brand.favicon.assetId. Idempotent.
+  useEffect(() => {
+    const assetId = brand?.favicon?.assetId;
+    if (!assetId) return;
+    const href = `/assets/${assetId}`;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    if (link.href.endsWith(href)) return;
+    link.href = href;
+  }, [brand?.favicon?.assetId]);
   // Ensure the theme's web fonts are loaded. Idempotent + manifest-driven —
   // a theme switch via the builder chat updates manifest.theme.fontLinks,
   // which propagates here on the next /api/manifest poll and triggers a
@@ -109,7 +147,16 @@ export function AgentApp() {
         sidebar={
           <Sidebar
             theme={theme}
-            header={<Wordmark title={title} theme={theme} />}
+            header={
+              <>
+                <Wordmark title={sidebarTitle} theme={theme} logo={brand?.logo} />
+                {brand?.tagline && (
+                  <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                    {brand.tagline}
+                  </div>
+                )}
+              </>
+            }
             items={items}
             renderItem={(item) => (
               item.label === 'Assistant'
