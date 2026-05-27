@@ -82,4 +82,17 @@ describe('migrateV1ToV2', () => {
     expect(v2.brand.name).toBe('');
     expect(v2.brand.shortName).toBeUndefined();
   });
+
+  it('defaults home block when v1 has none', () => {
+    const v2 = migrateV1ToV2(v1Base);
+    expect(v2.home).toEqual({
+      starterPrompts: [],
+      disclaimerPlacement: 'footer',
+    });
+  });
+
+  it('leaves welcomeMessage undefined so the runtime renders its default greeting', () => {
+    const v2 = migrateV1ToV2(v1Base);
+    expect(v2.home.welcomeMessage).toBeUndefined();
+  });
 });

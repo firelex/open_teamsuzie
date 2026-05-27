@@ -28,6 +28,10 @@ export function migrateV1ToV2(
       name,
       shortName: name || undefined,
     },
+    home: {
+      starterPrompts: [],
+      disclaimerPlacement: 'footer' as const,
+    },
     description: v1.description as string,
     theme: v1.theme as AgentManifestV2['theme'],
     persona: v1.persona as AgentManifestV2['persona'],

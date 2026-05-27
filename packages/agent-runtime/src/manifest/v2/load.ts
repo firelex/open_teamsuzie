@@ -15,7 +15,13 @@ import { validateManifestV2 } from './validate.js';
 export function loadManifestV2(raw: unknown): AgentManifestV2 {
   const v = (raw as { version?: number; schemaVersion?: number } | null)?.version
     ?? (raw as { schemaVersion?: number } | null)?.schemaVersion;
-  if (v === 2) return validateManifestV2(raw);
+  if (v === 2) {
+    const withHomeDefaults = {
+      home: { starterPrompts: [], disclaimerPlacement: 'footer' as const },
+      ...(raw as object),
+    };
+    return validateManifestV2(withHomeDefaults);
+  }
   if (v === undefined || v === 1) {
     const migrated = migrateV1ToV2(raw as Parameters<typeof migrateV1ToV2>[0]);
     console.log('Migrated v1 → v2 in memory');
