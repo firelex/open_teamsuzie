@@ -151,4 +151,12 @@ describe('migrateV1ToV2', () => {
     expect(v2.capabilities.fileUploads).toBe(false);
     expect(v2.capabilities.legalResearch).toBe(false);
   });
+
+  it('synthesises default navigation items from v1', () => {
+    const v2 = migrateV1ToV2(v1Base);
+    const ids = v2.navigation.items.map((i) => i.id);
+    expect(ids).toEqual(['assistant', 'matters', 'library', 'personas', 'reviews', 'history']);
+    expect(v2.navigation.items.every((i) => i.visible === true)).toBe(true);
+    expect(v2.navigation.items[0].label).toBe('Assistant');
+  });
 });

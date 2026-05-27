@@ -42,6 +42,17 @@ export function loadManifestV2(raw: unknown): AgentManifestV2 {
         workspace: false,
         ...(rawV2.capabilities ?? {}),
       },
+      navigation: {
+        items: [
+          { id: 'assistant', label: 'Assistant', visible: true },
+          { id: 'matters', label: 'Matters', visible: true },
+          { id: 'library', label: 'Library', visible: true },
+          { id: 'personas', label: 'Personas', visible: true },
+          { id: 'reviews', label: 'Reviews', visible: true },
+          { id: 'history', label: 'History', visible: true },
+        ],
+        ...(rawV2.navigation ?? {}),
+      },
     };
     return validateManifestV2(withDefaults);
   }

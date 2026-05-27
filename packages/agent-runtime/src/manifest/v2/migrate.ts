@@ -57,6 +57,16 @@ export function migrateV1ToV2(
         workspace: or(mods.workspace, comps.workspace),
       };
     })(),
+    navigation: {
+      items: [
+        { id: 'assistant', label: 'Assistant', visible: true },
+        { id: 'matters', label: 'Matters', visible: true },
+        { id: 'library', label: 'Library', visible: true },
+        { id: 'personas', label: 'Personas', visible: true },
+        { id: 'reviews', label: 'Reviews', visible: true },
+        { id: 'history', label: 'History', visible: true },
+      ],
+    },
     description: v1.description as string,
     theme: v1.theme as AgentManifestV2['theme'],
     persona: v1.persona as AgentManifestV2['persona'],
