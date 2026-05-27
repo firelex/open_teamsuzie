@@ -430,6 +430,18 @@ app.post('/api/session/reset', (req, res) => {
   res.json({ ok: true });
 });
 
+// Brand assets live in <build-root>/assets and are served at /assets/*.
+// build-root is process.cwd() when the starter is run from inside a build.
+const buildAssetsDir = path.resolve(process.cwd(), 'assets');
+app.use(
+  '/assets',
+  express.static(buildAssetsDir, {
+    fallthrough: false,
+    immutable: true,
+    maxAge: '1y',
+  }),
+);
+
 app.use(express.static(clientDistDir));
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {

@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
       port: clientPort,
       proxy: {
         '/api': `http://localhost:${backendPort}`,
+        '/assets': `http://localhost:${backendPort}`,
       },
     },
     build: {
