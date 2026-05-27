@@ -1122,6 +1122,18 @@ export async function startAgent(opts: StartAgentOptions): Promise<void> {
   // Reserved for future per-dir resolution; kept so the import isn't dead.
   void fileURLToPath(import.meta.url);
   const clientDistDir = path.resolve(process.cwd(), 'client', 'dist');
+  // Brand assets live in <cwd>/assets and are served at /assets/*. Used by
+  // brand.logo / brand.favicon (manifest v2). Mount before the client static
+  // catch-all so /assets/* doesn't fall through to index.html.
+  const buildAssetsDir = path.resolve(process.cwd(), 'assets');
+  app.use(
+    '/assets',
+    express.static(buildAssetsDir, {
+      fallthrough: false,
+      immutable: true,
+      maxAge: '1y',
+    }),
+  );
   // Serve client/dist if present (production).
   // Vite dev server handles dev; see omnibus starter's vite.config.ts proxy.
   if (existsSync(clientDistDir)) {
