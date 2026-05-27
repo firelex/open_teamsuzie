@@ -166,4 +166,37 @@ describe('installCsrfFetch', () => {
     restore();
     expect(window.fetch).toBe(before);
   });
+
+  it('csrfFetch + installCsrfFetch do not infinite-loop', async () => {
+    // Regression test for a bug where csrfFetch used globalThis.fetch,
+    // which after install IS the patched function — every csrfFetch call
+    // recursed into patched, which recursed into csrfFetch, blowing the
+    // stack on every fetch in the app. Fix: csrfFetch uses the captured
+    // pre-patch fetch (`originalFetch`) when install is active.
+    setLocation('http://localhost:5173/');
+    const realOriginal = window.fetch;
+    const mock = vi.fn(async () =>
+      new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } }),
+    );
+    window.fetch = mock as unknown as typeof fetch;
+
+    const restore = installCsrfFetch();
+    try {
+      // Both entry points must terminate without recursing.
+      const direct = await csrfFetch('/api/health');
+      expect(direct.status).toBe(200);
+
+      const viaPatched = await window.fetch('/api/health');
+      expect(viaPatched.status).toBe(200);
+
+      // The underlying real fetch was called exactly twice (once per call
+      // above), proving no recursion.
+      expect(mock).toHaveBeenCalledTimes(2);
+    } finally {
+      restore();
+      // Put the real jsdom fetch back so the next test's "restore" check
+      // doesn't compare against the test-local mock.
+      window.fetch = realOriginal;
+    }
+  });
 });

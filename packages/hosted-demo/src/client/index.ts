@@ -47,32 +47,36 @@ export function readCsrfToken(cookieName: string = DEFAULT_COOKIE_NAME): string 
  * an `X-CSRF-Token` header into `init.headers`. An explicitly-provided header
  * of the same name (case-insensitive) is preserved.
  *
- * Always calls `globalThis.fetch` at call time so callers go through whatever
- * `window.fetch` is currently installed (e.g. after `installCsrfFetch`).
+ * Uses the captured pre-patch fetch when `installCsrfFetch` has run, otherwise
+ * `globalThis.fetch`. Using `globalThis.fetch` after install would infinitely
+ * recurse, because `globalThis.fetch === window.fetch === patched`, and
+ * `patched` calls back into `csrfFetch` — a regression test for this lives
+ * in `client.test.ts` (`'csrfFetch + installCsrfFetch do not infinite-loop'`).
  */
 export function csrfFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
   opts: InstallCsrfFetchOptions = {},
 ): Promise<Response> {
+  const realFetch = originalFetch ?? globalThis.fetch;
   const method = (init?.method ?? 'GET').toUpperCase();
   if (SAFE_METHODS.has(method)) {
-    return globalThis.fetch(input, init);
+    return realFetch(input, init);
   }
 
   const cookieName = opts.cookieName ?? DEFAULT_COOKIE_NAME;
   const headerName = opts.headerName ?? DEFAULT_HEADER_NAME;
   const token = readCsrfToken(cookieName);
   if (!token) {
-    return globalThis.fetch(input, init);
+    return realFetch(input, init);
   }
 
   if (!isSameSite(input, opts.trustedHosts)) {
-    return globalThis.fetch(input, init);
+    return realFetch(input, init);
   }
 
   const merged = mergeCsrfHeader(init, headerName, token);
-  return globalThis.fetch(input, merged);
+  return realFetch(input, merged);
 }
 
 /**
@@ -90,7 +94,11 @@ export function installCsrfFetch(opts: InstallCsrfFetchOptions = {}): () => void
     return cachedRestore;
   }
 
-  originalFetch = window.fetch.bind(window);
+  // Saved by reference (no .bind()). Modern fetch implementations don't
+  // require a particular `this`, and binding would create a new function
+  // identity that the `restore()` test can't compare against the
+  // pre-install reference.
+  originalFetch = window.fetch;
   const patched: typeof fetch = (input, init) => csrfFetch(input, init, opts);
   window.fetch = patched;
   installed = true;
