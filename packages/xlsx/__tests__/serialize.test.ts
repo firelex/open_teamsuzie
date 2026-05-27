@@ -39,3 +39,20 @@ describe("serializeForLLM", () => {
     expect(a).toBe(b);
   });
 });
+
+describe("serializeForLLM — token cap", () => {
+  it("emits rich format when output fits within cap", async () => {
+    const wb = await parseWorkbook(readFileSync(SAMPLE));
+    const out = serializeForLLM(wb, { tokenCap: 10000 });
+    expect(out).toMatch(/fill=#FFFACD/);
+  });
+
+  it("falls back to tight format when rich exceeds cap", async () => {
+    const wb = await parseWorkbook(readFileSync(SAMPLE));
+    const out = serializeForLLM(wb, { tokenCap: 1 });
+    expect(out).not.toMatch(/fill=/);
+    expect(out).not.toMatch(/font=/);
+    expect(out).toMatch(/=== Sheet: Sheet1 ===/);
+    expect(out).toMatch(/1234\.5/);
+  });
+});
