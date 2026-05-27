@@ -55,6 +55,28 @@ export interface HomeBlock {
 }
 
 /**
+ * Legal block — jurisdiction-scoped guardrails for the lawyer's app.
+ *
+ * `disclaimer` is the prose rendered as a banner per `home.disclaimerPlacement`.
+ * `jurisdictions` are shown in the sidebar footer ("England and Wales" etc.).
+ * `requireHumanReviewFor` and `forbid` are topic strings (NOT tool names) —
+ * the runtime appends them to the persona's system prompt on every turn so
+ * the agent knows what to refuse / escalate. (Future plan may map them to a
+ * structured tool-guard pipeline.)
+ *
+ * `clientFacing` declares the deployed app is client-facing — set_legal also
+ * upgrades `home.disclaimerPlacement` to 'prominent' as an auto-default when
+ * this transitions to true.
+ */
+export interface LegalBlock {
+  jurisdictions: string[];
+  disclaimer: string;
+  clientFacing: boolean;
+  requireHumanReviewFor: string[];
+  forbid: string[];
+}
+
+/**
  * Manifest v2. Plan 01 introduces:
  *   - `version: 2` (renamed from v1's `schemaVersion: 1`)
  *   - `brand` (replaces v1's top-level `name`)
@@ -68,6 +90,7 @@ export interface AgentManifestV2 {
   version: 2;
   brand: BrandBlock;
   home: HomeBlock;
+  legal: LegalBlock;
   description: string;
   theme: ManifestTheme;
   persona: ManifestPersona;
