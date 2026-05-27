@@ -8,6 +8,7 @@ import type {
   ManifestModules,
   ManifestMatters,
   ManifestReviews,
+  ManifestPrompt,
 } from '../schema.js';
 
 /**
@@ -20,6 +21,12 @@ export type BrandLogo =
   | { type: 'text'; wordmark: string }
   | { type: 'asset'; assetId: string };
 
+/**
+ * Public-facing brand identity. `name` replaces v1's top-level `name`.
+ * `shortName` is used for the sidebar wordmark; `tagline` for the
+ * marketing one-liner; `logo` and `favicon` reference assets in
+ * `<build>/assets/<assetId>`.
+ */
 export interface BrandBlock {
   name: string;
   shortName?: string;
@@ -29,23 +36,32 @@ export interface BrandBlock {
 }
 
 /**
- * Manifest v2. Plan 01 adds `brand` and the `version` discriminator.
- * Every other field carries forward from v1 unchanged; subsequent
- * plans (home, legal, capabilities, navigation, audience) will peel
- * more fields off the carry-forward into v2 shape.
+ * Manifest v2. Plan 01 introduces:
+ *   - `version: 2` (renamed from v1's `schemaVersion: 1`)
+ *   - `brand` (replaces v1's top-level `name`)
+ *   - `extraPersonas` (renamed from v1's `personas`)
+ *
+ * Every other v1 field carries forward verbatim — same names, same
+ * optionality, same shape — until subsequent plans peel them into v2
+ * shape (home, legal, capabilities, navigation, audience).
  */
 export interface AgentManifestV2 {
   version: 2;
   brand: BrandBlock;
-
-  // Carry-forward from v1 — to be migrated by later plans.
+  description: string;
+  theme: ManifestTheme;
   persona: ManifestPersona;
   extraPersonas?: ManifestPersona[];
-  ai: ManifestAi;
-  tools: ManifestTool[];
-  theme: ManifestTheme;
-  modules: ManifestModules;
   components: ManifestComponents;
-  matters?: ManifestMatters;
+  modules?: Partial<ManifestModules>;
+  prompts?: ManifestPrompt[];
+  tools: ManifestTool[];
+  ai?: ManifestAi;
   reviews?: ManifestReviews;
+  matters?: ManifestMatters;
+  source?: {
+    builder?: string;
+    builderVersion?: string;
+    builderRunId?: string;
+  };
 }
