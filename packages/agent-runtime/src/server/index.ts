@@ -1068,6 +1068,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         matters?: boolean; reviewGrids?: boolean; clientSharing?: boolean;
         approvals?: boolean; workspace?: boolean;
       };
+      navigation?: { items?: Array<{ id?: string; label?: string; visible?: boolean; order?: number }> };
       persona?: { name?: string; id?: string };
       tools?: Array<{ name: string; description?: string; enabled?: boolean }>;
     };
@@ -1079,6 +1080,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       home: m.home,
       legal: m.legal,
       capabilities: m.capabilities,
+      navigation: m.navigation,
       agent: { name: m.persona?.name ?? m.persona?.id, model: opts.agent?.model },
       tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
       modules: resolveModules(m as never),
