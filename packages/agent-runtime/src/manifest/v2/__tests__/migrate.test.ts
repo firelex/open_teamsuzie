@@ -95,4 +95,15 @@ describe('migrateV1ToV2', () => {
     const v2 = migrateV1ToV2(v1Base);
     expect(v2.home.welcomeMessage).toBeUndefined();
   });
+
+  it('defaults legal block when v1 has none', () => {
+    const v2 = migrateV1ToV2(v1Base);
+    expect(v2.legal).toEqual({
+      jurisdictions: [],
+      disclaimer: '',
+      clientFacing: false,
+      requireHumanReviewFor: [],
+      forbid: [],
+    });
+  });
 });

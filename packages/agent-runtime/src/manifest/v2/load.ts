@@ -16,11 +16,20 @@ export function loadManifestV2(raw: unknown): AgentManifestV2 {
   const v = (raw as { version?: number; schemaVersion?: number } | null)?.version
     ?? (raw as { schemaVersion?: number } | null)?.schemaVersion;
   if (v === 2) {
-    const withHomeDefaults = {
-      home: { starterPrompts: [], disclaimerPlacement: 'footer' as const },
-      ...(raw as object),
+    const rawV2 = raw as Record<string, unknown>;
+    const withDefaults = {
+      ...rawV2,
+      home: { starterPrompts: [], disclaimerPlacement: 'footer' as const, ...((rawV2.home ?? {}) as object) },
+      legal: {
+        jurisdictions: [],
+        disclaimer: '',
+        clientFacing: false,
+        requireHumanReviewFor: [],
+        forbid: [],
+        ...((rawV2.legal ?? {}) as object),
+      },
     };
-    return validateManifestV2(withHomeDefaults);
+    return validateManifestV2(withDefaults);
   }
   if (v === undefined || v === 1) {
     const migrated = migrateV1ToV2(raw as Parameters<typeof migrateV1ToV2>[0]);
