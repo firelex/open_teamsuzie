@@ -36,6 +36,25 @@ export interface BrandBlock {
 }
 
 /**
+ * Home block — first-screen overrides for the lawyer's deployed app.
+ *
+ * `headline` / `subheadline` / `welcomeMessage` are direct text overrides
+ * rendered in the empty-chat Greeting. `starterPrompts` is an ordered
+ * list of prompt titles (the existing natural key on `ManifestPrompt`)
+ * pulled from `manifest.prompts` for the suggested-tile row.
+ *
+ * `disclaimerPlacement` is wired here so set_home can persist it, but the
+ * runtime doesn't read it until Plan 03 (Legal) ships `legal.disclaimer`.
+ */
+export interface HomeBlock {
+  headline?: string;
+  subheadline?: string;
+  welcomeMessage?: string;
+  starterPrompts: string[];
+  disclaimerPlacement: 'prominent' | 'footer' | 'hidden';
+}
+
+/**
  * Manifest v2. Plan 01 introduces:
  *   - `version: 2` (renamed from v1's `schemaVersion: 1`)
  *   - `brand` (replaces v1's top-level `name`)
@@ -48,6 +67,7 @@ export interface BrandBlock {
 export interface AgentManifestV2 {
   version: 2;
   brand: BrandBlock;
+  home: HomeBlock;
   description: string;
   theme: ManifestTheme;
   persona: ManifestPersona;
