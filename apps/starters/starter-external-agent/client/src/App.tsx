@@ -161,6 +161,11 @@ export default function App() {
       <Sidebar>
         <SidebarHeader>
           <Wordmark title={sidebarTitle} logo={logo} />
+          {health?.brand?.tagline && (
+            <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+              {health.brand.tagline}
+            </div>
+          )}
         </SidebarHeader>
         <SidebarNav>
           <SidebarNavItem asChild>
