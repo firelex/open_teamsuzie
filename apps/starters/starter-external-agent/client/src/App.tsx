@@ -23,8 +23,19 @@ import { HistoryPage } from './pages/history.js';
 import { LibraryPage } from './pages/library.js';
 import { SettingsPage } from './pages/settings.js';
 
+type BrandLogo =
+  | { type: 'text'; wordmark: string }
+  | { type: 'asset'; assetId: string };
+
 interface HealthResponse {
   title: string;
+  brand?: {
+    name?: string;
+    shortName?: string;
+    tagline?: string;
+    logo?: BrandLogo;
+    favicon?: { assetId: string };
+  };
   agent: {
     name: string;
     description?: string;
@@ -86,11 +97,21 @@ const SECONDARY_NAV = [
   { to: '/history', label: 'History' },
 ];
 
-function Wordmark({ title }: { title: string }) {
+function Wordmark({ title, logo }: { title: string; logo?: BrandLogo }) {
+  if (logo?.type === 'asset') {
+    return (
+      <img
+        src={`/assets/${logo.assetId}`}
+        alt={title}
+        className="h-7 max-w-[160px] object-contain"
+      />
+    );
+  }
+  const displayText = logo?.type === 'text' ? logo.wordmark : title;
   return (
     <div className="flex items-center gap-2.5">
       <div className="size-6 rounded-md bg-foreground" aria-hidden="true" />
-      <span className="text-sm font-semibold tracking-tight">{title}</span>
+      <span className="text-sm font-semibold tracking-tight">{displayText}</span>
     </div>
   );
 }
@@ -102,12 +123,17 @@ export default function App() {
   useEffect(() => {
     fetch('/api/health')
       .then((response) => response.json() as Promise<HealthResponse>)
-      .then(setHealth)
+      .then((h) => {
+        setHealth(h);
+        document.title = h.brand?.shortName ?? h.title ?? 'Starter Chat';
+      })
       .catch(() => undefined)
       .finally(() => setHealthLoaded(true));
   }, []);
 
-  const title = health?.title || 'Starter Chat';
+  const title = health?.brand?.name || health?.title || 'Starter Chat';
+  const sidebarTitle = health?.brand?.shortName || title;
+  const logo = health?.brand?.logo;
   const agentName = health?.agent?.name || 'Assistant';
   const agentReachable = health?.agent?.reachable ?? false;
   const statusState: 'online' | 'offline' | 'pending' = !healthLoaded
@@ -120,7 +146,7 @@ export default function App() {
     <AppShell>
       <Sidebar>
         <SidebarHeader>
-          <Wordmark title={title} />
+          <Wordmark title={sidebarTitle} logo={logo} />
         </SidebarHeader>
         <SidebarNav>
           <SidebarNavItem asChild>

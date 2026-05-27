@@ -105,6 +105,16 @@ export interface StartAgentOptions {
     systemPrompt?: string;
     extraBody?: Record<string, unknown>;
   };
+  /**
+   * Optional per-model overrides for `/api/chat` routing. Each key is the
+   * prefixed UI id stored by the model picker (e.g. `openai/gpt-5.5`); the
+   * value sets the wire `model` + the right provider `baseUrl` / `apiKey`.
+   * Without this, a picker selection that doesn't match the default agent
+   * forces every request to the default `baseUrl` with the prefixed id,
+   * which most providers 404. Passed through to `createChatRouter` and
+   * applied via `resolveAgentTarget`.
+   */
+  agentRegistry?: import('@teamsuzie/agent-loop').AgentTargetRegistry;
   /** Directory to scan for extensions. Default './extensions' (relative to cwd). */
   extensionsDir?: string;
   /** Path to the build's public/static assets directory. Default './public'. */
@@ -922,6 +932,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
     // diff markdown for its prose reply.
     app.use('/api/chat', createChatRouter({
       agent: opts.agent,
+      agentRegistry: opts.agentRegistry,
       chats,
       personaRegistry,
       ownerId: OWNER_ID,
@@ -995,13 +1006,26 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
 
   // ── /api/health ───────────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => {
-    const m = manifestStore.get();
+    const m = manifestStore.get() as unknown as {
+      name?: string;
+      brand?: {
+        name?: string;
+        shortName?: string;
+        tagline?: string;
+        logo?: { type: 'text'; wordmark: string } | { type: 'asset'; assetId: string };
+        favicon?: { assetId: string };
+      };
+      persona?: { name?: string; id?: string };
+      tools?: Array<{ name: string; description?: string; enabled?: boolean }>;
+    };
+    const title = m.brand?.name ?? m.name ?? 'Agent';
     res.json({
       status: 'ok',
-      title: m.name,
-      agent: { name: m.persona.name ?? m.persona.id, model: opts.agent?.model },
-      tools: m.tools.filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
-      modules: resolveModules(m),
+      title,
+      brand: m.brand,
+      agent: { name: m.persona?.name ?? m.persona?.id, model: opts.agent?.model },
+      tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
+      modules: resolveModules(m as never),
       markitdown: markitdownBaseUrl ? 'configured' : 'not configured',
     });
   });
@@ -1114,3 +1138,8 @@ export async function startAgent(opts: StartAgentOptions): Promise<void> {
 // without re-implementing the streaming protocol.
 export { createChatRouter } from './chat-route.js';
 export type { CreateChatRouterDeps } from './chat-route.js';
+export {
+  buildAgentRegistryFromModels,
+  type BuildAgentRegistryOptions,
+  type ModelDirectEntry,
+} from './build-agent-registry.js';

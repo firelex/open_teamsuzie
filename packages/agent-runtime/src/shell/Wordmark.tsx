@@ -1,16 +1,28 @@
 import type { ManifestTheme } from '../manifest/schema.js';
+import type { BrandLogo } from '../manifest/v2/schema.js';
 
-interface Props { title: string; theme: ManifestTheme }
+interface Props {
+  title: string;
+  theme?: ManifestTheme;
+  logo?: BrandLogo;
+}
 
-export function Wordmark({ title, theme }: Props) {
-  const style = theme.tokens?.wordmarkStyle ?? 'single';
-  const upper = title.toUpperCase();
-  // .ts-text-fancy renders the wordmark in the active design's brand
-  // gradient (primary → accent). For designs with a real two-stop gradient
-  // (TeamSuzie's violet → pink) this is the signature brand surface;
-  // single-color designs land on a clean primary-on-bg block (saffron for
-  // Counsel, phosphor-green for Console). Drives the visual identity
-  // without per-design wordmark customization.
+export function Wordmark({ title, theme, logo }: Props) {
+  // Asset logo — render the uploaded image, served at /assets/<assetId>.
+  if (logo?.type === 'asset') {
+    return (
+      <img
+        src={`/assets/${logo.assetId}`}
+        alt={title}
+        className="h-7 max-w-[160px] object-contain"
+      />
+    );
+  }
+  // Text logo with explicit wordmark — overrides the title prop.
+  const displayText = logo?.type === 'text' ? logo.wordmark : title;
+  const style = theme?.tokens?.wordmarkStyle ?? 'single';
+  const upper = displayText.toUpperCase();
+  // .ts-text-fancy renders the wordmark in the active design's brand gradient.
   const wordmarkClass = 'ts-text-fancy font-display text-[1.05rem] font-bold tracking-[-0.02em]';
   if (style !== 'two-line') {
     return <div className={wordmarkClass}>{upper}</div>;
