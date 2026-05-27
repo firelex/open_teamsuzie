@@ -4,6 +4,7 @@ import type { Chat } from '@teamsuzie/chats';
 import {
   ConfirmDialogProvider, SidebarNavItem, SidePanelProvider,
 } from '@teamsuzie/ui';
+import { ClientSafeProvider, type AudienceState } from './ClientSafeContext.js';
 import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
@@ -56,6 +57,10 @@ function legalOf(m: AgentManifest | null): LegalRead | undefined {
 type NavItemRead = { id: string; label: string; visible: boolean; order?: number };
 function navigationOf(m: AgentManifest | null): { items: NavItemRead[] } | undefined {
   return (m as unknown as { navigation?: { items: NavItemRead[] } } | null)?.navigation;
+}
+
+function audienceOf(m: AgentManifest | null): AudienceState | undefined {
+  return (m as unknown as { audience?: AudienceState } | null)?.audience;
 }
 
 function resolveModules(m: AgentManifest | null): ManifestModules {
@@ -155,6 +160,7 @@ export function AgentApp() {
   // overridden by these inline styles.
   useThemeTokens(theme.tokens);
 
+  const audience = audienceOf(manifest);
   const mattersLabel = manifest
     ? resolveMattersLabel(manifest)
     : { singular: 'Matter', plural: 'Matters' };
@@ -190,8 +196,9 @@ export function AgentApp() {
   }
 
   return (
-    <SidePanelProvider>
-    <ConfirmDialogProvider>
+    <ClientSafeProvider audience={audience ?? null}>
+      <SidePanelProvider>
+      <ConfirmDialogProvider>
       <AppLayout
         sidebar={
           <Sidebar
@@ -253,7 +260,8 @@ export function AgentApp() {
           {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
         </Routes>
       </AppLayout>
-    </ConfirmDialogProvider>
-    </SidePanelProvider>
+      </ConfirmDialogProvider>
+      </SidePanelProvider>
+    </ClientSafeProvider>
   );
 }

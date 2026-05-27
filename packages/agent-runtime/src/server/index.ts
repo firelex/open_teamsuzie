@@ -1069,6 +1069,12 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         approvals?: boolean; workspace?: boolean;
       };
       navigation?: { items?: Array<{ id?: string; label?: string; visible?: boolean; order?: number }> };
+      audience?: {
+        mode?: 'solo_builder' | 'firm_internal' | 'client_portal' | 'public';
+        requiresLogin?: boolean;
+        clientSafeMode?: boolean;
+        allowAnonymousPreview?: boolean;
+      };
       persona?: { name?: string; id?: string };
       tools?: Array<{ name: string; description?: string; enabled?: boolean }>;
     };
@@ -1081,6 +1087,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       legal: m.legal,
       capabilities: m.capabilities,
       navigation: m.navigation,
+      audience: m.audience,
       agent: { name: m.persona?.name ?? m.persona?.id, model: opts.agent?.model },
       tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
       modules: resolveModules(m as never),
