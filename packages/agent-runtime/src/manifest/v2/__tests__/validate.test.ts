@@ -26,6 +26,12 @@ const baseValid = {
     workspace: false,
   },
   navigation: { items: [] as Array<{ id: string; label: string; visible: boolean; order?: number }> },
+  audience: {
+    mode: 'solo_builder' as const,
+    requiresLogin: true,
+    clientSafeMode: false,
+    allowAnonymousPreview: false,
+  },
   description: 'Employment law assistant',
   persona: { id: 'default', systemPrompt: 'You are an assistant.' },
   ai: { model: 'claude-sonnet-4-6' },
@@ -164,5 +170,59 @@ describe('validateManifestV2', () => {
   it('rejects navigation.items with missing required fields', () => {
     const m = { ...baseValid, navigation: { items: [{ id: 'x' } as never] }};
     expect(() => validateManifestV2(m)).toThrow();
+  });
+
+  it('rejects missing audience block', () => {
+    const { audience, ...rest } = baseValid;
+    expect(() => validateManifestV2(rest)).toThrow();
+  });
+
+  it('rejects unknown audience.mode', () => {
+    const m = { ...baseValid, audience: { ...baseValid.audience, mode: 'enterprise' as never } };
+    expect(() => validateManifestV2(m)).toThrow();
+  });
+
+  it('hard invariant: mode=public requires legal.clientFacing=true', () => {
+    const m = {
+      ...baseValid,
+      audience: { ...baseValid.audience, mode: 'public' as const, requiresLogin: true, clientSafeMode: true },
+      legal: { ...baseValid.legal, clientFacing: false },
+    };
+    expect(() => validateManifestV2(m)).toThrow(/clientFacing/i);
+  });
+
+  it('hard invariant: mode=client_portal requires legal.clientFacing=true', () => {
+    const m = {
+      ...baseValid,
+      audience: { ...baseValid.audience, mode: 'client_portal' as const, requiresLogin: true, clientSafeMode: true },
+      legal: { ...baseValid.legal, clientFacing: false },
+    };
+    expect(() => validateManifestV2(m)).toThrow(/clientFacing/i);
+  });
+
+  it('hard invariant: requiresLogin=false only when mode=solo_builder', () => {
+    const m = {
+      ...baseValid,
+      audience: { ...baseValid.audience, mode: 'firm_internal' as const, requiresLogin: false },
+    };
+    expect(() => validateManifestV2(m)).toThrow(/requiresLogin/i);
+  });
+
+  it('accepts mode=public with legal.clientFacing=true', () => {
+    const m = {
+      ...baseValid,
+      audience: { mode: 'public' as const, requiresLogin: true, clientSafeMode: true, allowAnonymousPreview: true },
+      legal: { ...baseValid.legal, clientFacing: true },
+    };
+    const out = validateManifestV2(m);
+    expect(out.audience.mode).toBe('public');
+  });
+
+  it('accepts requiresLogin=false with mode=solo_builder', () => {
+    const m = {
+      ...baseValid,
+      audience: { ...baseValid.audience, mode: 'solo_builder' as const, requiresLogin: false },
+    };
+    expect(validateManifestV2(m).audience.requiresLogin).toBe(false);
   });
 });

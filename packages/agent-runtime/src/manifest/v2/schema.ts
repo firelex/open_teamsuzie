@@ -120,6 +120,28 @@ export interface NavigationBlock {
 }
 
 /**
+ * Audience block — who is the deployed app for, and how is access gated.
+ *
+ * Hard invariants (enforced in validator):
+ *   - mode ∈ {'client_portal', 'public'} ⇒ legal.clientFacing === true
+ *   - requiresLogin === false only when mode === 'solo_builder'
+ *
+ * Auto-defaults (applied by set_audience write):
+ *   - mode transitions to client_portal/public ⇒ clientSafeMode auto-true
+ *     (unless the same write sets clientSafeMode: false explicitly).
+ *   - mode transitions to client_portal/public ⇒ legal.clientFacing auto-true
+ *     (and home.disclaimerPlacement is promoted to 'prominent' if it wasn't).
+ */
+export type AudienceMode = 'solo_builder' | 'firm_internal' | 'client_portal' | 'public';
+
+export interface AudienceBlock {
+  mode: AudienceMode;
+  requiresLogin: boolean;
+  clientSafeMode: boolean;
+  allowAnonymousPreview: boolean;
+}
+
+/**
  * Manifest v2. Plan 01 introduces:
  *   - `version: 2` (renamed from v1's `schemaVersion: 1`)
  *   - `brand` (replaces v1's top-level `name`)
@@ -136,6 +158,7 @@ export interface AgentManifestV2 {
   legal: LegalBlock;
   capabilities: CapabilitiesBlock;
   navigation: NavigationBlock;
+  audience: AudienceBlock;
   description: string;
   theme: ManifestTheme;
   persona: ManifestPersona;

@@ -55,6 +55,13 @@ const navigation = z.object({
   items: z.array(navItem),
 });
 
+const audience = z.object({
+  mode: z.enum(['solo_builder', 'firm_internal', 'client_portal', 'public']),
+  requiresLogin: z.boolean(),
+  clientSafeMode: z.boolean(),
+  allowAnonymousPreview: z.boolean(),
+});
+
 const passthroughObject = z.object({}).passthrough();
 
 /**
@@ -71,6 +78,7 @@ export const manifestV2Schema = z.object({
   legal,
   capabilities,
   navigation,
+  audience,
   description: z.string(),
   theme: passthroughObject,
   persona: passthroughObject,
@@ -87,6 +95,26 @@ export const manifestV2Schema = z.object({
     builderVersion: z.string().optional(),
     builderRunId: z.string().optional(),
   }).optional(),
+}).superRefine((v, ctx) => {
+  // Hard invariant #1: mode=client_portal/public ⇒ legal.clientFacing=true
+  if (
+    (v.audience.mode === 'client_portal' || v.audience.mode === 'public')
+    && v.legal.clientFacing !== true
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['audience', 'mode'],
+      message: `audience.mode=${v.audience.mode} requires legal.clientFacing=true`,
+    });
+  }
+  // Hard invariant #2: requiresLogin=false only when mode=solo_builder
+  if (v.audience.requiresLogin === false && v.audience.mode !== 'solo_builder') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['audience', 'requiresLogin'],
+      message: `requiresLogin=false only permitted when audience.mode=solo_builder (got mode=${v.audience.mode})`,
+    });
+  }
 });
 
 export function validateManifestV2(raw: unknown): AgentManifestV2 {
