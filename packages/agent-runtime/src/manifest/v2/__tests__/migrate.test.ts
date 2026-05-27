@@ -152,6 +152,16 @@ describe('migrateV1ToV2', () => {
     expect(v2.capabilities.legalResearch).toBe(false);
   });
 
+  it('defaults audience to solo_builder with requiresLogin=true', () => {
+    const v2 = migrateV1ToV2(v1Base);
+    expect(v2.audience).toEqual({
+      mode: 'solo_builder',
+      requiresLogin: true,
+      clientSafeMode: false,
+      allowAnonymousPreview: false,
+    });
+  });
+
   it('synthesises default navigation items from v1', () => {
     const v2 = migrateV1ToV2(v1Base);
     const ids = v2.navigation.items.map((i) => i.id);

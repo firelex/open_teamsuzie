@@ -53,6 +53,13 @@ export function loadManifestV2(raw: unknown): AgentManifestV2 {
         ],
         ...(rawV2.navigation ?? {}),
       },
+      audience: {
+        mode: 'solo_builder' as const,
+        requiresLogin: true,
+        clientSafeMode: false,
+        allowAnonymousPreview: false,
+        ...(rawV2.audience ?? {}),
+      },
     };
     return validateManifestV2(withDefaults);
   }
