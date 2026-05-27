@@ -19,6 +19,14 @@ export interface ArtifactSnapshot {
   title: string
   /** Full current markdown body. Render via {@link MarkdownMessage}. */
   markdown: string
+  /**
+   * Optional pre-rendered HTML body. When present, the panel renders this
+   * directly (via `dangerouslySetInnerHTML`) instead of the markdown — used
+   * by hosts that produce HTML locally (e.g. drafter's mammoth-from-DOCX
+   * preview) and don't want a markdown round-trip. The HTML is assumed
+   * trusted (host-generated); never set this from untrusted user input.
+   */
+  html?: string
   /** Set when the agent has called export_to_docx for this doc. */
   docxDownloadUrl?: string
   docxFilename?: string
@@ -240,10 +248,16 @@ export function ArtifactPanel({
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {artifact.markdown.length === 0 ? (
+        {artifact.markdown.length === 0 && artifact.html === undefined ? (
           <p className="text-sm italic text-muted-foreground">
             Empty document — content will appear here as the agent writes.
           </p>
+        ) : artifact.html !== undefined ? (
+          <div
+            className="prose prose-sm max-w-none"
+            // eslint-disable-next-line react/no-danger -- host-generated HTML (mammoth output); never accept from user input.
+            dangerouslySetInnerHTML={{ __html: artifact.html }}
+          />
         ) : (
           <MarkdownMessage content={artifact.markdown} />
         )}
