@@ -8,6 +8,12 @@ export interface Cell {
   value: string | number | boolean | Date | null;
   formula?: string;  // present when type === 'formula'
   type: CellType;
+  /** Fill color as hex string with leading '#', e.g. "#FFFACD". Undefined if no fill. */
+  fill?: string;
+  /** Font color as hex string with leading '#', e.g. "#0000FF". Undefined if default. */
+  fontColor?: string;
+  /** True if the cell font is bold. Undefined or false otherwise. */
+  bold?: boolean;
 }
 
 export interface Sheet {

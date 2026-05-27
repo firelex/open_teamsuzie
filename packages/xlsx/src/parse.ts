@@ -2,6 +2,29 @@ import ExcelJS from "exceljs";
 import { createHash } from "node:crypto";
 import type { Cell, CellType, NamedRange, Sheet, Workbook } from "./types.js";
 
+function argbToHex(argb: string | undefined): string | undefined {
+  if (!argb || typeof argb !== "string" || argb.length !== 8) return undefined;
+  return `#${argb.slice(2).toUpperCase()}`;
+}
+
+function extractFill(raw: ExcelJS.Cell): string | undefined {
+  const fill = raw.fill;
+  if (!fill || fill.type !== "pattern") return undefined;
+  const fg = (fill as ExcelJS.FillPattern).fgColor;
+  if (!fg) return undefined;
+  return argbToHex(fg.argb);
+}
+
+function extractFontColor(raw: ExcelJS.Cell): string | undefined {
+  const font = raw.font;
+  if (!font || !font.color) return undefined;
+  return argbToHex(font.color.argb);
+}
+
+function extractBold(raw: ExcelJS.Cell): boolean | undefined {
+  return raw.font?.bold ? true : undefined;
+}
+
 function classifyCell(raw: ExcelJS.Cell): CellType {
   if (raw.formula) return "formula";
   switch (raw.type) {
@@ -39,6 +62,9 @@ function buildCell(sheetName: string, raw: ExcelJS.Cell): Cell {
     value: readValue(raw),
     formula: raw.formula ? raw.formula : undefined,
     type: classifyCell(raw),
+    fill: extractFill(raw),
+    fontColor: extractFontColor(raw),
+    bold: extractBold(raw),
   };
 }
 
