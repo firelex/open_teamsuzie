@@ -107,3 +107,70 @@ def test_populate_invalid_address_returns_400(client: TestClient, tiny_template_
     )
     assert resp.status_code == 400
     assert "nonexistent" in resp.json().get("detail", "").lower()
+
+
+def test_populate_blixt_template_end_to_end(client: TestClient) -> None:
+    """Populate the real shipped Blixt template using its actual cellmap."""
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    template_bytes = (fixtures_dir / "blixt-lbo-v1.xlsx").read_bytes()
+    cellmap = json.loads((fixtures_dir / "blixt-lbo-v1.cellmap.json").read_text())
+
+    assumptions = {
+        "core_meta.project_name": {"base": "Project Test"},
+        "core_meta.currency": {"base": "GBP"},
+        "transaction_inputs.base_rate": {"base": 0.0425},
+        "transaction_inputs.tax_rate": {"base": 0.25},
+        "entry_exit.entry_valuation_basis": {"base": "EBITDA"},
+        "cash_flow_drivers.wc_pct_revenue_change": {"base": 0.10},
+        "cash_flow_drivers.capex_maintenance_pct_revenue": {"base": 0.03},
+    }
+
+    resp = client.post(
+        "/api/spreadsheets/populate",
+        files={
+            "template": (
+                "blixt-lbo-v1.xlsx",
+                template_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        data={
+            "cellmap": json.dumps(cellmap),
+            "assumptions": json.dumps(assumptions),
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    wb = load_workbook(io.BytesIO(resp.content))
+    # core_meta.project_name -> LBO!L13 per the cellmap
+    assert wb["LBO"]["L13"].value == "Project Test"
+    # transaction_inputs.base_rate -> LBO!F13
+    assert wb["LBO"]["F13"].value == 0.0425
+    # transaction_inputs.tax_rate -> LBO!L15
+    assert wb["LBO"]["L15"].value == 0.25
+
+
+def test_populate_unknown_assumption_is_ignored(client: TestClient) -> None:
+    """Assumption keys not in the cellmap are silently ignored, not errors."""
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    template_bytes = (fixtures_dir / "blixt-lbo-v1.xlsx").read_bytes()
+    cellmap = json.loads((fixtures_dir / "blixt-lbo-v1.cellmap.json").read_text())
+
+    assumptions = {
+        "core_meta.project_name": {"base": "Test Project"},
+        "imaginary.fake_field": {"base": 99},
+    }
+
+    resp = client.post(
+        "/api/spreadsheets/populate",
+        files={
+            "template": ("blixt-lbo-v1.xlsx", template_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        },
+        data={
+            "cellmap": json.dumps(cellmap),
+            "assumptions": json.dumps(assumptions),
+        },
+    )
+    assert resp.status_code == 200
+    wb = load_workbook(io.BytesIO(resp.content))
+    assert wb["LBO"]["L13"].value == "Test Project"
