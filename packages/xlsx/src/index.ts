@@ -3,3 +3,5 @@ export type { Workbook, Sheet, Cell, NamedRange, WorkbookDiff, CellDiff, SheetDi
 export { parseWorkbook } from "./parse.js";
 export { walkCells, resolveNamedRange } from "./walk.js";
 export { diffWorkbooks } from "./diff.js";
+export type { SerializeOptions } from "./serialize.js";
+export { serializeForLLM } from "./serialize.js";
