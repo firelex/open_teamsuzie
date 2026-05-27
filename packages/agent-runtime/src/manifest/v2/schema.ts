@@ -77,6 +77,31 @@ export interface LegalBlock {
 }
 
 /**
+ * Capabilities block — lawyer-friendly product flags. Replaces (logically) v1's
+ * `modules` + `components` maps with one boolean per capability the lawyer
+ * cares about.
+ *
+ * NOTE (Plan 04 dual-write): set_capabilities continues to write derived
+ * `modules` + `components` so existing runtime readers (sidebar gating,
+ * route mounts, chat-surface panels) keep working unchanged. A future plan
+ * will rewire the runtime to read `capabilities.*` directly and drop the
+ * derived writes.
+ */
+export interface CapabilitiesBlock {
+  chat: boolean;
+  fileUploads: boolean;
+  docxDrafting: boolean;
+  redlines: boolean;
+  legalResearch: boolean;
+  citations: boolean;
+  matters: boolean;
+  reviewGrids: boolean;
+  clientSharing: boolean;
+  approvals: boolean;
+  workspace: boolean;
+}
+
+/**
  * Manifest v2. Plan 01 introduces:
  *   - `version: 2` (renamed from v1's `schemaVersion: 1`)
  *   - `brand` (replaces v1's top-level `name`)
@@ -91,6 +116,7 @@ export interface AgentManifestV2 {
   brand: BrandBlock;
   home: HomeBlock;
   legal: LegalBlock;
+  capabilities: CapabilitiesBlock;
   description: string;
   theme: ManifestTheme;
   persona: ManifestPersona;

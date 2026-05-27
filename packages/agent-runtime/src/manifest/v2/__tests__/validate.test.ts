@@ -12,6 +12,19 @@ const baseValid = {
     requireHumanReviewFor: [] as string[],
     forbid: [] as string[],
   },
+  capabilities: {
+    chat: true,
+    fileUploads: false,
+    docxDrafting: false,
+    redlines: false,
+    legalResearch: false,
+    citations: false,
+    matters: false,
+    reviewGrids: false,
+    clientSharing: false,
+    approvals: false,
+    workspace: false,
+  },
   description: 'Employment law assistant',
   persona: { id: 'default', systemPrompt: 'You are an assistant.' },
   ai: { model: 'claude-sonnet-4-6' },
@@ -117,5 +130,20 @@ describe('validateManifestV2', () => {
     const out = validateManifestV2(m);
     expect(out.legal.jurisdictions).toEqual(['England and Wales']);
     expect(out.legal.clientFacing).toBe(true);
+  });
+
+  it('rejects missing capabilities block', () => {
+    const { capabilities, ...withoutCaps } = baseValid;
+    expect(() => validateManifestV2(withoutCaps)).toThrow();
+  });
+
+  it('rejects capabilities with a non-boolean field', () => {
+    const m = { ...baseValid, capabilities: { ...baseValid.capabilities, chat: 'yes' as never } };
+    expect(() => validateManifestV2(m)).toThrow();
+  });
+
+  it('accepts capabilities with all booleans set', () => {
+    const m = { ...baseValid, capabilities: { ...baseValid.capabilities, fileUploads: true, citations: true } };
+    expect(validateManifestV2(m).capabilities.fileUploads).toBe(true);
   });
 });

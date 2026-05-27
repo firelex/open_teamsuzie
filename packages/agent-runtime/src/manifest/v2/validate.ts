@@ -30,6 +30,20 @@ const legal = z.object({
   forbid: z.array(z.string()),
 });
 
+const capabilities = z.object({
+  chat: z.boolean(),
+  fileUploads: z.boolean(),
+  docxDrafting: z.boolean(),
+  redlines: z.boolean(),
+  legalResearch: z.boolean(),
+  citations: z.boolean(),
+  matters: z.boolean(),
+  reviewGrids: z.boolean(),
+  clientSharing: z.boolean(),
+  approvals: z.boolean(),
+  workspace: z.boolean(),
+});
+
 const passthroughObject = z.object({}).passthrough();
 
 /**
@@ -44,6 +58,7 @@ export const manifestV2Schema = z.object({
   brand,
   home,
   legal,
+  capabilities,
   description: z.string(),
   theme: passthroughObject,
   persona: passthroughObject,
