@@ -163,21 +163,34 @@ function Greeting({
   name,
   prompts,
   onSelect,
+  headline,
+  subheadline,
+  welcomeMessage,
 }: {
   name: string;
   prompts: PromptIdea[];
   onSelect: (prompt: string) => void;
+  headline?: string;
+  subheadline?: string;
+  welcomeMessage?: string;
 }) {
   const salutation = useMemo(() => greetingFor(new Date()), []);
+  const hero = headline?.trim() || salutation;
+  const sub = subheadline?.trim() || `How can ${name} help today?`;
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col justify-center px-6 py-16">
       <h1 className="ts-display ts-reveal text-[clamp(38px,5vw,64px)] text-foreground" data-delay="1">
-        {salutation}
+        {hero}
       </h1>
       <p className="ts-reveal mt-3 text-[15px] leading-[1.55] text-muted-foreground" data-delay="2">
-        How can {name} help today?
+        {sub}
       </p>
-      <div className="ts-reveal mt-10 grid gap-3 sm:grid-cols-2" data-delay="3">
+      {welcomeMessage?.trim() && (
+        <p className="ts-reveal mt-6 text-[14px] leading-[1.5] text-foreground" data-delay="3">
+          {welcomeMessage}
+        </p>
+      )}
+      <div className="ts-reveal mt-10 grid gap-3 sm:grid-cols-2" data-delay="4">
         {prompts.map((card) => (
           <button
             key={card.title}
@@ -233,6 +246,42 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
         prompt: w.prompt,
       }));
   }, [allWorkflows]);
+
+  // Read manifest.home for first-screen overrides.
+  const [manifestHome, setManifestHome] = useState<{
+    headline?: string;
+    subheadline?: string;
+    welcomeMessage?: string;
+    starterPrompts?: string[];
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/manifest')
+      .then((r) => r.json() as Promise<{ manifest?: { home?: typeof manifestHome } }>)
+      .then((data) => {
+        if (!cancelled) setManifestHome(data.manifest?.home ?? null);
+      })
+      .catch(() => { /* best effort */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Resolve home.starterPrompts (workflow NAMEs) against the workflows store
+  // (seeded from manifest.prompts). Returns [] if no names configured; fall
+  // back to featuredPrompts/PROMPTS at the call site.
+  const resolvedStarterPrompts = useMemo<PromptIdea[]>(() => {
+    const titles = manifestHome?.starterPrompts ?? [];
+    if (titles.length === 0) return [];
+    const byName = new Map(allWorkflows.map((w) => [w.name, w]));
+    return titles
+      .map((t) => byName.get(t))
+      .filter((w): w is NonNullable<typeof w> => Boolean(w))
+      .map((w) => ({
+        title: w.name,
+        subtitle: w.description,
+        prompt: w.prompt,
+      }));
+  }, [allWorkflows, manifestHome?.starterPrompts]);
+
   const navigate = useNavigate();
   const location = useLocation();
   // Stable per-render-tab session id used for paperclip uploads. When chatId
@@ -779,29 +828,37 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
   return (
     <div className="flex h-full">
       <div className="flex min-w-0 flex-1 flex-col">
-      <header className="flex h-12 items-center justify-between border-b border-border px-6">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-block size-1.5 rounded-full bg-[color:var(--color-accent)]" aria-hidden />
-          <span className="ts-mono-data text-foreground">{agentName}</span>
-        </div>
-        {chatId && (
+      {chatId && (
+        // Slim chat-only toolbar — only renders during an active conversation,
+        // and only carries the "New chat" affordance. The agent name lived
+        // here as a `• <name>` chip but duplicated the sidebar wordmark, so
+        // it was removed. On the landing/greeting state there's no header at
+        // all — the hero "Good <part-of-day>" copy is the top-of-page anchor.
+        <header className="flex h-12 items-center justify-end border-b border-border px-6">
           <Button
             size="sm"
             variant="outline"
             onClick={() => void newChat()}
-            className="h-7 rounded-[2px] border-foreground/30 bg-transparent px-3 font-sans text-[11.5px] font-semibold uppercase tracking-[0.10em] text-foreground hover:border-saffron-400 hover:text-foreground"
+            className="h-7 rounded-[2px] border-foreground/30 bg-transparent px-3 font-sans text-[11.5px] font-semibold uppercase tracking-[0.10em] text-foreground hover:border-[color:var(--color-accent)] hover:text-foreground"
           >
             New chat
           </Button>
-        )}
-      </header>
+        </header>
+      )}
 
       {showGreeting ? (
         <>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <Greeting
               name={agentName}
-              prompts={featuredPrompts.length > 0 ? featuredPrompts : PROMPTS}
+              prompts={
+                resolvedStarterPrompts.length > 0
+                  ? resolvedStarterPrompts
+                  : (featuredPrompts.length > 0 ? featuredPrompts : PROMPTS)
+              }
+              headline={manifestHome?.headline}
+              subheadline={manifestHome?.subheadline}
+              welcomeMessage={manifestHome?.welcomeMessage}
               onSelect={(prompt) => {
                 setBareInput(prompt);
                 // Defer to next tick so React commits the input change before
