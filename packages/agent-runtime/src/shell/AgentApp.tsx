@@ -53,6 +53,11 @@ function legalOf(m: AgentManifest | null): LegalRead | undefined {
   return (m as unknown as { legal?: LegalRead } | null)?.legal;
 }
 
+type NavItemRead = { id: string; label: string; visible: boolean; order?: number };
+function navigationOf(m: AgentManifest | null): { items: NavItemRead[] } | undefined {
+  return (m as unknown as { navigation?: { items: NavItemRead[] } } | null)?.navigation;
+}
+
 function resolveModules(m: AgentManifest | null): ManifestModules {
   return { ...DEFAULT_MODULES, ...((m?.modules) ?? {}) };
 }
@@ -153,14 +158,36 @@ export function AgentApp() {
   const mattersLabel = manifest
     ? resolveMattersLabel(manifest)
     : { singular: 'Matter', plural: 'Matters' };
-  const items: NavItem[] = [
-    { to: '/', label: 'Assistant', testId: 'nav-assistant' },
-  ];
-  if (mods.matters)  items.push({ to: '/matters',  label: mattersLabel.plural, testId: 'nav-matters' });
-  if (mods.library)  items.push({ to: '/library',  label: 'Library',  testId: 'nav-library' });
-  if (mods.personas) items.push({ to: '/personas', label: 'Personas', testId: 'nav-personas' });
-  if (mods.reviews)  items.push({ to: '/reviews',  label: 'Reviews',  testId: 'nav-reviews' });
-  if (mods.history)  items.push({ to: '/history',  label: 'History',  testId: 'nav-history' });
+  const navItems = navigationOf(manifest)?.items ?? [];
+
+  const idToCap: Record<string, boolean> = {
+    assistant: true,
+    matters: Boolean(mods.matters),
+    library: Boolean(mods.library),
+    personas: Boolean(mods.personas),
+    reviews: Boolean(mods.reviews),
+    history: Boolean(mods.history),
+  };
+
+  // Prefer manifest.navigation.items when present; fall back to legacy
+  // module-derived order otherwise.
+  const orderedIds = navItems.length > 0
+    ? navItems.map((n) => n.id).filter((id) => idToCap[id] !== undefined)
+    : ['assistant', 'matters', 'library', 'personas', 'reviews', 'history'];
+
+  const items: NavItem[] = [];
+  for (const id of orderedIds) {
+    if (!idToCap[id]) continue;
+    const fromManifest = navItems.find((n) => n.id === id);
+    if (fromManifest && !fromManifest.visible) continue;
+    const defaultLabel =
+      id === 'assistant' ? 'Assistant'
+      : id === 'matters' ? mattersLabel.plural
+      : id.charAt(0).toUpperCase() + id.slice(1);
+    const label = fromManifest?.label ?? defaultLabel;
+    const to = id === 'assistant' ? '/' : `/${id}`;
+    items.push({ to, label, testId: `nav-${id}` });
+  }
 
   return (
     <SidePanelProvider>
