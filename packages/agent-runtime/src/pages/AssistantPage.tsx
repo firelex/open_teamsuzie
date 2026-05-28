@@ -48,7 +48,16 @@ function hydratePersistedToThread(
       try {
         const events = JSON.parse(m.toolEvents) as ToolEvent[];
         if (Array.isArray(events) && events.length > 0) {
-          out.toolCalls = events.map<ChatToolCall>((e) => ({
+          // chat-route persists every event (tool_call, tool_result, tool_error)
+          // and they all share the same `id`. Dedupe by id, keeping the LAST
+          // entry per id so the final result/status overrides the initial call.
+          // Without this, React fires a duplicate-key warning on the rendered
+          // toolCalls list.
+          const byId = new Map<string, ToolEvent>();
+          for (const e of events) {
+            if (e && typeof e.id === 'string') byId.set(e.id, e);
+          }
+          out.toolCalls = Array.from(byId.values()).map<ChatToolCall>((e) => ({
             id: e.id,
             name: e.name,
             args: e.args,
