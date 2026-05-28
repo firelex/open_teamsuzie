@@ -52,7 +52,26 @@ describe("serializeForLLM — token cap", () => {
     const out = serializeForLLM(wb, { tokenCap: 1 });
     expect(out).not.toMatch(/fill=/);
     expect(out).not.toMatch(/font=/);
-    expect(out).toMatch(/=== Sheet: Sheet1 ===/);
-    expect(out).toMatch(/1234\.5/);
+    expect(out).toMatch(/\[\.\.\. truncated, \d+ more cells\]/);
+  });
+});
+
+describe("serializeForLLM — hard truncation", () => {
+  it("emits a truncation marker when output exceeds the cap", async () => {
+    const wb = await parseWorkbook(readFileSync(SAMPLE));
+    // Cap of 1 token ≈ 4 chars — way below the smallest cell line.
+    const out = serializeForLLM(wb, { tokenCap: 1 });
+    expect(out).toMatch(/\[\.\.\. truncated, \d+ more cells\]/);
+  });
+
+  it("hard-truncation count is plausible (≤ total cells in workbook)", async () => {
+    const wb = await parseWorkbook(readFileSync(SAMPLE));
+    const totalCells = wb.sheets.reduce((sum, s) => sum + s.cells.length, 0);
+    const out = serializeForLLM(wb, { tokenCap: 1 });
+    const match = out.match(/\[\.\.\. truncated, (\d+) more cells\]/);
+    expect(match).not.toBeNull();
+    const reported = parseInt(match![1], 10);
+    expect(reported).toBeLessThanOrEqual(totalCells);
+    expect(reported).toBeGreaterThan(0);
   });
 });

@@ -33,7 +33,7 @@ export function serializeForLLM(workbook: Workbook, opts: SerializeOptions = {})
   }
   const joined = out.join("\n");
   if (joined.length <= charCap) return joined;
-  return serializeTight(workbook);
+  return serializeTight(workbook, charCap);
 }
 
 function buildLabelMap(sheet: Sheet): Map<number, string> {
@@ -73,19 +73,39 @@ function renderValue(v: Cell["value"]): string {
   return String(v);
 }
 
-function serializeTight(workbook: Workbook): string {
+function serializeTight(workbook: Workbook, charCap: number): string {
   const out: string[] = [];
+  let charCount = 0;
+  let cellsRemaining = 0;
+  // Count total non-empty cells for accurate truncation reporting.
+  for (const sheet of workbook.sheets) {
+    cellsRemaining += sheet.cells.length;
+  }
   for (const sheet of workbook.sheets) {
     if (sheet.cells.length === 0) continue;
-    out.push(`=== Sheet: ${sheet.name} ===`);
+    const header = `=== Sheet: ${sheet.name} ===`;
+    if (charCount + header.length > charCap) {
+      out.push(`[... truncated, ${cellsRemaining} more cells]`);
+      return out.join("\n");
+    }
+    out.push(header);
+    charCount += header.length + 1;
     const labelMap = buildLabelMap(sheet);
     const sorted = [...sheet.cells].sort((a, b) => a.row - b.row || a.col - b.col);
     for (const cell of sorted) {
       const v = renderValue(cell.value);
       const label = cell.col >= 3 ? labelMap.get(cell.row) ?? "" : "";
-      out.push(label ? `${cell.address}: ${v} | ${label}` : `${cell.address}: ${v}`);
+      const line = label ? `${cell.address}: ${v} | ${label}` : `${cell.address}: ${v}`;
+      if (charCount + line.length > charCap) {
+        out.push(`[... truncated, ${cellsRemaining} more cells]`);
+        return out.join("\n");
+      }
+      out.push(line);
+      charCount += line.length + 1;
+      cellsRemaining -= 1;
     }
     out.push("");
+    charCount += 1;
   }
   return out.join("\n");
 }
