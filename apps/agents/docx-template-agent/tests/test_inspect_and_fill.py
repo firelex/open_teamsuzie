@@ -32,6 +32,21 @@ def test_inspect_classifies_heading_styles():
     assert role_counts.get("heading", 0) >= 5  # Heading 1..N
 
 
+def test_inspect_detects_letterhead_guidance():
+    m = inspect_template(TEMPLATE)
+    assert m["letterhead_guidance"] is not None
+
+
+def test_inspect_has_no_letterhead_guidance_for_plain_template(tmp_path: Path):
+    plain = tmp_path / "plain.docx"
+    doc = Document()
+    doc.add_paragraph("[COMPANY NAME]")
+    doc.save(plain)
+
+    m = inspect_template(plain)
+    assert m["letterhead_guidance"] is None
+
+
 def test_fill_doc_replaces_tokens_and_preserves_structure(tmp_path: Path):
     spec = DocSpec(
         doc_name="Test",

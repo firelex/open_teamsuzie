@@ -17,6 +17,14 @@ from docx.oxml.ns import qn
 
 from .tokens import find_tokens_in, normalize_token
 
+WPS_NS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+VML_NS = "urn:schemas-microsoft-com:vml"
+LETTERHEAD_GUIDANCE = (
+    "This template has a floating letterhead text box. "
+    "Substantive body content should start below the float, using "
+    "a Word clear-wrap break before the first body paragraph."
+)
+
 
 class StyleManifest(TypedDict):
     name: str
@@ -60,6 +68,7 @@ class TemplateManifest(TypedDict):
     placeholders: list[PlaceholderManifest]
     sections: list[SectionManifest]
     outline: list[str]          # heading texts in document order; empty if none
+    letterhead_guidance: str | None
 
 
 def _infer_role(style_name: str, style_type: str) -> str:
@@ -193,6 +202,29 @@ def _outline(doc: Document) -> list[str]:
     return out
 
 
+def _letterhead_guidance(doc: Document) -> str | None:
+    """Detect floating letterhead/text-box layouts that body content must clear."""
+
+    wrap_tags = (qn("wp:wrapSquare"), qn("wp:wrapTight"))
+    body_pr_tag = f"{{{WPS_NS}}}bodyPr"
+    shape_tag = f"{{{VML_NS}}}shape"
+
+    for anchor in doc.element.body.iter(qn("wp:anchor")):
+        if any(anchor.find(f".//{tag}") is not None for tag in wrap_tags):
+            return LETTERHEAD_GUIDANCE
+
+        for body_pr in anchor.iter(body_pr_tag):
+            if (body_pr.get("wrap") or "").lower() in {"square", "tight"}:
+                return LETTERHEAD_GUIDANCE
+
+    for shape in doc.element.body.iter(shape_tag):
+        style = (shape.get("style") or "").lower()
+        if "mso-wrap-style:square" in style or "mso-wrap-style:tight" in style:
+            return LETTERHEAD_GUIDANCE
+
+    return None
+
+
 def inspect_template(template_path: str | Path) -> TemplateManifest:
     path = Path(template_path)
     if not path.exists():
@@ -203,6 +235,7 @@ def inspect_template(template_path: str | Path) -> TemplateManifest:
     sections = _sections(doc)
     placeholders = _placeholders(doc)
     outline = _outline(doc)
+    letterhead_guidance = _letterhead_guidance(doc)
 
     # Count paragraphs across the whole document (not just body.paragraphs)
     total_paragraphs = sum(1 for _ in doc.element.body.iter(qn("w:p")))
@@ -216,4 +249,5 @@ def inspect_template(template_path: str | Path) -> TemplateManifest:
         placeholders=placeholders,
         sections=sections,
         outline=outline,
+        letterhead_guidance=letterhead_guidance,
     )
