@@ -43,6 +43,57 @@ export const DEFAULT_MODULES: ManifestModules = {
   drafting: false,
 };
 
+/**
+ * Capabilities block shape (mirrors v2 CapabilitiesBlock without forcing
+ * the v2 type import — keeps defaults.ts free of v2 dependencies and lets
+ * the projection accept partial/unknown shapes safely).
+ */
+export type CapabilitiesShape = {
+  chat?: boolean;
+  fileUploads?: boolean;
+  docxDrafting?: boolean;
+  redlines?: boolean;
+  legalResearch?: boolean;
+  citations?: boolean;
+  matters?: boolean;
+  reviewGrids?: boolean;
+  clientSharing?: boolean;
+  approvals?: boolean;
+  workspace?: boolean;
+};
+
+/**
+ * Project a capabilities block to the runtime's module gating shape.
+ * Only emits keys that the runtime actually gates behavior on:
+ *   - matters       (server/index.ts:462 mount, AgentApp nav)
+ *   - knowledgeBase (catalog/KB gate)
+ *   - reviews       (server/index.ts:646 mount)
+ *   - drafting      (server/index.ts:353)
+ *   - redline       (server/index.ts:352)
+ *
+ * Modules NOT derived from capabilities (assistant, history, personas,
+ * settings, library, admin, billing) keep their DEFAULT_MODULES values;
+ * callers can still layer `manifest.modules` over the top for explicit
+ * overrides.
+ *
+ * Capability keys with no module-side effect (chat, fileUploads,
+ * citations, clientSharing, approvals, workspace) are intentionally
+ * unmapped — they were dual-written into `modules` historically as
+ * component-style keys, but the runtime never read those slots.
+ */
+export function capabilitiesToModules(
+  caps: CapabilitiesShape | undefined,
+): Partial<ManifestModules> {
+  if (!caps) return {};
+  const out: Partial<ManifestModules> = {};
+  if (typeof caps.matters === 'boolean') out.matters = caps.matters;
+  if (typeof caps.legalResearch === 'boolean') out.knowledgeBase = caps.legalResearch;
+  if (typeof caps.reviewGrids === 'boolean') out.reviews = caps.reviewGrids;
+  if (typeof caps.docxDrafting === 'boolean') out.drafting = caps.docxDrafting;
+  if (typeof caps.redlines === 'boolean') out.redline = caps.redlines;
+  return out;
+}
+
 export function resolveModules(manifest: AgentManifest): ManifestModules {
   return { ...DEFAULT_MODULES, ...(manifest.modules ?? {}) };
 }
