@@ -94,8 +94,22 @@ export function capabilitiesToModules(
   return out;
 }
 
+/**
+ * Resolve the runtime module-gating shape from the manifest. Reads
+ * `capabilities` as the canonical source of truth (Plan: capabilities
+ * rewire) and falls back to the legacy `modules` field for v1
+ * manifests that have no capabilities block. Explicit `manifest.modules`
+ * always wins as the last-applied override layer — this is how legacy
+ * fine-tuning (e.g. enabling `library` or `admin` outside the
+ * capability set) survives the rewire.
+ */
 export function resolveModules(manifest: AgentManifest): ManifestModules {
-  return { ...DEFAULT_MODULES, ...(manifest.modules ?? {}) };
+  const caps = (manifest as unknown as { capabilities?: CapabilitiesShape }).capabilities;
+  return {
+    ...DEFAULT_MODULES,
+    ...capabilitiesToModules(caps),
+    ...(manifest.modules ?? {}),
+  };
 }
 
 export interface MattersLabel {
