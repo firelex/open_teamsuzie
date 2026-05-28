@@ -65,11 +65,11 @@ export type CapabilitiesShape = {
 /**
  * Project a capabilities block to the runtime's module gating shape.
  * Only emits keys that the runtime actually gates behavior on:
- *   - matters       (server/index.ts:462 mount, AgentApp nav)
- *   - knowledgeBase (catalog/KB gate)
- *   - reviews       (server/index.ts:646 mount)
- *   - drafting      (server/index.ts:353)
- *   - redline       (server/index.ts:352)
+ *   - matters       (server/index.ts:462 router mount + AgentApp nav)
+ *   - knowledgeBase (nav-visible only — no router wired; see server/index.ts:1104 "unwired" warning)
+ *   - reviews       (server/index.ts:646 router mount)
+ *   - drafting      (server/index.ts:353 — tool-registry gate, not a mount)
+ *   - redline       (server/index.ts:352 — tool-registry gate, not a mount)
  *
  * Modules NOT derived from capabilities (assistant, history, personas,
  * settings, library, admin, billing) keep their DEFAULT_MODULES values;
