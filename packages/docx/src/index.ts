@@ -10,6 +10,7 @@ export {
 export type {
     BodyParagraphInfo,
     RevisionAuthor,
+    RichRun,
     WordDiffOp,
 } from './tracked-changes.js';
 export {

@@ -12,6 +12,36 @@ export interface WordDiffOp {
     text: string;
 }
 
+/**
+ * A single run of text with optional inline formatting flags. Used by
+ * `insertParagraphRich` and `ContentKeyedEdit.replaceRuns` to emit multiple
+ * styled `<w:r>` elements (bold, italic, underline) rather than a single
+ * plain-text run.
+ */
+export interface RichRun {
+    text: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+}
+
+/**
+ * Build a `<w:rPr>` node for a `RichRun`. Returns `undefined` when no
+ * formatting flags are set so the run gets no `<w:rPr>` element (same as
+ * today's plain-text inserts). Exported so `content-keyed-edits.ts` can
+ * reuse it without duplicating the logic.
+ */
+export function buildRunRPr(run: RichRun): XmlNode | undefined {
+    const children: XmlNode[] = [];
+    if (run.bold) children.push({ 'w:b': [] });
+    if (run.italic) children.push({ 'w:i': [] });
+    if (run.underline) {
+        children.push({ 'w:u': [], ':@': { '@_w:val': 'single' } } as XmlNode);
+    }
+    if (children.length === 0) return undefined;
+    return { 'w:rPr': children };
+}
+
 export interface RevisionAuthor {
     name: string;
     /** ISO 8601. Defaults to the editor's construction time. */
@@ -419,6 +449,62 @@ export class TrackedChangesEditor {
     }
 
     /**
+     * Insert a new paragraph after `afterIndex` with multiple styled runs
+     * (bold, italic, underline). Each `RichRun` in `runs` produces one
+     * `<w:r>` element with the appropriate `<w:rPr>` child; plain runs (no
+     * flags set) get no `<w:rPr>`. The whole run array is wrapped in a
+     * single `<w:ins>` element and the paragraph-mark insertion marker is
+     * written into `<w:pPr>/<w:rPr>` as usual.
+     *
+     * Pass `opts.pPr` to apply a paragraph style (e.g. Heading1). The pPr
+     * is deep-cloned and the paragraph-mark `<w:ins>` marker is added to
+     * it, same as `insertParagraph`.
+     *
+     * @returns The issued revision id (same semantics as `insertParagraph`).
+     */
+    insertParagraphRich(
+        afterIndex: number,
+        runs: RichRun[],
+        opts?: { pPr?: XmlNode },
+    ): number {
+        const body = getBodyChildren(this.file.document());
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (afterIndex < -1 || afterIndex >= paragraphs.length) {
+            throw new Error(`afterIndex ${afterIndex} out of range`);
+        }
+        const id = this.allocId();
+
+        const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
+        const rPr = ensureRPr(pPr);
+        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+
+        // Build one <w:r> per RichRun.
+        const runNodes: XmlNode[] = runs
+            .filter((r) => r.text.length > 0)
+            .map((r) => {
+                const rPrNode = buildRunRPr(r);
+                return makeRun(r.text, false, rPrNode);
+            });
+
+        const newP: XmlNode = {
+            'w:p': [pPr, this.wrapInIns(runNodes, id)],
+        };
+        if (afterIndex === -1) {
+            const first = paragraphs[0];
+            if (first) {
+                first.parent.splice(first.index, 0, newP);
+            } else {
+                body.splice(emptyBodyInsertIndex(body), 0, newP);
+            }
+        } else {
+            const anchor = paragraphs[afterIndex];
+            anchor.parent.splice(anchor.index + 1, 0, newP);
+        }
+        this.file.markDocumentDirty();
+        return id;
+    }
+
+    /**
      * Insert a new paragraph after `afterIndex` whose only content is a
      * `<w:br w:type="textWrapping" w:clear="all"/>` — Word's primitive for
      * "drop subsequent content below all floating objects intersecting
@@ -439,25 +525,7 @@ export class TrackedChangesEditor {
         }
         const id = this.allocId();
 
-        const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
-        const rPr = ensureRPr(pPr);
-        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
-
-        const brRun: XmlNode = {
-            'w:r': [
-                {
-                    'w:br': [],
-                    ':@': {
-                        '@_w:type': 'textWrapping',
-                        '@_w:clear': 'all',
-                    },
-                },
-            ],
-        };
-
-        const newP: XmlNode = {
-            'w:p': [pPr, this.wrapInIns([brRun], id)],
-        };
+        const newP = this.makeClearWrapBreakParagraph(id, opts?.pPr);
         if (afterIndex === -1) {
             const first = paragraphs[0];
             if (first) {
@@ -473,10 +541,109 @@ export class TrackedChangesEditor {
         return id;
     }
 
+    /**
+     * Insert clear-wrap content after the final top-level body paragraph
+     * that anchors a floating letterhead/text-box. This is deliberately
+     * independent of the caller's LLM-chosen paragraph index: for templates
+     * whose first body paragraph carries the float, inserting before that
+     * anchor clears nothing useful. Word-authored text boxes also sometimes
+     * use `wp:wrapNone` while putting the square-wrap signal on `wps:bodyPr`
+     * or the VML fallback; in that shape Word does not reliably let
+     * `<w:br w:type="textWrapping" w:clear="all"/>` clear overflowed text,
+     * so we add a small measured spacer after the clear break.
+     */
+    insertClearWrapBreakAfterFloatingAnchors(
+        afterIndex: number,
+        opts?: { pPr?: XmlNode },
+    ): number[] {
+        const body = getBodyChildren(this.file.document());
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (afterIndex < -1 || afterIndex >= paragraphs.length) {
+            throw new Error(`afterIndex ${afterIndex} out of range`);
+        }
+
+        const target = findLastTopLevelFloatingAnchor(body);
+        if (!target) {
+            return [this.insertClearWrapBreak(afterIndex, opts)];
+        }
+
+        const ids: number[] = [];
+        const clearId = this.allocId();
+        ids.push(clearId);
+        const inserts = [this.makeClearWrapBreakParagraph(clearId, opts?.pPr)];
+
+        if (target.extraClearLines > 0) {
+            const spacerId = this.allocId();
+            ids.push(spacerId);
+            inserts.push(this.makeLineBreakSpacerParagraph(spacerId, target.extraClearLines));
+        }
+
+        body.splice(target.bodyIndex + 1, 0, ...inserts);
+        this.file.markDocumentDirty();
+        return ids;
+    }
+
+    /**
+     * Replace the run content inside a `<w:ins>` element identified by the
+     * given revision `id` with multiple rich runs. This is a post-hoc
+     * patch used by `applyContentKeyedEdits` when an edit specifies
+     * `replaceRuns` — the diff-based path emits a single plain-text insert
+     * run first, and this method replaces it with the caller-supplied styled
+     * runs. Only the first matching `<w:ins>` with that id is touched.
+     *
+     * @internal Used by `content-keyed-edits.ts`; not part of the public API.
+     */
+    overrideInsertedRunContent(id: number, richRuns: RichRun[]): void {
+        const idStr = String(id);
+        const runNodes: XmlNode[] = richRuns
+            .filter((r) => r.text.length > 0)
+            .map((r) => makeRun(r.text, false, buildRunRPr(r)));
+        if (runNodes.length === 0) return;
+
+        const found = findInsById(this.file.document(), idStr);
+        if (!found) return;
+        // Replace every child that is a <w:r> with the new run nodes.
+        // Leave any non-<w:r> children (shouldn't be any, but just in case).
+        const insChildren = found['w:ins'] as XmlNode[];
+        const nonRunChildren = insChildren.filter((c) => !('w:r' in c));
+        found['w:ins'] = [...runNodes, ...nonRunChildren];
+        this.file.markDocumentDirty();
+    }
+
     private allocId(): number {
         const id = this.nextId;
         this.nextId += 1;
         return id;
+    }
+
+    private makeClearWrapBreakParagraph(id: number, pPrOverride?: XmlNode): XmlNode {
+        const pPr = cloneNode(pPrOverride) ?? { 'w:pPr': [] };
+        const rPr = ensureRPr(pPr);
+        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+
+        const brRun: XmlNode = {
+            'w:r': [
+                {
+                    'w:br': [],
+                    ':@': {
+                        '@_w:type': 'textWrapping',
+                        '@_w:clear': 'all',
+                    },
+                },
+            ],
+        };
+
+        return { 'w:p': [pPr, this.wrapInIns([brRun], id)] };
+    }
+
+    private makeLineBreakSpacerParagraph(id: number, lineCount: number): XmlNode {
+        const pPr: XmlNode = { 'w:pPr': [] };
+        const rPr = ensureRPr(pPr);
+        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+
+        const breaks = Array.from({ length: lineCount }, () => ({ 'w:br': [] }));
+        const spacerRun: XmlNode = { 'w:r': breaks };
+        return { 'w:p': [pPr, this.wrapInIns([spacerRun], id)] };
     }
 
     private wrapInIns(children: XmlNode[], id: number): XmlNode {
@@ -678,6 +845,134 @@ function emptyBodyInsertIndex(body: XmlNode[]): number {
     return sectPrIndex >= 0 ? sectPrIndex : body.length;
 }
 
+interface FloatingAnchorTarget {
+    bodyIndex: number;
+    extraClearLines: number;
+}
+
+function findLastTopLevelFloatingAnchor(body: XmlNode[]): FloatingAnchorTarget | null {
+    let target: FloatingAnchorTarget | null = null;
+    for (let i = 0; i < body.length; i++) {
+        const node = body[i];
+        if (!node || typeof node !== 'object' || !('w:p' in node)) continue;
+        const info = floatingAnchorInfo(node);
+        if (info) target = { bodyIndex: i, extraClearLines: info.extraClearLines };
+    }
+    return target;
+}
+
+function floatingAnchorInfo(pNode: XmlNode): { extraClearLines: number } | null {
+    let hasFloatingAnchor = false;
+    let needsOverflowSpacer = false;
+    let extraClearLines = 0;
+
+    walk([pNode], (node) => {
+        if (primaryTag(node) !== 'wp:anchor') return;
+        const hasModernWrap = hasDescendantTag(node, 'wp:wrapSquare') ||
+            hasDescendantTag(node, 'wp:wrapTight');
+        const hasBodyPrWrap = hasBodyPrSquareOrTight(node);
+        const hasVmlWrap = hasVmlSquareOrTight(node);
+        if (!hasModernWrap && !hasBodyPrWrap && !hasVmlWrap) return;
+
+        hasFloatingAnchor = true;
+        const wrapNone = hasDescendantTag(node, 'wp:wrapNone');
+        const overflow = hasOverflowingTextBox(node);
+        if (wrapNone || overflow) {
+            needsOverflowSpacer = true;
+            extraClearLines = Math.max(extraClearLines, estimateOverflowLines(node));
+        }
+    });
+
+    if (!hasFloatingAnchor) return null;
+    return { extraClearLines: needsOverflowSpacer ? Math.max(1, extraClearLines) : 0 };
+}
+
+function hasDescendantTag(node: XmlNode, tag: string): boolean {
+    let found = false;
+    walk([node], (n) => {
+        if (primaryTag(n) === tag) found = true;
+    });
+    return found;
+}
+
+function hasBodyPrSquareOrTight(anchor: XmlNode): boolean {
+    let found = false;
+    walk([anchor], (node) => {
+        if (primaryTag(node) !== 'wps:bodyPr') return;
+        const wrap = String(node[':@']?.['@_wrap'] ?? '').toLowerCase();
+        if (wrap === 'square' || wrap === 'tight') found = true;
+    });
+    return found;
+}
+
+function hasVmlSquareOrTight(anchor: XmlNode): boolean {
+    let found = false;
+    walk([anchor], (node) => {
+        if (primaryTag(node) !== 'v:shape') return;
+        const style = String(node[':@']?.['@_style'] ?? '').toLowerCase();
+        if (
+            style.includes('mso-wrap-style:square') ||
+            style.includes('mso-wrap-style:tight')
+        ) {
+            found = true;
+        }
+    });
+    return found;
+}
+
+function hasOverflowingTextBox(anchor: XmlNode): boolean {
+    let found = false;
+    walk([anchor], (node) => {
+        if (primaryTag(node) !== 'wps:bodyPr') return;
+        const overflow = String(node[':@']?.['@_vertOverflow'] ?? '').toLowerCase();
+        if (overflow === 'overflow') found = true;
+    });
+    return found;
+}
+
+function estimateOverflowLines(anchor: XmlNode): number {
+    const paragraphCount = countTextBoxParagraphs(anchor);
+    const extentLines = Math.floor(anchorExtentCy(anchor) / 152400);
+    if (paragraphCount <= 0 || extentLines <= 0) return 1;
+    return Math.min(8, Math.max(1, paragraphCount - extentLines));
+}
+
+function countTextBoxParagraphs(anchor: XmlNode): number {
+    let inTextBox = false;
+    let count = 0;
+
+    const visitChildren = (nodes: XmlNode[]): void => {
+        for (const node of nodes) {
+            const tag = primaryTag(node);
+            if (!tag) continue;
+            const value = node[tag];
+            if (!Array.isArray(value)) continue;
+
+            const wasInTextBox = inTextBox;
+            if (tag === 'w:txbxContent') inTextBox = true;
+            if (inTextBox && tag === 'w:p') count += 1;
+            visitChildren(value as XmlNode[]);
+            inTextBox = wasInTextBox;
+        }
+    };
+
+    const tag = primaryTag(anchor);
+    if (!tag || !Array.isArray(anchor[tag])) return 0;
+    visitChildren(anchor[tag] as XmlNode[]);
+    return count;
+}
+
+function anchorExtentCy(anchor: XmlNode): number {
+    let cy = 0;
+    walk([anchor], (node) => {
+        if (cy > 0 || primaryTag(node) !== 'wp:extent') return;
+        const raw = node[':@']?.['@_cy'];
+        const parsed = typeof raw === 'string' ? Number.parseInt(raw, 10) : Number(raw);
+        if (Number.isFinite(parsed) && parsed > 0) cy = parsed;
+    });
+    return cy;
+}
+
 function isPPr(n: XmlNode): boolean {
     return 'w:pPr' in n;
 }
@@ -870,6 +1165,30 @@ function rewriteRunTextToDelText(node: XmlNode): XmlNode {
 
 function cloneNode<T>(node: T | undefined): T | undefined {
     return node === undefined ? undefined : (JSON.parse(JSON.stringify(node)) as T);
+}
+
+/**
+ * Walk the tree and find the first `<w:ins>` element whose `@_w:id`
+ * attribute equals `idStr`. Returns the node (live reference — not cloned)
+ * so callers can mutate its children. Used by
+ * `TrackedChangesEditor.overrideInsertedRunContent`.
+ */
+function findInsById(tree: XmlTree | XmlNode[], idStr: string): XmlNode | null {
+    for (const node of tree) {
+        const tag = primaryTag(node);
+        if (tag === 'w:ins') {
+            const attrs = node[':@'];
+            if (attrs && attrs['@_w:id'] === idStr) return node;
+        }
+        if (tag) {
+            const value = node[tag];
+            if (Array.isArray(value)) {
+                const found = findInsById(value as XmlNode[], idStr);
+                if (found) return found;
+            }
+        }
+    }
+    return null;
 }
 
 // ── Revision id allocation ──────────────────────────────────────────────

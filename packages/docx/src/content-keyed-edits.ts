@@ -2,9 +2,12 @@ import { DocxFile } from './docx-file.js';
 import {
     TrackedChangesEditor,
     bodyParagraphTexts,
+    buildRunRPr,
     type RevisionAuthor,
+    type RichRun,
     type WordDiffOp,
 } from './tracked-changes.js';
+import type { XmlNode } from './types.js';
 
 /**
  * A single tracked-change edit specified by content + surrounding context
@@ -18,6 +21,21 @@ import {
 export interface ContentKeyedEdit {
     find: string;
     replace: string;
+    /**
+     * When present, the replacement is emitted as multiple `<w:r>` elements
+     * with inline formatting (bold, italic, underline) instead of a single
+     * plain-text run. The concatenated text of all runs is used as the
+     * replacement text for the word-level diff; individual run boundaries
+     * are NOT preserved during the diff — the runs are only used for the
+     * final insert emission.
+     *
+     * The `replace` field is still required and should equal the plain-text
+     * concatenation of `replaceRuns[].text` so that the word-level diff
+     * (`diffReplacement`) has a stable string to work against. If `replaceRuns`
+     * is present, the insert ops from the diff are emitted as rich runs
+     * instead of a single plain run.
+     */
+    replaceRuns?: RichRun[];
     /** Text immediately preceding `find` in the source document. May be empty. */
     contextBefore: string;
     /** Text immediately following `find` in the source document. May be empty. */
@@ -70,6 +88,8 @@ export function applyContentKeyedEdits(
         startInPara: number;
         endInPara: number;
         replace: string;
+        /** When present, insert ops for this edit will be overridden with rich runs. */
+        replaceRuns?: RichRun[];
     }
     const byParagraph = new Map<number, LocatedEdit[]>();
 
@@ -99,6 +119,7 @@ export function applyContentKeyedEdits(
             startInPara: located.startInPara,
             endInPara: located.endInPara,
             replace: edit.replace,
+            replaceRuns: edit.replaceRuns,
         });
         byParagraph.set(located.paragraphIndex, list);
     }
@@ -123,7 +144,8 @@ export function applyContentKeyedEdits(
 
         const paraText = paragraphs[paraIdx];
         const ops: WordDiffOp[] = [];
-        const editRevisionOpCounts = new Map<number, number>();
+        // Track (opKind, editIndex) in order so we can distribute ids correctly.
+        const opMeta: Array<{ kind: 'delete' | 'insert'; editIndex: number }> = [];
         let cursor = 0;
         for (const e of paraEdits) {
             if (e.startInPara > cursor) {
@@ -134,12 +156,12 @@ export function applyContentKeyedEdits(
             }
             const deleteText = paraText.slice(e.startInPara, e.endInPara);
             const replacementOps = diffReplacement(deleteText, e.replace);
-            let revisionOpCount = 0;
             for (const op of replacementOps) {
                 ops.push(op);
-                if (op.kind !== 'equal') revisionOpCount++;
+                if (op.kind !== 'equal') {
+                    opMeta.push({ kind: op.kind, editIndex: e.editIndex });
+                }
             }
-            editRevisionOpCounts.set(e.editIndex, revisionOpCount);
             cursor = e.endInPara;
         }
         if (cursor < paraText.length) {
@@ -162,16 +184,37 @@ export function applyContentKeyedEdits(
             continue;
         }
 
-        // Distribute the issued ids back to per-edit results (in op order:
-        // each delete consumes one id, each insert consumes one id).
-        let idCursor = 0;
+        // Distribute the issued ids back to per-edit results, and apply
+        // rich-run overrides for any insert ops belonging to edits that
+        // specify replaceRuns.
+        const editReplaceRunsMap = new Map<number, RichRun[]>();
         for (const e of paraEdits) {
-            const ids: number[] = [];
-            const count = editRevisionOpCounts.get(e.editIndex) ?? 0;
-            for (let n = 0; n < count && idCursor < issuedIds.length; n++) {
-                ids.push(issuedIds[idCursor++]);
+            if (e.replaceRuns) editReplaceRunsMap.set(e.editIndex, e.replaceRuns);
+        }
+
+        const editIds = new Map<number, number[]>();
+        for (const e of paraEdits) editIds.set(e.editIndex, []);
+
+        for (let opIdx = 0; opIdx < opMeta.length && opIdx < issuedIds.length; opIdx++) {
+            const { kind, editIndex } = opMeta[opIdx];
+            const id = issuedIds[opIdx];
+            editIds.get(editIndex)!.push(id);
+            // If this is an insert op and the edit has replaceRuns, override
+            // the single plain run that applyParagraphDiff emitted with the
+            // caller-supplied styled runs.
+            if (kind === 'insert') {
+                const richRuns = editReplaceRunsMap.get(editIndex);
+                if (richRuns) {
+                    editor.overrideInsertedRunContent(id, richRuns);
+                }
             }
-            results[e.editIndex] = { status: 'applied', revisionIds: ids };
+        }
+
+        for (const e of paraEdits) {
+            results[e.editIndex] = {
+                status: 'applied',
+                revisionIds: editIds.get(e.editIndex) ?? [],
+            };
         }
     }
 

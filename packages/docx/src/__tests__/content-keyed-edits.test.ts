@@ -5,6 +5,7 @@ import {
     loadDocx,
     saveDocx,
 } from '../index.js';
+import type { RichRun } from '../index.js';
 
 const AUTHOR = { name: 'Counsel', date: '2026-05-02T12:00:00Z' };
 
@@ -401,5 +402,55 @@ describe('applyContentKeyedEdits', () => {
         const xml = bodyXml(loadDocx(saveDocx(file)));
         expect(xml).toContain('First paragraph stays the same.');
         expect(xml).toContain('Third paragraph stays the same.');
+    });
+
+    it('replaceRuns: emits multiple styled runs for a replacement', () => {
+        const file = loadDocx(
+            buildDocx(['The Borrower shall pay interest.']),
+        );
+        const replaceRuns: RichRun[] = [
+            { text: 'Buyer', bold: true },
+            { text: ' (the "Obligor")', italic: true },
+        ];
+        const results = applyContentKeyedEdits(
+            file,
+            [
+                {
+                    find: 'Borrower',
+                    replace: 'Buyer (the "Obligor")',
+                    replaceRuns,
+                    contextBefore: 'The ',
+                    contextAfter: ' shall',
+                },
+            ],
+            AUTHOR,
+        );
+        expect(results[0].status).toBe('applied');
+        const xml = bodyXml(loadDocx(saveDocx(file)));
+        // The bold "Buyer" run has a <w:b/> in its rPr
+        expect(xml).toMatch(/<w:rPr><w:b><\/w:b><\/w:rPr><w:t[^>]*>Buyer<\/w:t>/);
+        // The italic run has a <w:i/> in its rPr (quotes may be XML-escaped)
+        expect(xml).toMatch(/<w:rPr><w:i><\/w:i><\/w:rPr><w:t[^>]*> \(the (?:"|&quot;)Obligor(?:"|&quot;)\)<\/w:t>/);
+        // The original "Borrower" is in a del wrapper
+        expect(xml).toContain('<w:delText xml:space="preserve">Borrower</w:delText>');
+    });
+
+    it('replaceRuns: falls back gracefully when replaceRuns is absent (plain replace still works)', () => {
+        const file = loadDocx(buildDocx(['Pay interest at 5%.']));
+        const results = applyContentKeyedEdits(
+            file,
+            [
+                {
+                    find: '5%',
+                    replace: '7%',
+                    contextBefore: 'at ',
+                    contextAfter: '.',
+                },
+            ],
+            AUTHOR,
+        );
+        expect(results[0].status).toBe('applied');
+        const xml = bodyXml(loadDocx(saveDocx(file)));
+        expect(xml).toContain('<w:t xml:space="preserve">7</w:t>');
     });
 });

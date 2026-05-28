@@ -10,6 +10,8 @@ import {
     loadDocx,
     parseXml,
     saveDocx,
+    type RichRun,
+    type XmlNode,
 } from '../index.js';
 import { buildMinimalDocx } from './fixtures.js';
 
@@ -19,11 +21,11 @@ function bodyXml(file: ReturnType<typeof loadDocx>): string {
     return file.readPart('word/document.xml')!.toString('utf-8');
 }
 
-function buildBodyDocx(bodyInner: string): Buffer {
+function buildBodyDocx(bodyInner: string, extraNamespaces = ''): Buffer {
     const xmlnsW =
         'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
     const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="${xmlnsW}">
+<w:document xmlns:w="${xmlnsW}"${extraNamespaces}>
   <w:body>${bodyInner}</w:body>
 </w:document>`;
     const zip = new PizZip();
@@ -894,6 +896,121 @@ describe('TrackedChangesEditor.insertClearWrapBreak', () => {
         expect(out).toMatch(
             /<w:br [^>]*w:type="textWrapping"[^>]*w:clear="all"/,
         );
+    });
+
+    it('can anchor the clear break after the top-level floating textbox paragraph', () => {
+        const file = loadDocx(
+            buildBodyDocx(
+                `
+              <w:p>
+                <w:r>
+                  <w:drawing>
+                    <wp:anchor>
+                      <wp:extent cx="2106000" cy="1954800"/>
+                      <wp:wrapNone/>
+                      <a:graphic>
+                        <a:graphicData>
+                          <wps:wsp>
+                            <wps:txbx>
+                              <w:txbxContent>
+                                ${Array.from({ length: 18 }, (_, i) => `<w:p><w:r><w:t>line ${i}</w:t></w:r></w:p>`).join('')}
+                              </w:txbxContent>
+                            </wps:txbx>
+                            <wps:bodyPr wrap="square" vertOverflow="overflow"/>
+                          </wps:wsp>
+                        </a:graphicData>
+                      </a:graphic>
+                    </wp:anchor>
+                  </w:drawing>
+                </w:r>
+              </w:p>
+              <w:p><w:r><w:t>Dear Sir or Madam,</w:t></w:r></w:p>
+            `,
+                ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"',
+            ),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertClearWrapBreakAfterFloatingAnchors(-1);
+        acceptAllRevisions(file);
+
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        const anchorIdx = out.indexOf('<wp:anchor');
+        const clearIdx = out.search(
+            /<w:br [^>]*w:type="textWrapping"[^>]*w:clear="all"/u,
+        );
+        const dearIdx = out.indexOf('Dear Sir or Madam');
+        expect(anchorIdx).toBeGreaterThan(0);
+        expect(clearIdx).toBeGreaterThan(anchorIdx);
+        expect(clearIdx).toBeLessThan(dearIdx);
+        const breakCountBeforeDear = (out.slice(clearIdx, dearIdx).match(/<w:br/g) ?? [])
+            .length;
+        expect(breakCountBeforeDear).toBeGreaterThan(1);
+    });
+});
+
+describe('TrackedChangesEditor.insertParagraphRich', () => {
+    it('emits three runs with correct rPr flags (bold, plain, italic)', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'first' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        const runs: RichRun[] = [
+            { text: 'Bold ', bold: true },
+            { text: 'normal ' },
+            { text: 'italic', italic: true },
+        ];
+        const id = editor.insertParagraphRich(0, runs);
+        expect(editor.bodyParagraphCount()).toBe(2);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        // All three runs appear inside the <w:ins> wrapper
+        expect(out).toContain(`<w:ins w:id="${id}"`);
+        expect(out).toContain('Bold ');
+        expect(out).toContain('normal ');
+        expect(out).toContain('italic');
+        // Bold run has <w:b/>
+        expect(out).toMatch(/<w:rPr><w:b><\/w:b><\/w:rPr><w:t[^>]*>Bold /);
+        // Plain run has no rPr
+        expect(out).toMatch(/<w:t[^>]*>normal <\/w:t>/);
+        // Italic run has <w:i/>
+        expect(out).toMatch(/<w:rPr><w:i><\/w:i><\/w:rPr><w:t[^>]*>italic/);
+        // Paragraph-mark insertion marker present
+        expect(out).toMatch(/<w:rPr><w:ins [^>]*(?:\/>|><\/w:ins>)<\/w:rPr>/);
+    });
+
+    it('applies the pStyle heading from opts.pPr', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'body' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        const pPr: XmlNode = {
+            'w:pPr': [
+                {
+                    'w:pStyle': [],
+                    ':@': { '@_w:val': 'Heading1' } as never,
+                },
+            ],
+        };
+        editor.insertParagraphRich(0, [{ text: 'Section Heading' }], { pPr });
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).toContain('<w:pStyle w:val="Heading1"');
+        expect(out).toContain('Section Heading');
+    });
+
+    it('bold+italic run has both <w:b/> and <w:i/>', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'x' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraphRich(0, [{ text: 'both', bold: true, italic: true }]);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).toMatch(/<w:rPr><w:b><\/w:b><w:i><\/w:i><\/w:rPr><w:t[^>]*>both/);
+    });
+
+    it('skips empty-text runs silently', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'x' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraphRich(0, [
+            { text: '', bold: true },
+            { text: 'hello' },
+        ]);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        // Only 'hello' run, no empty runs
+        expect(out).toContain('hello');
+        expect(out).not.toMatch(/<w:t[^>]*><\/w:t>/);
     });
 });
 
