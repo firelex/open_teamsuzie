@@ -3,6 +3,7 @@ import type { AgentManifest } from './schema.js';
 
 const themeTokens = z.object({
   colorScheme: z.enum(['light', 'dark']).optional(),
+  // Legacy short-name palette
   bg: z.string().optional(),
   panel: z.string().optional(),
   border: z.string().optional(),
@@ -10,14 +11,35 @@ const themeTokens = z.object({
   muted: z.string().optional(),
   primary: z.string().optional(),
   accent: z.string().optional(),
+  // Explicit role palette (one field per --color-* var)
+  background: z.string().optional(),
+  foreground: z.string().optional(),
+  card: z.string().optional(),
+  cardForeground: z.string().optional(),
+  popover: z.string().optional(),
+  popoverForeground: z.string().optional(),
+  primaryForeground: z.string().optional(),
+  secondary: z.string().optional(),
+  secondaryForeground: z.string().optional(),
+  mutedForeground: z.string().optional(),
+  accentForeground: z.string().optional(),
+  destructive: z.string().optional(),
+  destructiveForeground: z.string().optional(),
+  input: z.string().optional(),
+  ring: z.string().optional(),
+  success: z.string().optional(),
+  // Fonts
   fontSans: z.string().optional(),
   fontMono: z.string().optional(),
   fontLinks: z.string().optional(),
   fontDisplay: z.string().optional(),
   wordmarkStyle: z.enum(['single', 'two-line']).optional(),
+  // Sidebar surface
   sidebarBg: z.string().optional(),
   sidebarFg: z.string().optional(),
   sidebarFgMuted: z.string().optional(),
+  sidebarHoverBg: z.string().optional(),
+  sidebarActiveBg: z.string().optional(),
   accentBar: z.object({ color: z.string().optional(), width: z.string().optional() }).optional(),
 }).passthrough();
 
@@ -72,6 +94,7 @@ const tool = z.object({
 });
 
 const prompt = z.object({
+  id: z.string().min(1).optional(),
   title: z.string(),
   subtitle: z.string(),
   prompt: z.string().optional(),

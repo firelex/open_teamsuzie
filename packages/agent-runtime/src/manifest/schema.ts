@@ -161,6 +161,10 @@ export interface ManifestTool {
 }
 
 export interface ManifestPrompt {
+  /** Stable identifier. When set, home.starterPrompts entries match against
+   *  this id first (then title). Lets `set_home` reference prompts
+   *  without depending on the title staying unique or unchanged. */
+  id?: string;
   title: string;
   subtitle: string;
   prompt?: string;
