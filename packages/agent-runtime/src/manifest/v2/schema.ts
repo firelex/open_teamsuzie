@@ -77,15 +77,15 @@ export interface LegalBlock {
 }
 
 /**
- * Capabilities block — lawyer-friendly product flags. Replaces (logically) v1's
+ * Capabilities block — lawyer-friendly product flags. Replaces v1's
  * `modules` + `components` maps with one boolean per capability the lawyer
  * cares about.
  *
- * NOTE (Plan 04 dual-write): set_capabilities continues to write derived
- * `modules` + `components` so existing runtime readers (sidebar gating,
- * route mounts, chat-surface panels) keep working unchanged. A future plan
- * will rewire the runtime to read `capabilities.*` directly and drop the
- * derived writes.
+ * Canonical: the runtime derives module gating from this block via
+ * `agent-runtime/manifest/defaults.ts:resolveModules`. The legacy
+ * `modules`/`components` fields remain accepted on input (for v1
+ * back-compat and explicit per-module overrides) but new SuzieCode-
+ * generated manifests only populate `capabilities`.
  */
 export interface CapabilitiesBlock {
   chat: boolean;

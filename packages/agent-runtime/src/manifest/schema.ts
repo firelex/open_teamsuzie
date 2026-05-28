@@ -13,33 +13,69 @@ export type ThemeId = string;
 
 export interface ThemeTokens {
   colorScheme?: 'light' | 'dark';
+
+  // Legacy short-name palette aliases — preserved so existing manifests
+  // (and tools that hand-write `theme.tokens`) keep validating. New code
+  // should write the explicit role-named fields below; the runtime hook
+  // reads BOTH and the explicit fields win when present.
   bg?: string;
   panel?: string;
   border?: string;
   fg?: string;
   muted?: string;
   primary?: string;
-  /**
-   * Optional secondary accent color, distinct from `primary`. Designs with
-   * a brand gradient (TeamSuzie's violet → pink) carry the second stop
-   * here. Maps to `--color-accent` (and `--color-ring`) at runtime so the
-   * agent's accent surfaces — focus rings, accent text, decorative bars —
-   * actually use the secondary brand color instead of staying at the
-   * seed-time @theme default.
-   */
+  /** Secondary accent. Designs with a brand gradient (TeamSuzie's pink)
+   *  carry the second stop here. Maps to `--color-accent` (and ring). */
   accent?: string;
+
+  // Explicit role palette — every Tailwind --color-* var gets a token
+  // so a theme swap replaces ALL surfaces atomically, not just the core
+  // six. When unset, the runtime hook leaves the var alone and the
+  // build's seed-time @theme default applies.
+  background?: string;
+  foreground?: string;
+  card?: string;
+  cardForeground?: string;
+  popover?: string;
+  popoverForeground?: string;
+  primaryForeground?: string;
+  secondary?: string;
+  secondaryForeground?: string;
+  /** Surface tint for muted backgrounds (chips, secondary panels). Distinct
+   *  from `mutedForeground` which is the TEXT color for helper copy.
+   *  Previous schema collapsed these into `muted` which the hook then
+   *  wrote to both --color-muted and --color-muted-foreground — visibly
+   *  wrong on light themes where surface ≈ near-white but text needs
+   *  to be a mid-gray. */
+  mutedForeground?: string;
+  accentForeground?: string;
+  destructive?: string;
+  destructiveForeground?: string;
+  input?: string;
+  ring?: string;
+  success?: string;
+
   fontSans?: string;
   fontMono?: string;
   fontLinks?: string;
-  // Shell-shape tokens (Phase 2 will read these).
   fontDisplay?: string;
   wordmarkStyle?: 'single' | 'two-line';
+
+  // Sidebar surface — keeps its existing flat-field layout for back-compat;
+  // new fields (`sidebarHoverBg`, `sidebarActiveBg`) are additive.
   sidebarBg?: string;
   sidebarFg?: string;
   /** Color for INACTIVE sidebar nav rows. Falls back to sidebarFg if unset.
    *  Defaults to `#9a9a94` (see DEFAULT_THEME_TOKENS) so inactive rows stay
    *  legible against a dark sidebarBg. */
   sidebarFgMuted?: string;
+  /** Background painted under a sidebar nav row on hover. Falls back to
+   *  transparent (no hover affordance) when unset. */
+  sidebarHoverBg?: string;
+  /** Background painted under the currently-active sidebar nav row. Some
+   *  designs (Counsel) leave this transparent and rely on the accent bar
+   *  alone; others (TeamSuzie) paint a saturated brand tint here. */
+  sidebarActiveBg?: string;
   accentBar?: { color?: string; width?: string };
 }
 
@@ -74,6 +110,13 @@ export interface ManifestPersona {
   blockedTools?: string[];
 }
 
+/**
+ * v1 chat-surface component flags. **Deprecated as a write surface for
+ * new manifests** — capabilities is canonical (see v2/schema.ts
+ * CapabilitiesBlock). Still accepted on read so legacy v1 manifests
+ * continue to load; the runtime currently does not gate any behavior
+ * on these flags.
+ */
 export interface ManifestComponents {
   chat: boolean;
   toolActivity: boolean;
@@ -84,6 +127,13 @@ export interface ManifestComponents {
   workspace: boolean;
 }
 
+/**
+ * v1 module-gating flags. **Deprecated as a write surface for new
+ * manifests** — capabilities is canonical (see v2/schema.ts
+ * CapabilitiesBlock). Still accepted on read as an explicit override
+ * layer over capability-derived values; see
+ * `defaults.ts:resolveModules` for the layering rule.
+ */
 export interface ManifestModules {
   assistant: boolean;
   history: boolean;
