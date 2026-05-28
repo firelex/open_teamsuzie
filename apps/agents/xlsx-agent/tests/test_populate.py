@@ -116,6 +116,7 @@ def test_populate_blixt_template_end_to_end(client: TestClient) -> None:
     cellmap = json.loads((fixtures_dir / "blixt-lbo-v1.cellmap.json").read_text())
 
     assumptions = {
+        "core_meta.sponsor_name": {"base": "Acme PE"},
         "core_meta.project_name": {"base": "Project Test"},
         "core_meta.currency": {"base": "GBP"},
         "transaction_inputs.base_rate": {"base": 0.0425},
@@ -142,6 +143,8 @@ def test_populate_blixt_template_end_to_end(client: TestClient) -> None:
     assert resp.status_code == 200, resp.text
 
     wb = load_workbook(io.BytesIO(resp.content))
+    # core_meta.sponsor_name -> Cover!B10 per the cellmap
+    assert wb["Cover"]["B10"].value == "Acme PE"
     # core_meta.project_name -> LBO!L13 per the cellmap
     assert wb["LBO"]["L13"].value == "Project Test"
     # transaction_inputs.base_rate -> LBO!F13

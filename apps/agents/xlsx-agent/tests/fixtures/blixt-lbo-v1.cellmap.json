@@ -6,6 +6,7 @@
     "core_meta": {
       "moduleVersion": "v1",
       "scalars": {
+        "sponsor_name": "Cover!B10",
         "project_name": "LBO!L13",
         "currency": "LBO!L14"
       },
