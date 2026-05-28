@@ -203,3 +203,47 @@ def test_populate_rejects_non_scalar_value(client: TestClient, tiny_template_byt
     assert resp.status_code == 400
     detail = resp.json().get("detail", "")
     assert "base_rate" in detail.lower() or "could not write" in detail.lower()
+
+
+def test_populate_rejects_malformed_cellmap_module(client: TestClient, tiny_template_bytes: bytes) -> None:
+    """A cellmap with a non-dict module value yields 400, not 500."""
+    cellmap = {
+        "templateId": "tiny",
+        "schemaVersion": "suzie-lbo-v1",
+        "profile": "uk_mid_market_lbo",
+        "modules": {
+            "transaction_inputs": None,
+        },
+        "other": [],
+    }
+    resp = client.post(
+        "/api/spreadsheets/populate",
+        files={"template": ("tiny.xlsx", tiny_template_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        data={
+            "cellmap": json.dumps(cellmap),
+            "assumptions": json.dumps({}),
+        },
+    )
+    assert resp.status_code == 400
+    assert "malformed cellmap" in resp.json().get("detail", "").lower()
+
+
+def test_populate_rejects_other_missing_name(client: TestClient, tiny_template_bytes: bytes) -> None:
+    """A cellmap whose `other` entry is missing required keys yields 400."""
+    cellmap = {
+        "templateId": "tiny",
+        "schemaVersion": "suzie-lbo-v1",
+        "profile": "uk_mid_market_lbo",
+        "modules": {},
+        "other": [{"address": "Sheet1!B1"}],  # missing "name"
+    }
+    resp = client.post(
+        "/api/spreadsheets/populate",
+        files={"template": ("tiny.xlsx", tiny_template_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        data={
+            "cellmap": json.dumps(cellmap),
+            "assumptions": json.dumps({}),
+        },
+    )
+    assert resp.status_code == 400
+    assert "malformed cellmap" in resp.json().get("detail", "").lower()

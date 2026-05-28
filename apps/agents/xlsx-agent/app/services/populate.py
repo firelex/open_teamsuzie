@@ -50,14 +50,17 @@ def _flatten_cellmap(cellmap: dict) -> dict[str, str]:
       "other.<name>"                      e.g. "other.sweet_equity_pct"
     """
     out: dict[str, str] = {}
-    for module_id, module in cellmap.get("modules", {}).items():
-        for scalar_name, addr in module.get("scalars", {}).items():
-            out[f"{module_id}.{scalar_name}"] = addr
-        for slot_name, slot in module.get("slots", {}).items():
-            for field_name, addr in slot.get("fields", {}).items():
-                out[f"{module_id}.{slot_name}.{field_name}"] = addr
-    for cell in cellmap.get("other", []):
-        out[f"other.{cell['name']}"] = cell["address"]
+    try:
+        for module_id, module in cellmap.get("modules", {}).items():
+            for scalar_name, addr in module.get("scalars", {}).items():
+                out[f"{module_id}.{scalar_name}"] = addr
+            for slot_name, slot in module.get("slots", {}).items():
+                for field_name, addr in slot.get("fields", {}).items():
+                    out[f"{module_id}.{slot_name}.{field_name}"] = addr
+        for cell in cellmap.get("other", []):
+            out[f"other.{cell['name']}"] = cell["address"]
+    except (AttributeError, KeyError, TypeError) as e:
+        raise PopulateError(f"malformed cellmap structure: {e}") from e
     return out
 
 
