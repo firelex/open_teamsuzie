@@ -274,21 +274,22 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     return () => { cancelled = true; };
   }, []);
 
-  // Resolve home.starterPrompts (workflow NAMEs) against the workflows store
-  // (seeded from manifest.prompts). Returns [] if no names configured; fall
-  // back to featuredPrompts/PROMPTS at the call site.
+  // Resolve home.starterPrompts (workflow ids OR titles) against the
+  // workflows store (seeded from manifest.prompts, indexed by p.id when
+  // set or by `manifest-prompt-${i}-${slugify(title)}` otherwise). Each
+  // entry is matched against workflow id first, then name. Unmatched
+  // entries still render as plain-text cards — the entry doubles as
+  // heading and as the prompt body — so set_home with an arbitrary
+  // string produces a visible tile rather than silently disappearing.
   const resolvedStarterPrompts = useMemo<PromptIdea[]>(() => {
-    const titles = manifestHome?.starterPrompts ?? [];
-    if (titles.length === 0) return [];
+    const entries = manifestHome?.starterPrompts ?? [];
+    if (entries.length === 0) return [];
+    const byId = new Map(allWorkflows.map((w) => [w.id, w]));
     const byName = new Map(allWorkflows.map((w) => [w.name, w]));
-    // Resolve each title against the workflows store. Unmatched entries
-    // still render as plain-text cards — title doubles as heading and as
-    // the prompt body — so set_home with an arbitrary title produces a
-    // visible tile rather than silently disappearing into the fallback.
-    return titles.map((t) => {
-      const w = byName.get(t);
+    return entries.map((e) => {
+      const w = byId.get(e) ?? byName.get(e);
       if (w) return { title: w.name, subtitle: w.description, prompt: w.prompt };
-      return { title: t, subtitle: '', prompt: t };
+      return { title: e, subtitle: '', prompt: e };
     });
   }, [allWorkflows, manifestHome?.starterPrompts]);
 
