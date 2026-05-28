@@ -244,7 +244,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   if (Array.isArray(manifest.prompts) && manifest.prompts.length > 0) {
     try {
       const promptSeeds: WorkflowSeed[] = manifest.prompts.map((p, i) => ({
-        id: `manifest-prompt-${i}-${slugify(p.title)}`,
+        id: p.id && p.id.length > 0 ? p.id : `manifest-prompt-${i}-${slugify(p.title)}`,
         name: p.title,
         description: p.subtitle ?? '',
         prompt: p.prompt ?? '',
