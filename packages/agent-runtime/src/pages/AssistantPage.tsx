@@ -281,14 +281,15 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     const titles = manifestHome?.starterPrompts ?? [];
     if (titles.length === 0) return [];
     const byName = new Map(allWorkflows.map((w) => [w.name, w]));
-    return titles
-      .map((t) => byName.get(t))
-      .filter((w): w is NonNullable<typeof w> => Boolean(w))
-      .map((w) => ({
-        title: w.name,
-        subtitle: w.description,
-        prompt: w.prompt,
-      }));
+    // Resolve each title against the workflows store. Unmatched entries
+    // still render as plain-text cards — title doubles as heading and as
+    // the prompt body — so set_home with an arbitrary title produces a
+    // visible tile rather than silently disappearing into the fallback.
+    return titles.map((t) => {
+      const w = byName.get(t);
+      if (w) return { title: w.name, subtitle: w.description, prompt: w.prompt };
+      return { title: t, subtitle: '', prompt: t };
+    });
   }, [allWorkflows, manifestHome?.starterPrompts]);
 
   const navigate = useNavigate();
