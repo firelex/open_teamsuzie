@@ -2,6 +2,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { decomposeDocx } from './decompose-docx.js';
 import { decomposePptx } from './decompose-pptx.js';
+import { decomposeXlsx } from './decompose-xlsx.js';
 import type { ReferenceDoc } from './types.js';
 import type { DatabaseInstance } from '@teamsuzie/db-sqlite';
 import type { ReferenceDocStore } from './storage.js';
@@ -46,6 +47,12 @@ export class ReferenceStore implements ReferenceDocStore {
         sourceFilePath: sourcePath,
         markitdownAgentBaseUrl: this.opts.markitdownAgentBaseUrl,
         llmFn: this.opts.llmFn,
+      });
+    } else if (file.mime.includes('spreadsheetml') || lower.endsWith('.xlsx')) {
+      ref = await decomposeXlsx(bytes, {
+        docType: file.docType,
+        displayName: file.originalName,
+        sourceFilePath: sourcePath,
       });
     } else {
       throw new Error(`Unsupported reference doc type: ${file.mime}`);
