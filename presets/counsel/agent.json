@@ -1,6 +1,52 @@
 {
-  "schemaVersion": 1,
-  "name": "Suzie Law",
+  "version": 2,
+  "brand": {
+    "name": "Suzie Law",
+    "shortName": "suzielaw",
+    "tagline": "AI legal assistant — drafts, reviews, and researches across practice areas."
+  },
+  "home": {
+    "headline": "Your legal research assistant",
+    "starterPrompts": ["arbitral-award-summary", "draft-legal-memo-docx", "compare-two-documents"],
+    "disclaimerPlacement": "footer"
+  },
+  "legal": {
+    "jurisdictions": [],
+    "disclaimer": "Draft outputs only; counsel review required before client use.",
+    "clientFacing": false,
+    "requireHumanReviewFor": [],
+    "forbid": []
+  },
+  "capabilities": {
+    "chat": true,
+    "fileUploads": true,
+    "docxDrafting": true,
+    "redlines": true,
+    "legalResearch": true,
+    "citations": true,
+    "matters": true,
+    "reviewGrids": true,
+    "clientSharing": false,
+    "approvals": false,
+    "workspace": true
+  },
+  "navigation": {
+    "items": [
+      { "id": "assistant", "label": "Assistant", "visible": true },
+      { "id": "matters", "label": "Matters", "visible": true },
+      { "id": "library", "label": "Library", "visible": true },
+      { "id": "personas", "label": "Personas", "visible": true },
+      { "id": "reviews", "label": "Reviews", "visible": true },
+      { "id": "history", "label": "History", "visible": true },
+      { "id": "settings", "label": "Settings", "visible": true }
+    ]
+  },
+  "audience": {
+    "mode": "firm_internal",
+    "requiresLogin": true,
+    "clientSafeMode": false,
+    "allowAnonymousPreview": false
+  },
   "description": "AI legal assistant — drafts, reviews, and researches across practice areas.",
   "theme": {
     "id": "counsel",
@@ -22,46 +68,20 @@
       "fontDisplay": "Archivo, IBM Plex Sans, system-ui, sans-serif"
     }
   },
-  "modules": {
-    "assistant": true, "history": true, "personas": true, "settings": true,
-    "library": true,
-    "matters": false, "admin": false, "reviews": false, "billing": false, "knowledgeBase": false
-  },
-  "components": {
-    "chat": true, "toolActivity": true, "files": true,
-    "approvals": false, "citations": false, "workspace": false, "knowledgeBase": false
-  },
   "persona": {
     "id": "counsel",
     "name": "Counsel",
     "description": "Default legal assistant persona.",
     "systemPrompt": "You are Counsel, a careful legal assistant. Cite sources when possible and flag uncertainty explicitly."
   },
-  "prompts": [
-    {
-      "title": "Summarize a contract",
-      "subtitle": "Pull out the key terms, parties, and obligations.",
-      "prompt": "Summarize the attached contract. Identify the parties, effective dates, key obligations, termination rights, and any unusual clauses worth flagging.",
-      "featured": true
-    },
-    {
-      "title": "Draft a memo",
-      "subtitle": "Outline a research memo on a specific legal question.",
-      "prompt": "Draft a research memo on [legal question]. Structure it as: question presented, brief answer, facts, discussion (with authorities), conclusion.",
-      "featured": true
-    },
-    {
-      "title": "Compare two clauses",
-      "subtitle": "Side-by-side analysis of differences and risk.",
-      "prompt": "Compare these two clauses side-by-side. Identify substantive differences and assess which is more favorable to [party] and why.",
-      "featured": true
-    },
-    {
-      "title": "Plain-language explanation",
-      "subtitle": "Translate dense legal text for a non-lawyer.",
-      "prompt": "Explain the following in plain language for a non-lawyer client. Define jargon and finish with three takeaways.\n\n[Paste excerpt here]",
-      "featured": true
-    }
-  ],
+  "components": {
+    "chat": true,
+    "toolActivity": true,
+    "files": true,
+    "approvals": false,
+    "citations": false,
+    "workspace": false,
+    "knowledgeBase": false
+  },
   "tools": []
 }
