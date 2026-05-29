@@ -1,26 +1,1824 @@
 [
   {
-    "id": "system:explain-this",
-    "name": "Explain this in plain language",
-    "description": "Paste an excerpt and the agent rewrites it for a non-expert.",
-    "prompt": "Explain the following in plain language for a non-expert audience. Keep the structure, define jargon, and finish with three takeaways.\n\n[Paste excerpt here]",
-    "practiceAreas": [],
+    "id": "afa-pricing-proposal",
+    "name": "Draft AFA / pricing proposal",
+    "description": "Alternative fee structure proposal, exported as DOCX.",
+    "prompt": "I'll describe the matter, scope, and client cost-sensitivity.\n\nDrafting flow:\n1. Ask for the team composition and historical comparable matter data if available.\n2. create_document titled \"Fee Proposal — [Matter]\".\n3. set_outline: Matter Overview | Phases and Assumptions | Fee Structure (fixed/capped/blended/contingent components) | Out-of-Scope and Change-Control | Volume/Performance Discounts | Reporting and Governance.\n4. Fill via write_section with concrete numbers and assumptions.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
     "outputMode": "inline_chat"
   },
   {
-    "id": "system:summary-bullets",
-    "name": "Summarize as bullet points",
-    "description": "Turn a long document into a short bulleted summary.",
-    "prompt": "Summarize the following as bullet points. Lead with the headline, then 5–8 supporting bullets covering the main facts, decisions, and open questions.\n\n[Paste document here]",
-    "practiceAreas": [],
+    "id": "ai-act-classification",
+    "name": "EU AI Act risk classification",
+    "description": "Classify an AI system under the EU AI Act.",
+    "prompt": "I'll describe the AI system (purpose, deployment, sector). Walk through Articles 5-6 + Annexes I + III: Prohibited / High-Risk / Limited-Risk / Minimal-Risk classification | If high-risk: Article 9-15 obligations checklist (risk management, data governance, technical documentation, logging, transparency, human oversight, accuracy/robustness/cybersecurity) | GPAI considerations (Article 51-55 if applicable) | Timeline obligations.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
     "outputMode": "inline_chat"
   },
   {
-    "id": "system:checklist-from-notes",
-    "name": "Turn notes into a checklist",
-    "description": "Convert loose notes into an action checklist with owners.",
-    "prompt": "Convert the following notes into a checklist. Each item is a single action with an owner and a deadline if one is implied.\n\n[Paste notes here]",
-    "practiceAreas": [],
+    "id": "ai-governance-policy",
+    "name": "Draft an AI governance policy",
+    "description": "Internal AI use policy + EU AI Act mapping, exported as DOCX.",
+    "prompt": "I'll describe the company's AI usage (use cases, vendors, data sources).\n\nDrafting flow:\n1. Ask for the company's existing privacy + data-security policies.\n2. create_document titled \"AI Governance Policy\".\n3. set_outline: Scope + Definitions | Acceptable Use | Risk Classification (EU AI Act tiers) | Data Inputs + Outputs | Human Oversight | Vendor Diligence | Logging + Audit | Incident Response | Training + Acknowledgment.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "arbitral-award-summary",
+    "name": "Summarize arbitral award",
+    "description": "Reasoning, holdings, and dissent in plain English.",
+    "prompt": "I'll attach the award. Run the document-summarization workflow (convert_to_markdown → get_outline → read_section on priority sections), then write a formal summary covering: tribunal composition, seat + rules, parties, claims and counterclaims, jurisdictional rulings, merits reasoning, disposition (who won what), costs, and any dissent or concurring opinion. Cite paragraph numbers or heading paths inline. Close with one paragraph on holdings other tribunals might cite.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "arbitration-dispute-terms",
+    "name": "Summarize arbitration & dispute resolution terms",
+    "description": "Pull out arbitration clauses, governing law, forum, and carve-outs.",
+    "prompt": "I'll attach a contract. Convert_to_markdown, then use get_outline + search_document for terms like \"arbitration\", \"dispute\", \"governing law\", \"forum\", \"jury\". Read the matching sections in full. Output a structured summary: forum + seat | rules (ICC/LCIA/AAA/etc.) | language | governing law | number of arbitrators + appointment mechanism | carve-outs (IP, injunctive relief, small claims) | jury-trial waiver | class-action waiver | interim relief | confidentiality. Cite heading paths.",
+    "practiceAreas": [
+      "arbitration",
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "arbitration-timeline",
+    "name": "Prepare arbitration timeline",
+    "description": "Extract a chronological timeline of key events from arbitration filings.",
+    "prompt": "I'll attach one or more filings (or paste). For each binary, convert_to_markdown then walk the document via get_outline + read_section. Pull every dated event (filings, hearings, awards, communications). Output a markdown table with columns: Date | Event | Source (filename + heading path). Sort chronologically; flag any date conflicts across documents.",
+    "practiceAreas": [
+      "arbitration",
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "breach-notification-draft",
+    "name": "Draft breach notifications",
+    "description": "Multi-jurisdictional regulator + individual notifications.",
+    "prompt": "I'll describe the breach (categories of data, individuals, jurisdictions, root cause, remediation).\n\nDrafting flow:\n1. Ask for the discovery date and any law-enforcement-delay basis.\n2. create_document titled \"Breach Notifications — [Incident]\".\n3. set_outline: Regulator Notice — GDPR (72h) | Regulator Notice — US States | Regulator Notice — Sector (HHS/SEC/etc.) | Individual Notice | Substitute Notice | Mailing-List Tracking.\n4. Fill via write_section. Each section includes the recipient(s), required content, and the timing rule.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "build-chronology",
+    "name": "Build chronology from documents",
+    "description": "Extract dated events from one or more uploads into a timeline.",
+    "prompt": "I'll attach one or more documents. For each: convert_to_markdown, walk via get_outline + read_section. Pull every dated event (correspondence, transactions, filings, meetings). Output a markdown table: Date | Event | Source (filename + heading path) | Notes. Sort chronologically. Flag date conflicts across docs.",
+    "practiceAreas": [
+      "general",
+      "litigation",
+      "arbitration",
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "cam-reconciliation",
+    "name": "CAM reconciliation review",
+    "description": "Year-end CAM reconciliation review for a tenant.",
+    "prompt": "I'll attach the CAM reconciliation + the lease. convert_to_markdown both. Walk via outline + sections. Output: Lease CAM Definition | Inclusions vs Exclusions | Allowable + Suspect Charges in This Reconciliation | Caps + Gross-Up Methodology | Audit-Rights Position | Recommended Disputes (with dollar amounts) | Required Tenant Notice Letter.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "cartel-conduct-theory",
+    "name": "Cartel conduct theory analysis",
+    "description": "Per se vs rule of reason framing for alleged horizontal conduct.",
+    "prompt": "I'll describe alleged horizontal conduct (price-fixing, market allocation, bid-rigging, group boycott, tying). Walk through: characterization (per se vs rule of reason vs quick look), evidence framework (parallelism + plus factors, communications, structural facilitators), market-power requirement if applicable, defenses (independent action, ancillary restraint, joint-venture, Noerr-Pennington, foreign sovereign immunity). Output a structured assessment.",
+    "practiceAreas": [
+      "antitrust"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "change-of-control-extract",
+    "name": "Extract change-of-control provisions",
+    "description": "Pull and compare CoC clauses across one or more contracts.",
+    "prompt": "I'll attach one or more contracts. For each: convert_to_markdown, then search_document for \"change of control\", \"assignment\", \"merger\", and read_section on the matches. Output a markdown table with columns: Contract | Trigger | Consent Required (party + standard) | Notice Period | Consequences (termination / acceleration / put right / amendment) | Source heading path. One row per contract. Below the table, flag any clauses that are unusually broad or counterparty-favorable.",
+    "practiceAreas": [
+      "mergers-acquisitions",
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "childrens-privacy-review",
+    "name": "Children's privacy compliance review",
+    "description": "COPPA + Age-Appropriate Design Code + GDPR Article 8 review.",
+    "prompt": "I'll describe the product (target audience, data collected, parental controls). Output: Age Threshold + Verification | Notice + Parental Consent Mechanism (COPPA verifiable parental consent) | Direct-Notice Content | School Authorization Considerations | UK Age-Appropriate Design Code Mapping | GDPR Article 8 (16/13) | California ADCA + similar state laws | Risk Score + Remediation Priorities.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "client-alert-draft",
+    "name": "Draft a client alert",
+    "description": "Plain-English explainer on a regulatory or court development, exported as DOCX.",
+    "prompt": "I'll describe the development (or attach a court decision / agency release — convert_to_markdown if so, then get_outline + read_section to ground the alert in the actual text).\n\nRun this drafting flow:\n\n1. Confirm the angle and target audience.\n2. create_document, set_outline: What Happened | Who It Affects | What To Do Now | Open Questions.\n3. Fill each section via write_section. Plain English, under 500 words total. No marketing copy.\n4. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "client-prospect-news",
+    "name": "Research client or prospect news",
+    "description": "Pull recent news and legal events for a target.",
+    "prompt": "I'll name the company. Use http_request to find recent (last 90 days) news, regulatory actions, lawsuits, or material events. Output a markdown table with: Date | Event | Source URL | Why it matters legally (one line). Sort newest first. Flag any items that could trigger conflicts or merit a client outreach.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "client-prospect-profile",
+    "name": "Draft a client or prospect profile",
+    "description": "One-page intro brief for a new client meeting.",
+    "prompt": "Draft a one-page profile of the company I'll name.\n\n1. Use http_request to look up the company on its public site, recent press releases, and SEC EDGAR / regulatory portals as relevant.\n2. Use vector_search for any internal context the firm has on this company.\n3. Compile a one-page brief: what they do | leadership (CEO/GC if known) | key markets and lines of business | recent news / regulatory events / litigation (last 12 months) | likely legal needs given their stage and sector | counsel of record if disclosed.\n\nCite each fact to its source URL or document. Flag where you couldn't find authoritative info.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "closing-checklist-securities",
+    "name": "Draft closing checklist for securities offering",
+    "description": "Items, owners, and timing for a registered or 144A offering, exported as DOCX.",
+    "prompt": "I'll describe the offering (issuer, structure, expected pricing date).\n\nRun this drafting flow:\n\n1. Ask me for any missing context (issuer counsel, underwriters' counsel, auditors, listing).\n2. create_document, set_outline using closing-checklist sections (Pre-Pricing Conditions / Pricing-Day Items / Closing-Date Items / Post-Closing).\n3. Fill each section as a markdown table: Item | Responsible Party | Status | Timing.\n4. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "comfort-letter-checklist",
+    "name": "Comfort letter checklist",
+    "description": "Auditor comfort items linked to prospectus references.",
+    "prompt": "I'll attach the prospectus (or describe the offering). convert_to_markdown if attached. Output a comfort-letter request checklist: Page/Section in Prospectus | Tickmark Reference | Type of Comfort (negative assurance / agreed-upon procedures / SAS 100 review) | Source Document the Auditor Will Trace To. Cover at minimum: financial statements, capitalization, MD&A figures, recent-period numbers, ratios, non-GAAP measures.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "compare-two-documents",
+    "name": "Compare two documents",
+    "description": "Side-by-side diff of clauses, terms, and structure.",
+    "prompt": "I'll attach two documents. convert_to_markdown both, then get_outline on each. For each major section that exists in either doc, output a row: Section | Doc A excerpt | Doc B excerpt | Notes on differences. Cite heading paths. Close with three sentences summarizing the most material differences.",
+    "practiceAreas": [
+      "general",
+      "transactional",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "complaint-procedural-substantive",
+    "name": "Analyze complaint — procedural and substantive",
+    "description": "Claims, jurisdiction, prayers for relief, and likely defenses.",
+    "prompt": "I'll attach the complaint. convert_to_markdown, get_outline, read_section. Output: Caption + parties (with citations of capacity) | Jurisdiction & venue basis (with paragraph cites) | Each cause of action — name | elements | factual support paragraphs | requested relief | Procedural posture (any pending motions, prior proceedings) | Three plausible defenses (each with one-line reasoning + which element it attacks). Cite paragraph numbers throughout.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "compliance-program-assessment",
+    "name": "Antitrust compliance program assessment",
+    "description": "Gap analysis against DOJ/FTC + ECN expectations.",
+    "prompt": "I'll attach the company's current antitrust compliance materials (or describe them). convert_to_markdown if attached. Assess against DOJ/FTC expectations (training cadence, risk assessment, monitoring, reporting/whistleblower channel, audit, discipline, document-retention, M&A integration). Output: Gap Matrix (Element | Current State | Best Practice | Gap Severity) | Top 5 Remediation Priorities.",
+    "practiceAreas": [
+      "antitrust"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "conflict-check-memo",
+    "name": "Conflict check memo",
+    "description": "Adverse-party check + waiver analysis.",
+    "prompt": "I'll describe the prospective matter and the parties. Output: Direct Adversity Check (the parties + likely affiliates to run) | Subject-Matter Adversity Considerations | Positional Conflicts | Recommended Search Strings for the Conflicts System | Waiver Strategy if Conflict Surfaces | Documentation Required.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "cookie-banner-review",
+    "name": "Review a cookie banner / CMP",
+    "description": "Consent UI + cookie inventory review.",
+    "prompt": "I'll provide the website URL and any cookie inventory. Use http_request to load the homepage; describe the consent UX. Output: First-Layer Notice Adequacy | Granular Choice Available? | Reject-All Same Prominence as Accept-All? | Cookie Inventory by Category (necessary / preferences / statistics / marketing) | Pre-Consent Firing | Withdrawal Mechanism | Compliance with GDPR + ePrivacy + state laws. Flag any items likely to draw enforcement.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "copyright-registration-memo",
+    "name": "Copyright registration memo",
+    "description": "Register-or-not + deposit material analysis.",
+    "prompt": "I'll describe the work (type, authorship, work-for-hire status, publication status). Output: Registration Recommendation | Form Type (TX/PA/SR/VA/SE/GR) | Deposit Requirements | Authorship + Work-For-Hire Analysis | Effective Date Considerations (statutory damages eligibility, infringement-suit prerequisite) | Foreign-Origin Considerations (Berne formality bar) | Group/Pre-Registration Eligibility.",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "court-transcript-key-topics",
+    "name": "Analyze court transcript for key topics",
+    "description": "Topic map with citations, judge's rulings, and preserved objections.",
+    "prompt": "I'll attach the transcript. convert_to_markdown, get_outline, read_section on each segment. Produce a topic map: each topic gets a heading, then a 1-line summary, page/line citations (e.g. 17:4–18:9), the judge's rulings on that topic, and any preserved objections. Sort by importance, not chronology. Close with a one-paragraph synthesis of how the hearing went strategically.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "cross-border-transfer-memo",
+    "name": "Cross-border data transfer memo",
+    "description": "Pick the right mechanism for a planned transfer.",
+    "prompt": "I'll describe the proposed transfer (origin, destination, data, purpose). Walk through: Source-jurisdiction requirements (GDPR, UK, Swiss, China PIPL Art 38–39, India DPDPA, Brazil LGPD) | Available Mechanisms (adequacy, DPF, SCCs + TIA, BCRs, derogations) | Recommended Mechanism | Implementation Steps | Ongoing Monitoring.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "data-inventory",
+    "name": "Build a data inventory",
+    "description": "RoPA-style data-mapping artifact.",
+    "prompt": "I'll describe a business unit's processing activities. Output a RoPA-style markdown table: Activity | Categories of Personal Data | Categories of Data Subjects | Purpose | Legal Basis | Recipients | International Transfers + Mechanism | Retention | TOMs | DPIA Required?",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "dawn-raid-playbook",
+    "name": "Draft dawn raid response playbook",
+    "description": "Investigation-response procedures, exported as DOCX.",
+    "prompt": "I'll describe the company's footprint (jurisdictions, sites, sensitive functions).\n\nDrafting flow:\n1. Ask for outside-counsel contacts and any existing protocol.\n2. create_document titled \"Antitrust Dawn Raid Response Playbook\".\n3. set_outline: First 30 Minutes | Reception Procedures | On-Site Counsel and Privilege | Document Holds and IT | Employee Briefings | Communications | Post-Raid Steps.\n4. Fill via write_section. Tailor to the jurisdictions I name (DOJ FBI, EC, CMA, BKartA, AGCM, KFTC, JFTC, etc.).\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "antitrust"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "deposition-outline",
+    "name": "Draft deposition outline",
+    "description": "Topic-and-exhibit-based deposition outline.",
+    "prompt": "I'll describe the witness (role, connection to facts) and the case theory. Output a deposition outline: Background / Scope / Foundation | Topic 1: Goal | Key Documents (Bates) | Question Threads | Lock-Down Points (admissions you need) | Topic 2 … | Wrap-up + Catch-All. Mark each question with the case theory it serves.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "deposition-transcript-key-topics",
+    "name": "Analyze deposition transcript for key topics",
+    "description": "Witness admissions, contradictions, and impeachment material.",
+    "prompt": "I'll attach the deposition transcript. convert_to_markdown, get_outline, read_section through. Output four sections: Key Admissions (with page/line citations) | Contradictions With Prior Statements (cite both sources) | Impeachment Material (gaps, evasions, inconsistencies — cite page/line) | Topics Witness Avoided. Close with a one-paragraph cross-examination strategy note.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "diligence-request-list-check",
+    "name": "Check a diligence request list",
+    "description": "Coverage, redundancies, and gaps for a target deal.",
+    "prompt": "I'll attach the diligence list (or paste). I'll also describe the deal type and target. convert_to_markdown if attached, then walk the list via get_outline + read_section. Output: Coverage matrix (Category | # of items | Adequate? Y/N | Notes) | Redundant requests | Missing categories given this deal type | Items unusual for this deal type. Reference item numbers from the source list.",
+    "practiceAreas": [
+      "transactional",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "disclosure-schedule-review",
+    "name": "Disclosure schedule review",
+    "description": "Schedule completeness + cross-reference check.",
+    "prompt": "I'll attach the disclosure schedules (and ideally the SPA reps). convert_to_markdown both. Walk schedule by schedule: List the Rep | Schedule Number | Items Disclosed | Issues (vague language, missing detail, items belonging on a different schedule, items that should trigger a closing condition). Close with a list of follow-up requests.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "discovery-plan",
+    "name": "Build a discovery plan",
+    "description": "Phase-task discovery plan with proportionality analysis.",
+    "prompt": "I'll describe the case (claims, defenses, key disputed facts). Output a discovery plan: Issue-by-Issue Proof Map | Custodians + Sources | Document-Production Strategy + Volume Estimate | RFP / RFA / Interrogatory Plan | Deposition Sequence + Topics | Expert Strategy | ESI Protocol Issues | Proportionality Notes (per Rule 26(b)(1) factors) | Schedule + Milestones.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "distribution-agreement-review",
+    "name": "Review a distribution agreement",
+    "description": "Distributor / channel agreement review.",
+    "prompt": "I'll attach the agreement. convert_to_markdown, get_outline. Output: Territory + Exclusivity | Products Covered | Minimum Purchase / Performance | Pricing + MFN | Trademark Use + Marketing | Resale Restrictions (antitrust check) | Termination + Post-Termination Buy-Back / Inventory | Compensation on Termination (per Council Directive 86/653 if EU agent) | Compliance (FCPA / sanctions / export). Flag antitrust risk.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "dmca-takedown",
+    "name": "Draft DMCA takedown notice",
+    "description": "512(c) compliant notice to a service provider.",
+    "prompt": "I'll provide the infringing URL and the rightsholder details.\n\nDrafting flow:\n1. Ask for the original work + ownership proof + the platform's designated agent address.\n2. create_document titled \"DMCA Notice — [Work]\".\n3. Include all 512(c)(3) elements: physical/electronic signature, identification of the work, identification of the material to be removed, contact info, good-faith statement, accuracy statement under penalty of perjury, signature.\n4. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "docx:cp-checklist",
+    "name": "Generate CP checklist",
+    "description": "Conditions-precedent checklist for a financing closing — landscape Word doc with one section per category and a four-column table per section.",
+    "prompt": "Produce a conditions-precedent (CP) checklist for a financing closing as a structured Word document.\n\nBefore drafting, confirm with me:\n- Deal type (e.g. senior secured term loan, revolving credit facility, bond issuance, real-estate financing)\n- Borrower / issuer name and jurisdiction of organization\n- Sponsor / parent and any guarantors\n- Whether the transaction is sponsor-backed, club, syndicated, or bilateral\n- Any deal-specific items I want included (e.g. cross-border KYC, regulatory consents, real-estate diligence)\n\nOnce I confirm, call the `generate_docx` tool with:\n- title: \"Conditions Precedent Checklist — <Borrower / Deal Name>\"\n- orientation: \"landscape\" (the four-column tables read better wide)\n- sections: one per category below, in this order. For each, emit a heading at level 1 and a four-column table.\n\nSections (use these names verbatim; skip any that aren't applicable to the deal type):\n1. Corporate matters — charter docs, good standing certificates, board / member resolutions, secretary's / officer's certificates, incumbency.\n2. Borrower & loan-party matters — KYC / beneficial-ownership certifications, perfection certificates, solvency certificates, organizational structure chart.\n3. Operational & real-estate matters — property surveys, environmental reports, leases, landlord waivers, where applicable.\n4. Financial conditions — audited / interim financial statements, projections / model, no-MAC officer's certificate, pro forma compliance certificate, fee letters.\n5. Legal opinions — borrower counsel opinion, special / local counsel opinions, tax opinion, enforceability of security documents.\n6. Diligence & third-party deliverables — UCC / lien searches, title reports, insurance certificates, payoff letters for refinanced debt.\n7. Documentation — executed credit agreement / indenture, security agreements (pledge, mortgage, account control), guaranties, intercreditor / subordination agreement, fee letters, closing certificates.\n\nFor every table, use these four column headers exactly: [\"Condition\", \"Owner\", \"Status\", \"Notes\"].\n\nPopulate rows as follows:\n- \"Condition\" — the specific deliverable, named at the level a paralegal could fetch it (e.g. \"Certificate of Incorporation, certified by Delaware Secretary of State within the last 30 days\", not just \"charter docs\").\n- \"Owner\" — the responsible party in your best judgment (\"Borrower counsel\", \"Lender counsel\", \"Borrower\", \"Title company\", \"Local counsel — <state>\", etc.).\n- \"Status\" — leave as \"Open\" for every row by default; the user updates the document later.\n- \"Notes\" — flag anything jurisdiction- or deal-specific, or leave blank.\n\nBe exhaustive within reason — a typical syndicated US credit-agreement closing checklist runs 40–60 line items across the categories. Don't pad with boilerplate that's clearly N/A for the disclosed deal type. Don't inline the document in your reply — only the `download_url` from the tool result, as a clickable markdown link, plus a one-sentence summary of what you produced.",
+    "practiceAreas": [
+      "transactional",
+      "capital-markets"
+    ],
+    "outputMode": "generate_docx"
+  },
+  {
+    "id": "docx:diligence-questionnaire",
+    "name": "Generate diligence questionnaire",
+    "description": "Buy-side diligence questionnaire for a target company — sectioned Word doc with three-column tables of questions, response space, and supporting-document references.",
+    "prompt": "Produce a buy-side diligence questionnaire for a target company as a structured Word document the target's team can fill in.\n\nBefore drafting, confirm with me:\n- Target company name and primary jurisdiction\n- Target's industry / sector (financial services, healthcare, software, manufacturing, etc.) — drives which sections need expansion\n- Transaction structure (stock purchase, asset purchase, merger) — drives liability-allocation questions\n- Whether this is preliminary diligence (high-level, pre-LOI) or confirmatory (post-LOI, granular)\n- Any known sensitive areas I want emphasized (regulatory, IP, key contracts, litigation)\n\nOnce I confirm, call the `generate_docx` tool with:\n- title: \"Diligence Questionnaire — <Target Name>\"\n- orientation: \"portrait\" (questionnaires read better tall; tables are narrow)\n- sections: one per category below, in this order. Each section is one H1 + one three-column table. Skip categories that aren't applicable; expand the ones the target's industry calls for (e.g. healthcare → expand Regulatory; software → expand IP).\n\nSections (use these names verbatim):\n1. Corporate organization — entity formation, capitalization, subsidiaries, prior reorganizations, stockholder agreements.\n2. Financial — audited and management financials, debt and credit facilities, off-balance-sheet arrangements, accounting policy changes, related-party transactions.\n3. Material contracts — customer contracts above a threshold, supplier contracts, distribution / reseller, licensing in/out, partnership and JV agreements, change-of-control provisions.\n4. Litigation & disputes — pending and threatened litigation, regulatory inquiries, settlements (last 5 years), insurance coverage and pending claims.\n5. Regulatory & compliance — required licenses and permits, jurisdiction-specific regulators, compliance programs, anti-corruption / sanctions / export controls, data privacy (GDPR/CCPA/etc. as applicable).\n6. Intellectual property — registered IP (patents, trademarks, copyrights, domain names), trade secrets and protection measures, employee IP assignments, third-party IP claims, open-source usage and obligations.\n7. Employment & benefits — employee headcount and locations, key-person and severance arrangements, benefit plans, equity plans, recent terminations, union / works-council representation, contractor classifications.\n8. Real property & operations — owned and leased properties, environmental conditions and reports, material operating equipment, supply-chain dependencies.\n9. Tax — recent tax returns and audits, transfer pricing, NOLs and tax attributes, recent restructurings affecting tax position.\n10. Information technology & data — IT systems and key vendors, cybersecurity incidents (last 5 years), data-processing agreements, AI/ML use and governance.\n\nFor every table, use these three column headers exactly: [\"Question\", \"Response\", \"Supporting documents\"].\n\nPopulate \"Question\" rows with specific, answerable prompts a deal-team paralegal could send to the target's general counsel — not vague topics. Examples:\n- Bad: \"Material contracts.\"\n- Good: \"List all customer contracts with annual revenue > $1,000,000 in the last fiscal year, including the contract term, renewal mechanics, and any change-of-control consent requirement.\"\n\nLeave \"Response\" and \"Supporting documents\" blank in every row — the target fills them in.\n\nAim for 8–15 questions per applicable section, more in expanded categories. Don't pad with questions that overlap; combine where natural. Don't inline the document in your reply — only the `download_url` from the tool result, as a clickable markdown link, plus a one-sentence summary of the deal type and section emphasis you applied.",
+    "practiceAreas": [
+      "m-and-a",
+      "transactional"
+    ],
+    "outputMode": "generate_docx"
+  },
+  {
+    "id": "dpa-review",
+    "name": "Review a data processing agreement (DPA)",
+    "description": "Article 28 + sub-processor + transfer review.",
+    "prompt": "I'll attach the DPA. convert_to_markdown, get_outline. Output a structured review: Roles (controller / processor / joint controller) | Subject Matter + Duration + Nature + Purpose | Categories of Data + Data Subjects | Processor Obligations (Art 28(3)) | Sub-Processor Mechanism | Security Measures (TOMs detail or generic?) | Audit Rights | Breach Notification Timing | International Transfer Mechanism (SCCs / DPF / BCRs) | Return + Deletion | Liability Allocation | Notable Departures.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "dpia-template",
+    "name": "Build a DPIA / risk assessment",
+    "description": "Article 35 GDPR DPIA template, exported as DOCX.",
+    "prompt": "I'll describe the processing activity.\n\nDrafting flow:\n1. Ask for stakeholders, data flows, and any prior assessments.\n2. create_document titled \"Data Protection Impact Assessment — [Activity]\".\n3. set_outline: Description of Processing | Necessity + Proportionality | Risks to Data Subjects | Mitigation Measures | Residual Risk + Sign-Off | Consultation (DPO + supervisory authority).\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-email-from-notes",
+    "name": "Draft email from notes",
+    "description": "Turn loose notes into a polished email to opposing counsel or a client.",
+    "prompt": "I'll paste notes (or attach a document with notes — convert_to_markdown first if so). Draft a professional email from them: concise, neutral, request specific next steps where appropriate. Return the email body inline as markdown — no DOCX export needed unless I ask.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-legal-memo-docx",
+    "name": "Draft a legal memorandum (DOCX)",
+    "description": "TOC-first agentic drafting in markdown, exported as a styled .docx at the end.",
+    "prompt": "I'd like to draft a legal memorandum.\n\nRun this drafting flow end to end:\n\n1. Ask me for the subject matter, parties involved, jurisdiction, and any documents I want you to reference.\n2. Call create_document with a concise title.\n3. Propose a TOC (typical: Issue / Brief Answer / Facts / Discussion / Conclusion). Confirm with me, then call set_outline.\n4. Fill each section with write_section. Before writing each section, call read_section on the prior section so the memo stays coherent.\n5. Pause for my feedback after the first complete pass. Use revise_section + write_section for edits.\n6. When I'm satisfied, call export_to_docx and share the download link as a markdown link in the chat.",
+    "practiceAreas": [
+      "general",
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-memo-from-notes",
+    "name": "Draft memo from notes",
+    "description": "Turn case notes or research into a structured internal memo, exported as DOCX.",
+    "prompt": "I'll paste notes (or attach a document — convert_to_markdown first if so).\n\nRun this drafting flow:\n\n1. Read the notes; ask me for any missing context (parties, jurisdiction, audience).\n2. Call create_document and set_outline using the standard structure (Issue / Brief Answer / Facts / Discussion / Conclusion).\n3. Fill each section via write_section, drawing on the notes; flag where the notes are silent and you're inferring.\n4. Call export_to_docx and share the download link as a markdown link.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-request-for-arbitration",
+    "name": "Draft request for arbitration",
+    "description": "ICC-style request for arbitration, exported as DOCX.",
+    "prompt": "I'll describe the dispute (parties, contract, claim, relief sought).\n\nDrafting flow:\n1. Ask for the arbitration clause text and seat/rules.\n2. create_document titled \"Request for Arbitration\".\n3. set_outline: Parties | Arbitration Agreement | Nature of the Dispute | Claims | Relief Sought | Constitution of the Tribunal | Place + Language + Procedure | Annexes.\n4. Fill via write_section, anchoring each section in the contract clause and facts I've given.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-statement-of-claim",
+    "name": "Draft statement of claim",
+    "description": "Detailed substantive submission, exported as DOCX.",
+    "prompt": "I'll describe the dispute and provide any underlying contracts (attach if so — convert_to_markdown).\n\nDrafting flow:\n1. Ask for missing context (factual matrix, prior correspondence, witness identities).\n2. create_document titled \"Statement of Claim\".\n3. set_outline: Introduction | Parties | Jurisdiction | Factual Background | Legal Submissions (per claim) | Quantum | Relief Sought.\n4. Fill via write_section. Use numbered paragraphs. Cite contract clauses and exhibits.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-statement-of-defense",
+    "name": "Draft statement of defense",
+    "description": "Mirror submission to a statement of claim, exported as DOCX.",
+    "prompt": "I'll attach the statement of claim. convert_to_markdown, get_outline, read_section through.\n\nDrafting flow:\n1. Identify each claim and the factual basis.\n2. create_document titled \"Statement of Defense\".\n3. set_outline: Introduction | Response to Claimant's Factual Background | Jurisdictional Objections (if any) | Defense to Each Claim | Counterclaims (if any) | Relief Sought.\n4. Fill via write_section, addressing each claim paragraph-by-paragraph where possible.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "draft-witness-statement",
+    "name": "Draft witness statement",
+    "description": "IBA-style witness statement from notes, exported as DOCX.",
+    "prompt": "I'll provide notes from the witness interview (paste or attach).\n\nDrafting flow:\n1. Ask for the witness's role, the topics to cover, and the relevant time period.\n2. create_document titled \"Witness Statement of [Name]\".\n3. set_outline: Introduction (witness background) | [Topic 1] | [Topic 2] | … | Statement of Truth.\n4. Fill via write_section. First-person, numbered paragraphs, IBA-style. Cite exhibits where the witness references documents.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "arbitration",
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "dsr-response",
+    "name": "Draft DSR response",
+    "description": "Data subject rights request response.",
+    "prompt": "I'll describe the request (right invoked, requester, applicable regimes). Output: Verification Steps | Scope of Search (systems, custodians, retention) | Applicable Exemptions | Response Format | Substantive Response Letter (draft) | Recordkeeping.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "edgar-filing-checklist",
+    "name": "EDGAR filing checklist",
+    "description": "Pre-filing review before EDGAR submission.",
+    "prompt": "I'll describe the filing type (S-1, 10-K, 10-Q, 8-K, etc.). Output a checklist: Cover page complete (CIK, exchange, file number) | Inline XBRL tagged | Exhibit Index complete + cross-referenced | Hyperlinks | Officer signatures | Auditor consent (if applicable) | EDGAR codes (e.g. 8-K item codes) | Header data | Filing fee table | Confidential treatment redactions cleared. Tailor the checklist to the specific filing type.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "eeoc-position-statement",
+    "name": "Draft EEOC position statement",
+    "description": "Response to a charge of discrimination, exported as DOCX.",
+    "prompt": "I'll attach the EEOC charge.\n\nDrafting flow:\n1. convert_to_markdown the charge; identify protected basis and alleged conduct.\n2. Ask for the personnel-file timeline and the legitimate non-discriminatory reason for the action.\n3. create_document titled \"Position Statement — Charge No. [###]\".\n4. set_outline: Introduction | Background (employer, charging party) | Statement of Facts | Legal Standards | Response to Each Allegation | Conclusion | Document Index.\n5. Fill via write_section. Cite documents by Bates or filename + heading path.\n6. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "enforcement-application-memo",
+    "name": "Award enforcement strategy memo",
+    "description": "New York Convention enforcement planning.",
+    "prompt": "I'll attach the award and identify target jurisdictions for enforcement. convert_to_markdown the award. Output a memo: Award Summary (1 paragraph) | Enforcement Forum Analysis (per jurisdiction: NY Convention status, local procedure, asset visibility, defenses likely raised) | Recommended Sequencing | Settlement-Leverage Considerations.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "engagement-letter-draft",
+    "name": "Draft an engagement letter",
+    "description": "Standard engagement letter from intake notes, exported as DOCX.",
+    "prompt": "I'll describe the matter (client, scope, fee model, key contacts).\n\nDrafting flow:\n1. Ask for any missing context (responsible partner, conflicts already cleared, billing entity).\n2. create_document titled \"Engagement Letter — [Client] — [Matter]\".\n3. set_outline: Engagement | Scope of Representation | Fees + Costs | Billing | Conflicts + Waivers | Confidentiality | Termination + File Return | Other Provisions.\n4. Fill via write_section. Use the firm's standard language conventions where you can infer them; flag where you're guessing.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "engagement-letter-summary",
+    "name": "Summarize an engagement letter",
+    "description": "Scope, fees, conflicts, and termination terms at a glance.",
+    "prompt": "I'll attach the engagement letter. Run document-summarization (convert_to_markdown → get_outline → read_section on the operative sections). Output a structured summary: client + matter | scope of representation (and any carve-outs) | fee structure (hourly/flat/contingent) and rate sheet if present | retainer / replenishment | billing cadence and dispute period | conflicts disclosure and any waivers | confidentiality | termination + file return | governing law. Cite heading paths. Flag anything non-standard or that requires partner sign-off.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "escrow-agreement-review",
+    "name": "Escrow agreement review",
+    "description": "Indemnity escrow + adjustment escrow mechanics review.",
+    "prompt": "I'll attach the escrow agreement. convert_to_markdown, get_outline. Output a structured review: Escrow Agent + Funds + Investments | Release Mechanics (joint instruction / unilateral / contested) | Dispute Process + Interpleader | Tax Treatment | Fees | Indemnification of Escrow Agent | Resignation + Successor | Notable Departures from Market.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "esg-climate-disclosure",
+    "name": "ESG / climate disclosure review",
+    "description": "Map disclosure against SEC + ISSB + CSRD requirements.",
+    "prompt": "I'll attach the filing or sustainability report. convert_to_markdown. Walk via get_outline + read_section on climate / sustainability sections. Output a coverage matrix: Topic | SEC (Reg S-K) | ISSB (S2) | CSRD (ESRS E1) | Disclosure present? | Notes. Cover at minimum: governance, strategy, scenario analysis, Scope 1/2/3 emissions, transition plan, financial impacts.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "estoppel-certificate",
+    "name": "Draft + review estoppel certificate",
+    "description": "Tenant or borrower estoppel.",
+    "prompt": "I'll describe the deal and the type (tenant / borrower / ground lessor / declarant). Either: (a) draft a clean estoppel for tenant signature with all standard certifications + my client's specific asks, OR (b) review the proposed estoppel and flag risks (modifications I shouldn't certify, knowledge qualifiers I want, dollar-amount accuracy verification needs). Tell me which mode I'm asking for.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "fairness-opinion-review",
+    "name": "Fairness opinion review",
+    "description": "Banker fairness-opinion structural review.",
+    "prompt": "I'll attach the fairness opinion. convert_to_markdown, get_outline. Output: Opinion Holder + Engagement | Scope of Fairness (financial point of view, to whom) | Methodologies Used (DCF, comparable companies, precedent transactions, premiums paid) | Ranges Disclosed | Assumptions + Limitations | Conflicts Disclosure (banker fees, prior relationships) | Comparison to Similar Transactions' Opinions.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "force-majeure-review",
+    "name": "Force majeure clause review",
+    "description": "FM scope + cure + termination review.",
+    "prompt": "I'll attach the agreement. convert_to_markdown, search_document for 'force majeure', 'impossible', 'impracticable'. Output: Triggering Events (enumerated + catch-all) | Pandemic / Government Action / Supply Chain Coverage | Notice Requirements + Mitigation Duty | Excused Performance Scope (vs payment) | Cure Period | Termination Threshold | Allocation in Partial Performance. Compare to UCC §2-615 and common-law impracticability for any gaps.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "freedom-to-operate-analysis",
+    "name": "Freedom-to-operate analysis",
+    "description": "Patent FTO scoping memo.",
+    "prompt": "I'll describe the product/feature and target geographies. Output: FTO Scope (technology + jurisdictions + timeframe) | Search Strategy (CPC classes, keywords, key competitors) | Triage Categories (clearly out / clearly in / requires deeper review) | Risk Mitigation Options (design-around, license, invalidate, indemnity) | Engagement Boundaries (what FTO does + does not certify).",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "gun-jumping-review",
+    "name": "Gun-jumping risk review",
+    "description": "Pre-closing integration activity vs HSR/Section 1.",
+    "prompt": "I'll describe planned pre-closing integration activities. Output a risk matrix: Activity | HSR (ordinary-course) Risk | Section 1 (info-exchange) Risk | Safer Alternative | Required Clean-Team Protocols. Flag any activity that should wait for closing.",
+    "practiceAreas": [
+      "antitrust",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "handbook-policy-review",
+    "name": "Review an employee handbook",
+    "description": "Gap analysis against jurisdictional requirements.",
+    "prompt": "I'll attach the handbook. convert_to_markdown, get_outline. Output a gap analysis matrix: Required Policy | Jurisdiction(s) Requiring | Present in Handbook? | Heading Path | Gap. Cover at minimum: at-will + EEO + harassment + accommodation + FMLA/state leave + paid sick + lactation + pay transparency + meal/rest + WPV + AI use + remote work + electronic monitoring + complaint procedure.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "hsr-filing-analysis",
+    "name": "HSR filing threshold analysis",
+    "description": "Determine if a transaction is HSR-reportable and identify exemptions.",
+    "prompt": "I'll describe the transaction (parties, structure, value, asset details). Walk through the HSR analysis: size-of-transaction test, size-of-person test, applicable exemptions (passive investor, ordinary-course-of-business, foreign-asset, etc.). Output: Reportable? Y/N | Reasoning by element | Confirmed exemption (if any) | Filing fee tier. Flag where additional facts would change the answer.",
+    "practiceAreas": [
+      "antitrust",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "indemnification-cap-analysis",
+    "name": "Indemnification cap + survival analysis",
+    "description": "Survival + cap + basket sizing review.",
+    "prompt": "I'll attach the SPA. convert_to_markdown, search_document for 'indemnification', 'survival', 'basket', 'cap'. Output: General Reps Survival + Cap | Fundamental Reps Survival + Cap | Tax Rep Survival + Cap | Covenants Survival | Deductible / Tipping Basket / Mini-Basket | Sole-Recourse Provisions | Sandbagging | Set-Off Rights | Comparison to market for deal size + sector.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "indenture-review",
+    "name": "Review an indenture",
+    "description": "Trust indenture provisions: covenants, defaults, modifications.",
+    "prompt": "I'll attach the indenture. convert_to_markdown, get_outline. Output a structured review: Issuer + Trustee + Notes | Definitions worth flagging (Permitted Debt, Permitted Liens, Asset Sale, Change of Control, Restricted Payment) | Covenants by category | Events of Default and remedies | Modifications + Waivers | Defeasance | Notable departures from market-standard. Cite heading paths throughout.",
+    "practiceAreas": [
+      "capital-markets",
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "independent-contractor-analysis",
+    "name": "Independent contractor classification analysis",
+    "description": "ABC test + IRS factors review.",
+    "prompt": "I'll describe the engagement (services, control level, payment structure, exclusivity). Walk through: IRS common-law test | Federal economic-realities test | State ABC test (where applicable) | Industry-specific tests (drivers, gig). Output: Classification under each framework | Misclassification risk by jurisdiction | Recommended structure changes if reclassifying.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "industry-sector-landscape",
+    "name": "Summarize industry or sector landscape",
+    "description": "Market structure, key players, regulatory exposure, and recent deals.",
+    "prompt": "I'll name the industry or sector. Use http_request and vector_search to compile a landscape brief: market size and growth | top 5–10 players (with rough share if available) | regulatory regime and primary regulators | notable enforcement / litigation in the last 12 months | M&A and capital-markets activity in the last 12 months | likely legal-services demand drivers. Cite each fact. Note any open questions you couldn't resolve.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "info-exchange-review",
+    "name": "Information exchange compliance review",
+    "description": "Pre-merger gun-jumping review or trade-association protocol.",
+    "prompt": "I'll describe an information exchange (between merging parties pre-closing, or among trade-association members). Output: Risk Category (price/output/strategy/customer-specific) | Proposed Exchange | Risk Level | Safer Alternative | Clean-team protocol if needed. Cover gun-jumping (Section 1 + HSR ordinary-course) where applicable.",
+    "practiceAreas": [
+      "antitrust"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "insider-trading-policy-review",
+    "name": "Review an insider trading policy",
+    "description": "Compliance against current SEC + exchange expectations.",
+    "prompt": "I'll attach the insider trading policy. convert_to_markdown, get_outline. Compare against current SEC + exchange expectations: scope of covered persons | trading windows + black-out periods | pre-clearance | 10b5-1 plan provisions (cooling-off, single-plan limits, certifications) | hedging + pledging restrictions | tipping prohibitions | enforcement + training. Output a gap analysis with cited heading paths.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "interim-operating-covenants-memo",
+    "name": "Draft interim operating covenants memo",
+    "description": "Summary of permitted and prohibited acts pre-closing, exported as DOCX.",
+    "prompt": "I'll attach the merger agreement.\n\nRun this flow:\n\n1. convert_to_markdown, get_outline.\n2. search_document + read_section for \"interim\", \"ordinary course\", \"covenant\", \"consent\".\n3. create_document titled \"Interim Operating Covenants Memo\".\n4. set_outline: Background | Ordinary-Course Covenants | Restricted Actions | Consent Thresholds | Practical Reminders for Operations Team.\n5. Fill each section. For Restricted Actions and Consent Thresholds, use markdown tables with columns: Action | Threshold / Restriction | Source (heading path).\n6. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "internal-investigation-outline",
+    "name": "Internal investigation plan",
+    "description": "Scoping memo for HR/employment investigations.",
+    "prompt": "I'll describe the allegation (complainant, respondent, conduct, dates). Output an investigation plan: Scope + Investigator | Privilege Assessment (in-house vs outside counsel; Upjohn warnings) | Document Hold | Witness List + Sequence | Interview Outline (per witness) | Confidentiality Protocol | Anti-Retaliation Reminders | Findings Memo Structure | Likely Remedial Actions.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "ip-assignment-review",
+    "name": "IP assignment review",
+    "description": "Stand-alone or embedded IP assignment review.",
+    "prompt": "I'll attach the assignment. convert_to_markdown. Output: Assigned IP scope (clear chain of title?) | Carve-outs + Background IP | Moral-Rights Waiver | Further-Assurances | Recordation Obligations (USPTO, USCO) | Inventor Compensation considerations (US + foreign) | Reps + Warranties (validity, sole authorship, no encumbrances) | Survival.",
+    "practiceAreas": [
+      "transactional",
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "ip-due-diligence-memo",
+    "name": "IP due diligence memo",
+    "description": "Target-IP review for an M&A transaction, exported as DOCX.",
+    "prompt": "I'll describe the target's IP profile (or attach the dataroom IP folder).\n\nDrafting flow:\n1. convert_to_markdown for any attached docs; walk via outlines.\n2. create_document titled \"IP Due Diligence — [Target]\".\n3. set_outline: Inventory + Chain of Title | Registered Rights (patents/TM/copyrights) | Material Inbound + Outbound Licenses | Open-Source + Third-Party Code | Trade Secrets + Confidentiality Programs | Pending Litigation + Office Actions | Employee Assignments | Government Funding (Bayh-Dole) | Risks + Recommendations.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "intellectual-property",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "irs-audit-response",
+    "name": "IRS audit response strategy",
+    "description": "Exam strategy + IDR response framework.",
+    "prompt": "I'll describe the audit (tax year, exam team, issues, IDRs received). Output: Issue Triage (likelihood + magnitude) | IDR Response Strategy (privilege + scope objections + facts vs analysis split) | Documentation Plan | Settlement Posture (Appeals vs Tax Court) | Statute Considerations | Penalty Defenses | Recommended Sequencing.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "item-101-disclosure",
+    "name": "Draft Item 1.01 disclosure",
+    "description": "8-K Item 1.01 entry into a material definitive agreement, exported as DOCX.",
+    "prompt": "I'll describe the agreement (or attach it — convert_to_markdown if so).\n\nRun this drafting flow:\n\n1. Ask for missing context (filer, counterparty, signing date, materiality threshold).\n2. create_document with title \"8-K Item 1.01 — [Agreement Name]\".\n3. set_outline: Item 1.01 | Material Terms | Exhibit Index | Forward-Looking Statements (if applicable).\n4. Fill via write_section. Keep it factual and non-promotional. Flag any items needing further board / counsel review (e.g. value disclosure, attorney-client privileged terms).\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "jurisdictional-challenge-memo",
+    "name": "Jurisdictional challenge memo",
+    "description": "Strategy + arguments memo for kompetenz-kompetenz challenges.",
+    "prompt": "I'll attach the arbitration agreement and describe the basis for the challenge. convert_to_markdown the agreement. Output a memo: Clause Text + Operative Words | Challenge Theory (existence, validity, scope, arbitrability, capacity, separability) | Governing Law of the Arbitration Agreement | Tribunal's Likely Approach | Recommended Strategy (raise pre-tribunal? in answer? as preliminary issue?) | Risk if Lost.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "jv-term-sheet-draft",
+    "name": "Draft a JV term sheet",
+    "description": "Joint venture term sheet, exported as DOCX.",
+    "prompt": "I'll describe the JV (parties, purpose, contributions, structure).\n\nDrafting flow:\n1. Ask for the governance preferences and exit appetite.\n2. create_document titled \"JV Term Sheet — [Project]\".\n3. set_outline: Parties + Purpose | Structure + Capital | Governance (board composition, reserved matters) | Funding (initial + future) | Distribution Policy | Transfer Restrictions + ROFRs/Tag-Along/Drag-Along | Deadlock | Exit (IPO, sale, buy-sell, Russian roulette, Texas shootout) | Non-Compete + Non-Solicit | Confidentiality + IP | Conditions Precedent | Binding/Non-Binding.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "transactional",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "lease-abstract",
+    "name": "Build a lease abstract",
+    "description": "One-page abstract of a commercial lease.",
+    "prompt": "I'll attach the lease. convert_to_markdown, get_outline. Output a one-page abstract: Parties | Premises (RSF/USF) | Term + Options | Rent Schedule | Additional Rent (CAM/Tax/Insurance methodology) | Use | Alterations | Assignment + Sublet | Insurance + Indemnity | Casualty/Condemnation | Default + Remedies | SNDA + Estoppel | Other Material Terms. Cite heading paths.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "legal-hold-memo",
+    "name": "Draft litigation legal-hold memo",
+    "description": "Internal preservation memo for litigation.",
+    "prompt": "I'll describe the matter and reasonably anticipated litigation trigger.\n\nDrafting flow:\n1. Ask for the custodian list and data sources.\n2. create_document titled \"Litigation Hold Memo — [Matter]\".\n3. set_outline: Trigger | Scope (subject matter + date range + custodians) | Materials to Preserve | IT Auto-Deletion Suspensions | Acknowledgment Procedure | Re-Issuance + Updates | Release Conditions.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "legal-hold-notice",
+    "name": "Draft a legal hold notice",
+    "description": "Preservation notice to custodians, exported as DOCX.",
+    "prompt": "I'll describe the matter, custodians, and date range to preserve.\n\nDrafting flow:\n1. Ask for the categories of materials and any active automated deletion to suspend.\n2. create_document titled \"Legal Hold Notice — [Matter]\".\n3. set_outline: Why You Are Receiving This | What to Preserve | What NOT to Delete or Modify | How to Acknowledge | Whom to Contact.\n4. Fill via write_section. Plain English; no legalese. Include an acknowledgment receipt block at the end.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "business-of-law",
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "legal-research-case-law",
+    "name": "Research case law on a legal issue",
+    "description": "Search public case-law databases for the relevant jurisdiction, summarize the leading cases, and cite each holding.",
+    "prompt": "Research case law on the issue I describe below.\n\n1. Pick the right jurisdiction (US, UK, EU, FR, etc.) from context. Run `legal_search` with that jurisdiction, type \"case_law\", and a tightly-scoped query. Apply date_from / date_to when I give them.\n2. Pick the 3–6 most on-point hits. For each, call `legal_get_document` to read the decision text.\n3. Return a markdown table — Case | Court | Year | Holding (1–2 sentences) | URL — followed by a short synthesis of how the cases line up (majority rule vs. splits).\n\nIssue:",
+    "practiceAreas": [
+      "litigation",
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "legal-research-statute",
+    "name": "Read a specific statute / code provision",
+    "description": "Look up the actual text of a statute, regulation, or code article and answer a question about it.",
+    "prompt": "I will name a statute, code article, or regulation. Look up the actual text and answer my question.\n\n1. Identify the jurisdiction from context (mentions of \"Code civil\" → FR, \"ley/decreto\" → AR, \"USC\" → US, \"BOE\" → ES, \"Normattiva\" → IT, etc.).\n2. Run `legal_search` with type \"legislation\" and a query that includes the law name + relevant keyword.\n3. From the top hit, call `legal_get_document` for the full text — or `legal_find_in_document` with the keyword if it's a long code.\n4. Quote the relevant provision verbatim, give its article/section number and date, and link to the source URL. Then answer my question grounded in the cited text.",
+    "practiceAreas": [
+      "litigation",
+      "transactional",
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "legalese-to-plain-english",
+    "name": "Translate legalese to plain English",
+    "description": "Rewrite a contract or clause for a non-lawyer.",
+    "prompt": "I'll paste or attach legalese. If attached, convert_to_markdown first. Rewrite it in plain English suitable for a sophisticated non-lawyer (CFO/CEO level — keep the substance, drop the latinisms and triple-nested defined terms). Preserve all material rights and obligations. Flag anywhere the original is ambiguous so the plain-English version doesn't paper over it.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "leniency-application-memo",
+    "name": "Leniency application strategy memo",
+    "description": "Multi-regime leniency posture and timing.",
+    "prompt": "I'll describe what's been uncovered (conduct, jurisdictions, who knew what when). Output a strategy memo: Conduct Summary | Leniency Eligibility by Regime (DOJ Type A/B, EC immunity/reduction, UK no-action, etc.) | Marker Strategy and Timing | Cooperation Obligations | Civil Damages Exposure | Recommended sequencing. Be candid about close calls.",
+    "practiceAreas": [
+      "antitrust"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "loan-document-checklist",
+    "name": "Real estate loan document checklist",
+    "description": "CMBS / construction / mezz closing-doc checklist.",
+    "prompt": "I'll describe the loan (type, structure, parties).\n\nDrafting flow:\n1. Ask for the term sheet.\n2. create_document titled \"Loan Document Checklist — [Deal]\".\n3. set_outline: Loan Documents | Borrower Organizational | Property | Title + Survey + Insurance | Financial + Reserves | Opinions | Closing Mechanics | Post-Closing.\n4. Fill each as a markdown table: Document | Owner | Status | Notes.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "mae-clause-review",
+    "name": "MAE clause review",
+    "description": "Material-adverse-effect definition + exclusions analysis.",
+    "prompt": "I'll attach the MAE definition (or the full agreement). convert_to_markdown if needed; search_document for 'Material Adverse'. Output: Trigger Language | Carve-Outs (industry-wide, market, war, pandemic, change of law, action required by agreement) | Disproportionate-Impact Carve-Backs | Pending Litigation Specific Carve-Outs | Forward-Looking vs Existing Distinction | Comparison to Recent Market Examples | Risk Score (buyer-favorable / seller-favorable / market).",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "matter-budget",
+    "name": "Build a matter budget",
+    "description": "Phase-task budget with assumptions and sensitivities.",
+    "prompt": "I'll describe the matter, team, and expected duration. Output a phase-task budget as a markdown table: Phase | Task | Hours by Timekeeper Class | Rate | Phase Subtotal. Add a final 'Total' row. Below the table, list 5 assumptions and 3 sensitivities (what would push the budget up or down).",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "mda-outline",
+    "name": "Draft MD&A outline",
+    "description": "10-K / 10-Q MD&A skeleton anchored to the financials.",
+    "prompt": "I'll describe the issuer and the period (annual or quarterly).\n\nDrafting flow:\n1. Ask for prior-period MD&A (attach if so — convert_to_markdown) and the new period's financials.\n2. create_document titled \"MD&A — [Period]\".\n3. set_outline: Overview | Results of Operations (period-over-period) | Liquidity and Capital Resources | Critical Accounting Estimates | Recent Accounting Pronouncements | Off-Balance-Sheet Arrangements | Forward-Looking Statements.\n4. Fill each via write_section. Anchor every quantitative assertion to a financial-statement line.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "mediation-statement",
+    "name": "Draft mediation statement",
+    "description": "Confidential mediation submission, exported as DOCX.",
+    "prompt": "I'll describe the dispute and what the mediator should know.\n\nDrafting flow:\n1. Ask whether the statement will be exchanged or kept ex parte.\n2. create_document titled \"Mediation Statement\".\n3. set_outline: Confidentiality Statement | Parties + Procedural Posture | Statement of Facts | Liability Analysis | Damages | Settlement Posture + Bargaining Range | Issues for the Mediator.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "merger-clearance-memo",
+    "name": "Draft merger clearance memo",
+    "description": "Multi-jurisdiction clearance strategy memo, exported as DOCX.",
+    "prompt": "I'll describe the deal and the parties' geographic/product overlap.\n\nDrafting flow:\n1. Ask for any missing context (target revenues by jurisdiction, deal value, expected signing/closing).\n2. create_document titled \"Merger Clearance Strategy Memo\".\n3. set_outline: Transaction Overview | Jurisdictions Triggered | Substantive Issues by Jurisdiction | Filing Strategy and Timing | Deal Conditions and Risk Allocation.\n4. Fill via write_section. Cover at minimum: US (HSR), EU (EUMR), UK (CMA), and any others I flag.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "antitrust",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "motion-to-dismiss-outline",
+    "name": "Draft motion to dismiss outline",
+    "description": "12(b)(6) / 12(b)(1) / 12(b)(2) outline, exported as DOCX.",
+    "prompt": "I'll attach the complaint and identify the bases for dismissal.\n\nDrafting flow:\n1. convert_to_markdown the complaint; map each count to dismissal theory.\n2. create_document titled \"Motion to Dismiss — Outline\".\n3. set_outline: Introduction + Relief Sought | Background (procedural + factual taken as alleged) | Legal Standard | Argument I (per ground) | Argument II … | Conclusion.\n4. Fill via write_section. For Twombly/Iqbal arguments, walk through what's conclusory vs factual paragraph-by-paragraph.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "msa-sow-review",
+    "name": "Review MSA + SOW",
+    "description": "Master services agreement + statement-of-work review.",
+    "prompt": "I'll attach the MSA + SOW. convert_to_markdown both. Output a structured review: Scope + Order-of-Precedence | Fees + Payment | IP (background, foreground, deliverables) | Confidentiality + Data | Reps + Warranties + Disclaimers | Indemnities + Liability Cap (and carve-outs) | Term + Termination + Effects | Service Levels (if applicable) | Subcontracting | Insurance | Governing Law + Dispute Resolution | Notable departures from market for [client side]. Cite heading paths.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "nda-draft",
+    "name": "Draft an NDA",
+    "description": "Mutual or one-way NDA, exported as DOCX.",
+    "prompt": "I'll describe the deal context (parties, purpose, sensitivity, mutual/one-way).\n\nDrafting flow:\n1. Ask for residual-knowledge stance, term, and dispute-resolution preference.\n2. create_document titled \"Non-Disclosure Agreement — [Counterparty]\".\n3. set_outline: Parties + Purpose | Definition of Confidential Information | Permitted Use + Permitted Recipients | Exclusions | Term + Survival | Required Disclosures | Return + Destruction | Equitable Relief | Termination | Misc.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "nda-piia-review",
+    "name": "Review NDA / PIIA",
+    "description": "Confidentiality + IP-assignment review for an employment context.",
+    "prompt": "I'll attach an NDA or proprietary-information-and-inventions agreement. convert_to_markdown. Output a structured review: Definitions of Confidential Information | Carve-Outs (publicly known, lawfully obtained, independently developed, whistleblower) | Term + Survival | IP Assignment Scope (jurisdiction-aware — CA Labor Code 2870, IL Workplace Transparency Act, etc.) | Restrictive Covenants Bundled In | Defend Trade Secrets Act Notice (required for whistleblower immunity) | Notable issues.",
+    "practiceAreas": [
+      "intellectual-property",
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "nda-redline",
+    "name": "Redline an NDA",
+    "description": "Mark up an attached NDA from one side's perspective using tracked changes.",
+    "prompt": "I'll attach an NDA (.docx). Redline it from one side's perspective using tracked changes.\n\nBefore redlining, confirm with me:\n- Which side I'm representing — Discloser, Recipient, or Mutual (and if mutual, which side has more sensitive information at stake).\n- Counterparty type (commercial bidder, prospective investor, employee/consultant, M&A target, vendor, etc.) — affects how aggressive to be.\n- Any deal-specific concerns (e.g. residual-knowledge carve-out is non-negotiable; we need a 3-year max term; standstill must come out).\n\nThen:\n1. Read the NDA via `convert_to_markdown` so you have the full text.\n2. Identify clauses that need editing for the side I'm representing. Typical targets, with the party preference in parentheses:\n   - Definition of \"Confidential Information\" — broaden (discloser) or narrow with marking/identification requirements (recipient).\n   - Term of the obligation — extend (discloser) or cap at 2–3 years (recipient).\n   - Carve-outs / exceptions — broaden (recipient): public domain, prior knowledge, independently developed, lawfully received from a third party, residual knowledge.\n   - Use restriction — broaden permitted use (recipient) or tightly scope to the specific purpose (discloser).\n   - Return / destruction — exempt computer-system backups and counsel's archival copies (recipient); require certification of destruction (discloser).\n   - Remedies — preserve injunctive relief without bond (discloser); limit to actual damages and require posting bond for injunctive relief (recipient).\n   - Standstill (if present) — strike entirely or carve out hostile-tender exceptions (recipient); keep tight (discloser).\n   - Non-solicit of employees — narrow to senior personnel, time-limit (recipient); broad and 2-year (discloser).\n   - Governing law / venue — favorable forum.\n   - No-license clause — make explicit (recipient).\n3. For each edit, call `propose_document_edits` with content-keyed edits. Include 5–15 words of context_before and context_after taken verbatim from the document so the location is unambiguous. For a deletion, set replace to \"\"; for a pure insertion, set find to \"\" and use context_before + context_after to anchor the insertion point. Always include a short `reason` for each edit so I can decide what to accept.\n4. Group all edits into a single `propose_document_edits` call when possible — the tool batches them and returns a single tracked-change .docx.\n5. Share the `download_url` as a clickable markdown link, plus a one-paragraph summary listing the substantive changes (e.g. \"Narrowed Confidential Information to marked materials; capped term at 3 years; added residual-knowledge carve-out; struck standstill; required bond for injunctive relief\"). Don't restate every individual edit — the tracked changes in the .docx do that.\n\nIf the model can't locate a clause via context disambiguation, surface it in the per-edit `errors` and either retry with more context or note it in the summary as a clause we couldn't find — don't silently drop it.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "new-matter-intake-memo",
+    "name": "New matter intake memo",
+    "description": "Intake checklist + risk flags before opening a matter.",
+    "prompt": "I'll describe the matter and client. Output an intake memo: Client Identity (entity type, ultimate beneficial owner if relevant, sanctions screening) | Matter Description | Conflicts Status | Engagement Letter Status | Fee Arrangement | Billing Setup | Team Composition | Required Approvals (PIC sign-off, ethics, sanctions, sector) | Open Items.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "non-compete-enforceability",
+    "name": "Non-compete enforceability analysis",
+    "description": "Jurisdiction-aware enforceability memo.",
+    "prompt": "I'll attach the non-compete clause (or paste). I'll also identify jurisdiction + employee role. convert_to_markdown if attached. Output: Clause Text | Geographic Scope | Temporal Scope | Activity Scope | Consideration | Jurisdiction's Enforceability Framework (e.g. CA ban, MA Garden Leave Act, FTC rule status) | Likely Enforceable Y/N | Modifications That Would Strengthen | Litigation Risk Notes.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "ocg-summary",
+    "name": "Summarize Outside Counsel Guidelines (OCG)",
+    "description": "Required staffing, billing rules, and reporting obligations as a checklist.",
+    "prompt": "I'll attach the OCG. Convert_to_markdown, get_outline, read_section on the operative sections. Output a checklist (one item per requirement): Category | Requirement | Source heading path. Cover at minimum: staffing constraints (rates, headcount, diversity) | billing rules (timekeepers, increments, expenses, block billing, AI use) | conflicts policy | matter management (status reports, budgets, write-offs) | confidentiality / IT requirements | governing law / fee disputes. Flag anything non-standard or that conflicts with our usual practice.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "offer-letter-draft",
+    "name": "Draft an offer letter",
+    "description": "New-hire offer letter with comp + restrictive covenants, exported as DOCX.",
+    "prompt": "I'll describe the role, comp package, and start date.\n\nDrafting flow:\n1. Ask for jurisdiction and whether equity is being granted.\n2. create_document titled \"Offer Letter — [Candidate] — [Role]\".\n3. set_outline: Position + Reporting | Start Date | Compensation (base, bonus, equity, benefits) | At-Will Statement | Conditions to Employment | Confidentiality + IP Assignment | Restrictive Covenants (jurisdiction-aware — flag if CA or other restrictive states) | Acceptance.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "open-source-compliance-review",
+    "name": "Open-source compliance review",
+    "description": "License-mix audit + redistribution risk.",
+    "prompt": "I'll provide an SBOM or describe the codebase. Output: Component | Version | License | Category (permissive / weak copyleft / strong copyleft / network copyleft / unknown) | Distribution Trigger | Compliance Action (notice, source offer, isolation, removal). Add a section on policy gaps and recommended ingestion gating.",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "patent-claim-chart",
+    "name": "Patent claim chart",
+    "description": "Element-by-element infringement / validity chart.",
+    "prompt": "I'll attach the patent and the accused product/spec (or prior art for a validity chart). convert_to_markdown both. For each independent claim, output a markdown table: Claim Element | Limitation Text | Mapped to Accused Product / Prior Art | Citation (column:line for patent; spec section for product) | Note. Then summarize: each claim's overall result (likely infringed/anticipated/obvious or not).",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "patent-infringement-analysis",
+    "name": "Patent infringement analysis",
+    "description": "Direct + DOE infringement assessment.",
+    "prompt": "I'll attach the patent and describe the accused product. convert_to_markdown the patent. For each asserted claim: claim construction (ordinary meaning + intrinsic evidence + relevant prosecution history) | element-by-element literal infringement | doctrine of equivalents | indirect-infringement bases (induced, contributory) | defenses (non-infringement, invalidity, exhaustion, license, prosecution-history estoppel). Output: claim-by-claim assessment with citations.",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "patent-license-review",
+    "name": "Review a patent license",
+    "description": "Grant scope + economics + conditions analysis.",
+    "prompt": "I'll attach the license. convert_to_markdown, get_outline. Output a structured review: Grant (field + territory + exclusivity + sublicensability) | Patents Licensed (and any improvements) | Economics (running royalties, milestones, minimums, audit) | Term + Termination + Survival | Reps + Warranties (validity / enforceability / non-infringement) | Indemnities + Liability Caps | Bankruptcy (Section 365(n)) | Most-Favored-Licensee | Notable departures from market.",
+    "practiceAreas": [
+      "intellectual-property",
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "permitted-use-review",
+    "name": "Permitted use clause review",
+    "description": "Use clause + exclusivity + co-tenancy interplay.",
+    "prompt": "I'll attach the lease. convert_to_markdown, search_document for 'use', 'exclusive', 'co-tenancy', 'radius'. Output: Permitted Use scope | Restrictions (continuous-operation, hours, signage) | Exclusive Use granted to this tenant + carve-outs | Other Tenants' Exclusives binding this tenant | Co-Tenancy triggers + remedies | Radius Restrictions | Recommended modifications.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "pitch-deck-outline",
+    "name": "Draft a pitch deck outline",
+    "description": "BD pitch outline tailored to a client opportunity, exported as DOCX.",
+    "prompt": "I'll name the client/prospect, the matter type, and what we know about their pain points.\n\nDrafting flow:\n1. Use http_request + vector_search to gather public + internal intel.\n2. create_document titled \"[Client] — Pitch\".\n3. set_outline: Why You / Why Now | Our Understanding of Your Situation | Our Approach | Team | Relevant Experience | Pricing Approach | Next Steps.\n4. Fill via write_section. Be specific to this opportunity, not generic firm boilerplate.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "business-of-law"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "post-closing-integration-plan",
+    "name": "Post-closing integration plan",
+    "description": "Day-1 / 30 / 100 integration roadmap.",
+    "prompt": "I'll describe the deal and the buyer's integration philosophy. Output a roadmap: Day 1 (announcement, leadership, key customer/employee comms, IT cutover) | First 30 Days (governance, financial reporting, comp harmonization start) | First 100 Days (systems consolidation, redundancy decisions, brand decisions, contract assignment confirmation) | Functional Workstreams (HR, IT, Legal, Finance, Tax, Comms, Operations) | Risk + Issues Log Template.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "post-hearing-brief-outline",
+    "name": "Draft post-hearing brief outline",
+    "description": "Closing-submission structure, exported as DOCX.",
+    "prompt": "I'll describe the hearing record and key issues.\n\nDrafting flow:\n1. Ask for the issue list the tribunal flagged (if any) and the evidentiary highlights.\n2. create_document titled \"Post-Hearing Brief\".\n3. set_outline: Introduction | Procedural Recap | Issue 1 (Facts | Law | Application) | Issue 2 … | Quantum | Costs | Conclusion.\n4. Fill via write_section. Cite hearing transcript page/line and exhibit numbers throughout.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "privacy-notice-draft",
+    "name": "Draft a privacy notice",
+    "description": "GDPR + CCPA compliant external privacy notice, exported as DOCX.",
+    "prompt": "I'll describe the company's data processing (categories, purposes, jurisdictions, recipients).\n\nDrafting flow:\n1. Ask for any sector-specific overlays (HIPAA, COPPA, GLBA).\n2. create_document titled \"Privacy Notice\".\n3. set_outline: Who We Are | Data We Collect | Sources | Purposes + Legal Bases | Sharing | International Transfers | Retention | Your Rights | How to Exercise Your Rights | Cookies + Tracking | Children | Changes | Contact + DPO | State-Specific Disclosures (CA/CO/CT/VA/etc.).\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "procedural-order-outline",
+    "name": "Draft Procedural Order No. 1 outline",
+    "description": "PO1 covering case management, exported as DOCX.",
+    "prompt": "I'll describe the case and any agreed dates.\n\nDrafting flow:\n1. Ask for the parties, seat, rules, and any procedural agreements already reached.\n2. create_document titled \"Procedural Order No. 1\".\n3. set_outline: Procedural Calendar | Language + Communication | Submissions | Document Production | Witnesses + Experts | Hearing | Confidentiality | Costs.\n4. Fill via write_section. Use neutral, tribunal-friendly drafting.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "psa-markup",
+    "name": "Markup a purchase and sale agreement",
+    "description": "Buyer-side or seller-side PSA review.",
+    "prompt": "I'll attach the PSA and tell you which side I'm on. convert_to_markdown, get_outline. Output a markup-ready review: Property Description + Excluded Assets | Purchase Price + Adjustments + Prorations | Deposit + Escrow | Due Diligence + Title + Survey | Reps + Survival | Operating Covenants Pre-Closing | Conditions to Closing | Closing Mechanics | Default + Remedies | Casualty + Condemnation | Brokers | Misc. For each, flag market vs non-market positions for my side and recommend specific edits. Cite heading paths.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "qa-from-document",
+    "name": "Generate Q&A pairs from a document",
+    "description": "Useful for training material, FAQs, knowledge-base seeding.",
+    "prompt": "I'll attach a document. convert_to_markdown, get_outline. For each major section, generate 2–3 Q&A pairs that someone unfamiliar with the doc might ask, with answers grounded in specific section text. Output as: ### Question | Answer (cite heading path). Aim for 15–25 pairs across the document.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "reasonable-accommodation-memo",
+    "name": "Reasonable accommodation analysis",
+    "description": "ADA/Title VII interactive-process documentation.",
+    "prompt": "I'll describe the request (employee, condition, requested accommodation, essential job functions). Output: Disability/Religion Trigger | Essential Functions Identified | Requested Accommodation | Alternative Accommodations Considered | Undue Hardship Analysis (cost, operational impact, safety) | Direct-Threat Analysis if applicable | Recommended Outcome | Interactive-Process Documentation Steps.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "reciprocal-easement-review",
+    "name": "Reciprocal easement agreement review",
+    "description": "REA / OEA review for a shopping center or campus.",
+    "prompt": "I'll attach the REA. convert_to_markdown, get_outline. Output: Parties + Parcels | Common Areas + Maintenance | Parking + Access | Use Restrictions + Exclusives | Construction + Architectural Controls | Default + Self-Help | Term + Amendment | Notice + Cure | Recommended modifications for [my client's role].",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "redfern-schedule",
+    "name": "Build a Redfern schedule",
+    "description": "Document production request schedule with objections and responses.",
+    "prompt": "I'll describe the dispute and the categories of documents I want produced (or attach the parties' existing positions). Output a Redfern schedule as a markdown table: # | Description of Document(s) | Relevance + Materiality | Anticipated Objection | Response | Tribunal Decision (blank). Aim for 8–15 well-scoped categories — narrow enough to be granted.",
+    "practiceAreas": [
+      "arbitration"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "reg-d-compliance",
+    "name": "Reg D / Reg S offering compliance memo",
+    "description": "Exemption analysis for an unregistered offering.",
+    "prompt": "I'll describe the offering (size, investors, geography, marketing). Walk through: Section 4(a)(2) baseline | Reg D Rule 506(b) vs 506(c) eligibility | Bad-actor analysis | Form D timing | Reg S Category 1/2/3 if applicable | State blue-sky | General-solicitation considerations. Output a structured memo with a recommended exemption + compliance steps.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "reit-compliance-review",
+    "name": "REIT compliance review",
+    "description": "Annual REIT income + asset + distribution tests.",
+    "prompt": "I'll describe the REIT (assets, income, structure). Walk through: 75% Asset Test + 5%/10% individual tests | 75% / 95% Income Tests | Distribution Requirement (90% + Section 4981 excise) | Prohibited Transactions Tax | TRS Limits + UBTI Considerations | Recommended Cleanups Before Year-End.",
+    "practiceAreas": [
+      "tax",
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "relevant-market-analysis",
+    "name": "Relevant market analysis",
+    "description": "Define product and geographic markets for a competition matter.",
+    "prompt": "I'll describe the transaction or conduct and the products/services involved. Walk through the relevant-market analysis: candidate product market(s) using SSNIP/hypothetical-monopolist framing, demand-side substitutability, supply-side substitutability, geographic market(s), and price/non-price competition dimensions. Output: Proposed product market | Proposed geographic market | Supporting evidence | Counter-arguments | Open empirical questions.",
+    "practiceAreas": [
+      "antitrust"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "remedies-proposal",
+    "name": "Draft merger remedies proposal",
+    "description": "Structural and behavioral fixes, exported as DOCX.",
+    "prompt": "I'll describe the deal and the agency's stated concerns.\n\nDrafting flow:\n1. Ask for the agency's concern document or reviewer feedback.\n2. create_document titled \"Proposed Remedies\".\n3. set_outline: Concerns Addressed | Proposed Divestiture(s) | Buyer-Up-Front Profile | Behavioral Commitments | Monitoring + Compliance | Implementation Timeline.\n4. Fill via write_section. Be specific (assets, employees, IP, transition services). Cite the agency's framing back to it.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "antitrust",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "rent-roll-analysis",
+    "name": "Rent roll analysis",
+    "description": "Tenant + revenue snapshot from a rent roll.",
+    "prompt": "I'll attach the rent roll. convert_to_markdown. Output: Total RSF + Occupancy | Tenant Concentration (top 5 by rent + by SF) | Lease Expiration Schedule (next 12/24/60 months + thereafter) | Below/At/Above Market Indicators | Rollover Risk | Co-Tenancy / Anchor Considerations.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "restrictive-covenant-review",
+    "name": "Review restrictive covenants in an existing agreement",
+    "description": "Non-compete + non-solicit + confidentiality assessment.",
+    "prompt": "I'll attach the agreement. convert_to_markdown, search_document for 'compete', 'solicit', 'confidential', 'trade secret'. Output: Each Covenant (text + heading path) | Geographic + Temporal + Activity Scope | Governing Law + Forum | Jurisdiction's Enforceability | Recommended Modifications | Risk Score (high/med/low).",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "rewrite-polish",
+    "name": "Rewrite or polish text",
+    "description": "Tighten language, fix tone, preserve meaning.",
+    "prompt": "Rewrite the text I paste. Tighten language, fix any awkward phrasing, and keep the meaning intact. Default to a professional tone unless I say otherwise. Return the rewritten text inline.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "rif-planning-memo",
+    "name": "RIF planning memo",
+    "description": "Process + adverse-impact analysis for a reduction in force.",
+    "prompt": "I'll describe the planned RIF (decisional unit, headcount, business reason). Output a planning memo: Decisional Unit Definition | Selection Criteria | Adverse-Impact Analysis Plan (statistical screen by protected class) | OWBPA Disclosures (if 40+ in group) | WARN / mini-WARN Triggers | Communication Plan | Severance Terms | Documentation Required | Litigation Risk Notes.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "risk-factor-draft",
+    "name": "Draft a risk factor",
+    "description": "Tailored risk-factor disclosure following SEC Reg S-K Item 105.",
+    "prompt": "I'll describe the risk topic and the issuer's specific exposure. Draft a risk factor following Reg S-K Item 105 conventions: descriptive heading (the risk in 1 sentence) | first sentence stating the risk | facts that make it material to this issuer | possible impacts on the business / results / stock | why mitigations may not work. Aim for 150–250 words. Avoid boilerplate and 'could,' 'may' stacking.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "risk-register-from-doc",
+    "name": "Build a risk register from a document",
+    "description": "Extract risk-shifting provisions and rate them.",
+    "prompt": "I'll attach a contract or policy. convert_to_markdown, walk via get_outline + read_section. Identify each risk-shifting provision (indemnity, limitation of liability, warranty, IP, data, force majeure, termination). Output a table: Risk Area | Provision | Heading Path | Severity (high/med/low) | Notes. Close with three sentences on the overall risk posture.",
+    "practiceAreas": [
+      "general",
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "rw-insurance-summary",
+    "name": "R&W insurance policy summary",
+    "description": "RWI coverage, exclusions, and process.",
+    "prompt": "I'll attach the R&W insurance policy (or the deal binder). convert_to_markdown, get_outline. Output: Insured + Carrier + Limits + Retention | Coverage Period | General Exclusions | Deal-Specific Exclusions | Knowledge Scrape | Subrogation Waivers | Dispute Resolution | Notice + Claim Process | Notable Coverage Gaps vs the indemnification package in the SPA.",
+    "practiceAreas": [
+      "mergers-acquisitions",
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "s1-outline",
+    "name": "Draft Form S-1 outline",
+    "description": "Registration statement skeleton + responsibility map, exported as DOCX.",
+    "prompt": "I'll describe the issuer (industry, size, deal type — IPO / follow-on / SPAC).\n\nDrafting flow:\n1. Ask for the underwriting structure and any prior-art filings to mirror.\n2. create_document titled \"Form S-1 — Outline\".\n3. set_outline mirroring Reg S-K Items: Cover + Inside Front Cover | Prospectus Summary | Risk Factors | Use of Proceeds | Capitalization | Dilution | Selected Financial Data | MD&A | Business | Management | Compensation | Principal Stockholders | Related-Party | Description of Capital Stock | Underwriting | Legal Matters | Experts | Index to Financial Statements.\n4. Fill each section heading with: Reg S-K item | Drafting owner | Source documents | Open items.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "saas-agreement-review",
+    "name": "Review a SaaS agreement",
+    "description": "Cloud/SaaS subscription agreement review.",
+    "prompt": "I'll attach the SaaS agreement (and DPA if separate). convert_to_markdown. Output: Service Description + Affiliates Use | Subscription Term + Auto-Renewal | Fees + Increases | SLAs + Service Credits | Data Processing + Security (cross-ref to DPA) | IP + Data Ownership | Customer Data Export + Post-Term Retention | Suspension Rights | Indemnities + Liability Caps + AI-Output Indemnity | Termination + Transition Assistance | Notable departures.",
+    "practiceAreas": [
+      "transactional",
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "sccs-tia-memo",
+    "name": "SCCs + Transfer Impact Assessment",
+    "description": "Schrems II analysis for an EU-to-third-country transfer.",
+    "prompt": "I'll describe the transfer (data exporter, data importer, country, data categories, processing purpose). Output: Module Selection (1/2/3/4) | Operative Clauses + Annexes I-III | Country-Surveillance Assessment (per EDPB 01/2020 + recent case-law) | Practical + Legal + Technical Supplementary Measures | Residual Risk Assessment | Conclusion (transfer permissible? conditions?). Cite sources.",
+    "practiceAreas": [
+      "privacy-data"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "section-1031-exchange-memo",
+    "name": "Section 1031 like-kind exchange memo",
+    "description": "Real-property 1031 structuring + identification rules.",
+    "prompt": "I'll describe the relinquished property + intended replacement property. Walk through: Like-Kind Requirement (real property only post-TCJA) | Qualified Use (held for investment / business) | 45-Day Identification + 180-Day Closing | QI Requirements + Constructive-Receipt Rules | Three-Property Rule + 200% Rule + 95% Rule | Boot + Gain Recognition | Reverse-Exchange + Build-to-Suit Variants | State Treatment.",
+    "practiceAreas": [
+      "tax",
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "section-162-deductibility",
+    "name": "Section 162 deductibility analysis",
+    "description": "Ordinary-and-necessary + capitalization issues.",
+    "prompt": "I'll describe the expense (nature, business purpose, amount). Walk through: §162(a) ordinary + necessary | §162(c)/(f)/(g) disallowance (illegal payments, fines, lobbying) | Capitalization vs deduction (§263(a) + INDOPCO + Reg §1.263(a)-4/-5) | §162(m) executive comp | §274 limitations (meals/entertainment/transportation) | Substantiation. Output: Deductible Y/N | Year | Risk Issues.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "section-351-contribution-memo",
+    "name": "Section 351 contribution memo",
+    "description": "Tax-free contribution + control analysis.",
+    "prompt": "I'll describe the contribution (contributors, property, equity received, post-contribution ownership). Walk through: Section 351 elements (transfer, property, control immediately after) | Disguised-sale risks under §707 | Investment-company exception §351(e) | Boot recognition + character | Basis + Holding Period in stock + assets | §357 liability assumption + §357(c) gain. Output: §351 qualification yes/no | Adjustments + alternate structures.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "section-368-reorg-memo",
+    "name": "Section 368 reorganization memo",
+    "description": "Tax-free reorg structuring memo.",
+    "prompt": "I'll describe the proposed transaction. Walk through: Reorg Type Candidate (A/B/C/D/F/G + triangular variants) | Statutory Requirements per Type | Continuity of Interest | Continuity of Business Enterprise | Business Purpose | Plan of Reorganization | Boot Tax Impact | Section 354/356/358/362/381/382 Consequences | Step-Transaction + Sound-Reasons Considerations | Recommended Structure.",
+    "practiceAreas": [
+      "tax",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "settlement-demand-letter",
+    "name": "Draft settlement demand letter",
+    "description": "Pre-filing or mid-case demand, exported as DOCX.",
+    "prompt": "I'll describe the case (parties, claims, damages, posture).\n\nDrafting flow:\n1. Ask for the strongest 3 facts and the negotiation goals.\n2. create_document titled \"Demand Letter — [Matter]\".\n3. set_outline: Summary | Facts | Legal Theories + Liability Exposure | Damages | Demand + Deadline | Reservations of Rights.\n4. Fill via write_section. Tone: firm, factual, resolution-oriented.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "severance-release-agreement",
+    "name": "Draft severance + release agreement",
+    "description": "Standard separation package, exported as DOCX.",
+    "prompt": "I'll describe the separation (employee, role, jurisdiction, reason, package).\n\nDrafting flow:\n1. Ask for protected-status considerations (age 40+ → OWBPA / 21-day review) and whether group RIF.\n2. create_document titled \"Severance Agreement and Release — [Employee]\".\n3. set_outline: Recitals | Separation Date | Severance Payments | Benefits Continuation | Release of Claims (with carve-outs) | Confidentiality + Non-Disparagement | Restrictive Covenants Reaffirmed | Cooperation | Return of Property | Governing Law + Dispute Resolution | Acknowledgments + Review Period | Signatures.\n4. Fill via write_section, jurisdiction-aware.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "snda-review",
+    "name": "Review SNDA",
+    "description": "Subordination + non-disturbance + attornment review.",
+    "prompt": "I'll attach the SNDA. convert_to_markdown. Output a structured review: Subordination Scope | Non-Disturbance Conditions | Attornment Triggers | Lender Cure Rights | Lease Modifications Requiring Lender Consent | Obligations of Successor Landlord | Notice + Cure | Departures from Market for [tenant / lender / landlord] perspective.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "software-license-review",
+    "name": "Review a software license",
+    "description": "On-prem software license review.",
+    "prompt": "I'll attach the license. convert_to_markdown, get_outline. Output: License Grant (scope, exclusivity, transferability) | Permitted Users + Affiliates | Source Code Access + Escrow | Reverse-Engineering Restrictions | Open-Source Components | Audit Rights | Updates + Support | Maintenance Term | IP Indemnity | Liability Cap + Carve-Outs | Termination + Wind-Down | Notable departures for [my side].",
+    "practiceAreas": [
+      "transactional",
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "spelling-grammar-proofread",
+    "name": "Proofread for spelling and grammar",
+    "description": "Catch typos, agreement errors, and inconsistent capitalization.",
+    "prompt": "Proofread the text I paste for spelling, grammar, agreement, and inconsistent capitalization. Return a clean version, then a short bullet list of significant changes (skip trivial typos). If I attach a document instead, convert_to_markdown first.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "state-nexus-analysis",
+    "name": "State tax nexus analysis",
+    "description": "Income + sales tax nexus per state.",
+    "prompt": "I'll describe the company's footprint (employees, property, sales, marketing, remote workforce). Output a per-state matrix: State | Income Tax Nexus (P.L. 86-272 status, factor presence, economic nexus) | Sales Tax Nexus (Wayfair thresholds, marketplace facilitator) | Other Triggers (gross-receipts, franchise, BAT) | Action Required. Highlight the 5 highest-risk states.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "subpart-f-gilti-memo",
+    "name": "Subpart F + GILTI inclusion analysis",
+    "description": "CFC inclusion memo for a US shareholder.",
+    "prompt": "I'll describe the CFC structure (US shareholders, foreign subs, income types, jurisdictions). Walk through: CFC determination (§957) | US Shareholder definition (§951(b)) | Subpart F categories (§952 — FBCS, FPHCI, etc.) + carve-outs | High-Tax Exclusion (§954(b)(4) + §951A) | GILTI computation (tested income, QBAI, NDTIR) | §250 deduction | §960 indirect FTC + Section 904 baskets | Recommended planning.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "summarize-document",
+    "name": "Summarize an uploaded document",
+    "description": "Structural read of an attached DOCX or PDF — outline, priority sections, formal summary.",
+    "prompt": "I'll attach a document. Summarize it using the document-summarization workflow: convert_to_markdown, get_outline, pick the priority sections to read in full via read_section, and produce a formal summary that fits the document type. Cite heading paths (§, Article, Item) inline.",
+    "practiceAreas": [
+      "general"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "summary-judgment-outline",
+    "name": "Draft summary judgment outline",
+    "description": "MSJ skeleton with statement of undisputed facts.",
+    "prompt": "I'll describe the case posture and target claims.\n\nDrafting flow:\n1. Ask for the discovery record citations supporting each undisputed fact.\n2. create_document titled \"Motion for Summary Judgment — Outline\".\n3. set_outline: Introduction | Statement of Undisputed Material Facts (numbered, each with record citation) | Legal Standard | Argument (per claim/element) | Conclusion.\n4. Fill via write_section.\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "supply-agreement-review",
+    "name": "Review a supply agreement",
+    "description": "Goods supply agreement review.",
+    "prompt": "I'll attach the supply agreement. convert_to_markdown, get_outline. Output: Purchase Commitment (firm volume vs forecast) | Pricing + Adjustments + MFN | Lead Times + Forecast Process | Quality + Acceptance | Warranties (express + implied) | Recall + Epidemic-Failure | Force Majeure (incl. material shortage, pandemic) | Allocation in Shortage | Insurance | Limitation of Liability | Term + Termination + Wind-Down. Flag departures.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "survey-review",
+    "name": "Survey review memo",
+    "description": "ALTA/NSPS survey review against title.",
+    "prompt": "I'll attach the survey + title commitment. convert_to_markdown both. Output: Survey Type + Standards Met (ALTA/NSPS Table A items) | Encroachments | Easements Visible vs Recorded | Setbacks + Building Lines | Access | Acreage | Flood Zone | Parking + Signage | Discrepancies vs Title | Endorsements Survey Supports.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "tax-memo-general",
+    "name": "Draft a tax memo",
+    "description": "Issue/analysis/conclusion tax memo, exported as DOCX.",
+    "prompt": "I'll describe the issue and the relevant transaction.\n\nDrafting flow:\n1. Ask for the parties, jurisdictions, and any prior memos.\n2. create_document titled \"Tax Memo — [Issue]\".\n3. set_outline: Issue | Short Answer | Facts | Authorities | Analysis | Conclusion | Caveats.\n4. Fill via write_section. Cite primary authority by section (IRC §, Treas. Reg. §, Rev. Rul., Notice, case + cite).\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "tax-opinion-outline",
+    "name": "Draft a tax opinion outline",
+    "description": "Should/will/more-likely-than-not opinion, exported as DOCX.",
+    "prompt": "I'll describe the transaction + the opinion level requested.\n\nDrafting flow:\n1. Ask for the assumptions, representations, and any IRS guidance specifically on point.\n2. create_document titled \"[Tax-Free / [Other Issue]] Opinion — [Transaction]\".\n3. set_outline: Engagement + Opinion Level | Facts | Assumptions | Representations | Discussion (issue-by-issue) | Conclusion | Reliance + Limitations.\n4. Fill via write_section. Cite primary authority. State the level (will / should / more likely than not / reasonable basis).\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "template:credit-agreement-summary",
+    "name": "Credit agreement summary",
+    "description": "Standard 9-column summary of a credit agreement across one or more loan documents.",
+    "prompt": "Summarize the key economic and legal terms of this credit agreement. The columns capture the standard terms; answer each from the document and quote the relevant language.",
+    "practiceAreas": [
+      "transactional",
+      "capital-markets"
+    ],
+    "outputMode": "review",
+    "columnConfig": [
+      {
+        "title": "Borrower",
+        "prompt": "Who is the named borrower? Answer with the borrower's legal name only.",
+        "format": "short_text"
+      },
+      {
+        "title": "Lenders",
+        "prompt": "List the lenders or arrangers. One bullet per party.",
+        "format": "bullets"
+      },
+      {
+        "title": "Facility size",
+        "prompt": "What is the total facility size? Answer with the total committed amount, e.g. \"$500,000,000 revolver\".",
+        "format": "money"
+      },
+      {
+        "title": "Maturity",
+        "prompt": "What is the maturity date or final maturity term? Answer with the date or duration.",
+        "format": "short_text"
+      },
+      {
+        "title": "Interest rate",
+        "prompt": "Describe the interest rate / pricing grid. Note benchmark (SOFR/term/etc.), spread, and step-ups.",
+        "format": "text"
+      },
+      {
+        "title": "Governing law",
+        "prompt": "Which jurisdiction's law governs the agreement? Answer with the named state or country only.",
+        "format": "short_text"
+      },
+      {
+        "title": "Financial covenants",
+        "prompt": "List the financial covenants and their levels. One bullet per covenant.",
+        "format": "bullets"
+      },
+      {
+        "title": "Mandatory prepayments",
+        "prompt": "Describe the mandatory prepayment events (asset sales, debt issuance, excess cash flow, change of control, etc.).",
+        "format": "text"
+      },
+      {
+        "title": "Change of control",
+        "prompt": "What constitutes a change of control under the agreement, and what is the consequence?",
+        "format": "text"
+      }
+    ]
+  },
+  {
+    "id": "template:lease-abstract",
+    "name": "Lease abstract",
+    "description": "Eight-column abstract of a commercial lease — premises, term, rent, options, etc.",
+    "prompt": "Abstract the key terms of this commercial lease across the standard columns.",
+    "practiceAreas": [
+      "real-estate",
+      "transactional"
+    ],
+    "outputMode": "review",
+    "columnConfig": [
+      {
+        "title": "Landlord",
+        "prompt": "Who is the landlord? Answer with the legal name only.",
+        "format": "short_text"
+      },
+      {
+        "title": "Tenant",
+        "prompt": "Who is the tenant? Answer with the legal name only.",
+        "format": "short_text"
+      },
+      {
+        "title": "Premises",
+        "prompt": "Describe the leased premises (address, suite, square footage if stated).",
+        "format": "text"
+      },
+      {
+        "title": "Term",
+        "prompt": "What is the initial term? Answer with the commencement and expiration dates (or \"X years from <date>\").",
+        "format": "short_text"
+      },
+      {
+        "title": "Renewal options",
+        "prompt": "What renewal options does the tenant have? Note number of renewals, length of each, and notice required.",
+        "format": "text"
+      },
+      {
+        "title": "Base rent",
+        "prompt": "What is the base rent and how does it escalate?",
+        "format": "text"
+      },
+      {
+        "title": "Operating expenses",
+        "prompt": "How are operating expenses / common-area maintenance / taxes handled (gross, net, base year, etc.)?",
+        "format": "text"
+      },
+      {
+        "title": "Assignment / sublease",
+        "prompt": "Can the tenant assign or sublease the lease, and under what conditions? Note any consent requirement.",
+        "format": "text"
+      }
+    ]
+  },
+  {
+    "id": "template:ma-diligence-triage",
+    "name": "M&A diligence triage",
+    "description": "Ten-column triage across a target-company contract — change of control, indemnity, term, etc.",
+    "prompt": "Triage this contract for an M&A diligence pass — surface every term that affects the deal.",
+    "practiceAreas": [
+      "m-and-a",
+      "transactional"
+    ],
+    "outputMode": "review",
+    "columnConfig": [
+      {
+        "title": "Parties",
+        "prompt": "List the parties and each party's defined role. One bullet per party.",
+        "format": "bullets"
+      },
+      {
+        "title": "Subject matter",
+        "prompt": "In one sentence, what does this contract do?",
+        "format": "short_text"
+      },
+      {
+        "title": "Term",
+        "prompt": "What is the initial term and how does it renew?",
+        "format": "short_text"
+      },
+      {
+        "title": "Termination",
+        "prompt": "List the events that allow either party to terminate. One bullet per termination right; note which party holds it.",
+        "format": "bullets"
+      },
+      {
+        "title": "Change of control",
+        "prompt": "What happens upon a change of control of either party?",
+        "format": "text"
+      },
+      {
+        "title": "Assignment",
+        "prompt": "Can the agreement be assigned, and under what conditions?",
+        "format": "text"
+      },
+      {
+        "title": "Indemnification",
+        "prompt": "Who indemnifies whom and for which categories of claims? Note any caps or carve-outs.",
+        "format": "text"
+      },
+      {
+        "title": "Most-favored-nation",
+        "prompt": "Does the contract include any most-favored-nation, exclusivity, or non-compete clauses? If so, summarize.",
+        "format": "text"
+      },
+      {
+        "title": "Governing law",
+        "prompt": "Which jurisdiction's law governs the agreement? Answer with the named state or country only.",
+        "format": "short_text"
+      },
+      {
+        "title": "Notice period",
+        "prompt": "What notice period is required for termination, breach, or assignment? Note who must give the notice.",
+        "format": "short_text"
+      }
+    ]
+  },
+  {
+    "id": "template:nda-review",
+    "name": "NDA review",
+    "description": "Six-column review of an NDA — scope, term, carve-outs, governing law, etc.",
+    "prompt": "Pull out the standard NDA terms. Answer each column from the document; quote the operative language for each answer.",
+    "practiceAreas": [
+      "transactional"
+    ],
+    "outputMode": "review",
+    "columnConfig": [
+      {
+        "title": "Parties",
+        "prompt": "List the parties and each party's defined role (e.g. \"Discloser\", \"Recipient\"). One bullet per party.",
+        "format": "bullets"
+      },
+      {
+        "title": "Scope of confidentiality",
+        "prompt": "What information is protected as confidential? Note any defined-term scope (e.g. \"Evaluation Material\").",
+        "format": "text"
+      },
+      {
+        "title": "Term",
+        "prompt": "How long does the confidentiality obligation last? Answer with duration only.",
+        "format": "short_text"
+      },
+      {
+        "title": "Carve-outs",
+        "prompt": "List the carve-outs / exceptions to the confidentiality obligation (publicly available, independently developed, compelled disclosure, etc.). One bullet per carve-out.",
+        "format": "bullets"
+      },
+      {
+        "title": "Permitted purpose",
+        "prompt": "What is the permitted purpose for which the recipient may use the information?",
+        "format": "short_text"
+      },
+      {
+        "title": "Governing law",
+        "prompt": "Which jurisdiction's law governs the NDA? Answer with the named state or country only.",
+        "format": "short_text"
+      }
+    ]
+  },
+  {
+    "id": "term-sheet-review",
+    "name": "Review an M&A term sheet",
+    "description": "Markup-ready review of LOI / term sheet.",
+    "prompt": "I'll attach the term sheet / LOI. convert_to_markdown, get_outline. Output a structured review: Structure (stock vs asset vs merger; cash vs stock vs mixed) | Price + Adjustments (working capital, indebtedness, transaction expenses) | Conditions (financing, regulatory, third-party consents) | Reps Survival + Indemnification | R&W Insurance References | Exclusivity (length + carve-outs) | Expense Reimbursement / Break Fees | Binding vs Non-Binding | Notable Departures from Market.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "ti-allowance-memo",
+    "name": "Tenant improvement allowance memo",
+    "description": "TI work-letter + allowance mechanics analysis.",
+    "prompt": "I'll attach the work letter / lease TI provisions. convert_to_markdown. Output: Allowance Amount + Calculation | Eligible vs Ineligible Costs | Disbursement Mechanics + Lien-Waiver Requirements | Construction Standards + Approvals | Substantial Completion + Punch List | Force Majeure / Tenant Delay / Landlord Delay | Allowance-Forfeiture Triggers | Recommended modifications.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "title-objection-letter",
+    "name": "Draft title objection letter",
+    "description": "Objections to title commitment, exported as DOCX.",
+    "prompt": "I'll attach the title commitment.\n\nDrafting flow:\n1. convert_to_markdown the commitment; identify Schedule B-I requirements + B-II exceptions.\n2. Ask for any matters I want preserved or excluded.\n3. create_document titled \"Title Objection Letter\".\n4. set_outline: Introduction | Schedule A Comments | Schedule B-I Requirements (numbered objections) | Schedule B-II Exceptions (numbered objections) | Survey-Related Objections | Endorsements Requested.\n5. Fill via write_section. For each objection, state what's required to cure.\n6. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "real-estate"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "trade-secret-protection-plan",
+    "name": "Trade secret protection plan",
+    "description": "Reasonable-measures program review.",
+    "prompt": "I'll describe the company's trade-secret assets. Output a protection plan: Asset Inventory | Access Controls (NTK, RBAC) | Employee Lifecycle (NDA, IP assignment, training, exit interview) | Contractor / Vendor Controls | Physical + IT Security | Marking + Tracking | Incident Response | Litigation-Readiness (DTSA seizure, TRO playbook). Map to UTSA / DTSA reasonable-measures expectations.",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "trademark-clearance-memo",
+    "name": "Trademark clearance memo",
+    "description": "Knock-out + full search analysis for a new mark.",
+    "prompt": "I'll name the proposed mark, classes, and target jurisdictions. Use http_request for USPTO TESS / EUIPO / WIPO databases. Output: Mark | Distinctiveness Spectrum (generic→fanciful) | Knock-Out Hits by Class + Jurisdiction | Likelihood-of-Confusion Risk | Descriptiveness/Genericness Risk | Recommended Next Steps (file ITU, modify mark, full search). Cite each hit's source URL.",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "trademark-opposition-strategy",
+    "name": "Trademark opposition strategy",
+    "description": "TTAB / EUIPO / national opposition planning.",
+    "prompt": "I'll describe the senior + junior marks and the forum. Output a strategy memo: Mark Comparison | Goods/Services Comparison | DuPont (US) / Sabel + Lloyd (EU) factors applied | Standing | Grounds (likelihood of confusion, dilution, descriptiveness, fraud, abandonment) | Procedural Path + Timing + Costs | Settlement Considerations (consent agreement structure).",
+    "practiceAreas": [
+      "intellectual-property"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "transfer-pricing-analysis",
+    "name": "Transfer pricing analysis",
+    "description": "TP method selection + documentation framework.",
+    "prompt": "I'll describe the related-party transaction (parties, function, asset, risk profile). Walk through: Best-Method Selection (CUP/CUT, Resale Price, Cost Plus, CPM/TNMM, Profit Split) | Comparables Strategy | Functional Analysis | Documentation Required (Treas. Reg. §1.6662-6 + OECD Master/Local/CbCR) | Risk of Adjustment | APA / MAP Considerations.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "treaty-position-memo",
+    "name": "Tax treaty position memo",
+    "description": "Treaty article application analysis.",
+    "prompt": "I'll describe the cross-border payment (payor, payee, amount, character). Walk through: Treaty Identification | Article-by-Article Analysis (Business Profits + PE / Dividends / Interest / Royalties / Other Income / LOB) | Beneficial-Owner Requirement | LOB Test Application | MLI Effects | Form W-8BEN-E / 8233 + Withholding Position | Documentation + Filing Requirements.",
+    "practiceAreas": [
+      "tax"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "trial-outline",
+    "name": "Build a trial outline",
+    "description": "Witness order + exhibits + proof matrix.",
+    "prompt": "I'll describe the case (claims, defenses, witnesses, key exhibits). Output a trial outline: Theme of the Case | Order of Proof (witness sequencing) | Witness-by-Witness (purpose, key Q&A, exhibits introduced) | Exhibit List + Foundation Plan | Stipulations + Pretrial Motions | Closing Themes + Jury Instruction Targets.",
+    "practiceAreas": [
+      "litigation"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "underwriter-agreement-review",
+    "name": "Review an underwriting agreement",
+    "description": "Markup-ready review of UA reps, conditions, indemnity.",
+    "prompt": "I'll attach the underwriting agreement. convert_to_markdown, walk via get_outline + read_section. Output a structured review: Issuer reps (and any unusual ones) | Conditions to closing | Indemnification + contribution (and any non-standard caps/carve-outs) | Lock-up scope | Force majeure / market-out language | Section 11/12 considerations | Notable redline targets. Cite heading paths.",
+    "practiceAreas": [
+      "capital-markets"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "unilateral-effects-theory",
+    "name": "Unilateral effects analysis",
+    "description": "Theory of harm for a horizontal merger.",
+    "prompt": "I'll describe a horizontal merger. Build the unilateral-effects theory of harm: closeness of competition, diversion ratios, pricing pressure (UPP/GUPPI direction), entry/repositioning, efficiencies. Output: Theory of harm | Evidence supporting | Evidence against | Likely agency posture | Defensive arguments.",
+    "practiceAreas": [
+      "antitrust",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "vertical-merger-review",
+    "name": "Vertical merger review",
+    "description": "Foreclosure and raising-rivals'-costs theories.",
+    "prompt": "I'll describe a vertical (or partial-vertical) merger. Walk through foreclosure analysis: ability + incentive at each affected level, market shares upstream and downstream, share of input/distribution captured, raising-rivals'-costs concerns, customer-foreclosure concerns, EDM/efficiencies offsets. Output a structured memo with each prong addressed.",
+    "practiceAreas": [
+      "antitrust",
+      "mergers-acquisitions"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "wage-hour-classification",
+    "name": "Wage-hour classification analysis",
+    "description": "Exempt vs non-exempt analysis under FLSA + state law.",
+    "prompt": "I'll describe the role (duties, salary, supervision, decision authority). Walk through: salary-basis test (current threshold) | duties test (executive / administrative / professional / outside-sales / computer / HCE) | state-law overlay (CA, NY, WA salary thresholds; CA quantitative duties test) | misclassification risk + remedies (backpay, liquidated damages, attorney's fees). Output: Classification | Reasoning | Risk Factors | Recommended Position.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "warn-notice-draft",
+    "name": "Draft WARN / state mini-WARN notice",
+    "description": "Plant-closing or mass-layoff notice, exported as DOCX.",
+    "prompt": "I'll describe the layoff (employer, locations, headcount, dates).\n\nDrafting flow:\n1. Ask for state-specific overlays (CA, NY, NJ, IL etc.) and any union obligations.\n2. create_document titled \"WARN Act Notice\".\n3. set_outline: Notice Recipients | Description of Action | Affected Employees | Expected Date(s) | Bumping Rights | Contact for Information.\n4. Fill via write_section. Use the federal + applicable state requirements (state usually controls).\n5. export_to_docx and share the download link.",
+    "practiceAreas": [
+      "employment"
+    ],
+    "outputMode": "inline_chat"
+  },
+  {
+    "id": "working-capital-adjustment-memo",
+    "name": "Working capital adjustment memo",
+    "description": "WC mechanism + dispute-process analysis.",
+    "prompt": "I'll attach the purchase agreement. convert_to_markdown, search_document for 'working capital', 'adjustment', 'closing balance sheet', 'target'. Output: Target / Estimated / Final WC mechanics | Accounting Principles + Hierarchy | Dispute Process + Independent Accountant Scope | Sample Calculation Template | Risk Areas (definitional ambiguities, GAAP/practices conflicts) | Recommended modifications.",
+    "practiceAreas": [
+      "mergers-acquisitions"
+    ],
     "outputMode": "inline_chat"
   }
 ]
