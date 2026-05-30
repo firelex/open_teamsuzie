@@ -44,4 +44,14 @@ export interface ChatThreadProps {
   onToolResult?: (call: ChatToolCall) => void;
   onError?: (message: string) => void;
   className?: string;
+  /** Pre-fill the composer input with this text on mount. Used when navigating
+   *  into a chat with a queued message — e.g. the bare-route → /c/:id handoff
+   *  where the user typed in the bare-route composer and is being navigated to
+   *  the persisted chat. */
+  defaultInput?: string;
+  /** When true AND `defaultInput` is set AND history has finished loading,
+   *  dispatch the defaultInput as the first send exactly once. Pairs with
+   *  defaultInput to implement the bare-route auto-dispatch without exposing
+   *  an imperative send ref. */
+  autoSendDefaultInput?: boolean;
 }

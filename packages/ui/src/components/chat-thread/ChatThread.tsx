@@ -12,8 +12,9 @@ import { MarkdownMessage } from '../markdown-message.js';
  *
  * Aesthetic moves:
  *   - Mono is the chat's voice, sans (markdown) is the body.
- *   - No "bubble" cliché. Speaker is the leading glyph: ▸ in primary for
- *     the user, a muted │ rail for the assistant.
+ *   - User turns sit inside a soft primary-tinted bubble; assistant turns
+ *     are plain flowing text. Both stay left-aligned (no WhatsApp-style
+ *     right-aligned user bubble) so long messages stay readable.
  *   - Tool calls render as a single dashed-top row: tool name on the left
  *     in primary, args summary truncated in muted, status token pinned
  *     right. Args expand on hover. Short status flash when a tool resolves.
@@ -28,7 +29,10 @@ import { MarkdownMessage } from '../markdown-message.js';
  * works out-of-the-box.
  */
 
-const STYLE_ID = 'teamsuzie-chat-thread-styles-v2';
+// Bump the version suffix whenever the INJECTED_CSS string changes —
+// `ensureStyles` early-returns when a tag with this id already exists, so
+// without a bump a hot-reloaded page keeps serving the prior CSS revision.
+const STYLE_ID = 'teamsuzie-chat-thread-styles-v10';
 const INJECTED_CSS = `
 @keyframes _ct_slideUp {
   from { opacity: 0; transform: translateY(4px); }
@@ -39,7 +43,7 @@ const INJECTED_CSS = `
   40%           { opacity: 0.85; }
 }
 @keyframes _ct_statusFlash {
-  from { background-color: color-mix(in oklab, var(--primary) 12%, transparent); }
+  from { background-color: color-mix(in oklab, var(--color-primary) 12%, transparent); }
   to   { background-color: transparent; }
 }
 .ct-root {
@@ -47,15 +51,23 @@ const INJECTED_CSS = `
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  color: var(--foreground);
+  color: var(--color-foreground);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  background: var(--background);
+  /* Transparent on purpose — the consumer's surface (bg-card on a rail,
+     hero-atmosphere on a hero block, etc.) shows through. An earlier
+     revision painted var(--color-background) here, which on SuzieCode's
+     bg-card rail produced a visible white→off-white step between the
+     projects list (pure white --color-card) and the chat area
+     (--color-background ≈ oklch 98%), reading to the user as an
+     accidental gradient inside the rail. Letting the parent surface
+     define the bg keeps every host page consistent. */
+  background: transparent;
 }
 .ct-header {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   padding: 8px 14px;
   font-size: 12px;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   letter-spacing: 0.02em;
 }
 .ct-scroll {
@@ -65,22 +77,19 @@ const INJECTED_CSS = `
   display: flex;
   flex-direction: column;
   gap: 18px;
-  background-image: linear-gradient(
-    transparent 23px,
-    color-mix(in oklab, var(--foreground) 4%, transparent) 23px,
-    color-mix(in oklab, var(--foreground) 4%, transparent) 24px
-  );
-  background-size: 100% 24px;
-  background-attachment: local;
+  /* Earlier this carried a 24px hairline grid for editorial atmosphere
+     ("notebook" feel). With the current bubble-user / plain-assistant
+     treatment the grid reads as accidental rule lines slicing the
+     conversation. Dropped. */
 }
 .ct-empty {
   font-size: 11px;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   letter-spacing: 0.03em;
   line-height: 1.6;
 }
 .ct-empty-glyph {
-  color: var(--primary);
+  color: var(--color-primary);
 }
 .ct-turn {
   animation: _ct_slideUp 140ms ease-out both;
@@ -88,42 +97,43 @@ const INJECTED_CSS = `
   flex-direction: column;
   gap: 4px;
 }
+/* The user/assistant rows are differentiated by ONE signal: the user's
+   message is wrapped in a primary-tinted bubble; the assistant's message
+   is plain text that flows naturally. Earlier the component shipped a
+   leading ▸ glyph for user and │ rail for assistant — both removed: with
+   the bubble present, the glyphs were redundant noise, and the rail
+   stranded the assistant text inside a misaligned column.
+
+   Both rows stay left-aligned (no right-aligned WhatsApp-style user
+   bubble) so the editorial flow remains readable for long messages. */
 .ct-user {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75ch;
+  display: flex;
   font-size: 12px;
   line-height: 1.55;
-  color: var(--foreground);
-}
-.ct-user-glyph {
-  color: var(--primary);
-  font-weight: 600;
-  user-select: none;
+  color: var(--color-foreground);
 }
 .ct-user-body {
   white-space: pre-wrap;
   word-break: break-word;
+  background: color-mix(in oklab, var(--color-primary) 9%, var(--color-background));
+  border: 1px solid color-mix(in oklab, var(--color-primary) 16%, transparent);
+  border-radius: 10px;
+  padding: 6px 10px;
+  /* Bubble hugs its content rather than spanning the full chat width —
+     keeps short messages compact and reads as a turn, not a card. The
+     cap stops a very long single line from filling the column edge to
+     edge. */
+  max-width: min(85%, 56ch);
 }
 .ct-assistant {
-  display: grid;
-  grid-template-columns: 1ch 1fr;
-  gap: 0.75ch;
-  align-items: start;
+  display: block;
   min-width: 0;
-}
-.ct-rail {
-  color: var(--muted-foreground);
-  opacity: 0.5;
-  font-size: 12px;
-  line-height: 1.55;
-  user-select: none;
 }
 .ct-assistant-body {
   min-width: 0;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--foreground);
+  color: var(--color-foreground);
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 /* MarkdownMessage renders react-markdown with its own h1/h2/p defaults,
@@ -162,14 +172,14 @@ const INJECTED_CSS = `
 }
 .ct-assistant-body li { margin: 1px 0; }
 .ct-assistant-body code {
-  background: color-mix(in oklab, var(--foreground) 8%, var(--background));
+  background: color-mix(in oklab, var(--color-foreground) 8%, var(--color-background));
   padding: 1px 4px;
   border-radius: 3px;
   font-family: var(--font-mono);
   font-size: 11px;
 }
 .ct-assistant-body pre {
-  background: color-mix(in oklab, var(--foreground) 6%, var(--background));
+  background: color-mix(in oklab, var(--color-foreground) 6%, var(--color-background));
   padding: 6px 8px;
   border-radius: 4px;
   overflow-x: auto;
@@ -185,39 +195,43 @@ const INJECTED_CSS = `
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.8ch;
-  align-items: baseline;
+  /* align-items:start instead of baseline so multi-line wrapped args do
+     not drag the status pill into the middle of the row. Status and
+     tool-name read cleanly off the first line of args. */
+  align-items: start;
   padding: 5px 0;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--color-border);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 11px;
   line-height: 1.5;
-  color: var(--foreground);
+  color: var(--color-foreground);
 }
 .ct-tools > .ct-tool:first-child { border-top: none; }
 .ct-tool[data-flash="true"] {
   animation: _ct_statusFlash 800ms ease-out forwards;
 }
 .ct-tool-name {
-  color: var(--primary);
+  color: var(--color-primary);
   letter-spacing: 0.02em;
   font-weight: 500;
 }
 .ct-tool-args {
-  color: var(--muted-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Always show full args wrapped. overflow-wrap:anywhere breaks inside
+     long unspaced JSON strings (regex sources, paths) so the row never
+     pushes its sibling columns out of view. Previously truncated with an
+     ellipsis + reveal-on-hover; the truncation hid useful debugging info
+     you couldnt see without a mouse. */
+  color: var(--color-muted-foreground);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   min-width: 0;
 }
 .ct-tool:hover .ct-tool-args {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  color: var(--foreground);
+  color: var(--color-foreground);
 }
 .ct-tool-status {
   font-variant-numeric: tabular-nums;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   letter-spacing: 0.04em;
 }
 .ct-tool-status[data-status="ok"]    { color: oklch(60% 0.16 150); }
@@ -231,7 +245,7 @@ const INJECTED_CSS = `
 .ct-dots {
   margin-top: 6px;
   font-size: 14px;
-  color: var(--primary);
+  color: var(--color-primary);
   letter-spacing: 0.3ch;
 }
 .ct-dots > span {
@@ -241,9 +255,21 @@ const INJECTED_CSS = `
 .ct-dots > span:nth-child(2) { animation-delay: 0.16s; }
 .ct-dots > span:nth-child(3) { animation-delay: 0.32s; }
 .ct-composer {
-  border-top: 1px solid var(--border);
-  padding: 10px 14px 12px;
-  background: color-mix(in oklab, var(--foreground) 2%, var(--background));
+  /* The composer is a separate surface from the message stream above —
+     opaque --color-card (usually white) on top of whatever the host page
+     paints behind the chat. The top border uses a 20%-foreground mix
+     instead of --color-border because --color-border is ~92% lightness in
+     this codebase, which disappears on both lavender atmospheres and on
+     white. The upward shadow is supporting polish. */
+  border-top: 1px solid color-mix(in oklab, var(--color-foreground) 20%, transparent);
+  padding: 12px 14px 14px;
+  background: var(--color-card);
+  box-shadow: 0 -8px 18px -10px color-mix(in oklab, var(--color-foreground) 22%, transparent);
+  /* Pin the composer at the bottom of its flex column. Without an explicit
+     flex-shrink: 0 here, a long textarea (autoresize) or a tall hint row
+     can push the composer into the scroll area's flex budget, which leaks
+     extra blank space below the visible chat. */
+  flex-shrink: 0;
 }
 .ct-composer-row {
   display: flex;
@@ -251,7 +277,7 @@ const INJECTED_CSS = `
   gap: 8px;
 }
 .ct-composer-glyph {
-  color: var(--primary);
+  color: var(--color-primary);
   font-family: var(--font-mono);
   font-size: 12px;
   padding-top: 7px;
@@ -265,14 +291,14 @@ const INJECTED_CSS = `
   font-size: 12px;
   line-height: 1.5;
   background: transparent;
-  color: var(--foreground);
+  color: var(--color-foreground);
   border: none;
   outline: none;
   resize: none;
-  caret-color: var(--primary);
+  caret-color: var(--color-primary);
 }
 .ct-textarea::placeholder {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   font-style: italic;
 }
 .ct-meta {
@@ -284,23 +310,23 @@ const INJECTED_CSS = `
 }
 .ct-hint {
   font-size: 10px;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   letter-spacing: 0.04em;
 }
 .ct-hint kbd {
   font-family: var(--font-mono);
-  background: color-mix(in oklab, var(--foreground) 6%, var(--background));
-  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--color-foreground) 6%, var(--color-background));
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0 4px;
   font-size: 9px;
-  color: var(--foreground);
+  color: var(--color-foreground);
 }
 .ct-send {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 11px;
   background: transparent;
-  color: var(--primary);
+  color: var(--color-primary);
   border: none;
   padding: 4px 8px;
   cursor: pointer;
@@ -308,7 +334,7 @@ const INJECTED_CSS = `
   font-weight: 500;
 }
 .ct-send:disabled {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   cursor: not-allowed;
 }
 .ct-send:not(:disabled):hover {
@@ -355,11 +381,13 @@ export function ChatThread(props: ChatThreadProps) {
     endpoint, chatId, fetchHistory, onChatCreated, extraBody,
     renderToolCall, renderAssistantText, placeholder, composerExtras, header,
     onToolResult, onError, className,
+    defaultInput, autoSendDefaultInput,
   } = props;
   const stream = useChatThreadStream({ endpoint, extraBody });
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(defaultInput ?? '');
   const [loadedHistory, setLoadedHistory] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => { ensureStyles(); }, []);
@@ -384,7 +412,17 @@ export function ChatThread(props: ChatThreadProps) {
   }, [chatId]);
 
   useEffect(() => {
-    if (stream.inFlight) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll the chat container directly to its bottom instead of
+    // bottomRef.scrollIntoView. scrollIntoView walks every ancestor
+    // scrollable container — including document.scrollingElement when the
+    // host page has accidentally grown taller than the viewport — and
+    // smooth-scrolls the entire page, leaving a strip of blank space at
+    // the bottom that the user reads as a layout bug. Targeting
+    // scrollRef directly keeps the side-effect scoped to .ct-scroll.
+    if (!stream.inFlight) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [stream.messages, stream.inFlight]);
 
   // Auto-grow the textarea up to a cap.
@@ -420,6 +458,21 @@ export function ChatThread(props: ChatThreadProps) {
     }
   }, [chatId, onChatCreated]);
 
+  // One-shot auto-send: fires when history has loaded, defaultInput is present,
+  // and autoSendDefaultInput is true. The ref guards against double-fire on
+  // re-renders. Matches the bare-route → /c/:id handoff pattern.
+  const hasAutoSentRef = useRef(false);
+  useEffect(() => {
+    if (hasAutoSentRef.current) return;
+    if (!autoSendDefaultInput) return;
+    if (!defaultInput) return;
+    if (!loadedHistory) return;
+    hasAutoSentRef.current = true;
+    setInput('');
+    void stream.send(defaultInput, { chatId });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSendDefaultInput, defaultInput, loadedHistory]);
+
   async function handleSend() {
     const text = input.trim();
     if (!text) return;
@@ -433,23 +486,15 @@ export function ChatThread(props: ChatThreadProps) {
     <div className={rootClass}>
       {header && <div className="ct-header">{header}</div>}
 
-      <div className="ct-scroll">
+      <div className="ct-scroll" ref={scrollRef}>
         {!loadedHistory && (
           <div className="ct-empty">· loading ·</div>
         )}
-
-        {loadedHistory && stream.messages.length === 0 && (
-          <div className="ct-empty">
-            <div style={{ marginBottom: 8 }}>
-              <span className="ct-empty-glyph">▸</span>{' '}
-              start a conversation
-            </div>
-            <div style={{ paddingLeft: '2ch' }}>
-              tell the agent what to change. it will read the manifest,<br />
-              call <span className="ct-empty-glyph">apply_manifest_patch</span>, and confirm.
-            </div>
-          </div>
-        )}
+        {/* No empty-state copy on purpose — the composer placeholder is
+            instruction enough. Earlier we shipped a "start a conversation"
+            block here; removed because every consumer (SuzieCode build
+            chat, starter assistant pages) needed its own copy and the
+            generic version was unwelcome noise. */}
 
         {stream.messages.map((m, i) => (
           <div
@@ -459,12 +504,10 @@ export function ChatThread(props: ChatThreadProps) {
           >
             {m.role === 'user' ? (
               <div className="ct-user">
-                <span className="ct-user-glyph">▸</span>
                 <span className="ct-user-body">{m.content}</span>
               </div>
             ) : (
               <div className="ct-assistant">
-                <span aria-hidden className="ct-rail">│</span>
                 <div className="ct-assistant-body">
                   {m.toolCalls && m.toolCalls.length > 0 && (
                     <div className="ct-tools">

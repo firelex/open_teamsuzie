@@ -304,6 +304,9 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
   // (or a tab-scoped uuid for the bare route's pre-chat send).
   const sessionId = matterId ?? chatId ?? tabSessionId;
   const [chatName, setChatName] = useState<string | null>(null);
+  // Captures the message typed in the bare-route composer so ChatThread can
+  // auto-send it once history finishes loading on the /c/:id route.
+  const [pendingFirstSend, setPendingFirstSend] = useState<string | undefined>(undefined);
   const [bareInput, setBareInput] = useState('');
   // Bare-route only: track in-flight chat creation so the composer can
   // surface a sending state. Once chatId becomes set we navigate away and
@@ -484,9 +487,8 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
 
   // After a fresh navigate from `/` to `/c/:newChatId`, restore the
   // attachments that were uploaded under the bare-route's tabSessionId
-  // and promoted server-side to the new chatId. The pending message is
-  // no longer auto-dispatched (ChatThread owns the composer); the user
-  // resends manually. Follow-up: ChatThread.defaultInput.
+  // and promoted server-side to the new chatId, and capture the pending
+  // message so ChatThread can auto-send it once history loads.
   useEffect(() => {
     const state = location.state as {
       pendingMessage?: string;
@@ -495,6 +497,7 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     if (!chatId || !state?.pendingMessage) return;
     const pendingAttachments = state.pendingAttachments ?? [];
     if (pendingAttachments.length > 0) setAttachments(pendingAttachments);
+    setPendingFirstSend(state.pendingMessage);
     navigate(location.pathname, { replace: true, state: null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
@@ -1008,6 +1011,8 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
             renderAssistantText={renderAssistantText}
             renderToolCall={renderToolCall}
             placeholder={`Message ${agentName}`}
+            defaultInput={pendingFirstSend}
+            autoSendDefaultInput={Boolean(pendingFirstSend)}
             composerExtras={
               <>
                 <input
