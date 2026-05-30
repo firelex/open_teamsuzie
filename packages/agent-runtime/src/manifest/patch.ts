@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import type { AgentManifest } from './schema.js';
-import { validateManifest } from './validate.js';
+import type { AgentManifestV2 } from './v2/schema.js';
+import { validateManifestAny } from './validate.js';
 import { snapshotManifest, type HistorySourceKind } from './history.js';
 
 export interface AnchorPatch {
@@ -46,7 +47,7 @@ export function applyAnchorPatches(text: string, patches: AnchorPatch[]): ApplyR
 }
 
 export type ApplyAndPersistResult =
-  | { ok: true; manifest: AgentManifest; applied: AnchorPatch[]; rejected: RejectedPatch[]; snapshotTs: string }
+  | { ok: true; manifest: AgentManifest | AgentManifestV2; applied: AnchorPatch[]; rejected: RejectedPatch[]; snapshotTs: string }
   | { ok: false; reason: string; applied: AnchorPatch[]; rejected: RejectedPatch[] };
 
 export function applyAndPersistPatches(args: {
@@ -75,7 +76,7 @@ export function applyAndPersistPatches(args: {
       rejected,
     };
   }
-  const validation = validateManifest(parsed);
+  const validation = validateManifestAny(parsed);
   if (!validation.ok) {
     return { ok: false, reason: `Schema validation failed: ${validation.errors.join('; ')}`, applied, rejected };
   }
