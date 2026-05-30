@@ -50,6 +50,10 @@ export function reduceEvents(
 export interface UseChatThreadStreamArgs {
   endpoint: string;
   extraBody?: Record<string, unknown>;
+  /** Lazy-initialized seed for the message state. Used when the parent
+   *  has a per-chat cache it wants to restore synchronously on mount.
+   *  Only consulted on first render; later changes are ignored. */
+  initialMessages?: ChatThreadMessage[];
 }
 
 export interface UseChatThreadStreamResult {
@@ -63,7 +67,9 @@ export interface UseChatThreadStreamResult {
 
 export function useChatThreadStream(args: UseChatThreadStreamArgs): UseChatThreadStreamResult {
   const { endpoint, extraBody } = args;
-  const [messages, setMessagesState] = useState<ChatThreadMessage[]>([]);
+  const [messages, setMessagesState] = useState<ChatThreadMessage[]>(
+    () => args.initialMessages ?? [],
+  );
   const [inFlight, setInFlight] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);

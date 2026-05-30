@@ -54,4 +54,17 @@ export interface ChatThreadProps {
    *  defaultInput to implement the bare-route auto-dispatch without exposing
    *  an imperative send ref. */
   autoSendDefaultInput?: boolean;
+  /** Pre-populate the thread with these messages on mount so a remount
+   *  (e.g. when the parent switches between cached chat surfaces) restores
+   *  visible state synchronously instead of flickering through an empty
+   *  state while fetchHistory roundtrips. When both initialMessages and
+   *  fetchHistory are set, initialMessages renders first and fetchHistory
+   *  runs in the background to refresh. */
+  initialMessages?: ChatThreadMessage[];
+  /** Fires whenever the thread's message list changes — initial population,
+   *  streaming chunks, completed turns, tool events. Parents use this to
+   *  cache per-chat state so they can pass initialMessages on a subsequent
+   *  remount of the same chat. Fires frequently during streaming; debounce
+   *  in the parent if needed. */
+  onMessagesChange?: (messages: ChatThreadMessage[]) => void;
 }

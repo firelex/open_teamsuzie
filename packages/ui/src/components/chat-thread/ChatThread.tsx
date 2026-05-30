@@ -453,10 +453,23 @@ export function ChatThread(props: ChatThreadProps) {
     renderToolCall, renderAssistantText, placeholder, composerExtras, header,
     onToolResult, onError, className,
     defaultInput, autoSendDefaultInput,
+    initialMessages, onMessagesChange,
   } = props;
-  const stream = useChatThreadStream({ endpoint, extraBody });
+  const stream = useChatThreadStream({ endpoint, extraBody, initialMessages });
   const [input, setInput] = useState(defaultInput ?? '');
-  const [loadedHistory, setLoadedHistory] = useState(false);
+  // When initialMessages is provided, the hook seeds messages synchronously
+  // (via lazy useState init) so the empty-state flash never appears. Mark
+  // loadedHistory true up-front; fetchHistory (if also provided) still runs
+  // below to refresh in the background.
+  const [loadedHistory, setLoadedHistory] = useState(
+    Boolean(initialMessages && initialMessages.length > 0),
+  );
+
+  // Subscribe parents to message changes for caching. Fires on initial
+  // seed and every streaming chunk — debounce in the parent if needed.
+  useEffect(() => {
+    onMessagesChange?.(stream.messages);
+  }, [stream.messages, onMessagesChange]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
