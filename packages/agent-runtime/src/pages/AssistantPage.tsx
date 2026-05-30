@@ -991,7 +991,14 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
         </>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
-          {chatName && (
+          {/* Render the chat title header only when the server has assigned a
+              real title. The chat-route renames the default "New chat" to a
+              60-char preview of the first user line in its finally block, so
+              "New chat" only appears before the first turn completes — at
+              which point the header is a redundant placeholder (the sidebar
+              already shows it). Hide it to avoid the "New chat at the top of
+              a new chat" noise. */}
+          {chatName && chatName !== 'New chat' && (
             <div className="mx-auto w-full max-w-3xl border-b border-border px-6 pb-3 pt-3 text-xs text-muted-foreground">
               {chatName}
             </div>
