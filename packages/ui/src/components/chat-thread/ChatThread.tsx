@@ -476,10 +476,20 @@ export function ChatThread(props: ChatThreadProps) {
 
   useEffect(() => { ensureStyles(); }, []);
 
-  // Initial history load.
+  // Initial history load. When the parent provided `initialMessages`
+  // (cache hit), skip the fetch entirely — the cache is the most recent
+  // state we know, and the parent keeps it fresh via `onMessagesChange`.
+  // Without this guard, the background fetch's setMessages would race
+  // the cached state: identical data triggers a needless re-render (and
+  // any chat-area transition), and stale server data clobbers in-flight
+  // edits the user made just before switching away.
+  const hadInitialMessagesRef = useRef(
+    Boolean(initialMessages && initialMessages.length > 0),
+  );
   useEffect(() => {
     let cancelled = false;
     if (!chatId || !fetchHistory) { setLoadedHistory(true); return; }
+    if (hadInitialMessagesRef.current) { setLoadedHistory(true); return; }
     (async () => {
       try {
         const history = await fetchHistory(chatId);
