@@ -1,0 +1,28 @@
+{
+  "name": "@teamsuzie/legal-research",
+  "version": "0.1.0",
+  "description": "Legal research tool surface for @teamsuzie/agent-runtime apps. 26 jurisdiction providers + 3 unified tools (legal_search, legal_get_document, legal_find_in_document).",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/agent-loop": "workspace:*",
+    "@teamsuzie/agent-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
