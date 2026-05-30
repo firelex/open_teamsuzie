@@ -3,6 +3,33 @@ import { readFileSync, existsSync } from 'node:fs';
 import { startAgent } from '@teamsuzie/agent-runtime/server';
 import type { Extension } from '@teamsuzie/agent-runtime/extensions';
 
+function parseJsonObject(value: string | undefined): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    console.warn('[omnibus] AGENT_EXTRA_BODY must be a JSON object; ignoring');
+    return undefined;
+  } catch {
+    console.warn('[omnibus] AGENT_EXTRA_BODY is not valid JSON; ignoring');
+    return undefined;
+  }
+}
+
+function resolveAgentFromEnv(): { baseUrl: string; model: string; apiKey?: string; extraBody?: Record<string, unknown> } | undefined {
+  const baseUrl = process.env.AGENT_BASE_URL;
+  const model = process.env.AGENT_MODEL;
+  if (!baseUrl || !model) return undefined;
+  return {
+    baseUrl,
+    model,
+    apiKey: process.env.AGENT_API_KEY,
+    extraBody: parseJsonObject(process.env.AGENT_EXTRA_BODY),
+  };
+}
+
 async function main(): Promise<void> {
   const manifestPath = './agent.json';
   const extensions: Extension[] = [];
@@ -30,6 +57,11 @@ async function main(): Promise<void> {
     }
   }
 
+  const agent = resolveAgentFromEnv();
+  if (!agent) {
+    console.warn('[omnibus] AGENT_BASE_URL / AGENT_MODEL not set — /api/chat will return 503.');
+  }
+
   await startAgent({
     manifestPath,
     dbPath: process.env.DB_PATH ?? './data/agent.db',
@@ -37,6 +69,7 @@ async function main(): Promise<void> {
     workflowsSeedPath: './workflows.seed.json',
     devAuth: process.env.AGENT_DEV_AUTH === 'true',
     extensions,
+    agent,
   });
 }
 
