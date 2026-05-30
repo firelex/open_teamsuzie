@@ -27,7 +27,7 @@ function SidebarHeader({
   return (
     <div
       data-slot="sidebar-header"
-      className={cn("flex h-14 items-center px-4", className)}
+      className={cn("flex min-h-14 items-center px-4 py-3", className)}
       {...props}
     />
   )

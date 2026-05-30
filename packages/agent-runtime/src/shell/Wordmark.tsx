@@ -25,7 +25,7 @@ export function Wordmark({ title, theme, logo }: Props) {
   // .ts-text-fancy renders the wordmark in the active design's brand gradient.
   const wordmarkClass = 'ts-text-fancy font-display text-[1.05rem] font-bold tracking-[-0.02em]';
   if (style !== 'two-line') {
-    return <div className={wordmarkClass}>{upper}</div>;
+    return <div className={`${wordmarkClass} line-clamp-2`}>{upper}</div>;
   }
   const parts = upper.split(' ');
   const head = parts.slice(0, -1).join(' ') || parts[0];
