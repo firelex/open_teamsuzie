@@ -1050,6 +1050,9 @@ importers:
       '@teamsuzie/agent-runtime':
         specifier: workspace:*
         version: link:../../../packages/agent-runtime
+      '@teamsuzie/legal-research':
+        specifier: workspace:*
+        version: link:../../../packages/legal-research
       '@teamsuzie/ui':
         specifier: workspace:*
         version: link:../../../packages/ui

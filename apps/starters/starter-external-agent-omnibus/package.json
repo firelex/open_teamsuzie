@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@teamsuzie/agent-runtime": "workspace:*",
+    "@teamsuzie/legal-research": "workspace:*",
+    "@teamsuzie/ui": "workspace:*",
     "dotenv": "^16.6.0"
   },
   "devDependencies": {
