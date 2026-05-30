@@ -1,4 +1,4 @@
-"""Client for pe-settings-host's `/api/settings/llm/effective` endpoint.
+"""Client for pe-settings-host's `/api/settings/effective` endpoint.
 
 pe-settings-host is the single source of truth for LLM configuration
 across the PE suite. Every generate call resolves
@@ -62,7 +62,7 @@ class SettingsHostClient:
             if self._cached is not None and self._expires_at > now:
                 return self._cached
 
-        url = f"{self._base_url}/api/settings/llm/effective"
+        url = f"{self._base_url}/api/settings/effective"
         headers = {"internal-service-token": self._internal_token}
         try:
             resp = self._client.get(url, headers=headers)
