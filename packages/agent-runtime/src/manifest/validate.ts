@@ -152,3 +152,32 @@ export function validateManifest(raw: unknown): ValidateResult {
   });
   return { ok: false, errors };
 }
+
+import { manifestV2Schema } from './v2/validate.js';
+import type { AgentManifestV2 } from './v2/schema.js';
+
+export type ValidateAnyResult =
+  | { ok: true; value: AgentManifest | AgentManifestV2; version: 1 | 2 }
+  | { ok: false; errors: string[] };
+
+/**
+ * Validate a manifest as v2 OR v1. v2 is tried first (the new normal as of
+ * Section B/C migrations); v1 is the fallback for legacy manifests. When
+ * both fail, the v2 errors are returned because most live manifests should
+ * be v2 and the v2 errors are more actionable.
+ */
+export function validateManifestAny(raw: unknown): ValidateAnyResult {
+  const v2 = manifestV2Schema.safeParse(raw);
+  if (v2.success) {
+    return { ok: true, value: v2.data as unknown as AgentManifestV2, version: 2 };
+  }
+  const v1 = agentManifestSchema.safeParse(raw);
+  if (v1.success) {
+    return { ok: true, value: v1.data as AgentManifest, version: 1 };
+  }
+  const errors = v2.error.issues.map((iss) => {
+    const path = iss.path.length ? iss.path.join('.') : '(root)';
+    return `${path}: ${iss.message}`;
+  });
+  return { ok: false, errors };
+}
