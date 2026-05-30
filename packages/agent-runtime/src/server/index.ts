@@ -57,7 +57,7 @@ import {
   ManifestStore, resolveModules, listPersonas, findPersona,
   type AgentManifest, type ManifestTool,
 } from '../manifest/index.js';
-import { loadExtensions } from '../extensions/index.js';
+import { loadExtensions, type Extension } from '../extensions/index.js';
 import { createAiDraftRouter, createCoreAiDraftKinds } from './ai-draft.js';
 import { createChatRouter } from './chat-route.js';
 import { buildDocumentTools } from './document-tools.js';
@@ -117,6 +117,13 @@ export interface StartAgentOptions {
   agentRegistry?: import('@teamsuzie/agent-loop').AgentTargetRegistry;
   /** Directory to scan for extensions. Default './extensions' (relative to cwd). */
   extensionsDir?: string;
+  /**
+   * Programmatically-supplied extensions. Merged with directory-loaded
+   * extensions (extensionsDir) in registration order: directory-loaded
+   * first, then these. Useful for apps that import an extension package
+   * (e.g. @teamsuzie/legal-research) and want to wire it conditionally.
+   */
+  extensions?: Extension[];
   /** Path to the build's public/static assets directory. Default './public'. */
   publicDir?: string;
   /**
@@ -435,6 +442,21 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
     }
     console.log(
       `[agent-runtime] loaded extension '${ext.name}': `
+      + `${(ext.modules ?? []).length} modules, `
+      + `${(ext.tools ?? []).length} tools, `
+      + `${Object.keys(ext.aiDraftKinds ?? {}).length} aiDraftKinds`,
+    );
+  }
+
+  for (const ext of opts.extensions ?? []) {
+    const meta = { source: 'extension' as const, extensionName: ext.name };
+    for (const m of ext.modules ?? []) registry.register(m, meta);
+    for (const t of ext.tools ?? []) toolRegistry.register(t, meta);
+    for (const [kind, handler] of Object.entries(ext.aiDraftKinds ?? {})) {
+      aiKinds.register(kind, handler, meta);
+    }
+    console.log(
+      `[agent-runtime] loaded programmatic extension '${ext.name}': `
       + `${(ext.modules ?? []).length} modules, `
       + `${(ext.tools ?? []).length} tools, `
       + `${Object.keys(ext.aiDraftKinds ?? {}).length} aiDraftKinds`,
