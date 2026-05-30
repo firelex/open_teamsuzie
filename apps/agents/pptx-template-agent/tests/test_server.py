@@ -105,3 +105,53 @@ def test_template_binary_returns_bytes(client, template_id):
 def test_template_binary_unknown_id(client):
     r = client.get("/api/templates/nope/binary")
     assert r.status_code == 404
+
+
+def test_status_returns_event_log_with_since_cursor():
+    """The status endpoint surfaces the job's event log so drafter can render
+    per-turn / per-tool progress. `since` is an inclusive cursor: passing the
+    count of events already seen returns only newer ones.
+    """
+    from pptx_template_agent.services import jobs as jobs_svc
+    from pptx_template_agent.server import app
+    from fastapi.testclient import TestClient
+
+    c = TestClient(app)
+
+    job = jobs_svc.Job(id="evt-test", status="processing")
+    jobs_svc.create(job)
+    jobs_svc.append_event(job, "turn 1: model")
+    jobs_svc.append_event(job, "  tool: add_slide")
+    jobs_svc.append_event(job, "  tool: set_text")
+
+    r = c.get("/api/presentations/evt-test/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "processing"
+    assert body["events"] == ["turn 1: model", "  tool: add_slide", "  tool: set_text"]
+    assert body["events_total"] == 3
+
+    # since=2 returns only the third (index 2) event.
+    r2 = c.get("/api/presentations/evt-test/status?since=2")
+    body2 = r2.json()
+    assert body2["events"] == ["  tool: set_text"]
+    assert body2["events_total"] == 3
+
+    # since past the end returns empty without erroring.
+    r3 = c.get("/api/presentations/evt-test/status?since=99")
+    body3 = r3.json()
+    assert body3["events"] == []
+    assert body3["events_total"] == 3
+
+
+def test_append_event_caps_at_max():
+    """Event log is bounded — oldest entries drop when MAX_EVENTS is exceeded."""
+    from pptx_template_agent.services import jobs as jobs_svc
+
+    job = jobs_svc.Job(id="cap-test")
+    for i in range(jobs_svc.MAX_EVENTS + 50):
+        jobs_svc.append_event(job, f"event-{i}")
+    assert len(job.events) == jobs_svc.MAX_EVENTS
+    # First retained event is the 51st we appended (index 50).
+    assert job.events[0] == "event-50"
+    assert job.events[-1] == f"event-{jobs_svc.MAX_EVENTS + 49}"

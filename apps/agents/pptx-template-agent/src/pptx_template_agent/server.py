@@ -176,6 +176,10 @@ async def generate(req: GenerateRequest, request: Request) -> dict[str, str]:
     job = Job(id=job_id, template_id=req.template_id, agent_api_key=agent_api_key)
     jobs.create(job)
 
+    def _on_event(msg: str) -> None:
+        log.info("[%s] %s", job_id[:8], msg)
+        jobs.append_event(job, msg)
+
     async def runner() -> None:
         try:
             report = await asyncio.to_thread(
@@ -184,7 +188,7 @@ async def generate(req: GenerateRequest, request: Request) -> dict[str, str]:
                 template_path,
                 output_path,
                 model=req.model,
-                on_event=lambda m: log.info("[%s] %s", job_id[:8], m),
+                on_event=_on_event,
                 settings_host=settings_host_client,
             )
             job.status = "completed"
@@ -216,16 +220,28 @@ async def generate(req: GenerateRequest, request: Request) -> dict[str, str]:
 # ---- Status / download -------------------------------------------------------
 
 @app.get("/api/presentations/{job_id}/status")
-async def status(job_id: str) -> JSONResponse:
+async def status(job_id: str, since: int = 0) -> JSONResponse:
+    """Job status. `since` is an inclusive cursor into the event log: pass
+    the number of events the caller has already seen and the response returns
+    only events at indices >= since. Default 0 returns the full log.
+
+    `events_total` is the absolute count after this response; the caller uses
+    it as the next `since` value to get only newer events on the next poll.
+    """
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(404, "unknown job_id")
+    total = len(job.events)
+    start = max(0, min(since, total))
+    new_events = job.events[start:]
     return JSONResponse({
         "job_id": job.id,
         "status": job.status,
         "file_available": bool(job.file_path),
         "error": job.error,
         "missing": job.missing,
+        "events": new_events,
+        "events_total": total,
     })
 
 
