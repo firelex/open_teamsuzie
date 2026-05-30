@@ -194,7 +194,34 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   const matterMetadataStore = new MatterMetadataStore({ db });
 
   const personasDir = path.resolve(opts.personasDir ?? './personas');
-  const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db });
+  // Surface manifest.persona + manifest.extraPersonas as inline builtins so
+  // SuziCode-style builds (whose architect emits personas into agent.json
+  // rather than to disk) see them in the registry without needing a
+  // side-write at materialization time. Filesystem entries win on id
+  // collision — see PersonaRegistry constructor for the merge rule.
+  const manifestForPersonas = manifestStore.get() as unknown as {
+    persona?: { id?: string; name?: string; description?: string; avatar?: string; model?: string; systemPrompt?: string; allowedTools?: string[]; blockedTools?: string[] };
+    extraPersonas?: Array<{ id?: string; name?: string; description?: string; avatar?: string; model?: string; systemPrompt?: string; allowedTools?: string[]; blockedTools?: string[] }>;
+  };
+  const inlinePersonas = [
+    ...(manifestForPersonas.persona ? [manifestForPersonas.persona] : []),
+    ...(manifestForPersonas.extraPersonas ?? []),
+  ]
+    .filter((p): p is NonNullable<typeof p> & { id: string; systemPrompt: string } =>
+      typeof p?.id === 'string' && p.id.length > 0 && typeof p?.systemPrompt === 'string'
+    )
+    .map((p) => ({
+      id: p.id,
+      source: 'builtin' as const,
+      name: p.name ?? p.id,
+      description: p.description ?? '',
+      avatar: p.avatar,
+      model: p.model,
+      allowedTools: p.allowedTools,
+      blockedTools: p.blockedTools,
+      systemPrompt: p.systemPrompt,
+    }));
+  const personaRegistry = new PersonaRegistry({ filesystemDir: personasDir, db, inlinePersonas });
 
   // One-shot seed: copy file-based builtin personas into the owner's editable
   // store. Without this, the UI shows them as read-only builtins forever (the

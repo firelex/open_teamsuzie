@@ -9,6 +9,13 @@ export interface PersonaRegistryOptions {
   /** Open SQLite database for user-created personas. Migrations must already
    *  have been applied (see `PERSONAS_MIGRATIONS`). */
   db?: DatabaseInstance;
+  /** Inline personas supplied by the host at boot — typically derived from
+   *  `manifest.persona` + `manifest.extraPersonas` so SuzieCode-style apps
+   *  whose personas live in agent.json (rather than on disk) surface them
+   *  in the registry without writing files. Merged with `filesystemDir`
+   *  builtins; on id collision the filesystem entry wins (it can be
+   *  hand-edited by the operator). */
+  inlinePersonas?: Persona[];
 }
 
 /**
@@ -24,7 +31,16 @@ export class PersonaRegistry {
   private readonly seedDb: DatabaseInstance | null;
 
   constructor(opts: PersonaRegistryOptions) {
-    this.builtins = opts.filesystemDir ? loadPersonasFromDir(opts.filesystemDir) : [];
+    const fileBuiltins = opts.filesystemDir ? loadPersonasFromDir(opts.filesystemDir) : [];
+    const inline = opts.inlinePersonas ?? [];
+    // Merge: filesystem first (so its ids win on collision), then add inline
+    // entries whose ids aren't already present. This means SuzieCode-style
+    // manifest-only builds get their personas surfaced; operators who hand-edit
+    // filesystem files still see those edits take precedence over manifest
+    // values. Identical ids get one entry, not two.
+    const seenIds = new Set(fileBuiltins.map((p) => p.id));
+    const inlineAdditions = inline.filter((p) => !seenIds.has(p.id));
+    this.builtins = [...fileBuiltins, ...inlineAdditions];
     this.store = opts.db ? new PersonaStore(opts.db) : null;
     this.seedDb = opts.db ?? null;
   }
