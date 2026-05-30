@@ -12,7 +12,7 @@ import {
   AssistantPage, LibraryPage, MattersPage, MatterDetailPage,
   PersonasPage, HistoryPage, ReviewDetailPage, ReviewsPage, SettingsPage,
 } from '../pages/index.js';
-import { DEFAULT_MODULES, resolveMattersLabel } from '../manifest/defaults.js';
+import { DEFAULT_MODULES, resolveModules, resolveMattersLabel } from '../manifest/defaults.js';
 import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
 import { useThemeFontLinks } from './useThemeFontLinks.js';
 import { useThemeTokens } from './useThemeTokens.js';
@@ -61,10 +61,6 @@ function navigationOf(m: AgentManifest | null): { items: NavItemRead[] } | undef
 
 function audienceOf(m: AgentManifest | null): AudienceState | undefined {
   return (m as unknown as { audience?: AudienceState } | null)?.audience;
-}
-
-function resolveModules(m: AgentManifest | null): ManifestModules {
-  return { ...DEFAULT_MODULES, ...((m?.modules) ?? {}) };
 }
 
 function AssistantChatRoute({ agentName }: { agentName: string }) {
@@ -116,7 +112,7 @@ export function AgentApp() {
     return () => { cancelled = true; window.clearInterval(id); };
   }, []);
 
-  const mods = resolveModules(manifest);
+  const mods = manifest ? resolveModules(manifest) : DEFAULT_MODULES;
   const brand = brandOf(manifest);
   const home = homeOf(manifest);
   const legal = legalOf(manifest);

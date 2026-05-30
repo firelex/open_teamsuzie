@@ -356,8 +356,9 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // `buildDocumentTools` bundle below (which the chat-route invokes with
   // the live sessionId). Drafting tools are gated on `modules.drafting`.
 
-  const redlineEnabled = Boolean(manifest.modules?.redline);
-  const draftingEnabled = Boolean(manifest.modules?.drafting);
+  const resolved = resolveModules(manifest);
+  const redlineEnabled = Boolean(resolved.redline);
+  const draftingEnabled = Boolean(resolved.drafting);
   if (markitdownBaseUrl && redlineEnabled) {
     toolRegistry.register(buildProposeDocumentEditsTool({
       fileStore,
