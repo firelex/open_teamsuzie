@@ -32,7 +32,7 @@ import { MarkdownMessage } from '../markdown-message.js';
 // Bump the version suffix whenever the INJECTED_CSS string changes —
 // `ensureStyles` early-returns when a tag with this id already exists, so
 // without a bump a hot-reloaded page keeps serving the prior CSS revision.
-const STYLE_ID = 'teamsuzie-chat-thread-styles-v10';
+const STYLE_ID = 'teamsuzie-chat-thread-styles-v11';
 const INJECTED_CSS = `
 @keyframes _ct_slideUp {
   from { opacity: 0; transform: translateY(4px); }
@@ -242,6 +242,50 @@ const INJECTED_CSS = `
   margin-top: 2px;
   white-space: pre-wrap;
 }
+/* Truncated tool-args render as a <details>. Summary line behaves like
+   .ct-tool-args; clicking it expands a <pre> with the full pretty-printed
+   JSON below the row. Threshold + truncation logic lives in
+   DefaultToolCallCard. */
+details.ct-tool-args {
+  min-width: 0;
+}
+details.ct-tool-args > summary.ct-tool-args-summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+  overflow-wrap: anywhere;
+}
+details.ct-tool-args > summary.ct-tool-args-summary::-webkit-details-marker {
+  display: none;
+}
+details.ct-tool-args[open] > summary.ct-tool-args-summary {
+  color: var(--color-foreground);
+}
+.ct-tool-args-expand {
+  margin-left: 0.8ch;
+  color: var(--color-primary);
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+details.ct-tool-args[open] .ct-tool-args-expand {
+  opacity: 0;
+}
+.ct-tool-args-full {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-foreground);
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .ct-dots {
   margin-top: 6px;
   font-size: 14px;
@@ -352,20 +396,47 @@ function ensureStyles(): void {
   document.head.appendChild(el);
 }
 
+/** Tool-call args above this character count collapse behind a <details>
+ *  toggle. Short calls render inline (the old behavior) so simple
+ *  `{"key":"foo"}`-style args stay scannable; large patches (e.g. an
+ *  update_manifest_fields call with multi-paragraph systemPrompt strings)
+ *  no longer fill the entire chat panel. */
+const TOOL_ARGS_INLINE_LIMIT = 160;
+
 function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
-  const summary = (() => {
+  const argsView = (() => {
     try {
-      const s = JSON.stringify(call.args);
-      // Strip outer braces for a less JSON-y read.
-      return s.startsWith('{') && s.endsWith('}') ? s.slice(1, -1) : s;
+      const compact = JSON.stringify(call.args);
+      const trimmed = compact.startsWith('{') && compact.endsWith('}')
+        ? compact.slice(1, -1)
+        : compact;
+      if (trimmed.length <= TOOL_ARGS_INLINE_LIMIT) {
+        return { mode: 'inline' as const, summary: trimmed };
+      }
+      return {
+        mode: 'truncated' as const,
+        summary: trimmed.slice(0, TOOL_ARGS_INLINE_LIMIT) + '…',
+        full: JSON.stringify(call.args, null, 2),
+        extraChars: trimmed.length - TOOL_ARGS_INLINE_LIMIT,
+      };
     } catch {
-      return '…';
+      return { mode: 'inline' as const, summary: '…' };
     }
   })();
   return (
     <div className="ct-tool" data-flash={call.status !== 'running'}>
       <span className="ct-tool-name">⟢ {call.name}</span>
-      <span className="ct-tool-args">{summary || '·'}</span>
+      {argsView.mode === 'truncated' ? (
+        <details className="ct-tool-args">
+          <summary className="ct-tool-args-summary">
+            {argsView.summary || '·'}
+            <span className="ct-tool-args-expand"> +{argsView.extraChars.toLocaleString()} chars</span>
+          </summary>
+          <pre className="ct-tool-args-full">{argsView.full}</pre>
+        </details>
+      ) : (
+        <span className="ct-tool-args">{argsView.summary || '·'}</span>
+      )}
       <span className="ct-tool-status" data-status={call.status}>
         {call.status === 'running' ? '· · ·' : call.status === 'ok' ? 'ok' : 'err'}
       </span>
