@@ -4,7 +4,7 @@ import type { Chat } from '@teamsuzie/chats';
 import {
   ConfirmDialogProvider, SidebarNavItem, SidePanelProvider,
 } from '@teamsuzie/ui';
-import { ClientSafeProvider, type AudienceState } from './ClientSafeContext.js';
+import { ClientSafeProvider, useClientSafe, type AudienceState } from './ClientSafeContext.js';
 import { AppLayout } from './AppLayout.js';
 import { Sidebar, type NavItem } from './Sidebar.js';
 import { Wordmark } from './Wordmark.js';
@@ -13,7 +13,7 @@ import {
   PersonasPage, HistoryPage, ReviewDetailPage, ReviewsPage, SettingsPage,
 } from '../pages/index.js';
 import { DEFAULT_MODULES, resolveModules, resolveMattersLabel } from '../manifest/defaults.js';
-import type { AgentManifest, ManifestModules } from '../manifest/schema.js';
+import type { AgentManifest } from '../manifest/schema.js';
 import { useThemeFontLinks } from './useThemeFontLinks.js';
 import { useThemeTokens } from './useThemeTokens.js';
 
@@ -92,6 +92,150 @@ function AssistantNavLink(props: AssistantNavLinkProps) {
   return <Link {...props} to={to} aria-current={isActive ? 'page' : undefined}>Assistant</Link>;
 }
 
+/** Nav ids that are hidden in client-safe mode. */
+const DEV_ONLY_NAV_IDS = new Set(['settings', 'personas']);
+
+interface AgentAppInnerProps {
+  manifest: AgentManifest | null;
+  health: HealthResponse | null;
+}
+
+/**
+ * Inner shell — rendered inside <ClientSafeProvider> so it can call
+ * useClientSafe() to gate developer-facing UI when clientSafeMode is active.
+ */
+function AgentAppInner({ manifest, health }: AgentAppInnerProps) {
+  const { isClientSafe } = useClientSafe();
+
+  const mods = manifest ? resolveModules(manifest) : DEFAULT_MODULES;
+  const brand = brandOf(manifest);
+  const home = homeOf(manifest);
+  const legal = legalOf(manifest);
+  const disclaimerText = legal?.disclaimer?.trim() ?? '';
+  const placement = home?.disclaimerPlacement ?? 'footer';
+  const showProminent = placement === 'prominent' && disclaimerText.length > 0;
+  const showFooterDisclaimer = placement === 'footer' && disclaimerText.length > 0;
+  const jurisdictionsText = (legal?.jurisdictions ?? []).join(', ');
+  const title = brand?.name ?? manifest?.name ?? health?.title ?? 'Agent';
+  const sidebarTitle = brand?.shortName ?? title;
+  const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
+  const theme = manifest?.theme ?? { id: 'default' };
+
+  const navItems = navigationOf(manifest)?.items ?? [];
+
+  const idToCap: Record<string, boolean> = {
+    assistant: true,
+    matters: Boolean(mods.matters),
+    library: Boolean(mods.library),
+    personas: Boolean(mods.personas),
+    reviews: Boolean(mods.reviews),
+    history: Boolean(mods.history),
+  };
+
+  // Fix 4: sort navItems by order field before deriving orderedIds.
+  // Array.prototype.sort is stable (ES2019+); items without an order go last.
+  const sortedNavItems = [...navItems].sort((a, b) => {
+    const ao = a.order ?? Infinity;
+    const bo = b.order ?? Infinity;
+    return ao - bo;
+  });
+
+  // Prefer manifest.navigation.items when present; fall back to legacy
+  // module-derived order otherwise.
+  const orderedIds = sortedNavItems.length > 0
+    ? sortedNavItems.map((n) => n.id).filter((id) => idToCap[id] !== undefined)
+    : ['assistant', 'matters', 'library', 'personas', 'reviews', 'history'];
+
+  const mattersLabel = manifest
+    ? resolveMattersLabel(manifest)
+    : { singular: 'Matter', plural: 'Matters' };
+
+  const items: NavItem[] = [];
+  for (const id of orderedIds) {
+    if (!idToCap[id]) continue;
+    // Fix 2: hide developer-only nav items in client-safe mode.
+    if (isClientSafe && DEV_ONLY_NAV_IDS.has(id)) continue;
+    const fromManifest = sortedNavItems.find((n) => n.id === id);
+    if (fromManifest && !fromManifest.visible) continue;
+    const defaultLabel =
+      id === 'assistant' ? 'Assistant'
+      : id === 'matters' ? mattersLabel.plural
+      : id.charAt(0).toUpperCase() + id.slice(1);
+    const label = fromManifest?.label ?? defaultLabel;
+    const to = id === 'assistant' ? '/' : `/${id}`;
+    items.push({ to, label, testId: `nav-${id}` });
+  }
+
+  return (
+    <SidePanelProvider>
+    <ConfirmDialogProvider>
+    <AppLayout
+      sidebar={
+        <Sidebar
+          theme={theme}
+          header={
+            <>
+              <Wordmark title={sidebarTitle} theme={theme} logo={brand?.logo} />
+              {brand?.tagline && (
+                <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                  {brand.tagline}
+                </div>
+              )}
+            </>
+          }
+          items={items}
+          renderItem={(item) => (
+            item.label === 'Assistant'
+              ? <SidebarNavItem asChild><AssistantNavLink /></SidebarNavItem>
+              : <SidebarNavItem asChild><NavLink to={item.to}>{item.label}</NavLink></SidebarNavItem>
+          )}
+          footer={
+            <>
+              {/* Fix 2: Settings nav link hidden in client-safe mode. */}
+              {mods.settings && !isClientSafe && (
+                <SidebarNavItem asChild>
+                  <NavLink to="/settings">Settings</NavLink>
+                </SidebarNavItem>
+              )}
+              {(jurisdictionsText.length > 0 || showFooterDisclaimer) && (
+                <div className="mt-2 border-t border-border pt-2 px-2 text-[10.5px] leading-[1.4] text-muted-foreground">
+                  {jurisdictionsText.length > 0 && (
+                    <div>Jurisdictions: {jurisdictionsText}</div>
+                  )}
+                  {showFooterDisclaimer && (
+                    <div className="mt-1 italic">{disclaimerText}</div>
+                  )}
+                </div>
+              )}
+            </>
+          }
+        />
+      }
+    >
+      {showProminent && (
+        <div className="border-b border-border bg-muted/50 px-6 py-2 text-[12.5px] text-foreground">
+          {disclaimerText}
+        </div>
+      )}
+      <Routes>
+        <Route path="/" element={<AssistantPage agentName={agentName} />} />
+        <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
+        {mods.matters  && <Route path="/matters"                          element={<MattersPage manifest={manifest} />} />}
+        {mods.matters  && <Route path="/matters/:matterId"                 element={<MatterDetailPage manifest={manifest} />} />}
+        {mods.matters && mods.reviews && <Route path="/matters/:matterId/reviews/:reviewId" element={<ReviewDetailPage manifest={manifest} />} />}
+        {mods.matters  && <Route path="/m/:matterId/c/:chatId"             element={<MatterChatRoute agentName={agentName} />} />}
+        {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
+        {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
+        {mods.reviews  && <Route path="/reviews"  element={<ReviewsPage />} />}
+        {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
+        {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
+      </Routes>
+    </AppLayout>
+    </ConfirmDialogProvider>
+    </SidePanelProvider>
+  );
+}
+
 export function AgentApp() {
   const [manifest, setManifest] = useState<AgentManifest | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -112,19 +256,10 @@ export function AgentApp() {
     return () => { cancelled = true; window.clearInterval(id); };
   }, []);
 
-  const mods = manifest ? resolveModules(manifest) : DEFAULT_MODULES;
   const brand = brandOf(manifest);
-  const home = homeOf(manifest);
-  const legal = legalOf(manifest);
-  const disclaimerText = legal?.disclaimer?.trim() ?? '';
-  const placement = home?.disclaimerPlacement ?? 'footer';
-  const showProminent = placement === 'prominent' && disclaimerText.length > 0;
-  const showFooterDisclaimer = placement === 'footer' && disclaimerText.length > 0;
-  const jurisdictionsText = (legal?.jurisdictions ?? []).join(', ');
-  const title = brand?.name ?? manifest?.name ?? health?.title ?? 'Agent';
-  const sidebarTitle = brand?.shortName ?? title;
-  const agentName = manifest?.persona?.name ?? health?.agent?.name ?? 'Agent';
   const theme = manifest?.theme ?? { id: 'default' };
+  const title = brand?.name ?? manifest?.name ?? health?.title ?? 'Agent';
+  const audience = audienceOf(manifest);
 
   // Push the brand name into the browser tab title.
   useEffect(() => {
@@ -156,108 +291,9 @@ export function AgentApp() {
   // overridden by these inline styles.
   useThemeTokens(theme.tokens);
 
-  const audience = audienceOf(manifest);
-  const mattersLabel = manifest
-    ? resolveMattersLabel(manifest)
-    : { singular: 'Matter', plural: 'Matters' };
-  const navItems = navigationOf(manifest)?.items ?? [];
-
-  const idToCap: Record<string, boolean> = {
-    assistant: true,
-    matters: Boolean(mods.matters),
-    library: Boolean(mods.library),
-    personas: Boolean(mods.personas),
-    reviews: Boolean(mods.reviews),
-    history: Boolean(mods.history),
-  };
-
-  // Prefer manifest.navigation.items when present; fall back to legacy
-  // module-derived order otherwise.
-  const orderedIds = navItems.length > 0
-    ? navItems.map((n) => n.id).filter((id) => idToCap[id] !== undefined)
-    : ['assistant', 'matters', 'library', 'personas', 'reviews', 'history'];
-
-  const items: NavItem[] = [];
-  for (const id of orderedIds) {
-    if (!idToCap[id]) continue;
-    const fromManifest = navItems.find((n) => n.id === id);
-    if (fromManifest && !fromManifest.visible) continue;
-    const defaultLabel =
-      id === 'assistant' ? 'Assistant'
-      : id === 'matters' ? mattersLabel.plural
-      : id.charAt(0).toUpperCase() + id.slice(1);
-    const label = fromManifest?.label ?? defaultLabel;
-    const to = id === 'assistant' ? '/' : `/${id}`;
-    items.push({ to, label, testId: `nav-${id}` });
-  }
-
   return (
     <ClientSafeProvider audience={audience ?? null}>
-      <SidePanelProvider>
-      <ConfirmDialogProvider>
-      <AppLayout
-        sidebar={
-          <Sidebar
-            theme={theme}
-            header={
-              <>
-                <Wordmark title={sidebarTitle} theme={theme} logo={brand?.logo} />
-                {brand?.tagline && (
-                  <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                    {brand.tagline}
-                  </div>
-                )}
-              </>
-            }
-            items={items}
-            renderItem={(item) => (
-              item.label === 'Assistant'
-                ? <SidebarNavItem asChild><AssistantNavLink /></SidebarNavItem>
-                : <SidebarNavItem asChild><NavLink to={item.to}>{item.label}</NavLink></SidebarNavItem>
-            )}
-            footer={
-              <>
-                {mods.settings && (
-                  <SidebarNavItem asChild>
-                    <NavLink to="/settings">Settings</NavLink>
-                  </SidebarNavItem>
-                )}
-                {(jurisdictionsText.length > 0 || showFooterDisclaimer) && (
-                  <div className="mt-2 border-t border-border pt-2 px-2 text-[10.5px] leading-[1.4] text-muted-foreground">
-                    {jurisdictionsText.length > 0 && (
-                      <div>Jurisdictions: {jurisdictionsText}</div>
-                    )}
-                    {showFooterDisclaimer && (
-                      <div className="mt-1 italic">{disclaimerText}</div>
-                    )}
-                  </div>
-                )}
-              </>
-            }
-          />
-        }
-      >
-        {showProminent && (
-          <div className="border-b border-border bg-muted/50 px-6 py-2 text-[12.5px] text-foreground">
-            {disclaimerText}
-          </div>
-        )}
-        <Routes>
-          <Route path="/" element={<AssistantPage agentName={agentName} />} />
-          <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
-          {mods.matters  && <Route path="/matters"                          element={<MattersPage manifest={manifest} />} />}
-          {mods.matters  && <Route path="/matters/:matterId"                 element={<MatterDetailPage manifest={manifest} />} />}
-          {mods.matters && mods.reviews && <Route path="/matters/:matterId/reviews/:reviewId" element={<ReviewDetailPage manifest={manifest} />} />}
-          {mods.matters  && <Route path="/m/:matterId/c/:chatId"             element={<MatterChatRoute agentName={agentName} />} />}
-          {mods.library  && <Route path="/library"  element={<LibraryPage />} />}
-          {mods.personas && <Route path="/personas" element={<PersonasPage />} />}
-          {mods.reviews  && <Route path="/reviews"  element={<ReviewsPage />} />}
-          {mods.history  && <Route path="/history"  element={<HistoryPage />} />}
-          {mods.settings && <Route path="/settings" element={<SettingsPage defaultModel={health?.agent?.model} />} />}
-        </Routes>
-      </AppLayout>
-      </ConfirmDialogProvider>
-      </SidePanelProvider>
+      <AgentAppInner manifest={manifest} health={health} />
     </ClientSafeProvider>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useClientSafe } from '../shell/ClientSafeContext.js';
 import {
   ArtifactPanel,
   Button,
@@ -235,6 +236,7 @@ export interface AssistantPageProps {
 }
 
 export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProps) {
+  const { isClientSafe } = useClientSafe();
   // Side-panel access for tool-result artifacts (compare_documents
   // auto-opens a VersionDiff tab; redline's TrackedChangesPanel opens
   // its own tab from within the inline card). Requires <SidePanelProvider>
@@ -747,8 +749,10 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
   // Render an assistant tool call. Streaming/running indicator handled by
   // the ChatThread itself; when the tool is `propose_document_edits` we
   // surface the dedicated TrackedChangesPanel inline (same as pre-refactor).
+  // Fix 2: in client-safe mode, tool activity is hidden from end-users.
   const renderToolCall = useCallback(
     (call: ChatToolCall) => {
+      if (isClientSafe) return null;
       if (call.name === 'propose_document_edits' && call.status === 'ok') {
         const result = call.result as ProposeEditsResult | undefined;
         if (
@@ -787,7 +791,7 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
         </div>
       );
     },
-    [chatId, resolveRevisions, loadRedline],
+    [isClientSafe, chatId, resolveRevisions, loadRedline],
   );
 
   // Bare-route composer plumbing — only used when !chatId. Reuses
