@@ -37,12 +37,22 @@ export function resolveAgentTarget(
   defaultAgent: AgentTarget,
 ): AgentTarget {
   const requested = modelId?.trim();
-  const base: AgentTarget = requested ? { ...defaultAgent, model: requested } : { ...defaultAgent };
-  if (!requested) return base;
+  if (!requested) return { ...defaultAgent };
   const override = registry[requested];
-  if (!override) return base;
+  if (!override) {
+    // No registry entry. A prefixed UI id (e.g. "openai/gpt-5.5") can't be
+    // safely routed to the default agent's baseUrl — sending the prefixed
+    // id as the wire model gets a 404 from the provider. Fall back to the
+    // default agent unchanged so the picker can't break chat in builds
+    // that ship without a registry. Flat (no-slash) ids preserve the
+    // prior substitute-in-default behavior for same-provider model picks.
+    if (requested.includes('/')) {
+      return { ...defaultAgent };
+    }
+    return { ...defaultAgent, model: requested };
+  }
   return {
-    ...base,
+    ...defaultAgent,
     ...override,
     // The override may set `model` to a "wire" id (e.g. `claude-sonnet-4-6`)
     // when the picker uses a prefixed UI id (e.g. `anthropic/claude-sonnet-4-6`).
@@ -50,6 +60,6 @@ export function resolveAgentTarget(
     // provider would 404 it. Falls back to the requested id when not overridden.
     model: override.model ?? requested,
     // Merge `extraBody` shallowly — typical pattern is per-model knobs.
-    extraBody: override.extraBody ?? base.extraBody,
+    extraBody: override.extraBody ?? defaultAgent.extraBody,
   };
 }
