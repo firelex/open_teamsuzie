@@ -63,3 +63,31 @@ export function resolveAgentTarget(
     extraBody: override.extraBody ?? defaultAgent.extraBody,
   };
 }
+
+/**
+ * Drop extraBody keys that aren't valid for the resolved model's provider.
+ * The default agent's extraBody often carries provider-specific knobs (e.g.
+ * `enable_thinking: false` for Qwen) that other providers reject with 400.
+ * Apply this after `resolveAgentTarget` and before the wire request so a
+ * picker swap between Qwen and OpenAI doesn't leak the Qwen knob into the
+ * OpenAI request.
+ *
+ * Currently strips:
+ *   - `enable_thinking` when the resolved model is NOT Qwen
+ *
+ * Add more provider-specific filters here as they surface. Pure function;
+ * returns the agent unchanged when extraBody is absent.
+ */
+export function stripIncompatibleExtraBody(agent: AgentTarget): AgentTarget {
+  if (!agent.extraBody) return agent;
+  const modelLower = agent.model.toLowerCase();
+  const isQwen = modelLower.includes('qwen');
+  const next: Record<string, unknown> = { ...agent.extraBody };
+  if (!isQwen && 'enable_thinking' in next) {
+    delete next.enable_thinking;
+  }
+  return {
+    ...agent,
+    extraBody: Object.keys(next).length > 0 ? next : undefined,
+  };
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveAgentTarget, type AgentTargetRegistry } from '../resolve-agent.js';
+import { resolveAgentTarget, stripIncompatibleExtraBody, type AgentTargetRegistry } from '../resolve-agent.js';
 import type { AgentTarget } from '../chat-provider.js';
 
 const defaultAgent: AgentTarget = {
@@ -55,5 +55,45 @@ describe('resolveAgentTarget', () => {
     const out = resolveAgentTarget('qwen3.7-max', registry, defaultAgent);
     expect(out.baseUrl).toBe('http://localhost:8801');
     expect(out.model).toBe('qwen3.7-max');
+  });
+});
+
+describe('stripIncompatibleExtraBody', () => {
+  it('passes through unchanged when extraBody is absent', () => {
+    const agent: AgentTarget = { baseUrl: 'x', model: 'gpt-5.5', apiKey: 'k' };
+    expect(stripIncompatibleExtraBody(agent)).toEqual(agent);
+  });
+
+  it('strips enable_thinking when the resolved model is not Qwen', () => {
+    const agent: AgentTarget = {
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-5.5-mini',
+      apiKey: 'sk',
+      extraBody: { enable_thinking: false, max_tokens: 8192 },
+    };
+    const out = stripIncompatibleExtraBody(agent);
+    expect(out.extraBody).toEqual({ max_tokens: 8192 });
+  });
+
+  it('keeps enable_thinking when the resolved model is Qwen', () => {
+    const agent: AgentTarget = {
+      baseUrl: 'https://dashscope.example/v1',
+      model: 'qwen3.7-max',
+      apiKey: 'q',
+      extraBody: { enable_thinking: false, max_tokens: 8192 },
+    };
+    const out = stripIncompatibleExtraBody(agent);
+    expect(out.extraBody).toEqual({ enable_thinking: false, max_tokens: 8192 });
+  });
+
+  it('returns extraBody: undefined when stripping leaves the bag empty', () => {
+    const agent: AgentTarget = {
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-5.5',
+      apiKey: 'sk',
+      extraBody: { enable_thinking: false },
+    };
+    const out = stripIncompatibleExtraBody(agent);
+    expect(out.extraBody).toBeUndefined();
   });
 });

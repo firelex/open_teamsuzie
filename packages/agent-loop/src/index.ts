@@ -13,7 +13,7 @@ export type {
   RunChatTurnOptions,
 } from './chat-provider.js';
 
-export { resolveAgentTarget } from './resolve-agent.js';
+export { resolveAgentTarget, stripIncompatibleExtraBody } from './resolve-agent.js';
 export type { AgentTargetOverride, AgentTargetRegistry } from './resolve-agent.js';
 
 export { LOCAL_MODELS, buildLocalAgentRegistry } from './local-models.js';

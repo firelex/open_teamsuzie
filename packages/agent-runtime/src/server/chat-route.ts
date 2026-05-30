@@ -2,7 +2,7 @@ import express, { type Router } from 'express';
 import type {
   AgentTarget, AgentTargetRegistry, AnyToolDefinition, ChatMessage, ChatStreamEvent, ToolContext,
 } from '@teamsuzie/agent-loop';
-import { resolveAgentTarget } from '@teamsuzie/agent-loop';
+import { resolveAgentTarget, stripIncompatibleExtraBody } from '@teamsuzie/agent-loop';
 import type { ChatsStore } from '@teamsuzie/chats';
 import { applyPersona, type PersonaRegistry } from '@teamsuzie/personas';
 import {
@@ -140,10 +140,8 @@ export function createChatRouter(deps: CreateChatRouterDeps): Router {
     // (e.g. `openai/gpt-5.5`) gets remapped to the registry's wire id +
     // matching baseUrl/apiKey. With no registry entry, the agent falls
     // back to the default with `model` substituted — the prior behavior.
-    const agent: AgentTarget = resolveAgentTarget(
-      effectiveModel,
-      deps.agentRegistry ?? {},
-      deps.agent,
+    const agent: AgentTarget = stripIncompatibleExtraBody(
+      resolveAgentTarget(effectiveModel, deps.agentRegistry ?? {}, deps.agent),
     );
 
     res.setHeader('Content-Type', 'text/event-stream');
