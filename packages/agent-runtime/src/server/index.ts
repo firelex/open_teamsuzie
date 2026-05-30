@@ -67,6 +67,7 @@ import { buildLocalRunCellAdapter } from './local-run-adapter.js';
 import { ModuleRegistry } from './module-registry.js';
 import { createRedlineRouter } from './redline-router.js';
 import { createAvatarsRouter } from './personas-avatars.js';
+import { buildTemplateTools } from './templates-tools.js';
 import { ToolRegistry } from './tool-registry.js';
 
 const OWNER_ID = 'agent-runtime-default';
@@ -90,6 +91,16 @@ export interface StartAgentOptions {
   personasDir?: string;
   /** Path to a workflows seed JSON file; default './workflows.seed.json'. */
   workflowsSeedPath?: string;
+  /**
+   * Path to a directory of `<id>.md` document-template files. Each file has
+   * YAML-style frontmatter (id/title/description/document_type/when_to_use)
+   * followed by the markdown body. When the directory exists and contains
+   * valid templates, agent-runtime registers `list_templates` /
+   * `get_template` tools so the model can pick a scaffold for drafting
+   * workflows. Missing dir → tools are silently skipped. Default
+   * './templates' (relative to cwd).
+   */
+  templatesDir?: string;
   /** Port (when actually listening). Default 3001. */
   port?: number;
   /** AGENT_DEV_AUTH equivalent — synthesize an admin session on every request. */
@@ -378,6 +389,18 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   // registry is the canonical source for any future tool-using endpoint.
   const toolRegistry = new ToolRegistry();
   for (const t of builtInTools) toolRegistry.register(t);
+
+  // Document-template tools (`list_templates` / `get_template`). Loaded once
+  // from disk at startup; registered only when the templates directory
+  // exists and contains valid `<id>.md` files with frontmatter.
+  const templatesDir = path.resolve(opts.templatesDir ?? './templates');
+  try {
+    const templateTools = await buildTemplateTools({ templatesDir });
+    for (const t of templateTools) toolRegistry.register(t);
+  } catch (err) {
+    console.warn('[agent-runtime] templates load failed:',
+      err instanceof Error ? err.message : err);
+  }
 
   // `convert_to_markdown` + navigation tools come from the per-turn
   // `buildDocumentTools` bundle below (which the chat-route invokes with
