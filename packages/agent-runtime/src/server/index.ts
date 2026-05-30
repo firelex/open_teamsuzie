@@ -356,7 +356,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
   if (opts.devAuth || process.env.AGENT_DEV_AUTH === 'true') {
     app.use('/api', injectDevSession(OWNER_ID));
   }
-  app.use('/api', requireAgentSession());
+  app.use('/api', requireAgentSession(manifestStore));
 
   // ── /api/manifest (always) ────────────────────────────────────────────
   app.get('/api/manifest', (_req, res) => {
@@ -1126,7 +1126,8 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         allowAnonymousPreview?: boolean;
       };
       persona?: { name?: string; id?: string };
-      tools?: Array<{ name: string; description?: string; enabled?: boolean }>;
+      description?: string;
+      tools?: Array<{ name: string; description?: string; enabled?: boolean; status?: string }>;
     };
     const title = m.brand?.name ?? m.name ?? 'Agent';
     res.json({
@@ -1138,8 +1139,9 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
       capabilities: m.capabilities,
       navigation: m.navigation,
       audience: m.audience,
+      description: m.description,
       agent: { name: m.persona?.name ?? m.persona?.id, model: opts.agent?.model },
-      tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description })),
+      tools: (m.tools ?? []).filter((t) => t.enabled).map((t) => ({ name: t.name, description: t.description, status: t.status ?? 'implemented' })),
       modules: resolveModules(m as never),
       markitdown: markitdownBaseUrl ? 'configured' : 'not configured',
     });
@@ -1168,9 +1170,14 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
 
 // ── Auth middleware (lifted verbatim from counsel) ──────────────────────
 
-function requireAgentSession(): express.RequestHandler {
+function requireAgentSession(store: ManifestStore): express.RequestHandler {
   return (req, res, next) => {
     if (req.path === '/health' || req.path.startsWith('/webhook/')) return next();
+    const audience = (store.get() as unknown as {
+      audience?: { requiresLogin?: boolean; allowAnonymousPreview?: boolean };
+    }).audience;
+    if (audience?.requiresLogin === false) return next();
+    if (audience?.allowAnonymousPreview === true && req.method === 'GET') return next();
     const session = (req as unknown as { session?: unknown }).session;
     if (!session) {
       res.status(401).json({ error: 'unauthenticated' });

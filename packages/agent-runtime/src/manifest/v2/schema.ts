@@ -77,13 +77,28 @@ export interface LegalBlock {
 }
 
 /**
- * Capabilities block — lawyer-friendly product flags. Replaces v1's
- * `modules` + `components` maps with one boolean per capability the lawyer
- * cares about.
+ * Capabilities block — lawyer-friendly product flags.
  *
- * Canonical: the runtime derives module gating from this block via
- * `agent-runtime/manifest/defaults.ts:resolveModules`. The legacy
- * `modules`/`components` fields remain accepted on input (for v1
+ * Runtime-active flags (drive route/tool gating via capabilitiesToModules):
+ *   - matters       → mounts /api/matters + Matters nav
+ *   - legalResearch → mounts /api/kb + Knowledge Base hooks
+ *   - reviewGrids   → enables Reviews module
+ *   - docxDrafting  → enables drafting tool registration
+ *   - redlines      → enables redline/blackline tool registration
+ *
+ * Currently-noop flags (declarative product intent; runtime doesn't gate
+ * on them yet — pending UI wiring):
+ *   - chat              (chat is always-on)
+ *   - fileUploads
+ *   - citations
+ *   - clientSharing
+ *   - approvals
+ *   - workspace
+ *
+ * Setting a noop flag has no runtime effect today. Use modules.* directly
+ * if you need to gate a specific surface before this is wired.
+ *
+ * The legacy `modules`/`components` fields remain accepted on input (for v1
  * back-compat and explicit per-module overrides) but new SuzieCode-
  * generated manifests only populate `capabilities`.
  */
