@@ -95,19 +95,43 @@ export function capabilitiesToModules(
 }
 
 /**
- * Resolve the runtime module-gating shape from the manifest. Reads
- * `capabilities` as the canonical source of truth (Plan: capabilities
- * rewire) and falls back to the legacy `modules` field for v1
- * manifests that have no capabilities block. Explicit `manifest.modules`
- * always wins as the last-applied override layer — this is how legacy
- * fine-tuning (e.g. enabling `library` or `admin` outside the
- * capability set) survives the rewire.
+ * Project visible v2 navigation items to module flags. A nav item whose id
+ * matches a known module key (e.g. 'library', 'matters', 'reviews') with
+ * `visible: true` enables that module — the architect's intent is that any
+ * sidebar link should lead to a working route, so the route's module mounts.
+ * Items with ids that aren't module keys (custom links) are ignored.
+ */
+function navigationToModules(manifest: AgentManifest): Partial<ManifestModules> {
+  const nav = (manifest as unknown as { navigation?: { items?: Array<{ id?: string; visible?: boolean }> } }).navigation;
+  const items = nav?.items;
+  if (!Array.isArray(items)) return {};
+  const moduleKeys = Object.keys(DEFAULT_MODULES) as (keyof ManifestModules)[];
+  const moduleKeySet = new Set<string>(moduleKeys as string[]);
+  const out: Partial<ManifestModules> = {};
+  for (const item of items) {
+    if (item.visible === false) continue;
+    const id = typeof item.id === 'string' ? item.id : '';
+    if (moduleKeySet.has(id)) {
+      (out as Record<string, boolean>)[id] = true;
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolve the runtime module-gating shape from the manifest. Layering order:
+ *   1. DEFAULT_MODULES baseline
+ *   2. capabilities-derived (capabilities is the canonical product-shape input)
+ *   3. navigation-derived (visible nav items whose id matches a module key)
+ *   4. manifest.modules (explicit per-module overrides — legacy fine-tuning
+ *      or hard disables that survive the higher layers)
  */
 export function resolveModules(manifest: AgentManifest): ManifestModules {
   const caps = (manifest as unknown as { capabilities?: CapabilitiesShape }).capabilities;
   return {
     ...DEFAULT_MODULES,
     ...capabilitiesToModules(caps),
+    ...navigationToModules(manifest),
     ...(manifest.modules ?? {}),
   };
 }

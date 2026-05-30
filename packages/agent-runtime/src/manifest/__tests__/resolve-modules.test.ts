@@ -5,6 +5,7 @@ import type { AgentManifest } from '../schema.js';
 function v2Manifest(
   capabilities: Record<string, boolean>,
   modules?: Record<string, boolean>,
+  navigation?: { items: Array<{ id: string; label?: string; visible: boolean }> },
 ): AgentManifest {
   return {
     schemaVersion: 1,
@@ -15,7 +16,7 @@ function v2Manifest(
     components: { chat: true, toolActivity: true, approvals: false, knowledgeBase: false, files: false, citations: false, workspace: false },
     tools: [],
     // v2-only fields carried through the manifest store via spread.
-    ...({ version: 2, capabilities, modules } as object),
+    ...({ version: 2, capabilities, modules, navigation } as object),
   } as AgentManifest;
 }
 
@@ -84,5 +85,61 @@ describe('resolveModules (capabilities-first)', () => {
     expect(resolved.matters).toBe(true);
     expect(resolved.reviews).toBe(false); // DEFAULT_MODULES.reviews
     expect(resolved.assistant).toBe(true); // DEFAULT_MODULES.assistant
+  });
+
+  it('enables library from visible navigation when not in DEFAULT_MODULES and no capability maps to it', () => {
+    // library is off by default and not derived from any capability. A
+    // visible nav item with id 'library' is the architect's signal that
+    // the Library route should mount.
+    const m = v2Manifest(
+      { chat: true, fileUploads: false, docxDrafting: false, redlines: false,
+        legalResearch: false, citations: false, matters: false, reviewGrids: false,
+        clientSharing: false, approvals: false, workspace: false },
+      undefined,
+      { items: [
+        { id: 'assistant', label: 'Assistant', visible: true },
+        { id: 'library', label: 'Library', visible: true },
+        { id: 'history', label: 'History', visible: true },
+      ]},
+    );
+    const resolved = resolveModules(m);
+    expect(resolved.library).toBe(true);
+  });
+
+  it('navigation items with visible:false do NOT enable their module', () => {
+    const m = v2Manifest(
+      { chat: true, fileUploads: false, docxDrafting: false, redlines: false,
+        legalResearch: false, citations: false, matters: false, reviewGrids: false,
+        clientSharing: false, approvals: false, workspace: false },
+      undefined,
+      { items: [{ id: 'library', label: 'Library', visible: false }] },
+    );
+    const resolved = resolveModules(m);
+    expect(resolved.library).toBe(false);
+  });
+
+  it('navigation items with unknown ids are ignored (no module turned on)', () => {
+    const m = v2Manifest(
+      { chat: true, fileUploads: false, docxDrafting: false, redlines: false,
+        legalResearch: false, citations: false, matters: false, reviewGrids: false,
+        clientSharing: false, approvals: false, workspace: false },
+      undefined,
+      { items: [{ id: 'custom-external-link', label: 'External', visible: true }] },
+    );
+    const resolved = resolveModules(m);
+    // The unknown id is not a module key; no module was turned on by it.
+    expect((resolved as unknown as Record<string, boolean>)['custom-external-link']).toBeUndefined();
+  });
+
+  it('explicit manifest.modules still overrides nav-derived activation', () => {
+    const m = v2Manifest(
+      { chat: true, fileUploads: false, docxDrafting: false, redlines: false,
+        legalResearch: false, citations: false, matters: false, reviewGrids: false,
+        clientSharing: false, approvals: false, workspace: false },
+      { library: false }, // explicit hard-disable
+      { items: [{ id: 'library', label: 'Library', visible: true }] },
+    );
+    const resolved = resolveModules(m);
+    expect(resolved.library).toBe(false);
   });
 });
