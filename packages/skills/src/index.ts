@@ -1,3 +1,5 @@
+export { decodeSkillArchive, renderSkillArchiveAsMarkdown } from './archive.js';
+export type { DecodedSkillArchive, SkillArchiveEntry } from './archive.js';
 export { SkillRegistry } from './registry.js';
 export { FilesystemSkillTarget } from './filesystem-target.js';
 export { FilesystemSkillSource, HttpSkillSource, allowAllSkillInstallPolicy, applySkillFromSource } from './source.js';
