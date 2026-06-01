@@ -29,6 +29,18 @@ export function createOAuthRouter(opts: {
   budget: TokenBudgetStore;
   successRedirectPath?: string;
   defaultRole?: string;
+  /**
+   * Called after a successful OAuth sign-in, before redirecting. Use to
+   * bridge the hosted-demo `session.user` into a richer user store
+   * (e.g. shared-auth's Postgres `users` table) and to attach additional
+   * session fields (e.g. `session.userId`). Throwing aborts the redirect
+   * and surfaces a 500 to the user.
+   */
+  onSignIn?: (ctx: {
+    profile: { email: string; name: string; subject: string };
+    provider: string;
+    session: OAuthSessionShape;
+  }) => Promise<void> | void;
 }): Router {
   const router: Router = Router();
   const providers = new Map(opts.providers.map((p) => [p.id, p]));
@@ -100,6 +112,16 @@ export function createOAuthRouter(opts: {
         name: account.name,
         role: account.role,
       };
+      // Bridge to richer user stores (e.g. shared-auth Postgres users +
+      // organizations). Suzielaw uses this to set session.userId so the
+      // billing controller can find the org for this signed-in user.
+      if (opts.onSignIn) {
+        await opts.onSignIn({
+          profile: { email: profile.email, name: profile.name, subject: profile.subject },
+          provider,
+          session,
+        });
+      }
       res.redirect(opts.successRedirectPath ?? '/');
     } catch (err) {
       console.error('[hosted-demo.oauth] callback failed:', err instanceof Error ? err.message : err);

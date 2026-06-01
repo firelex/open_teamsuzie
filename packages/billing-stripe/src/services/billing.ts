@@ -76,6 +76,15 @@ export class BillingService {
         this.initialCreditsUsd = config.initialCreditsUsd ?? 20;
         this.topUpAmountUsd = config.topUpAmountUsd ?? 20;
         this.lowBalanceThresholdUsd = config.lowBalanceThresholdUsd ?? 5;
+        // Eagerly warm up the Stripe client so the webhook handler doesn't
+        // throw "Stripe not initialized — webhook called before any Stripe
+        // call". The webhook can land before any other Stripe API call has
+        // happened, and constructWebhookEvent is sync (can't await getStripe).
+        if (this.stripeSecretKey) {
+            this.getStripe().catch((err) => {
+                console.error('[billing-stripe] eager Stripe init failed:', err?.message ?? err);
+            });
+        }
     }
 
     private async getStripe(): Promise<StripeLib> {

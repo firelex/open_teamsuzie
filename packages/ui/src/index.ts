@@ -37,6 +37,7 @@ export {
   Link as LinkIcon,
   Loader2,
   LogOut,
+  Menu,
   MessageSquare,
   MessageSquarePlus,
   Minus,
