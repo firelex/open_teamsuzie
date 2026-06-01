@@ -360,7 +360,7 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
   }, []);
 
   function handleWorkflowPicked(w: Workflow) {
-    setBareInput(w.prompt);
+    setBareInput(w.prompt.trim() || w.name);
     setActiveWorkflow({ id: w.id, name: w.name });
   }
   const [activeArtifact, setActiveArtifact] = useState<ArtifactSnapshot | null>(null);
@@ -824,7 +824,11 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     if (chatId) {
       // Matter-bound mode goes back to the matter detail; top-level mode
       // goes back to the bare assistant route.
-      navigate(matterId ? `/matters/${encodeURIComponent(matterId)}` : '/');
+      if (matterId) {
+        navigate(`/matters/${encodeURIComponent(matterId)}`);
+      } else {
+        navigate('/', { state: { forceNewChat: true } });
+      }
     }
   }
 
@@ -1126,4 +1130,3 @@ export function AssistantPage({ agentName, chatId, matterId }: AssistantPageProp
     </div>
   );
 }
-

@@ -13,9 +13,12 @@ export interface DbClientConfig {
 }
 
 export interface VectorSearchOptions {
-    query: string;
+    query?: string;
     scopes: ScopeRef[];
     embedding?: number[];
+    embedding_profile?: string;
+    media_base64?: string | string[];
+    image_base64?: string | string[];
     limit?: number;
     documentId?: string;
     data_type?: string;
@@ -25,6 +28,9 @@ export interface VectorUpsertOptions {
     id?: string;
     content: string;
     embedding?: number[];
+    embedding_profile?: string;
+    media_base64?: string | string[];
+    image_base64?: string | string[];
     metadata?: Record<string, unknown>;
     data_type?: string;
     scope: Scope;
@@ -38,6 +44,9 @@ export interface DocumentSummaryUpsertOptions {
     topic?: string;
     metadata?: Record<string, unknown>;
     embedding?: number[];
+    embedding_profile?: string;
+    media_base64?: string | string[];
+    image_base64?: string | string[];
     scope: Scope;
     scope_id: string | null;
 }
@@ -60,6 +69,9 @@ export interface DocumentChunk {
     chunk_index: number;
     metadata?: Record<string, unknown>;
     embedding?: number[];
+    embedding_profile?: string;
+    media_base64?: string | string[];
+    image_base64?: string | string[];
     scope: Scope;
     scope_id: string | null;
 }
@@ -70,6 +82,7 @@ export interface IngestOptions {
     source_name: string;
     scope: Scope;
     scope_id: string | null;
+    embedding_profile?: string;
     metadata?: Record<string, unknown>;
 }
 
@@ -113,6 +126,9 @@ export class VectorDbClient {
             query: options.query,
             scopes: options.scopes,
             embedding: options.embedding,
+            embedding_profile: options.embedding_profile,
+            media_base64: options.media_base64,
+            image_base64: options.image_base64,
             limit: options.limit,
             data_type: options.data_type
         });
@@ -129,6 +145,9 @@ export class VectorDbClient {
             query: options.query,
             scopes: options.scopes,
             embedding: options.embedding,
+            embedding_profile: options.embedding_profile,
+            media_base64: options.media_base64,
+            image_base64: options.image_base64,
             document_id: options.documentId,
             limit: options.limit
         });
@@ -237,6 +256,9 @@ export class VectorDbClient {
                 query: options.query,
                 scopes: options.scopes,
                 embedding: options.embedding,
+                embedding_profile: options.embedding_profile,
+                media_base64: options.media_base64,
+                image_base64: options.image_base64,
                 limit: options.limit
             }
         );

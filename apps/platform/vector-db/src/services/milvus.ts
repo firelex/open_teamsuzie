@@ -1,6 +1,12 @@
 import { MilvusClient, DataType, InsertReq, SearchSimpleReq } from '@zilliz/milvus2-sdk-node';
 import config from '../config/index.js';
 import type { Scope, ScopeRef } from '@teamsuzie/types';
+import type { VectorStore } from './vectorStore.js';
+
+function collectionName(base: string, suffix: string): string {
+    if (base === 'scoped_embeddings') return `scoped_${suffix}`;
+    return `${base}_${suffix}`;
+}
 
 export interface ScopedEmbedding {
     id: string;
@@ -68,11 +74,11 @@ export interface DocumentChunkSearchResult {
     scope_id: string | null;
 }
 
-export default class MilvusService {
+export default class MilvusService implements VectorStore {
     private client: MilvusClient | null = null;
-    private mainCollectionName = 'scoped_embeddings';
-    private documentChunksCollectionName = 'scoped_document_chunks';
-    private documentSummariesCollectionName = 'scoped_document_summaries';
+    private mainCollectionName: string;
+    private documentChunksCollectionName: string;
+    private documentSummariesCollectionName: string;
     private dimension: number;
     private mainCollectionInitialized = false;
     private documentChunksInitialized = false;
@@ -80,6 +86,9 @@ export default class MilvusService {
 
     constructor() {
         this.dimension = config.milvus.dimension;
+        this.mainCollectionName = config.milvus.collection_name;
+        this.documentChunksCollectionName = collectionName(config.milvus.collection_name, 'document_chunks');
+        this.documentSummariesCollectionName = collectionName(config.milvus.collection_name, 'document_summaries');
     }
 
     isEnabled(): boolean {

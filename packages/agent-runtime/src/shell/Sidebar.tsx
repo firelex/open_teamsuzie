@@ -33,11 +33,16 @@ if (typeof document !== 'undefined' && !document.getElementById('agent-runtime-s
     [data-slot="sidebar"] [aria-current="page"] {
       border-left: var(--sidebar-accent-width, 0) solid var(--sidebar-accent-color, transparent);
       padding-left: calc(0.75rem - var(--sidebar-accent-width, 0));
+      background-color: var(--sidebar-active-bg, transparent);
     }
     /* Inactive nav rows: muted color from theme token (or fallback).
        Active rows fall through to the sidebar root color (sidebarFg). */
     [data-slot="sidebar"] [data-slot="sidebar-nav-item"]:not([aria-current="page"]) {
       color: var(--sidebar-fg-muted, inherit);
+    }
+    /* Hover affordance — paints only when sidebarHoverBg is set in tokens. */
+    [data-slot="sidebar"] [data-slot="sidebar-nav-item"]:not([aria-current="page"]):hover {
+      background-color: var(--sidebar-hover-bg, transparent);
     }
   `;
   document.head.appendChild(el);

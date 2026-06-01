@@ -81,6 +81,93 @@
 }
 
 @layer utilities {
+  /* ── Canonical .ts-* decorative classes ────────────────────────────────
+   * Glasshouse's modernist aesthetic: single editorial italic moment via
+   * Instrument Serif, subtle teal gradient for fancy text. Restrained.
+   * ────────────────────────────────────────────────────────────────── */
+
+  .ts-display {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+  .ts-text-fancy {
+    background: linear-gradient(110deg, var(--color-primary) 0%, oklch(28% 0.07 200) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+  .ts-fancy-gradient {
+    background: linear-gradient(110deg, var(--color-primary) 0%, oklch(28% 0.07 200) 100%);
+  }
+
+  .ts-brand-glow {
+    box-shadow: 0 8px 24px -12px color-mix(in oklab, var(--color-primary) 25%, transparent);
+  }
+  .ts-brand-ring {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 15%, transparent);
+  }
+  .ts-violet-glow { box-shadow: 0 8px 24px -12px color-mix(in oklab, var(--color-primary) 25%, transparent); }
+  .ts-violet-ring { box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 15%, transparent); }
+
+  .ts-atmosphere {
+    position: relative;
+    isolation: isolate;
+  }
+  .ts-atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: -10% -20%;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 78% 78%, oklch(85% 0.05 180 / 0.45), transparent 60%),
+      radial-gradient(circle at 18% 22%, oklch(96% 0.012 230 / 0.7), transparent 55%);
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  .ts-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+    font-size: 0.6875rem;
+    color: var(--color-muted-foreground);
+  }
+  .ts-brand-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklab, var(--color-primary) 25%, var(--color-background));
+    background: color-mix(in oklab, var(--color-primary) 5%, var(--color-background));
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .ts-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes ts-fade-in-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ts-reveal { animation: ts-fade-in-up 0.5s ease-out both; }
+  .ts-reveal[data-delay="1"] { animation-delay: 80ms; }
+  .ts-reveal[data-delay="2"] { animation-delay: 160ms; }
+  .ts-reveal[data-delay="3"] { animation-delay: 240ms; }
+  .ts-reveal[data-delay="4"] { animation-delay: 320ms; }
+
   /* Single editorial italic moment, used in the greeting. */
   .glasshouse-display {
     font-family: var(--font-serif);

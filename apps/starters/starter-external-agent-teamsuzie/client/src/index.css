@@ -3,44 +3,70 @@
 @source "../../../../../packages/ui/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 
-/* ── Lifted from apps/suziecode/.../client/src/index.css ─────────────────
-   "Electric Violet" light theme — originally ported from
-   suzie_monorepo/apps/admin/client/src/index.css. Inter + JetBrains Mono
-   on a near-white cool surface, with the 78° #7438FE → #D267FF signature
-   gradient reserved as a hero accent (text-fancy, bg-fancy-gradient). */
+/* =============================================================================
+   starter-external-agent-teamsuzie — Electric Violet light theme.
+
+   Identity:
+     - 95% of pixels are cool-white / near-white. Cards (`--color-card`) are
+       PURE WHITE and pop against the barely-cool background.
+     - The violet → pink gradient at 78° is a SIGNATURE moment — used only on
+       hero text, accent dots, the sidebar accent bar, and `.ts-fancy-gradient`.
+       Never as a page background.
+     - Teal cream (#E0FAFB) is the third brand color — surfaces in the
+       atmosphere halo and the "live" status indicator. Not in the palette
+       tokens because it's a single decorative moment, not a UI surface.
+
+   Production reference: apps/suzie_monorepo/apps/admin.
+
+   Mirrors apps/suziecode/.../designs.ts (entry: 'teamsuzie'). When set_theme
+   reseeds a build with this CSS, the runtime hook simultaneously writes the
+   matching tokens onto documentElement — so the live build and a fresh
+   `pnpm build` produce the same pixels.
+   ========================================================================== */
 
 @theme {
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Code", monospace;
+  /* Type stack — Inter does double-duty as body and display. */
+  --font-sans:    "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Code", monospace;
+  --font-display: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --color-background: oklch(98% 0.002 286);
-  --color-foreground: oklch(20% 0.01 260);
-  --color-card: oklch(100% 0 0);
-  --color-card-foreground: oklch(20% 0.01 260);
-  --color-popover: oklch(100% 0 0);
-  --color-popover-foreground: oklch(20% 0.01 260);
+  /* Palette — every Tailwind --color-* role is pinned. */
+  --color-background:             oklch(98%   0.002 286);   /* barely-cool near-white */
+  --color-foreground:             oklch(20%   0.01  260);   /* deep cool ink */
+  --color-card:                   oklch(100%  0     0);     /* pure white */
+  --color-card-foreground:        oklch(20%   0.01  260);
+  --color-popover:                oklch(100%  0     0);
+  --color-popover-foreground:     oklch(20%   0.01  260);
 
-  --color-primary: oklch(48% 0.27 290);
-  --color-primary-foreground: oklch(100% 0 0);
+  --color-primary:                oklch(48%   0.27  290);   /* electric violet */
+  --color-primary-foreground:     oklch(100%  0     0);
 
-  --color-secondary: oklch(95% 0.02 290);
-  --color-secondary-foreground: oklch(30% 0.15 290);
-  --color-muted: oklch(96% 0.01 286);
-  --color-muted-foreground: oklch(50% 0.02 260);
-  --color-accent: oklch(95% 0.03 290);
-  --color-accent-foreground: oklch(30% 0.15 290);
-  --color-destructive: oklch(57.71% 0.215 27.33);
+  --color-secondary:              oklch(95%   0.02  290);   /* pale violet hover surface */
+  --color-secondary-foreground:   oklch(30%   0.15  290);
+
+  --color-muted:                  oklch(96%   0.01  286);   /* SURFACE tint */
+  --color-muted-foreground:       oklch(50%   0.02  260);   /* TEXT — distinct! */
+
+  --color-accent:                 oklch(72%   0.22  320);   /* pink — gradient end stop */
+  --color-accent-foreground:      oklch(20%   0.01  260);
+
+  --color-destructive:            oklch(57.71% 0.215 27.33);
   --color-destructive-foreground: oklch(98.51% 0.001 106.42);
-  --color-border: oklch(92% 0.004 286);
-  --color-input: oklch(92% 0.004 286);
-  --color-ring: oklch(48% 0.27 290);
-  --color-success: oklch(60% 0.16 150);
 
+  --color-border:                 oklch(92%   0.004 286);
+  --color-input:                  oklch(92%   0.004 286);
+  --color-ring:                   oklch(72%   0.22  320);   /* pink focus ring */
+  --color-success:                oklch(60%   0.16  150);   /* teal-leaning green */
+
+  /* Geometry — softly rounded. */
   --radius-lg: 0.75rem;
   --radius-md: calc(var(--radius-lg) - 2px);
   --radius-sm: calc(var(--radius-lg) - 4px);
 
-  --color-ev-50: #f4f2ff;
+  /* Electric Violet ramp — pinned per-theme. Drives `.ts-eyebrow`,
+     `.ts-brand-chip`, sidebar hover/active surfaces, and any consumer
+     that explicitly references the brand ladder. */
+  --color-ev-50:  #f4f2ff;
   --color-ev-100: #ebe8ff;
   --color-ev-200: #dad4ff;
   --color-ev-300: #beb1ff;
@@ -66,31 +92,24 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  body {
-    letter-spacing: -0.005em;
-  }
+  body { letter-spacing: -0.005em; }
 
-  button,
-  textarea,
-  input {
-    font: inherit;
-  }
+  button, textarea, input { font: inherit; }
 
-  #root {
-    @apply min-h-screen;
-  }
+  #root { @apply min-h-screen; }
 
-  code, pre, .ts-mono {
-    font-family: var(--font-mono);
-  }
+  code, pre, .ts-mono { font-family: var(--font-mono); }
 }
 
 @layer utilities {
-  /* Signature brand gradient — used sparingly. */
+  /* ── Signature brand gradient ──────────────────────────────────────────
+     Used sparingly — hero text, accent surfaces, the sidebar accent bar.
+     Hex literals (not tokens) because the violet→pink 78° formula IS the
+     TeamSuzie brand; any theme that wants this look uses this starter. */
+
   .ts-fancy-gradient {
     background-image: linear-gradient(78deg, #7438FE -47.47%, #D267FF 100%);
   }
-
   .ts-text-fancy {
     background-image: linear-gradient(78deg, #7438FE -47.47%, #D267FF 100%);
     -webkit-background-clip: text;
@@ -98,16 +117,20 @@
     background-clip: text;
     color: transparent;
   }
-
-  .ts-violet-glow {
+  .ts-brand-glow {
     box-shadow: 0 12px 32px -12px rgba(117, 71, 254, 0.35);
   }
-
-  .ts-violet-ring {
+  .ts-brand-ring {
     box-shadow: 0 0 0 4px rgba(117, 71, 254, 0.12);
   }
+  /* Legacy aliases — keep until consumers migrate to the brand-* names. */
+  .ts-violet-glow { box-shadow: 0 12px 32px -12px rgba(117, 71, 254, 0.35); }
+  .ts-violet-ring { box-shadow: 0 0 0 4px rgba(117, 71, 254, 0.12); }
 
-  /* Atmosphere — soft violet + magenta + teal halo behind hero copy. */
+  /* ── Atmosphere ────────────────────────────────────────────────────────
+     Three-stop halo behind hero copy. The third stop (teal cream) is
+     the TeamSuzie THIRD brand color — invisible in the token system,
+     present only here. */
   .ts-atmosphere {
     position: relative;
     isolation: isolate;
@@ -125,9 +148,10 @@
     pointer-events: none;
   }
 
-  /* Display heading — hero-scale type on the assistant landing.
-   * Each starter implements .ts-display with its own display font and
-   * weight; TeamSuzie keeps Inter (sans does double-duty as display). */
+  /* ── Display heading ───────────────────────────────────────────────────
+     Hero-scale type on the assistant landing. TeamSuzie keeps Inter as
+     display (sans does double-duty); other themes (Counsel) implement
+     this same class with their own display family. */
   .ts-display {
     font-family: var(--font-sans);
     font-weight: 800;
@@ -135,7 +159,8 @@
     letter-spacing: -0.02em;
   }
 
-  /* Eyebrow — admin's signature category tag. */
+  /* ── Eyebrow ───────────────────────────────────────────────────────────
+     Admin's signature category tag — pulls from the brand ramp. */
   .ts-eyebrow {
     font-size: 10px;
     font-weight: 700;
@@ -144,7 +169,8 @@
     color: var(--color-ev-700);
   }
 
-  /* Brand chip — admin's bg-ev-100 / text-ev-700 pattern. */
+  /* ── Brand chip ────────────────────────────────────────────────────────
+     Admin's bg-ev-100 / text-ev-700 pattern. */
   .ts-brand-chip {
     display: inline-flex;
     align-items: center;
@@ -158,35 +184,32 @@
     font-weight: 500;
   }
 
-  /* Mono-data — IDs, slugs, tokens. */
+  /* ── Mono-data ─────────────────────────────────────────────────────────
+     IDs, slugs, tokens — JBM with tabular figures. */
   .ts-mono-data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
 
-  /* Reveal — staggered fade-in, ported from landing. */
+  /* ── Reveal ────────────────────────────────────────────────────────────
+     Staggered fade-in for landing-page tiles. */
   @keyframes ts-fade-in-up {
     from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
-  .ts-reveal {
-    animation: ts-fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
+  .ts-reveal { animation: ts-fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
   .ts-reveal[data-delay="1"] { animation-delay: 80ms; }
   .ts-reveal[data-delay="2"] { animation-delay: 160ms; }
   .ts-reveal[data-delay="3"] { animation-delay: 240ms; }
   .ts-reveal[data-delay="4"] { animation-delay: 320ms; }
 
   @keyframes suzie-typing {
-    0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
-    40% { transform: translateY(-3px); opacity: 1; }
+    0%, 80%, 100% { transform: translateY(0);    opacity: 0.35; }
+    40%           { transform: translateY(-3px); opacity: 1; }
   }
-
   .typing-dot {
     display: inline-block;
-    width: 5px;
-    height: 5px;
+    width: 5px; height: 5px;
     border-radius: 9999px;
     background-color: currentColor;
     animation: suzie-typing 1.2s infinite ease-in-out both;
@@ -195,9 +218,6 @@
   .typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
   @media (prefers-reduced-motion: reduce) {
-    .typing-dot,
-    .ts-reveal {
-      animation: none;
-    }
+    .typing-dot, .ts-reveal { animation: none; }
   }
 }

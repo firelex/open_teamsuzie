@@ -53,6 +53,84 @@
 }
 
 @layer utilities {
+  /* ── Canonical .ts-* decorative classes ────────────────────────────────
+   * Generic token-based fallbacks. Themes that want a richer aesthetic
+   * ship their own implementations in their starter CSS; the default
+   * starter keeps them simple so a freshly-generated agent looks clean.
+   * ────────────────────────────────────────────────────────────────── */
+
+  .ts-display {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  .ts-text-fancy {
+    background: linear-gradient(78deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+  .ts-fancy-gradient {
+    background: linear-gradient(78deg, var(--color-primary), var(--color-accent));
+  }
+  .ts-brand-glow {
+    box-shadow: 0 12px 32px -16px color-mix(in oklab, var(--color-primary) 35%, transparent);
+  }
+  .ts-brand-ring {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 12%, transparent);
+  }
+  .ts-violet-glow { box-shadow: 0 12px 32px -16px color-mix(in oklab, var(--color-primary) 35%, transparent); }
+  .ts-violet-ring { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 12%, transparent); }
+
+  .ts-atmosphere { position: relative; isolation: isolate; }
+  .ts-atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: -10% -20%;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 22% 30%, color-mix(in oklab, var(--color-primary) 15%, transparent), transparent 55%),
+      radial-gradient(circle at 78% 70%, color-mix(in oklab, var(--color-accent) 10%, transparent), transparent 60%);
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  .ts-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--color-muted-foreground);
+  }
+  .ts-brand-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklab, var(--color-primary) 25%, var(--color-background));
+    background: color-mix(in oklab, var(--color-primary) 6%, var(--color-background));
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .ts-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes ts-fade-in-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ts-reveal { animation: ts-fade-in-up 0.5s ease-out both; }
+  .ts-reveal[data-delay="1"] { animation-delay: 80ms; }
+  .ts-reveal[data-delay="2"] { animation-delay: 160ms; }
+  .ts-reveal[data-delay="3"] { animation-delay: 240ms; }
+  .ts-reveal[data-delay="4"] { animation-delay: 320ms; }
+
   @keyframes suzie-typing {
     0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
     40% { transform: translateY(-3px); opacity: 1; }

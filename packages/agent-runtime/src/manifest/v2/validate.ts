@@ -65,11 +65,65 @@ const audience = z.object({
 const passthroughObject = z.object({}).passthrough();
 
 /**
- * v2 manifest validator. Brand is validated strictly; carry-forward
- * fields use passthrough so we don't have to duplicate v1 shapes here.
- * The v1 validator already governs them on the read path before
- * migration; on the write path, tools that mutate carry-forward
- * fields run their own v1-style validation.
+ * Prompt seeds carried in `manifest.prompts[]`. The runtime seeds them into
+ * the workflows store via `p.title` / `p.subtitle` / `p.prompt`. A previous
+ * passthrough schema let architects emit alternate shapes (e.g.
+ * `{ body, outputMode: 'chat' }`) that silently produced empty Library
+ * cards. Strict so validate_manifest rejects the wrong shape and the
+ * architect's replan loop gets a chance to correct it.
+ */
+const promptSeed = z.object({
+  id: z.string().min(1).optional(),
+  title: z.string().min(1),
+  subtitle: z.string().optional(),
+  prompt: z.string().min(1),
+  practiceAreas: z.array(z.string()).optional(),
+  featured: z.boolean().optional(),
+  outputMode: z.enum(['inline_chat', 'generate_docx', 'review']).optional(),
+});
+
+/**
+ * Persona shape — used for `persona` and each entry in `extraPersonas[]`.
+ * Only `id` is required (the runtime keys personas by id and falls back to
+ * id for display when `name` is missing); other fields are optional so a
+ * minimal `{ id, systemPrompt }` shape — common in test fixtures and
+ * lightweight starters — passes validation. The runtime filters out
+ * personas without a `systemPrompt` at register time, so we don't need to
+ * enforce non-empty content here.
+ */
+const personaSeed = z.object({
+  id: z.string().min(1),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  avatar: z.string().optional(),
+  model: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  allowedTools: z.array(z.string()).optional(),
+  blockedTools: z.array(z.string()).optional(),
+});
+
+/**
+ * Tool declaration. The architect's tools are intent stubs at this stage
+ * (status:'stub'); coding-agent runs flip them to 'implemented'. Keep the
+ * shape strict so missing `description` or wrong `status` values get
+ * surfaced at submit time rather than at boot.
+ */
+const toolSeed = z.object({
+  name: z.string().min(1),
+  description: z.string(),
+  status: z.enum(['stub', 'implemented']),
+  enabled: z.boolean(),
+  parameters: z.record(z.unknown()).optional(),
+  notes: z.string().optional(),
+});
+
+/**
+ * v2 manifest validator. Brand is validated strictly; the blocks that
+ * carry through from v1 (theme/components/modules/ai/reviews/matters)
+ * use passthrough so we don't have to duplicate v1 shapes here — the v1
+ * validator governs them on the read path before migration. Blocks the
+ * architect commonly gets wrong (prompts/tools/personas) are now strict
+ * so validate_manifest catches shape mismatches before they ship.
  */
 export const manifestV2Schema = z.object({
   version: z.literal(2),
@@ -81,12 +135,12 @@ export const manifestV2Schema = z.object({
   audience,
   description: z.string(),
   theme: passthroughObject,
-  persona: passthroughObject,
-  extraPersonas: z.array(passthroughObject).optional(),
+  persona: personaSeed,
+  extraPersonas: z.array(personaSeed).optional(),
   components: passthroughObject,
   modules: passthroughObject.optional(),
-  prompts: z.array(passthroughObject).optional(),
-  tools: z.array(passthroughObject),
+  prompts: z.array(promptSeed).optional(),
+  tools: z.array(toolSeed),
   ai: passthroughObject.optional(),
   reviews: passthroughObject.optional(),
   matters: passthroughObject.optional(),

@@ -1,73 +1,18 @@
 import * as React from "react"
 
 import { cn } from "../lib/utils"
+// The catalog + types live in lib/default-models so server contexts
+// (e.g. agent-runtime consumers building an AgentTargetRegistry) can
+// import them without dragging in React. Re-exported here so existing
+// client imports `from '@teamsuzie/ui'` keep working unchanged.
+import {
+  DEFAULT_MODELS,
+  type ModelOption,
+  type ModelPricing,
+} from "../lib/default-models.js"
 
-export interface ModelPricing {
-  /** USD per 1M input tokens. */
-  inputPer1M: number
-  /** USD per 1M output tokens. */
-  outputPer1M: number
-  /** Free-form note to display under the price (e.g. "approximate; see provider"). */
-  note?: string
-}
-
-export interface ModelOption {
-  /** Model id sent to the chat backend (e.g. "qwen3.6-plus", "anthropic/claude-sonnet-4-6"). */
-  id: string
-  /** Display name. */
-  name: string
-  /** Provider label (e.g. "Anthropic", "Alibaba (Dashscope)"). */
-  provider: string
-  /** One-line description shown under the name. */
-  description?: string
-  pricing?: ModelPricing
-  /** Optional link to provider pricing page. */
-  pricingUrl?: string
-  /** Marks this as a locally-hosted model — surfaces a "Local" badge and
-   *  hides cloud-style pricing in favor of the install link. */
-  local?: boolean
-  /** Link to install / setup instructions (e.g. an unsloth HF page). Shown
-   *  in place of `pricingUrl` for local models. */
-  installUrl?: string
-  /** For local models: the base URL the server will route this model's chat
-   *  calls to. Display-only — set by the consumer from `/api/health` so the
-   *  user can verify the configured endpoint matches where their server runs. */
-  resolvedBaseUrl?: string
-}
-
-/**
- * Starter model list — three commonly-used frontier-grade options spanning a
- * wide cost band. Apps free to override or extend. Pricing values are
- * approximate and meant for orientation, not billing — `pricingUrl` always
- * points at the provider's actual pricing page so users can verify.
- */
-export const DEFAULT_MODELS: ModelOption[] = [
-  {
-    id: "anthropic/claude-sonnet-4-6",
-    name: "Claude Sonnet 4.6",
-    provider: "Anthropic",
-    description: "Strong on tool use, long-form drafting, and structured output.",
-    pricing: { inputPer1M: 3, outputPer1M: 15, note: "approx." },
-    pricingUrl: "https://www.anthropic.com/pricing",
-  },
-  {
-    id: "openai/gpt-5.5",
-    name: "GPT-5.5",
-    provider: "OpenAI",
-    description: "Reliable at structured tool use; broadly available.",
-    pricing: { inputPer1M: 2.5, outputPer1M: 10, note: "approx." },
-    pricingUrl: "https://openai.com/api/pricing/",
-  },
-  {
-    id: "qwen3.6-plus",
-    name: "Qwen 3.6-Plus",
-    provider: "Alibaba (Dashscope)",
-    description: "Strong reasoning at a fraction of the cost of US frontier models.",
-    pricing: { inputPer1M: 0.4, outputPer1M: 1.2, note: "approx." },
-    pricingUrl:
-      "https://www.alibabacloud.com/help/en/model-studio/billing-of-model-studio",
-  },
-]
+export { DEFAULT_MODELS }
+export type { ModelOption, ModelPricing }
 
 function formatUsd(value: number): string {
   if (value >= 1) return `$${value.toFixed(2).replace(/\.00$/, "")}`

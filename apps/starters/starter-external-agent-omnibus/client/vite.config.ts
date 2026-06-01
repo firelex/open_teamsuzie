@@ -18,5 +18,19 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
     },
+    // `@teamsuzie/*` packages are linked locally (link: deps). Vite's default
+    // optimizeDeps pre-bundles them into node_modules/.vite/deps and caches
+    // that bundle. When the upstream dist/ updates (e.g. agent-runtime
+    // rebuilt after a bug fix), Vite serves the stale cached bundle and the
+    // generated app keeps the old behavior. Excluding them tells Vite to
+    // serve them fresh from dist on every page load, so a dist rebuild +
+    // browser refresh suffices.
+    optimizeDeps: {
+      exclude: [
+        '@teamsuzie/agent-runtime',
+        '@teamsuzie/ui',
+        '@teamsuzie/legal-research',
+      ],
+    },
   };
 });

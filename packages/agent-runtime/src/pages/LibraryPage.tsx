@@ -84,7 +84,11 @@ export function LibraryPage() {
       'counsel:pending-workflow',
       JSON.stringify({ id: w.id, name: w.name, prompt: w.prompt }),
     );
-    navigate('/');
+    // forceNewChat bypasses AssistantRootRoute's auto-redirect to the last
+    // chat (/c/<latest>). Without it, AssistantPage mounts with chatId and
+    // ChatThread owns the composer — the bareInput prefill silently never
+    // appears. We want a fresh bare-route composer so the prompt shows up.
+    navigate('/', { state: { forceNewChat: true } });
   }
 
   async function handleCreate(form: { name: string; description: string; prompt: string }) {

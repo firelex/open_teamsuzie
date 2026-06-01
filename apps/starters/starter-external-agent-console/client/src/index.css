@@ -87,6 +87,88 @@
 }
 
 @layer utilities {
+  /* ── Canonical .ts-* decorative classes ────────────────────────────────
+   * Every starter implements the same class names so the agent-runtime
+   * React (which references only canonical names) continues to render
+   * correctly after a theme swap. Console's implementations express the
+   * terminal aesthetic: no gradients, no soft glows — flat phosphor on
+   * dark, hairline accents, monospace everywhere.
+   * ────────────────────────────────────────────────────────────────── */
+
+  /* Wordmark + hero copy. Solid phosphor green block — the terminal
+     doesn't do gradients. Background-image stays unset so an upstream
+     override targeting `.ts-text-fancy` can paint into it. */
+  .ts-display {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.1;
+  }
+  .ts-text-fancy {
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .ts-fancy-gradient {
+    background-color: var(--color-primary);
+  }
+
+  /* Brand glow + ring — kept as soft phosphor halos, restrained. */
+  .ts-brand-glow {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 30%, transparent);
+  }
+  .ts-brand-ring {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 15%, transparent);
+  }
+  /* Legacy aliases. */
+  .ts-violet-glow { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 30%, transparent); }
+  .ts-violet-ring { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 15%, transparent); }
+
+  /* Atmosphere — already in the body background as scanlines + radial
+     gradients; the canonical class is a no-op on Console so it doesn't
+     stack a second layer on top. */
+  .ts-atmosphere { position: relative; isolation: isolate; }
+
+  /* Eyebrow + brand chip — monospace tag style. */
+  .ts-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-primary);
+  }
+  .ts-brand-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem;
+    border: 1px solid color-mix(in oklab, var(--color-primary) 30%, transparent);
+    background: color-mix(in oklab, var(--color-primary) 8%, var(--color-background));
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Mono-data — already the default, but pin tabular figures. */
+  .ts-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Reveal — kept subtle, terminal-style. */
+  @keyframes ts-fade-in-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ts-reveal { animation: ts-fade-in-up 0.4s ease-out both; }
+  .ts-reveal[data-delay="1"] { animation-delay: 60ms; }
+  .ts-reveal[data-delay="2"] { animation-delay: 120ms; }
+  .ts-reveal[data-delay="3"] { animation-delay: 180ms; }
+  .ts-reveal[data-delay="4"] { animation-delay: 240ms; }
+
   .console-caret::after {
     content: "▍";
     color: var(--color-primary);

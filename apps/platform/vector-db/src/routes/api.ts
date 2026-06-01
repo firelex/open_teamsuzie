@@ -2,7 +2,7 @@ import express, { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import MilvusService from '../services/milvus.js';
 import EmbeddingService from '../services/embedding.js';
-import type { UsageContext } from '../services/embedding.js';
+import type { EmbeddingInput, UsageContext } from '../services/embedding.js';
 import type { Scope, ScopeRef } from '@teamsuzie/types';
 
 const router: express.Router = Router();
@@ -23,25 +23,67 @@ function getUsageContext(req: Request): UsageContext {
     };
 }
 
+function mediaValues(body: { media_base64?: string | string[]; image_base64?: string | string[] }): string[] | undefined {
+    const values = body.media_base64 ?? body.image_base64;
+    if (!values) return undefined;
+    return Array.isArray(values) ? values : [values];
+}
+
+function embeddingInput(text: string, body: { media_base64?: string | string[]; image_base64?: string | string[] }): EmbeddingInput {
+    return {
+        text,
+        mediaBase64: mediaValues(body)
+    };
+}
+
+function ensureEmbeddingConfigured(res: Response, profileId?: string, action = 'Provide embedding in request.'): boolean {
+    if (embeddingService.isConfigured(profileId)) return true;
+    res.status(400).json({
+        success: false,
+        error: `Embedding profile not configured. ${action}`
+    });
+    return false;
+}
+
+function singleProfile(items: Array<{ embedding_profile?: string }>, fallback?: string): string | undefined {
+    const profiles = new Set(items.map((item) => item.embedding_profile || fallback).filter(Boolean));
+    if (profiles.size > 1) {
+        throw new Error('All items in one embedding batch must use the same embedding_profile.');
+    }
+    return profiles.values().next().value;
+}
+
 // Validation schemas
 const ScopeRefSchema = z.object({
     scope: z.enum(['global', 'org', 'agent']),
     scope_id: z.string().nullable()
 });
 
-const SearchRequestSchema = z.object({
-    query: z.string().min(1),
+const MediaBase64Schema = z.union([z.string(), z.array(z.string())]).optional();
+
+const SearchFieldsSchema = z.object({
+    query: z.string().min(1).optional(),
     scopes: z.array(ScopeRefSchema).min(1),
     collection: z.string().optional(),
     limit: z.number().int().min(1).max(100).optional().default(10),
     embedding: z.array(z.number()).optional(),
+    embedding_profile: z.string().optional(),
+    media_base64: MediaBase64Schema,
+    image_base64: MediaBase64Schema,
     data_type: z.string().optional()
+});
+
+const SearchRequestSchema = SearchFieldsSchema.refine((body) => body.query || body.embedding || body.media_base64 || body.image_base64, {
+    message: 'query, embedding, media_base64, or image_base64 is required'
 });
 
 const EmbeddingUpsertSchema = z.object({
     id: z.string().optional(),
     content: z.string().min(1),
     embedding: z.array(z.number()).optional(),
+    embedding_profile: z.string().optional(),
+    media_base64: MediaBase64Schema,
+    image_base64: MediaBase64Schema,
     metadata: z.record(z.unknown()).optional(),
     data_type: z.string().optional(),
     scope: z.enum(['global', 'org', 'agent']),
@@ -56,6 +98,9 @@ const DocumentChunkSchema = z.object({
     chunk_index: z.number().int(),
     metadata: z.record(z.unknown()).optional(),
     embedding: z.array(z.number()).optional(),
+    embedding_profile: z.string().optional(),
+    media_base64: MediaBase64Schema,
+    image_base64: MediaBase64Schema,
     scope: z.enum(['global', 'org', 'agent']),
     scope_id: z.string().nullable()
 });
@@ -66,6 +111,7 @@ const IngestRequestSchema = z.object({
     source_name: z.string(),
     scope: z.enum(['global', 'org', 'agent']),
     scope_id: z.string().nullable(),
+    embedding_profile: z.string().optional(),
     metadata: z.record(z.unknown()).optional()
 });
 
@@ -76,14 +122,12 @@ router.post('/v1/search', async (req: Request, res: Response) => {
 
         let embedding = body.embedding;
         if (!embedding) {
-            if (!embeddingService.isConfigured()) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Embedding service not configured. Provide embedding in request.'
-                });
-                return;
-            }
-            embedding = await embeddingService.generateEmbedding(body.query, getUsageContext(req));
+            if (!ensureEmbeddingConfigured(res, body.embedding_profile)) return;
+            embedding = await embeddingService.generateEmbedding(
+                embeddingInput(body.query || '', body),
+                getUsageContext(req),
+                body.embedding_profile
+            );
         }
 
         const results = await milvusService.search(
@@ -96,7 +140,7 @@ router.post('/v1/search', async (req: Request, res: Response) => {
         res.json({
             success: true,
             data: results,
-            query: body.query
+            query: body.query || ''
         });
     } catch (error) {
         console.error('[API] Search error:', error);
@@ -115,14 +159,12 @@ router.post('/v1/embeddings', async (req: Request, res: Response) => {
 
         let embedding = body.embedding;
         if (!embedding) {
-            if (!embeddingService.isConfigured()) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Embedding service not configured. Provide embedding in request.'
-                });
-                return;
-            }
-            embedding = await embeddingService.generateEmbedding(body.content, getUsageContext(req));
+            if (!ensureEmbeddingConfigured(res, body.embedding_profile)) return;
+            embedding = await embeddingService.generateEmbedding(
+                embeddingInput(body.content, body),
+                getUsageContext(req),
+                body.embedding_profile
+            );
         }
 
         const id = body.id || crypto.randomUUID();
@@ -174,16 +216,12 @@ router.post('/v1/documents/:id/chunks', async (req: Request, res: Response) => {
         let embeddings: number[][] = [];
 
         if (chunksToEmbed.length > 0) {
-            if (!embeddingService.isConfigured()) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Embedding service not configured. Provide embeddings in request.'
-                });
-                return;
-            }
+            const profileId = singleProfile(chunksToEmbed);
+            if (!ensureEmbeddingConfigured(res, profileId, 'Provide embeddings in request.')) return;
             embeddings = await embeddingService.generateEmbeddings(
-                chunksToEmbed.map(c => c.content),
-                getUsageContext(req)
+                chunksToEmbed.map(c => embeddingInput(c.content, c)),
+                getUsageContext(req),
+                profileId
             );
         }
 
@@ -231,20 +269,20 @@ router.delete('/v1/documents/:id/chunks', async (req: Request, res: Response) =>
 // POST /api/v1/documents/search - Search document chunks
 router.post('/v1/documents/search', async (req: Request, res: Response) => {
     try {
-        const body = SearchRequestSchema.extend({
+        const body = SearchFieldsSchema.extend({
             document_id: z.string().optional()
+        }).refine((value) => value.query || value.embedding || value.media_base64 || value.image_base64, {
+            message: 'query, embedding, media_base64, or image_base64 is required'
         }).parse(req.body);
 
         let embedding = body.embedding;
         if (!embedding) {
-            if (!embeddingService.isConfigured()) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Embedding service not configured. Provide embedding in request.'
-                });
-                return;
-            }
-            embedding = await embeddingService.generateEmbedding(body.query, getUsageContext(req));
+            if (!ensureEmbeddingConfigured(res, body.embedding_profile)) return;
+            embedding = await embeddingService.generateEmbedding(
+                embeddingInput(body.query || '', body),
+                getUsageContext(req),
+                body.embedding_profile
+            );
         }
 
         const results = await milvusService.searchDocumentChunks(
@@ -257,7 +295,7 @@ router.post('/v1/documents/search', async (req: Request, res: Response) => {
         res.json({
             success: true,
             data: results,
-            query: body.query
+            query: body.query || ''
         });
     } catch (error) {
         console.error('[API] Document search error:', error);
@@ -281,17 +319,11 @@ router.post('/v1/knowledge-base/ingest', async (req: Request, res: Response) => 
             console.warn('[API] Global scope ingest - ensure admin authorization');
         }
 
-        if (!embeddingService.isConfigured()) {
-            res.status(400).json({
-                success: false,
-                error: 'Embedding service not configured. Cannot ingest content.'
-            });
-            return;
-        }
+        if (!ensureEmbeddingConfigured(res, body.embedding_profile, 'Cannot ingest content.')) return;
 
         // Simple chunking: split by paragraphs or fixed size
         const chunks = chunkContent(body.content, 1000, 200);
-        const embeddings = await embeddingService.generateEmbeddings(chunks, getUsageContext(req));
+        const embeddings = await embeddingService.generateEmbeddings(chunks, getUsageContext(req), body.embedding_profile);
 
         const documentId = crypto.randomUUID();
         const processedChunks = chunks.map((content, idx) => ({
@@ -341,14 +373,12 @@ router.post('/v1/embeddings/batch', async (req: Request, res: Response) => {
         for (const item of items) {
             let embedding = item.embedding;
             if (!embedding) {
-                if (!embeddingService.isConfigured()) {
-                    res.status(400).json({
-                        success: false,
-                        error: 'Embedding service not configured. Provide embeddings in request.'
-                    });
-                    return;
-                }
-                embedding = await embeddingService.generateEmbedding(item.content, ctx);
+                if (!ensureEmbeddingConfigured(res, item.embedding_profile, 'Provide embeddings in request.')) return;
+                embedding = await embeddingService.generateEmbedding(
+                    embeddingInput(item.content, item),
+                    ctx,
+                    item.embedding_profile
+                );
             }
 
             processedItems.push({
@@ -408,20 +438,21 @@ router.post('/v1/documents/summaries', async (req: Request, res: Response) => {
             topic: z.string().optional().default(''),
             metadata: z.record(z.unknown()).optional(),
             embedding: z.array(z.number()).optional(),
+            embedding_profile: z.string().optional(),
+            media_base64: MediaBase64Schema,
+            image_base64: MediaBase64Schema,
             scope: z.enum(['global', 'org', 'agent']),
             scope_id: z.string().nullable()
         }).parse(req.body);
 
         let embedding = body.embedding;
         if (!embedding) {
-            if (!embeddingService.isConfigured()) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Embedding service not configured. Provide embedding in request.'
-                });
-                return;
-            }
-            embedding = await embeddingService.generateEmbedding(body.content, getUsageContext(req));
+            if (!ensureEmbeddingConfigured(res, body.embedding_profile)) return;
+            embedding = await embeddingService.generateEmbedding(
+                embeddingInput(body.content, body),
+                getUsageContext(req),
+                body.embedding_profile
+            );
         }
 
         const id = body.id || crypto.randomUUID();
@@ -458,14 +489,12 @@ router.post('/v1/documents/summaries/search', async (req: Request, res: Response
 
         let embedding = body.embedding;
         if (!embedding) {
-            if (!embeddingService.isConfigured()) {
-                res.status(400).json({
-                    success: false,
-                    error: 'Embedding service not configured. Provide embedding in request.'
-                });
-                return;
-            }
-            embedding = await embeddingService.generateEmbedding(body.query, getUsageContext(req));
+            if (!ensureEmbeddingConfigured(res, body.embedding_profile)) return;
+            embedding = await embeddingService.generateEmbedding(
+                embeddingInput(body.query || '', body),
+                getUsageContext(req),
+                body.embedding_profile
+            );
         }
 
         const results = await milvusService.searchDocumentSummaries(
@@ -477,7 +506,7 @@ router.post('/v1/documents/summaries/search', async (req: Request, res: Response
         res.json({
             success: true,
             data: results,
-            query: body.query
+            query: body.query || ''
         });
     } catch (error) {
         console.error('[API] Document summary search error:', error);

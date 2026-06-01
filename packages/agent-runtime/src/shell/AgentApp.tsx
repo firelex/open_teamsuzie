@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
-import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { Chat } from '@teamsuzie/chats';
 import {
   ConfirmDialogProvider, SidebarNavItem, SidePanelProvider,
@@ -66,6 +66,44 @@ function audienceOf(m: AgentManifest | null): AudienceState | undefined {
 function AssistantChatRoute({ agentName }: { agentName: string }) {
   const { chatId } = useParams<{ chatId: string }>();
   return <AssistantPage agentName={agentName} chatId={chatId} />;
+}
+
+function AssistantRootRoute({ agentName }: { agentName: string }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const forceNewChat = Boolean((location.state as { forceNewChat?: boolean } | null)?.forceNewChat);
+  const [checked, setChecked] = useState(forceNewChat);
+
+  useEffect(() => {
+    if (forceNewChat) {
+      setChecked(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/chats');
+        if (!res.ok) {
+          if (!cancelled) setChecked(true);
+          return;
+        }
+        const data = (await res.json()) as { items: Chat[] };
+        const latest = data.items[0];
+        if (!cancelled && latest?.id) {
+          navigate(`/c/${encodeURIComponent(latest.id)}`, { replace: true });
+          return;
+        }
+      } catch {
+        // Fall through to the bare assistant route on best-effort restore
+        // failure; the user can still start a new chat.
+      }
+      if (!cancelled) setChecked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [forceNewChat, navigate]);
+
+  if (!checked) return <div className="h-full bg-background" />;
+  return <AssistantPage agentName={agentName} />;
 }
 
 function MatterChatRoute({ agentName }: { agentName: string }) {
@@ -218,7 +256,7 @@ function AgentAppInner({ manifest, health }: AgentAppInnerProps) {
         </div>
       )}
       <Routes>
-        <Route path="/" element={<AssistantPage agentName={agentName} />} />
+        <Route path="/" element={<AssistantRootRoute agentName={agentName} />} />
         <Route path="/c/:chatId" element={<AssistantChatRoute agentName={agentName} />} />
         {mods.matters  && <Route path="/matters"                          element={<MattersPage manifest={manifest} />} />}
         {mods.matters  && <Route path="/matters/:matterId"                 element={<MatterDetailPage manifest={manifest} />} />}

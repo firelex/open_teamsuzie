@@ -5,27 +5,28 @@
 @source "../node_modules/@teamsuzie/agent-runtime/dist/**/*.js";
 
 /* =============================================================================
-   starter-external-agent-counsel — SuzieLaw-inspired Bauhaus law-office.
+   starter-external-agent-counsel — Bauhaus law-office aesthetic.
 
-   Visually faithful to `../../../../suzielaw/apps/suzielaw/client/src/index.css`
-   (the reference downstream app), down to token values and font choices. The
-   point is for an agent forked from this starter to feel like SuzieLaw without
-   re-deriving the design system from scratch.
-
-   The personality:
+   Identity:
      - Type:  Archivo for display/headings, IBM Plex Sans for UI body,
               IBM Plex Mono for tabular numerics, IDs, labels.
-     - Color: warm parchment ground, ink-black foreground, saffron accent,
-              oxblood reserved for destructive only. Restrained and geometric.
-     - Form:  Sharp corners (radii ≈ 0), hairline borders, decorative grid
-              rules. No drop shadows; uses crisp ink lines for separation.
+     - Color: warm parchment ground, ink-black foreground AND primary (the
+              bauhaus block), saffron warm punch, oxblood for danger only.
+              The sidebar inverts to ink-on-parchment — a deliberate
+              graphic block that mirrors the suzielaw production app.
+     - Form:  Sharp corners (radii ≈ 0), hairline borders at 18% ink,
+              decorative 96px grid rules. No drop shadows — uses crisp ink
+              lines for separation.
 
-   TODO(open_teamsuzie): the bauhaus utilities (.display-hero, .label-caps,
-   .label-mono, .rule-hairline, .grid-rules, .stagger-in) live duplicated
-   in both this starter and `apps/suzielaw/client/src/index.css`. Once the
-   pattern stabilises they should move to `@teamsuzie/ui` (a `bauhaus.css`
-   or similar) so the starter and the real app stay in lock-step from one
-   import.
+   Production reference: apps/suzielaw. The sidebar surface (ink-on-
+   parchment) was confirmed by inspection — App.tsx renders the Sidebar
+   primitive with `bg-foreground text-background`, which produces the same
+   inversion this starter encodes in the `sidebar` token block of the
+   matching Design entry.
+
+   Mirrors apps/suziecode/.../designs.ts (entry: 'counsel'). The runtime
+   hook writes the matching tokens onto documentElement on theme swap, so
+   the live build and a fresh `pnpm build` produce identical pixels.
    ========================================================================== */
 
 @theme {
@@ -35,29 +36,37 @@
   --font-mono:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-serif:   "IBM Plex Serif", "Iowan Old Style", Georgia, serif;
 
-  /* Core palette — light (parchment / ink / saffron) */
-  --color-background:           oklch(96.5% 0.012 90);   /* warm parchment */
-  --color-foreground:           oklch(14%   0.005 60);   /* near-black ink */
-  --color-card:                 oklch(99%   0.006 90);
-  --color-card-foreground:      oklch(14%   0.005 60);
-  --color-popover:              oklch(99%   0.006 90);
-  --color-popover-foreground:   oklch(14%   0.005 60);
-  --color-primary:              oklch(14%   0.005 60);   /* ink-black — the Bauhaus block */
-  --color-primary-foreground:   oklch(96.5% 0.012 90);
-  --color-secondary:            oklch(91%   0.018 90);
-  --color-secondary-foreground: oklch(14%   0.005 60);
-  --color-muted:                oklch(91%   0.018 90);
-  --color-muted-foreground:     oklch(38%   0.010 60);
-  --color-accent:               oklch(78%   0.155 78);   /* saffron — the warm punch */
-  --color-accent-foreground:    oklch(14%   0.005 60);
-  --color-destructive:          oklch(42%   0.150 27);   /* oxblood (destructive only) */
-  --color-destructive-foreground: oklch(96.5% 0.012 90);
-  --color-border:               oklch(14%   0.005 60 / 0.18);
-  --color-input:                oklch(14%   0.005 60 / 0.22);
-  --color-ring:                 oklch(78%   0.155 78);
-  --color-success:              oklch(45% 0.10 150);
+  /* Palette — light (parchment / ink / saffron). Every Tailwind --color-*
+     role is pinned. */
+  --color-background:             oklch(96.5% 0.012 90);   /* warm parchment */
+  --color-foreground:             oklch(14%   0.005 60);   /* near-black ink */
+  --color-card:                   oklch(99%   0.006 90);   /* slightly brighter cream */
+  --color-card-foreground:        oklch(14%   0.005 60);
+  --color-popover:                oklch(99%   0.006 90);
+  --color-popover-foreground:     oklch(14%   0.005 60);
 
-  /* Saffron ramp — explicit utility for the brand accent. */
+  --color-primary:                oklch(14%   0.005 60);   /* ink IS primary (the bauhaus block) */
+  --color-primary-foreground:     oklch(96.5% 0.012 90);   /* parchment on ink */
+
+  --color-secondary:              oklch(91%   0.018 90);   /* warm tan, ghost buttons */
+  --color-secondary-foreground:   oklch(14%   0.005 60);
+
+  --color-muted:                  oklch(91%   0.018 90);   /* SURFACE tint */
+  --color-muted-foreground:       oklch(38%   0.010 60);   /* TEXT — distinct */
+
+  --color-accent:                 oklch(78%   0.155 78);   /* saffron — the warm punch */
+  --color-accent-foreground:      oklch(14%   0.005 60);   /* ink on saffron */
+
+  --color-destructive:            oklch(42%   0.150 27);   /* oxblood (destructive only) */
+  --color-destructive-foreground: oklch(96.5% 0.012 90);
+
+  --color-border:                 oklch(14% 0.005 60 / 0.18);
+  --color-input:                  oklch(14% 0.005 60 / 0.22);
+  --color-ring:                   oklch(78%   0.155 78);   /* saffron focus */
+  --color-success:                oklch(45%   0.10  150);  /* muted green, restrained */
+
+  /* Saffron ramp — the accent ladder, used by .ts-eyebrow, .ts-brand-chip,
+     and any consumer that explicitly references bg-saffron-* / text-saffron-*. */
   --color-saffron-50:  #fdf6e3;
   --color-saffron-100: #fae9b4;
   --color-saffron-200: #f5d77a;
@@ -69,7 +78,9 @@
   --color-saffron-800: #674313;
   --color-saffron-900: #3e2b0d;
 
-  /* Ink ramp */
+  /* Ink ramp — for explicit text-ink-* / bg-ink-* utilities. The sidebar
+     uses ink-900 implicitly via --color-foreground; this ramp exists for
+     finer-grained text hierarchies. */
   --color-ink-50:  #f5f3ee;
   --color-ink-100: #e8e4dc;
   --color-ink-200: #cfc8bd;
@@ -81,40 +92,18 @@
   --color-ink-800: #15140f;
   --color-ink-900: #0c0b08;
 
-  /* Radii — sharp, geometric. */
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 2px;
-  --radius-xl: 2px;
+  /* Radii — sharp, geometric. The 2px on lg/xl gives buttons a barely-
+     visible round (which Archivo 700 needs to not look like raw blocks)
+     while sm/md stay perfectly square. */
+  --radius-sm:  0;
+  --radius-md:  0;
+  --radius-lg:  2px;
+  --radius-xl:  2px;
   --radius-2xl: 2px;
 
+  /* No drop shadows — bauhaus uses hairlines for separation. Keep the
+     utility present so consumers don't fail; it draws an ink hairline. */
   --shadow-brand: 0 0 0 1px oklch(14% 0.005 60);
-}
-
-/* Dark theme — near-black ground, ivory ink, same saffron accent. */
-@layer base {
-  :root[data-theme="dark"] {
-    --color-background:           oklch(13%  0.008 80);
-    --color-foreground:           oklch(94%  0.010 90);
-    --color-card:                 oklch(17%  0.010 80);
-    --color-card-foreground:      oklch(94%  0.010 90);
-    --color-popover:              oklch(17%  0.010 80);
-    --color-popover-foreground:   oklch(94%  0.010 90);
-    --color-primary:              oklch(94%  0.010 90);
-    --color-primary-foreground:   oklch(13%  0.008 80);
-    --color-secondary:            oklch(22%  0.010 80);
-    --color-secondary-foreground: oklch(94%  0.010 90);
-    --color-muted:                oklch(22%  0.010 80);
-    --color-muted-foreground:     oklch(64%  0.012 80);
-    --color-accent:               oklch(78%  0.155 78);
-    --color-accent-foreground:    oklch(13%  0.008 80);
-    --color-destructive:          oklch(58%  0.180 27);
-    --color-destructive-foreground: oklch(94% 0.010 90);
-    --color-border:               oklch(94%  0.010 90 / 0.16);
-    --color-input:                oklch(94%  0.010 90 / 0.22);
-    --color-ring:                 oklch(78%  0.155 78);
-    --shadow-brand: 0 0 0 1px oklch(94% 0.010 90 / 0.6);
-  }
 }
 
 @layer base {
@@ -124,10 +113,10 @@
   }
 
   html { color-scheme: light; }
-  :root[data-theme="dark"], :root[data-theme="dark"] body { color-scheme: dark; }
 
   body {
-    @apply m-0 min-h-screen bg-background text-foreground font-sans antialiased;
+    @apply m-0 min-h-screen bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
   }
 
@@ -141,7 +130,7 @@
   #root { @apply min-h-screen; }
 
   /* Headings adopt the display face. Archivo 700 anchors the bauhaus block
-     without screaming; reserve 800 for the giant hero via .display-hero. */
+     without screaming; reserve 800 for the giant hero via .ts-display. */
   h1, h2, h3 {
     font-family: var(--font-display);
     font-weight: 700;
@@ -151,16 +140,12 @@
 
 @layer utilities {
   /* Canonical decorative classes (mirror starter-external-agent-teamsuzie).
-   * Same names across every starter; each starter implements them with its
-   * own design language. SuzieCode's set_theme tool can swap a build's CSS
-   * between starters and the agent-runtime React (which references these
-   * canonical names) keeps rendering correctly.
-   *
-   * Counsel's implementation: Archivo display + IBM Plex Mono numerics +
-   * saffron accent, bauhaus-restrained motion.
-   */
+   * Same class names across every starter; each implements them with its
+   * own design language. SuzieCode's set_theme reseeds the build's CSS
+   * between starters and the agent-runtime React (which references only
+   * these canonical names) keeps rendering correctly. */
 
-  /* Display heading — Archivo 800, tight tracking. */
+  /* ── Display heading ── */
   .ts-display {
     font-family: var(--font-display);
     font-weight: 800;
@@ -168,7 +153,7 @@
     line-height: 0.95;
   }
 
-  /* Mono small label — caps + IBM Plex Mono. */
+  /* ── Mono small label ── */
   .ts-mono-data {
     font-family: var(--font-mono);
     font-weight: 500;
@@ -178,9 +163,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Brand accents — counsel uses ink-on-saffron rather than violet. The
-   * gradient surfaces still receive the design's accent token at runtime
-   * via useThemeTokens (--color-accent / --color-primary). */
+  /* ── Brand gradient ── ink → saffron, the bauhaus contrast. */
   .ts-fancy-gradient {
     background: linear-gradient(78deg, var(--color-primary), var(--color-accent));
   }
@@ -191,12 +174,20 @@
     background-clip: text;
     color: transparent;
   }
-  .ts-violet-glow {
-    box-shadow: 0 12px 32px -12px color-mix(in oklab, var(--color-primary) 35%, transparent);
+
+  /* No drop shadows in this aesthetic — `.ts-brand-glow` is a hairline. */
+  .ts-brand-glow { box-shadow: 0 0 0 1px var(--color-primary); }
+  .ts-brand-ring {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent) 30%, transparent);
   }
+  /* Legacy aliases — keep until consumers migrate to brand-*. */
+  .ts-violet-glow { box-shadow: 0 0 0 1px var(--color-primary); }
   .ts-violet-ring {
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 12%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent) 30%, transparent);
   }
+
+  /* ── Atmosphere ── two ink+saffron halos plus a parchment glow.
+     No teal cream here — that's a TeamSuzie identity moment. */
   .ts-atmosphere {
     position: relative;
     isolation: isolate;
@@ -207,14 +198,14 @@
     inset: -10% -20%;
     z-index: -1;
     background:
-      radial-gradient(circle at 22% 30%, color-mix(in oklab, var(--color-primary) 18%, transparent), transparent 55%),
-      radial-gradient(circle at 78% 70%, color-mix(in oklab, var(--color-accent)  12%, transparent), transparent 60%);
+      radial-gradient(circle at 22% 30%, rgba(31, 29, 24, 0.05), transparent 55%),
+      radial-gradient(circle at 78% 70%, rgba(232, 177, 58, 0.10), transparent 60%),
+      radial-gradient(circle at 50% 100%, rgba(245, 240, 228, 0.60), transparent 70%);
     filter: blur(2px);
     pointer-events: none;
   }
 
-  /* Eyebrow + brand chip — counsel pulls from the saffron ramp via
-   * --color-accent (set to saffron by the active theme). */
+  /* ── Eyebrow ── caps in saffron. */
   .ts-eyebrow {
     font-size: 10px;
     font-weight: 700;
@@ -222,35 +213,36 @@
     letter-spacing: 0.16em;
     color: var(--color-accent);
   }
+
+  /* ── Brand chip ── saffron-tinted pill. */
   .ts-brand-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
     padding: 0.125rem 0.625rem;
     border-radius: 9999px;
-    border: 1px solid color-mix(in oklab, var(--color-accent) 20%, var(--color-background));
-    background: color-mix(in oklab, var(--color-accent) 8%, var(--color-background));
-    color: var(--color-accent);
+    border: 1px solid color-mix(in oklab, var(--color-accent) 40%, var(--color-background));
+    background: var(--color-saffron-50);
+    color: var(--color-saffron-700);
     font-size: 11px;
     font-weight: 500;
   }
 
-  /* Hairline 1px rule — counsel's signature separator. */
+  /* ── Hairline rule ── counsel's signature separator. */
   .rule-hairline {
     background-color: currentColor;
     height: 1px;
     opacity: 0.18;
   }
 
-  /* Grid-rule backdrop — faint vertical lines for hero sections. */
+  /* ── Grid-rule backdrop ── faint vertical lines for hero sections. */
   .grid-rules {
     background-image:
       linear-gradient(to right, oklch(14% 0.005 60 / 0.05) 1px, transparent 1px);
     background-size: 96px 100%;
   }
 
-  /* --- Motion --- */
-
+  /* ── Motion ── */
   @keyframes suzie-typing {
     0%, 80%, 100% { transform: translateY(0);    opacity: 0.35; }
     40%           { transform: translateY(-3px); opacity: 1; }
@@ -265,14 +257,11 @@
   .typing-dot:nth-child(2) { animation-delay: 0.15s; }
   .typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
-  /* Staggered reveal — canonical class + data-delay attribute. */
   @keyframes ts-fade-in-up {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .ts-reveal {
-    animation: ts-fade-in-up 0.5s ease-out both;
-  }
+  .ts-reveal { animation: ts-fade-in-up 0.5s ease-out both; }
   .ts-reveal[data-delay="1"] { animation-delay: 0.05s; }
   .ts-reveal[data-delay="2"] { animation-delay: 0.15s; }
   .ts-reveal[data-delay="3"] { animation-delay: 0.25s; }

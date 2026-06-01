@@ -292,7 +292,7 @@ export async function createApp(opts: StartAgentOptions): Promise<AppHandles> {
         id: p.id && p.id.length > 0 ? p.id : `manifest-prompt-${i}-${slugify(p.title)}`,
         name: p.title,
         description: p.subtitle ?? '',
-        prompt: p.prompt ?? '',
+        prompt: p.prompt?.trim() || p.title,
         practiceAreas: p.practiceAreas ?? [],
         outputMode: 'inline_chat' as const,
         columnConfig: null,
