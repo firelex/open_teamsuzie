@@ -1,0 +1,380 @@
+{
+  "templateId": "blixt-lbo-v1",
+  "schemaVersion": "suzie-lbo-v1",
+  "profile": "uk_mid_market_lbo",
+  "modules": {
+    "core_meta": {
+      "moduleVersion": "v1",
+      "scalars": {
+        "sponsor_name": "Cover!B10",
+        "project_name": "LBO!L13",
+        "currency": "LBO!L14"
+      },
+      "slots": {}
+    },
+    "transaction_inputs": {
+      "moduleVersion": "v1",
+      "scalars": {
+        "base_rate": "LBO!F13",
+        "min_cash_balance": "LBO!G27",
+        "opening_cash_in_newco": "LBO!G28",
+        "tax_rate": "LBO!L15",
+        "sponsor_mgmt_fee_rate": "LBO!L19",
+        "sponsor_mgmt_fee_floor": "LBO!M19",
+        "sponsor_exit_fee_rate": "LBO!L20"
+      },
+      "slots": {}
+    },
+    "entry_exit": {
+      "moduleVersion": "v1",
+      "scalars": {
+        "last_completed_fy": "LBO!F37",
+        "months_to_close": "LBO!F38",
+        "entry_valuation_basis": "LBO!L29"
+      },
+      "slots": {}
+    },
+    "debt_stack": {
+      "moduleVersion": "v1",
+      "scalars": {},
+      "slots": {
+        "rcf": {
+          "fields": {
+            "multiple": "LBO!D14",
+            "commitment_fee": "LBO!F19"
+          }
+        },
+        "tla": {
+          "fields": {
+            "multiple": "LBO!D15"
+          }
+        },
+        "tlb": {
+          "fields": {
+            "multiple": "LBO!D16"
+          }
+        },
+        "acf": {
+          "fields": {
+            "multiple": "LBO!D17",
+            "commitment_fee": "LBO!F20",
+            "leverage_cap": "LBO!D21"
+          }
+        }
+      }
+    },
+    "equity_stack": {
+      "moduleVersion": "v1",
+      "scalars": {},
+      "slots": {}
+    },
+    "mgmt_equity_plan": {
+      "moduleVersion": "v1",
+      "scalars": {
+        "sweet_pref_to_ords_ratio": "LBO!L26"
+      },
+      "slots": {
+        "new_mgmt_1": {
+          "fields": {
+            "name": "LBO!B63",
+            "invest_amount": "LBO!M63"
+          }
+        },
+        "new_mgmt_2": {
+          "fields": {
+            "name": "LBO!B64",
+            "invest_amount": "LBO!M64"
+          }
+        },
+        "new_mgmt_3": {
+          "fields": {
+            "name": "LBO!B65",
+            "invest_amount": "LBO!M65"
+          }
+        }
+      }
+    },
+    "m_and_a_bolt_ons": {
+      "moduleVersion": "v1",
+      "scalars": {},
+      "slots": {
+        "slot_1": {
+          "fields": {
+            "acquisition_name": "LBO!D114"
+          }
+        },
+        "slot_2": {
+          "fields": {
+            "acquisition_name": "LBO!D115"
+          }
+        },
+        "slot_3": {
+          "fields": {
+            "acquisition_name": "LBO!D116"
+          }
+        },
+        "slot_4": {
+          "fields": {
+            "acquisition_name": "LBO!D117"
+          }
+        }
+      }
+    },
+    "cash_flow_drivers": {
+      "moduleVersion": "v1",
+      "scalars": {
+        "wc_pct_revenue_change": "LBO!K210",
+        "capex_maintenance_pct_revenue": "LBO!K214",
+        "capex_growth_pct_revenue": "LBO!K216",
+        "tax_relief_interest_basis": "LBO!L16",
+        "tax_relief_de_minimis": "LBO!L17"
+      },
+      "slots": {}
+    },
+    "scenarios": {
+      "moduleVersion": "v1",
+      "scalars": {
+        "selected_case": "LBO!G6"
+      },
+      "slots": {
+        "low": {
+          "fields": {
+            "case_label": "Cases!E4",
+            "exit_multiple_flex": "Cases!E5"
+          }
+        },
+        "base": {
+          "fields": {
+            "case_label": "Cases!F4",
+            "exit_multiple_flex": "Cases!F5"
+          }
+        },
+        "high": {
+          "fields": {
+            "case_label": "Cases!G4",
+            "exit_multiple_flex": "Cases!G5"
+          }
+        }
+      }
+    },
+    "pnl_drivers": {
+      "moduleVersion": "v1",
+      "scalars": {},
+      "slots": {
+        "segment_1_low": {
+          "fields": {
+            "segment_name": "Cases!C19",
+            "revenue_growth_y1": "Cases!E19",
+            "revenue_growth_y2": "Cases!F19",
+            "revenue_growth_y3": "Cases!G19",
+            "revenue_growth_y4": "Cases!H19",
+            "revenue_growth_y5": "Cases!I19"
+          }
+        },
+        "segment_2_low": {
+          "fields": {
+            "segment_name": "Cases!C20",
+            "revenue_growth_y1": "Cases!E20",
+            "revenue_growth_y2": "Cases!F20",
+            "revenue_growth_y3": "Cases!G20",
+            "revenue_growth_y4": "Cases!H20",
+            "revenue_growth_y5": "Cases!I20"
+          }
+        },
+        "segment_3_low": {
+          "fields": {
+            "segment_name": "Cases!C21",
+            "revenue_growth_y1": "Cases!E21",
+            "revenue_growth_y2": "Cases!F21",
+            "revenue_growth_y3": "Cases!G21",
+            "revenue_growth_y4": "Cases!H21",
+            "revenue_growth_y5": "Cases!I21"
+          }
+        },
+        "segment_4_low": {
+          "fields": {
+            "segment_name": "Cases!C22",
+            "revenue_growth_y1": "Cases!E22",
+            "revenue_growth_y2": "Cases!F22",
+            "revenue_growth_y3": "Cases!G22",
+            "revenue_growth_y4": "Cases!H22",
+            "revenue_growth_y5": "Cases!I22"
+          }
+        },
+        "segment_1_base": {
+          "fields": {
+            "segment_name": "Cases!C26",
+            "revenue_growth_y1": "Cases!E26",
+            "revenue_growth_y2": "Cases!F26",
+            "revenue_growth_y3": "Cases!G26",
+            "revenue_growth_y4": "Cases!H26",
+            "revenue_growth_y5": "Cases!I26"
+          }
+        },
+        "segment_2_base": {
+          "fields": {
+            "segment_name": "Cases!C27",
+            "revenue_growth_y1": "Cases!E27",
+            "revenue_growth_y2": "Cases!F27",
+            "revenue_growth_y3": "Cases!G27",
+            "revenue_growth_y4": "Cases!H27",
+            "revenue_growth_y5": "Cases!I27"
+          }
+        },
+        "segment_3_base": {
+          "fields": {
+            "segment_name": "Cases!C28",
+            "revenue_growth_y1": "Cases!E28",
+            "revenue_growth_y2": "Cases!F28",
+            "revenue_growth_y3": "Cases!G28",
+            "revenue_growth_y4": "Cases!H28",
+            "revenue_growth_y5": "Cases!I28"
+          }
+        },
+        "segment_4_base": {
+          "fields": {
+            "segment_name": "Cases!C29",
+            "revenue_growth_y1": "Cases!E29",
+            "revenue_growth_y2": "Cases!F29",
+            "revenue_growth_y3": "Cases!G29",
+            "revenue_growth_y4": "Cases!H29",
+            "revenue_growth_y5": "Cases!I29"
+          }
+        },
+        "segment_1_high": {
+          "fields": {
+            "segment_name": "Cases!C33",
+            "revenue_growth_y1": "Cases!E33",
+            "revenue_growth_y2": "Cases!F33",
+            "revenue_growth_y3": "Cases!G33",
+            "revenue_growth_y4": "Cases!H33",
+            "revenue_growth_y5": "Cases!I33"
+          }
+        },
+        "segment_2_high": {
+          "fields": {
+            "segment_name": "Cases!C34",
+            "revenue_growth_y1": "Cases!E34",
+            "revenue_growth_y2": "Cases!F34",
+            "revenue_growth_y3": "Cases!G34",
+            "revenue_growth_y4": "Cases!H34",
+            "revenue_growth_y5": "Cases!I34"
+          }
+        },
+        "segment_3_high": {
+          "fields": {
+            "segment_name": "Cases!C35",
+            "revenue_growth_y1": "Cases!E35",
+            "revenue_growth_y2": "Cases!F35",
+            "revenue_growth_y3": "Cases!G35",
+            "revenue_growth_y4": "Cases!H35",
+            "revenue_growth_y5": "Cases!I35"
+          }
+        },
+        "segment_4_high": {
+          "fields": {
+            "segment_name": "Cases!C36",
+            "revenue_growth_y1": "Cases!E36",
+            "revenue_growth_y2": "Cases!F36",
+            "revenue_growth_y3": "Cases!G36",
+            "revenue_growth_y4": "Cases!H36",
+            "revenue_growth_y5": "Cases!I36"
+          }
+        }
+      }
+    }
+  },
+  "other": [
+    {
+      "name": "sweet_equity_pct",
+      "description": "Sweet equity pool size as percentage of total equity (Blixt convention)",
+      "address": "LBO!L21",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_1_upfront_pct",
+      "description": "Blixt-specific: upfront payment percentage for M&A slot 1",
+      "address": "LBO!G114",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_1_deferral_years",
+      "description": "Blixt-specific: deferral years for M&A slot 1",
+      "address": "LBO!J114",
+      "type": "number",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_1_revenue_growth_pct",
+      "description": "Blixt-specific: revenue growth percentage for M&A slot 1",
+      "address": "LBO!N114",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_2_upfront_pct",
+      "description": "Blixt-specific: upfront payment percentage for M&A slot 2",
+      "address": "LBO!G115",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_2_deferral_years",
+      "description": "Blixt-specific: deferral years for M&A slot 2",
+      "address": "LBO!J115",
+      "type": "number",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_2_revenue_growth_pct",
+      "description": "Blixt-specific: revenue growth percentage for M&A slot 2",
+      "address": "LBO!N115",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_3_upfront_pct",
+      "description": "Blixt-specific: upfront payment percentage for M&A slot 3",
+      "address": "LBO!G116",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_3_deferral_years",
+      "description": "Blixt-specific: deferral years for M&A slot 3",
+      "address": "LBO!J116",
+      "type": "number",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_3_revenue_growth_pct",
+      "description": "Blixt-specific: revenue growth percentage for M&A slot 3",
+      "address": "LBO!N116",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_4_upfront_pct",
+      "description": "Blixt-specific: upfront payment percentage for M&A slot 4",
+      "address": "LBO!G117",
+      "type": "percentage",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_4_deferral_years",
+      "description": "Blixt-specific: deferral years for M&A slot 4",
+      "address": "LBO!J117",
+      "type": "number",
+      "extractable": true
+    },
+    {
+      "name": "m_and_a_slot_4_revenue_growth_pct",
+      "description": "Blixt-specific: revenue growth percentage for M&A slot 4",
+      "address": "LBO!N117",
+      "type": "percentage",
+      "extractable": true
+    }
+  ]
+}
