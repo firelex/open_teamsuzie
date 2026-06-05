@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import type { ChatThreadProps, ChatToolCall } from './types.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Loader2, Paperclip, X } from 'lucide-react';
+import type { ChatAttachment, ChatThreadProps, ChatToolCall } from './types.js';
 import { useChatThreadStream } from './use-chat-thread-stream.js';
 import { MarkdownMessage } from '../markdown-message.js';
 
@@ -32,7 +33,7 @@ import { MarkdownMessage } from '../markdown-message.js';
 // Bump the version suffix whenever the INJECTED_CSS string changes —
 // `ensureStyles` early-returns when a tag with this id already exists, so
 // without a bump a hot-reloaded page keeps serving the prior CSS revision.
-const STYLE_ID = 'teamsuzie-chat-thread-styles-v11';
+const STYLE_ID = 'teamsuzie-chat-thread-styles-v12';
 const INJECTED_CSS = `
 @keyframes _ct_slideUp {
   from { opacity: 0; transform: translateY(4px); }
@@ -385,6 +386,95 @@ details.ct-tool-args[open] .ct-tool-args-expand {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.ct-attachment-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.ct-attachment-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--color-foreground) 4%, var(--color-background));
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  max-width: 220px;
+}
+.ct-attachment-chip[data-pending="true"] { opacity: 0.65; }
+.ct-attachment-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--color-muted);
+}
+.ct-attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+.ct-attachment-remove {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ct-attachment-remove:hover { color: var(--color-foreground); }
+.ct-user-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ct-user-attachments img {
+  max-width: 220px;
+  max-height: 200px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+  cursor: zoom-in;
+}
+.ct-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--color-foreground) 4%, transparent);
+  border: 2px dashed var(--color-primary);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--color-foreground);
+  pointer-events: none;
+}
+.ct-icon-button {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ct-icon-button:hover {
+  background: color-mix(in oklab, var(--color-foreground) 6%, var(--color-background));
+  color: var(--color-foreground);
+}
+.ct-icon-button:disabled { opacity: 0.5; cursor: default; }
 `;
 
 function ensureStyles(): void {
@@ -447,11 +537,41 @@ function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
   );
 }
 
+interface PendingAttachment {
+  key: string;
+  filename: string;
+  mimeType: string;
+  previewUrl: string;
+  status: 'uploading' | 'ready' | 'error';
+  remote?: ChatAttachment;
+  error?: string;
+}
+
+function isImageFile(file: { type: string }): boolean {
+  return /^image\//i.test(file.type);
+}
+
+function UserAttachmentPreview({ attachment }: { attachment: ChatAttachment }) {
+  if (attachment.mimeType.startsWith('image/')) {
+    return (
+      <a href={attachment.url} target="_blank" rel="noreferrer">
+        <img src={attachment.url} alt={attachment.filename} loading="lazy" />
+      </a>
+    );
+  }
+  return (
+    <a href={attachment.url} target="_blank" rel="noreferrer" className="ct-attachment-chip">
+      <Paperclip size={12} />
+      <span className="ct-attachment-name">{attachment.filename}</span>
+    </a>
+  );
+}
+
 export function ChatThread(props: ChatThreadProps) {
   const {
     endpoint, chatId, fetchHistory, onChatCreated, extraBody,
     renderToolCall, renderAssistantText, placeholder, composerExtras, header,
-    onToolResult, onError, className,
+    onToolResult, onError, onActivityChange, className, uploadAttachment,
     defaultInput, autoSendDefaultInput,
     initialMessages, onMessagesChange,
   } = props;
@@ -470,6 +590,20 @@ export function ChatThread(props: ChatThreadProps) {
   useEffect(() => {
     onMessagesChange?.(stream.messages);
   }, [stream.messages, onMessagesChange]);
+
+  // Notify the host whenever streaming starts/stops so it can keep the
+  // enclosing tab mounted while a turn is in flight. The cleanup fires an
+  // explicit `false` so an unmount doesn't leave the tab marked busy.
+  useEffect(() => {
+    onActivityChange?.(stream.inFlight);
+    return () => { onActivityChange?.(false); };
+  }, [stream.inFlight, onActivityChange]);
+
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingRef = useRef<PendingAttachment[]>([]);
+  pendingRef.current = pending;
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -561,11 +695,93 @@ export function ChatThread(props: ChatThreadProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendDefaultInput, defaultInput, loadedHistory]);
 
+  const startUpload = useCallback((files: File[]) => {
+    if (!uploadAttachment) return;
+    for (const file of files) {
+      if (!isImageFile(file)) continue;
+      const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const previewUrl = URL.createObjectURL(file);
+      setPending((cur) => [
+        ...cur,
+        { key, filename: file.name || 'screenshot.png', mimeType: file.type, previewUrl, status: 'uploading' },
+      ]);
+      (async () => {
+        try {
+          const remote = await uploadAttachment(file);
+          setPending((cur) => cur.map((it) =>
+            it.key === key ? { ...it, status: 'ready', remote } : it,
+          ));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          setPending((cur) => cur.map((it) =>
+            it.key === key ? { ...it, status: 'error', error: message } : it,
+          ));
+        }
+      })();
+    }
+  }, [uploadAttachment]);
+
+  // Revoke object URLs when the component unmounts so we don't leak memory
+  // for unsent pasted screenshots.
+  useEffect(() => {
+    return () => {
+      for (const it of pendingRef.current) URL.revokeObjectURL(it.previewUrl);
+    };
+  }, []);
+
+  const removePending = useCallback((key: string) => {
+    setPending((cur) => {
+      const target = cur.find((it) => it.key === key);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return cur.filter((it) => it.key !== key);
+    });
+  }, []);
+
+  const onPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!uploadAttachment) return;
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const files: File[] = [];
+    for (const it of items) {
+      if (it.kind !== 'file') continue;
+      const f = it.getAsFile();
+      if (f && isImageFile(f)) files.push(f);
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      startUpload(files);
+    }
+  }, [uploadAttachment, startUpload]);
+
+  const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!uploadAttachment) return;
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files).filter(isImageFile);
+    if (files.length > 0) startUpload(files);
+  }, [uploadAttachment, startUpload]);
+
+  const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!uploadAttachment) return;
+    const hasFiles = Array.from(e.dataTransfer.types).includes('Files');
+    if (!hasFiles) return;
+    e.preventDefault();
+    setDragOver(true);
+  }, [uploadAttachment]);
+
+  const onDragLeave = useCallback(() => setDragOver(false), []);
+
   async function handleSend() {
     const text = input.trim();
-    if (!text) return;
+    const readyAttachments = pending
+      .filter((p) => p.status === 'ready' && p.remote)
+      .map((p) => p.remote as ChatAttachment);
+    const hasUploading = pending.some((p) => p.status === 'uploading');
+    if (hasUploading) return;
+    if (!text && readyAttachments.length === 0) return;
+    for (const it of pending) URL.revokeObjectURL(it.previewUrl);
+    setPending([]);
     setInput('');
-    await stream.send(text, { chatId });
+    await stream.send(text, { chatId, attachments: readyAttachments });
   }
 
   const rootClass = className ? `ct-root ${className}` : 'ct-root';
@@ -592,7 +808,16 @@ export function ChatThread(props: ChatThreadProps) {
           >
             {m.role === 'user' ? (
               <div className="ct-user">
-                <span className="ct-user-body">{m.content}</span>
+                <div className="ct-user-body">
+                  {m.content && <span>{m.content}</span>}
+                  {m.attachments && m.attachments.length > 0 && (
+                    <div className="ct-user-attachments">
+                      {m.attachments.map((att) => (
+                        <UserAttachmentPreview key={att.id} attachment={att} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="ct-assistant">
@@ -622,14 +847,74 @@ export function ChatThread(props: ChatThreadProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="ct-composer">
+      <div
+        className="ct-composer"
+        style={{ position: 'relative' }}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        {dragOver && uploadAttachment && (
+          <div className="ct-drop-overlay">drop image to attach</div>
+        )}
+        {pending.length > 0 && (
+          <div className="ct-attachment-strip">
+            {pending.map((p) => (
+              <div
+                key={p.key}
+                className="ct-attachment-chip"
+                data-pending={p.status === 'uploading' ? 'true' : 'false'}
+                title={p.status === 'error' ? `Upload failed: ${p.error ?? ''}` : p.filename}
+              >
+                <img className="ct-attachment-thumb" src={p.previewUrl} alt={p.filename} />
+                <span className="ct-attachment-name">{p.filename}</span>
+                {p.status === 'uploading' && <Loader2 size={12} className="animate-spin" />}
+                <button
+                  type="button"
+                  className="ct-attachment-remove"
+                  onClick={() => removePending(p.key)}
+                  aria-label={`Remove ${p.filename}`}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="ct-composer-row">
-          <span aria-hidden className="ct-composer-glyph">▸</span>
+          {uploadAttachment ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length > 0) startUpload(files);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                className="ct-icon-button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach image"
+                disabled={stream.inFlight}
+              >
+                <Paperclip size={16} />
+              </button>
+            </>
+          ) : (
+            <span aria-hidden className="ct-composer-glyph">▸</span>
+          )}
           <textarea
             ref={textareaRef}
             className="ct-textarea"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={onPaste}
             placeholder={placeholder ?? 'type a message…'}
             rows={1}
             onKeyDown={(e) => {
@@ -646,12 +931,17 @@ export function ChatThread(props: ChatThreadProps) {
         <div className="ct-meta">
           <span className="ct-hint">
             <kbd>↵</kbd> send  <kbd>⇧↵</kbd> newline  <kbd>esc</kbd> abort
+            {uploadAttachment && <> <kbd>paste</kbd> image</>}
           </span>
           <span style={{ flex: 1 }} />
           {composerExtras}
           <button
             className="ct-send"
-            disabled={stream.inFlight || !input.trim()}
+            disabled={
+              stream.inFlight
+              || pending.some((p) => p.status === 'uploading')
+              || (!input.trim() && pending.filter((p) => p.status === 'ready').length === 0)
+            }
             onClick={() => { void handleSend(); }}
           >
             {stream.inFlight ? '· · · sending' : '↳ send'}

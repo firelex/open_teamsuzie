@@ -9,6 +9,13 @@ export interface ChatToolCall {
   error?: string;
 }
 
+export interface ChatAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  url: string;
+}
+
 export interface ChatThreadMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -17,8 +24,8 @@ export interface ChatThreadMessage {
   toolCalls?: ChatToolCall[];
   /** True while the assistant turn is still streaming. */
   pending?: boolean;
-  /** Attachments rendered as chips at the top of a user turn (optional). */
-  attachments?: ReadonlyArray<{ id: string; name: string }>;
+  /** Attachments displayed inline on a user turn (images render as thumbnails). */
+  attachments?: ReadonlyArray<ChatAttachment>;
 }
 
 /** Raw SSE event from the server. Matches the existing upstream chat-route contract. */
@@ -43,6 +50,20 @@ export interface ChatThreadProps {
   header?: ReactNode;
   onToolResult?: (call: ChatToolCall) => void;
   onError?: (message: string) => void;
+  /**
+   * Fires whenever the in-flight state of the SSE stream flips. Lets the
+   * host mark the surrounding tab/pane as busy so it can stay mounted
+   * across tab switches while the model is still streaming.
+   */
+  onActivityChange?: (active: boolean) => void;
+  /**
+   * When set, the composer enables image paste, drag-and-drop, and a file
+   * picker. The host is responsible for uploading the bytes and returning
+   * an attachment record (id, filename, mimeType, url). Returned ids are
+   * sent to the stream endpoint in the `attachmentIds` request field and
+   * the attachment is rendered inline on the user turn.
+   */
+  uploadAttachment?: (file: File) => Promise<ChatAttachment>;
   className?: string;
   /** Pre-fill the composer input with this text on mount. Used when navigating
    *  into a chat with a queued message — e.g. the bare-route → /c/:id handoff

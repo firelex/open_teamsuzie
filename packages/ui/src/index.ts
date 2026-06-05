@@ -173,4 +173,5 @@ export type {
   ChatThreadMessage,
   ChatToolCall,
   ChatStreamEvent,
+  ChatAttachment,
 } from './components/chat-thread/types.js';

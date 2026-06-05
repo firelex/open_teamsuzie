@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { reduceEvents, type ChatStreamEvent } from '../use-chat-thread-stream.js';
-import type { ChatThreadMessage } from '../types.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { reduceEvents, useChatThreadStream, type ChatStreamEvent } from '../use-chat-thread-stream.js';
+import type { ChatAttachment, ChatThreadMessage } from '../types.js';
 
 function userTurn(id: string, content: string): ChatThreadMessage {
   return { id, role: 'user', content };
@@ -72,5 +73,113 @@ describe('reduceEvents', () => {
     const out = events.reduce((m, e) => reduceEvents(m, e, 'a1'), initial);
     const last = out[out.length - 1];
     expect(last.pending).toBe(false);
+  });
+});
+
+function makeStreamResponse(events: ChatStreamEvent[]): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const e of events) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+}
+
+describe('useChatThreadStream.send', () => {
+  beforeEach(() => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'fixed-id-' + Math.random().toString(36).slice(2, 7) });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('sends attachmentIds in the request body and renders them on the user turn', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(makeStreamResponse([{ type: 'done' }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useChatThreadStream({ endpoint: '/chat' }));
+    const attachments: ChatAttachment[] = [
+      { id: 'att-1', filename: 'shot.png', mimeType: 'image/png', url: '/uploads/shot.png' },
+    ];
+
+    await act(async () => {
+      await result.current.send('look at this', { attachments });
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.attachmentIds).toEqual(['att-1']);
+    expect(body.message).toBe('look at this');
+
+    const userMsg = result.current.messages.find((m) => m.role === 'user');
+    expect(userMsg?.attachments).toEqual(attachments);
+  });
+
+  it('allows sending with only attachments and substitutes a fallback message', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(makeStreamResponse([{ type: 'done' }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useChatThreadStream({ endpoint: '/chat' }));
+    const attachments: ChatAttachment[] = [
+      { id: 'att-2', filename: 'shot.png', mimeType: 'image/png', url: '/uploads/shot.png' },
+    ];
+
+    await act(async () => {
+      await result.current.send('', { attachments });
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.message).toBe('(image attached)');
+    expect(body.attachmentIds).toEqual(['att-2']);
+  });
+
+  it('parses JSON error.message from a non-OK response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'rate limit' }), { status: 429 }),
+    ));
+
+    const { result } = renderHook(() => useChatThreadStream({ endpoint: '/chat' }));
+    await act(async () => {
+      await result.current.send('hi');
+    });
+
+    expect(result.current.error).toBe('rate limit');
+    const assistant = result.current.messages.find((m) => m.role === 'assistant');
+    expect(assistant?.pending).toBe(false);
+    expect(assistant?.content).toContain('rate limit');
+  });
+
+  it('falls back to the raw body when the non-OK response is not JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response('boom', { status: 500 }),
+    ));
+
+    const { result } = renderHook(() => useChatThreadStream({ endpoint: '/chat' }));
+    await act(async () => {
+      await result.current.send('hi');
+    });
+
+    expect(result.current.error).toBe('boom');
+  });
+
+  it('clears pending on stream end even without an explicit done event', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeStreamResponse([{ type: 'chunk', text: 'hello' }]),
+    ));
+
+    const { result } = renderHook(() => useChatThreadStream({ endpoint: '/chat' }));
+    await act(async () => {
+      await result.current.send('hi');
+    });
+
+    const assistant = result.current.messages.find((m) => m.role === 'assistant');
+    expect(assistant?.pending).toBe(false);
+    expect(assistant?.content).toBe('hello');
   });
 });

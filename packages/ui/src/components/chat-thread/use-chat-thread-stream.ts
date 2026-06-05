@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { ChatStreamEvent, ChatThreadMessage } from './types.js';
+import type { ChatAttachment, ChatStreamEvent, ChatThreadMessage } from './types.js';
 
 export type { ChatStreamEvent } from './types.js';
 
@@ -59,7 +59,14 @@ export interface UseChatThreadStreamArgs {
 export interface UseChatThreadStreamResult {
   messages: ChatThreadMessage[];
   inFlight: boolean;
-  send: (text: string, opts?: { chatId?: string | null; history?: ChatThreadMessage[] }) => Promise<void>;
+  send: (
+    text: string,
+    opts?: {
+      chatId?: string | null;
+      history?: ChatThreadMessage[];
+      attachments?: ChatAttachment[];
+    },
+  ) => Promise<void>;
   abort: () => void;
   setMessages: (next: ChatThreadMessage[]) => void;
   error: string | null;
@@ -84,17 +91,24 @@ export function useChatThreadStream(args: UseChatThreadStreamArgs): UseChatThrea
 
   const send = useCallback(async (
     text: string,
-    opts?: { chatId?: string | null; history?: ChatThreadMessage[] },
+    opts?: {
+      chatId?: string | null;
+      history?: ChatThreadMessage[];
+      attachments?: ChatAttachment[];
+    },
   ): Promise<void> => {
-    if (!text.trim() || inFlight) return;
+    const attachments = opts?.attachments ?? [];
+    if ((!text.trim() && attachments.length === 0) || inFlight) return;
     setError(null);
 
     const userId = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
     const history = opts?.history ?? messages;
+    const userMessage: ChatThreadMessage = { id: userId, role: 'user', content: text };
+    if (attachments.length > 0) userMessage.attachments = attachments;
     const nextHistory: ChatThreadMessage[] = [
       ...history,
-      { id: userId, role: 'user', content: text },
+      userMessage,
       { id: assistantId, role: 'assistant', content: '', pending: true },
     ];
     setMessagesState(nextHistory);
@@ -108,13 +122,23 @@ export function useChatThreadStream(args: UseChatThreadStreamArgs): UseChatThrea
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: text,
+          message: text || '(image attached)',
           chatId: opts?.chatId ?? null,
           history: history.map((m) => ({ role: m.role, content: m.content })),
+          ...(attachments.length > 0 ? { attachmentIds: attachments.map((a) => a.id) } : {}),
           ...(extraBody ?? {}),
         }),
         signal: ac.signal,
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        let message = body || `HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed && typeof parsed.error === 'string') message = parsed.error;
+        } catch { /* not json */ }
+        throw new Error(message);
+      }
       if (!res.body) throw new Error('no response body');
 
       const reader = res.body.getReader();
@@ -136,6 +160,11 @@ export function useChatThreadStream(args: UseChatThreadStreamArgs): UseChatThrea
           setMessagesState((cur) => reduceEvents(cur, parsed, assistantId));
         }
       }
+      // If the stream closed cleanly without an explicit `done` event,
+      // clear the pending flag so the spinner stops.
+      setMessagesState((cur) =>
+        cur.map((m) => (m.id === assistantId && m.pending ? { ...m, pending: false } : m)),
+      );
     } catch (err) {
       if ((err as { name?: string }).name === 'AbortError') {
         setMessagesState((cur) =>
