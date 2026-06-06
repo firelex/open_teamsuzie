@@ -1551,6 +1551,18 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
 
+  packages/agent-processes:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@22.19.17)(jiti@2.6.1)(jsdom@25.0.1(canvas@3.2.3))(lightningcss@1.32.0)(tsx@4.21.0)
+
   packages/agent-runtime:
     dependencies:
       '@teamsuzie/agent-loop':
