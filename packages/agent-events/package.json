@@ -1,0 +1,29 @@
+{
+  "name": "@teamsuzie/agent-events",
+  "version": "0.1.0",
+  "description": "Generic structured-update types (AgentUpdate / AgentAction) emitted by orchestration layers and rendered by user-facing presenters. Host apps extend the intent vocabulary and default action menus locally.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}
