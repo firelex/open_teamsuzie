@@ -8,6 +8,7 @@ export { WHIMSICAL_VERBS, prettyToolName, summarizeArgs } from './lib/tool-displ
 // here, add it explicitly (don't `export *` — lucide has names like
 // `Badge`, `Sheet`, `Table` that collide with our component exports).
 export {
+  Activity,
   AlertCircle,
   AlertTriangle,
   Archive,
@@ -127,8 +128,16 @@ export * from './components/label.js';
 export * from './components/loading-state.js';
 export * from './components/login-form.js';
 export * from './components/markdown-message.js';
+export * from './components/markdown-components.js';
+export * from './components/markdown-view.js';
+export * from './components/mermaid-block.js';
 export * from './components/model-picker.js';
 export * from './components/page-header.js';
+export * from './components/page-shell.js';
+export * from './components/page-body.js';
+export * from './components/activity-pill.js';
+export * from './components/generating-panel.js';
+export * from './components/collapsible-side-panel.js';
 export * from './components/pagination.js';
 export * from './components/pending-button.js';
 export * from './components/row-actions.js';

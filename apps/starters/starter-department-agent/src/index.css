@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+@import "@teamsuzie/theme/team-suzie.css";

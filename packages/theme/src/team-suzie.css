@@ -1,0 +1,177 @@
+/*
+ * Team Suzie — canonical design tokens for the "department" app family.
+ *
+ * Consume from an app's Tailwind 4 entry CSS:
+ *
+ *   @import "tailwindcss";
+ *   @import "@teamsuzie/theme/team-suzie.css";
+ *
+ * Defines:
+ *   - Surface tokens (HSL) — background, foreground, card, popover, etc.
+ *   - Electric-violet brand scale (ev-50…ev-950)
+ *   - Radius scale (lg/md/sm)
+ *   - Typography (Inter sans, JetBrains Mono)
+ *   - Brand shadows (violet-glow, ring-violet-soft)
+ *   - fade-in-up reveal animation
+ *   - Custom utility classes (.bg-header-gradient, .bg-fancy-gradient,
+ *     .text-fancy, .border-fancy-gradient, .ring-violet-soft, .font-mono-data)
+ *   - Landing-page reveal primitives (.suzie-reveal, .suzie-pulse) with
+ *     prefers-reduced-motion fallbacks
+ *
+ * Apps still own:
+ *   - @import "tailwindcss" and any @plugin / @source directives
+ *   - Their own Google Fonts <link> or @import (Inter + JetBrains Mono)
+ *   - Any app-specific overrides
+ */
+
+@theme {
+  /* Neutral surfaces — keep working chrome calm */
+  --color-background: hsl(240 11% 98%);
+  --color-foreground: hsl(220 9% 18%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(220 9% 18%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(220 9% 18%);
+
+  /* Primary = electric violet (ev-500) */
+  --color-primary: hsl(254 99% 64%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-secondary: hsl(252 47% 95%);
+  --color-secondary-foreground: hsl(259 55% 34%);
+  --color-muted: hsl(240 8% 96%);
+  --color-muted-foreground: hsl(220 9% 47%);
+  --color-accent: hsl(252 60% 95%);
+  --color-accent-foreground: hsl(259 55% 34%);
+  --color-destructive: hsl(0 73% 51%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(240 11% 91%);
+  --color-input: hsl(240 11% 91%);
+  --color-ring: hsl(254 99% 64%);
+
+  --radius-lg: 0.75rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+
+  /* Electric-violet scale */
+  --color-ev-50: #f4f2ff;
+  --color-ev-100: #ebe8ff;
+  --color-ev-200: #dad4ff;
+  --color-ev-300: #beb1ff;
+  --color-ev-400: #9d85ff;
+  --color-ev-500: #7547fe;
+  --color-ev-600: #6f31f6;
+  --color-ev-700: #611fe2;
+  --color-ev-800: #5019be;
+  --color-ev-900: #44179b;
+  --color-ev-950: #280c69;
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Brand shadows */
+  --shadow-violet-glow: 0 12px 32px -12px rgba(117, 71, 254, 0.35);
+  --shadow-ring-violet-soft: 0 0 0 4px rgba(117, 71, 254, 0.12);
+
+  /* Reveal animation — used by PageHero / page hero bands */
+  --animate-fade-in-up: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  /* Tabular numerics on data surfaces */
+  .num,
+  [class*='tabular-nums'] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .bg-header-gradient {
+    background-image: linear-gradient(90deg, #e0fafb 0%, #f5f7f2 100%);
+  }
+  .bg-header-gradient-v {
+    background-image: linear-gradient(180deg, #e0fafb 0%, #f5f7f2 100%);
+  }
+  .bg-fancy-gradient {
+    background-image: linear-gradient(78deg, #7438fe -47.47%, #d267ff 100%);
+  }
+  .text-fancy {
+    background: linear-gradient(78deg, #7438fe -47.47%, #d267ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .border-fancy-gradient {
+    border-image: linear-gradient(78deg, #7438fe, #d267ff) 1;
+  }
+  .ring-violet-soft {
+    box-shadow: 0 0 0 4px rgba(117, 71, 254, 0.12);
+  }
+  .font-mono-data {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Landing-page reveal animation primitives */
+.suzie-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 700ms ease-out,
+    transform 700ms ease-out;
+}
+.suzie-reveal-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+@keyframes suziePulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.08);
+  }
+}
+.suzie-pulse {
+  animation: suziePulse 2.6s ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .suzie-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .suzie-pulse {
+    animation: none;
+  }
+}

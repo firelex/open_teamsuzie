@@ -1,0 +1,29 @@
+{
+  "name": "@teamsuzie/starter-department-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Neutral starter for a Team Suzie 'department' agent app — Vite + React + Tailwind 4 + @teamsuzie/ui + @teamsuzie/theme. Clone, rename, and replace the placeholder modules to ship a new vertical (executive assistant, customer support, ops, …) without forking suzie-it-department.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/theme": "workspace:*",
+    "@teamsuzie/ui": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.3"
+  }
+}
