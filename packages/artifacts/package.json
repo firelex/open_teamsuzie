@@ -1,0 +1,30 @@
+{
+  "name": "@teamsuzie/artifacts",
+  "version": "0.1.0",
+  "description": "Reusable primitives for markdown artifacts with frontmatter, plus safe scoped uploads/attachments and a per-subject JSON activity log. Host apps provide metadata schema + paths; this package handles serialization and filesystem hygiene.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}
