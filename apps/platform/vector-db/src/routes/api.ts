@@ -1,17 +1,17 @@
 import express, { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import MilvusService from '../services/milvus.js';
+import { createVectorStore } from '../services/storeFactory.js';
 import EmbeddingService from '../services/embedding.js';
 import type { EmbeddingInput, UsageContext } from '../services/embedding.js';
 import type { Scope, ScopeRef } from '@teamsuzie/types';
 
 const router: express.Router = Router();
-const milvusService = new MilvusService();
+const vectorStore = createVectorStore();
 const embeddingService = new EmbeddingService();
 
-// Initialize Milvus connection
-milvusService.connect().catch(err => {
-    console.error('[API] Failed to connect to Milvus:', err);
+// Initialize vector store connection
+vectorStore.connect().catch(err => {
+    console.error('[API] Failed to connect to vector store:', err);
 });
 
 // Extract usage context from request headers
@@ -115,6 +115,32 @@ const IngestRequestSchema = z.object({
     metadata: z.record(z.unknown()).optional()
 });
 
+// GET /api/v1/embedding-profile - Active embedding profile and runtime probe.
+router.get('/v1/embedding-profile', async (_req: Request, res: Response) => {
+    const profile = embeddingService.profile();
+    const runtime = await embeddingService.runtimeStatus();
+    res.json({
+        success: true,
+        data: {
+            profile: {
+                id: profile.id,
+                runtime: profile.runtime,
+                modality: profile.modality,
+                model: profile.model,
+                dimensions: profile.dimensions,
+                provider: profile.provider,
+                baseUrl: profile.baseUrl,
+                endpoint: profile.llamaCpp?.endpoint
+            },
+            runtime,
+            capabilities: {
+                textEmbeddings: embeddingService.isConfigured(profile.id),
+                visionEmbeddings: profile.modality === 'multimodal' && runtime.modalities?.vision === true
+            }
+        }
+    });
+});
+
 // POST /api/v1/search - Multi-scope vector search
 router.post('/v1/search', async (req: Request, res: Response) => {
     try {
@@ -130,7 +156,7 @@ router.post('/v1/search', async (req: Request, res: Response) => {
             );
         }
 
-        const results = await milvusService.search(
+        const results = await vectorStore.search(
             embedding,
             body.scopes as ScopeRef[],
             body.limit,
@@ -169,7 +195,7 @@ router.post('/v1/embeddings', async (req: Request, res: Response) => {
 
         const id = body.id || crypto.randomUUID();
 
-        await milvusService.upsertEmbedding({
+        await vectorStore.upsertEmbedding({
             id,
             content: body.content,
             embedding,
@@ -197,7 +223,7 @@ router.post('/v1/embeddings', async (req: Request, res: Response) => {
 router.delete('/v1/embeddings/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        await milvusService.deleteById(id as string);
+        await vectorStore.deleteById(id as string);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete error:', error);
@@ -238,7 +264,7 @@ router.post('/v1/documents/:id/chunks', async (req: Request, res: Response) => {
             scope_id: chunk.scope_id
         }));
 
-        await milvusService.upsertDocumentChunks(processedChunks);
+        await vectorStore.upsertDocumentChunks(processedChunks);
 
         res.status(201).json({
             success: true,
@@ -258,7 +284,7 @@ router.post('/v1/documents/:id/chunks', async (req: Request, res: Response) => {
 router.delete('/v1/documents/:id/chunks', async (req: Request, res: Response) => {
     try {
         const { id: documentId } = req.params;
-        await milvusService.deleteDocumentChunks(documentId as string);
+        await vectorStore.deleteDocumentChunks(documentId as string);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete chunks error:', error);
@@ -285,7 +311,7 @@ router.post('/v1/documents/search', async (req: Request, res: Response) => {
             );
         }
 
-        const results = await milvusService.searchDocumentChunks(
+        const results = await vectorStore.searchDocumentChunks(
             embedding,
             body.scopes as ScopeRef[],
             body.document_id,
@@ -342,7 +368,7 @@ router.post('/v1/knowledge-base/ingest', async (req: Request, res: Response) => 
             scope_id: body.scope_id
         }));
 
-        await milvusService.upsertDocumentChunks(processedChunks);
+        await vectorStore.upsertDocumentChunks(processedChunks);
 
         res.status(201).json({
             success: true,
@@ -392,7 +418,7 @@ router.post('/v1/embeddings/batch', async (req: Request, res: Response) => {
             });
         }
 
-        await milvusService.upsertEmbeddings(processedItems);
+        await vectorStore.upsertEmbeddings(processedItems);
 
         res.status(201).json({
             success: true,
@@ -416,7 +442,7 @@ router.delete('/v1/embeddings/by-scope', async (req: Request, res: Response) => 
             scope_id: z.string().nullable()
         }).parse(req.body);
 
-        await milvusService.deleteByScope(body.scope as Scope, body.scope_id);
+        await vectorStore.deleteByScope(body.scope as Scope, body.scope_id);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete by scope error:', error);
@@ -457,7 +483,7 @@ router.post('/v1/documents/summaries', async (req: Request, res: Response) => {
 
         const id = body.id || crypto.randomUUID();
 
-        await milvusService.upsertDocumentSummary({
+        await vectorStore.upsertDocumentSummary({
             id,
             document_id: body.document_id,
             content: body.content,
@@ -497,7 +523,7 @@ router.post('/v1/documents/summaries/search', async (req: Request, res: Response
             );
         }
 
-        const results = await milvusService.searchDocumentSummaries(
+        const results = await vectorStore.searchDocumentSummaries(
             embedding,
             body.scopes as ScopeRef[],
             body.limit
@@ -522,7 +548,7 @@ router.post('/v1/documents/summaries/search', async (req: Request, res: Response
 router.delete('/v1/documents/:id/summary', async (req: Request, res: Response) => {
     try {
         const { id: documentId } = req.params;
-        await milvusService.deleteDocumentSummary(documentId as string);
+        await vectorStore.deleteDocumentSummary(documentId as string);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete document summary error:', error);
@@ -538,7 +564,7 @@ router.delete('/v1/documents/summaries/by-scope', async (req: Request, res: Resp
             scope_id: z.string().nullable()
         }).parse(req.body);
 
-        await milvusService.deleteDocumentSummariesByScope(body.scope as Scope, body.scope_id);
+        await vectorStore.deleteDocumentSummariesByScope(body.scope as Scope, body.scope_id);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete summaries by scope error:', error);
@@ -558,7 +584,7 @@ router.delete('/v1/documents/chunks/by-scope', async (req: Request, res: Respons
             scope_id: z.string().nullable()
         }).parse(req.body);
 
-        await milvusService.deleteDocumentChunksByScope(body.scope as Scope, body.scope_id);
+        await vectorStore.deleteDocumentChunksByScope(body.scope as Scope, body.scope_id);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete chunks by scope error:', error);
@@ -573,7 +599,7 @@ router.delete('/v1/documents/chunks/by-scope', async (req: Request, res: Respons
 // GET /api/v1/stats - Collection statistics
 router.get('/v1/stats', async (_req: Request, res: Response) => {
     try {
-        const stats = await milvusService.getStats();
+        const stats = await vectorStore.getStats();
         res.json({
             success: true,
             data: stats

@@ -1,14 +1,15 @@
 import express, { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import Neo4jService, { EntityType } from '../services/neo4j.js';
+import { backendName, createGraphStore } from '../services/storeFactory.js';
+import type { EntityType } from '../services/graphStore.js';
 import type { Scope, ScopeRef } from '@teamsuzie/types';
 
 const router: express.Router = Router();
-const neo4jService = new Neo4jService();
+const graphStore = createGraphStore();
 
-// Initialize Neo4j connection
-neo4jService.connect().catch(err => {
-    console.error('[API] Failed to connect to Neo4j:', err);
+// Initialize graph store connection
+graphStore.connect().catch(err => {
+    console.error('[API] Failed to connect to graph store:', err);
 });
 
 // Validation schemas
@@ -58,7 +59,7 @@ router.post('/v1/entities', async (req: Request, res: Response) => {
             console.warn('[API] Global scope entity creation - ensure admin authorization');
         }
 
-        const id = await neo4jService.createOrUpdateEntity({
+        const id = await graphStore.createOrUpdateEntity({
             id: body.id,
             name: body.name,
             type: body.type as EntityType,
@@ -92,7 +93,7 @@ router.get('/v1/entities/:id', async (req: Request, res: Response) => {
             scopes = JSON.parse(scopesParam);
         }
 
-        const entity = await neo4jService.getEntity(id as string, scopes);
+        const entity = await graphStore.getEntity(id as string, scopes);
 
         if (!entity) {
             res.status(404).json({ success: false, error: 'Entity not found' });
@@ -110,7 +111,7 @@ router.get('/v1/entities/:id', async (req: Request, res: Response) => {
 router.delete('/v1/entities/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        await neo4jService.deleteEntity(id as string);
+        await graphStore.deleteEntity(id as string);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete entity error:', error);
@@ -123,7 +124,7 @@ router.post('/v1/entities/search', async (req: Request, res: Response) => {
     try {
         const body = SearchSchema.parse(req.body);
 
-        const results = await neo4jService.searchEntities(
+        const results = await graphStore.searchEntities(
             body.q,
             body.scopes as ScopeRef[],
             body.type as EntityType | undefined,
@@ -160,7 +161,7 @@ router.get('/v1/entities/search', async (req: Request, res: Response) => {
 
         const scopes = JSON.parse(scopesParam) as ScopeRef[];
 
-        const results = await neo4jService.searchEntities(
+        const results = await graphStore.searchEntities(
             q,
             scopes,
             type as EntityType | undefined,
@@ -183,7 +184,7 @@ router.post('/v1/entities/batch', async (req: Request, res: Response) => {
     try {
         const entities = z.array(CreateEntitySchema).parse(req.body.entities);
 
-        const ids = await neo4jService.createEntitiesBatch(
+        const ids = await graphStore.createEntitiesBatch(
             entities.map(e => ({
                 id: e.id,
                 name: e.name,
@@ -213,7 +214,7 @@ router.post('/v1/relationships', async (req: Request, res: Response) => {
     try {
         const body = RelationshipSchema.parse(req.body);
 
-        await neo4jService.createRelationship({
+        await graphStore.createRelationship({
             from_id: body.from_id,
             to_id: body.to_id,
             type: body.type.toUpperCase().replace(/\s+/g, '_'),
@@ -237,6 +238,13 @@ router.post('/v1/relationships', async (req: Request, res: Response) => {
 // POST /api/v1/query/cypher - Execute read-only Cypher query
 router.post('/v1/query/cypher', async (req: Request, res: Response) => {
     try {
+        if (backendName() === 'pg') {
+            res.status(501).json({
+                success: false,
+                error: 'Cypher queries are not supported on the Postgres graph backend. Use entity/relationship endpoints.'
+            });
+            return;
+        }
         const body = CypherQuerySchema.parse(req.body);
 
         // Security: Only allow plain read operations. CALL is rejected because
@@ -259,7 +267,7 @@ router.post('/v1/query/cypher', async (req: Request, res: Response) => {
         const scopeKeys = body.scopes.map((s) => `${s.scope}:${s.scope_id ?? '*'}`);
         const params = { ...body.params, scopes: scopeKeys };
 
-        const results = await neo4jService.runQuery(body.query, params);
+        const results = await graphStore.runQuery(body.query, params);
 
         res.json({
             success: true,
@@ -287,7 +295,7 @@ router.post('/v1/relationships/batch', async (req: Request, res: Response) => {
             properties: r.properties
         }));
 
-        await neo4jService.createRelationshipsBatch(processedRels);
+        await graphStore.createRelationshipsBatch(processedRels);
 
         res.status(201).json({
             success: true,
@@ -315,7 +323,7 @@ router.get('/v1/relationships', async (req: Request, res: Response) => {
         }
 
         const scopes = JSON.parse(scopesParam) as ScopeRef[];
-        const results = await neo4jService.getRelationships(scopes, limit);
+        const results = await graphStore.getRelationships(scopes, limit);
 
         res.json({
             success: true,
@@ -335,7 +343,7 @@ router.delete('/v1/entities/by-scope', async (req: Request, res: Response) => {
             scope_id: z.string().nullable()
         }).parse(req.body);
 
-        await neo4jService.deleteByScope(body.scope as Scope, body.scope_id);
+        await graphStore.deleteByScope(body.scope as Scope, body.scope_id);
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Delete by scope error:', error);
@@ -350,7 +358,7 @@ router.delete('/v1/entities/by-scope', async (req: Request, res: Response) => {
 // GET /api/v1/stats - Node and relationship counts
 router.get('/v1/stats', async (_req: Request, res: Response) => {
     try {
-        const stats = await neo4jService.getStats();
+        const stats = await graphStore.getStats();
         res.json({
             success: true,
             data: stats

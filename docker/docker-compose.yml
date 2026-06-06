@@ -1,8 +1,11 @@
 name: teamsuzie
 
 services:
+  # Image ships with the pgvector extension so the 'lite' / pgvector profile
+  # works with no extra setup. The base Postgres image works too — pgvector
+  # falls back to running `CREATE EXTENSION vector` on first boot if available.
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: teamsuzie
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-teamsuzie}
@@ -31,6 +34,7 @@ services:
 
   neo4j:
     image: neo4j:5-community
+    profiles: ["heavy"]
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-teamsuzie}
       NEO4J_PLUGINS: '["apoc"]'
@@ -48,6 +52,7 @@ services:
   # Milvus stack (etcd + minio + milvus-standalone)
   etcd:
     image: quay.io/coreos/etcd:v3.5.5
+    profiles: ["heavy"]
     environment:
       - ETCD_AUTO_COMPACTION_MODE=revision
       - ETCD_AUTO_COMPACTION_RETENTION=1000
@@ -59,6 +64,7 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    profiles: ["heavy"]
     environment:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
@@ -68,6 +74,7 @@ services:
 
   milvus:
     image: milvusdb/milvus:v2.4.0
+    profiles: ["heavy"]
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: etcd:2379

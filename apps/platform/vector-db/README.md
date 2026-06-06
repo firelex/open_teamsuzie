@@ -1,6 +1,12 @@
 # vector-db
 
-REST API wrapping Milvus with scope-aware search. **Port 3006.**
+REST API for scope-aware vector search. **Port 3006.**
+
+Two backends are supported behind the same REST contract — pick with `VECTOR_BACKEND`:
+
+- `milvus` (default) — wraps Milvus standalone. Best for large corpora and hybrid search.
+- `pgvector` — uses Postgres + the `pgvector` extension. Best for the "lite"
+  single-database deploy profile.
 
 ## What it does
 
@@ -18,6 +24,13 @@ DELETE /documents/:id            (remove)
 
 ## Configuration
 
+- `VECTOR_BACKEND` — `milvus` (default) or `pgvector`.
+- `POSTGRES_URL` — used when `VECTOR_BACKEND=pgvector`. Defaults to the compose
+  Postgres (`postgres://teamsuzie:teamsuzie@localhost:5432/teamsuzie`). The
+  `vector` extension is created on first boot (requires `CREATE EXTENSION`
+  privilege).
+- `PGVECTOR_TABLE_SUFFIX` — overrides the per-profile table suffix. Defaults to
+  the sanitised `EMBEDDING_PROFILE_ID`, so different profiles never share tables.
 - `MILVUS_ADDRESS` — host:port of your Milvus instance (defaults to the Docker Compose target).
 - `OPENAI_API_KEY` (or your chosen embedding provider key).
 - `EMBEDDING_PROFILE_ID` — stable id for the active embedding profile. Non-default
@@ -36,15 +49,31 @@ DELETE /documents/:id            (remove)
 
 ### llama.cpp multimodal / PDF-page embeddings
 
-For local vision embeddings, run llama.cpp with the embedding model and a
-non-`none` pooling mode, for example:
+For local vision embeddings, run llama.cpp with both the embedding model and
+its matching multimodal projector (`mmproj`) plus a non-`none` pooling mode.
+The main `Qwen3-VL-Embedding-8B-*.gguf` file is the language/text tower; by
+itself llama.cpp will report `modalities.vision=false` and reject
+`multimodal_data`.
 
 ```bash
 llama-server \
-  -m /path/to/Qwen3-VL-Embedding-8B-Q8_0.gguf \
+  -m /path/to/Qwen3-VL-Embedding-8B-Q4_K_M.gguf \
+  --mmproj /path/to/mmproj-Qwen3-VL-Embedding-8B-f16.gguf \
   --embedding \
-  --pooling cls
+  --pooling last \
+  --host 127.0.0.1 \
+  --port 8080
 ```
+
+Sanity-check the loaded runtime before indexing page images:
+
+```bash
+curl http://127.0.0.1:8080/props
+```
+
+The response must include `"modalities":{"vision":true,...}`. If it reports
+`vision:false`, the projector is missing or incompatible even if the model name
+contains `VL`.
 
 Then start vector-db with a multimodal profile:
 
@@ -56,6 +85,11 @@ EMBEDDING_DIMENSIONS=<model-output-dim> \
 LLAMACPP_EMBEDDING_BASE_URL=http://localhost:8080 \
 pnpm --filter @teamsuzie/vector-db dev
 ```
+
+`GET /api/v1/embedding-profile` returns the active profile and a llama.cpp
+`/props` probe, including `capabilities.visionEmbeddings`. Downstream apps
+should use this endpoint to surface text-only fallback vs. real multimodal
+availability instead of inferring from model names.
 
 Render PDFs to page images in the app or worker, then call the existing chunk or
 upsert endpoints with `image_base64`/`media_base64` and

@@ -86,6 +86,34 @@ export interface IngestOptions {
     metadata?: Record<string, unknown>;
 }
 
+export interface EmbeddingProfileInfo {
+    profile: {
+        id: string;
+        runtime: 'openai-compatible' | 'llama.cpp';
+        modality: 'text' | 'multimodal';
+        model: string;
+        dimensions: number;
+        provider: string;
+        baseUrl: string;
+        endpoint?: string;
+    };
+    runtime: {
+        status: 'ok' | 'unavailable' | 'not_applicable';
+        baseUrl: string;
+        endpoint?: string;
+        modalities?: {
+            vision?: boolean;
+            audio?: boolean;
+        };
+        modelAlias?: string;
+        error?: string;
+    };
+    capabilities: {
+        textEmbeddings: boolean;
+        visionEmbeddings: boolean;
+    };
+}
+
 export class VectorDbClient {
     private config: Required<DbClientConfig>;
 
@@ -313,6 +341,14 @@ export class VectorDbClient {
     async health(): Promise<{ status: string; milvus_enabled: boolean }> {
         const response = await this.request<{ status: string; milvus_enabled: boolean }>('GET', '/api/health');
         return response.data || { status: 'unknown', milvus_enabled: false };
+    }
+
+    async embeddingProfile(): Promise<EmbeddingProfileInfo> {
+        const response = await this.request<EmbeddingProfileInfo>('GET', '/api/v1/embedding-profile');
+        if (!response.success || !response.data) {
+            throw new Error(response.error || 'Embedding profile check failed');
+        }
+        return response.data;
     }
 }
 

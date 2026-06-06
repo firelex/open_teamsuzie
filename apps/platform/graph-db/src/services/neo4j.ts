@@ -1,36 +1,19 @@
 import neo4j, { Driver, Session, ManagedTransaction } from 'neo4j-driver';
 import config from '../config/index.js';
 import type { Scope, ScopeRef } from '@teamsuzie/types';
+import type {
+    EntityType,
+    GraphStore,
+    GraphStoreStats,
+    RelationshipData,
+    RelationshipRow,
+    ScopedEntity,
+    SearchResult
+} from './graphStore.js';
 
-export type EntityType = 'person' | 'org' | 'project' | 'task' | 'doc' | 'role' | 'trait' | 'topic' | 'location' | 'product';
+export type { EntityType, ScopedEntity, RelationshipData, SearchResult } from './graphStore.js';
 
-export interface ScopedEntity {
-    id?: string;
-    name: string;
-    type: EntityType;
-    properties?: Record<string, unknown>;
-    scope: Scope;
-    scope_id: string | null;
-}
-
-export interface RelationshipData {
-    from_id: string;
-    to_id: string;
-    type: string;
-    properties?: Record<string, unknown>;
-}
-
-export interface SearchResult {
-    id: string;
-    name: string;
-    type: string;
-    properties: Record<string, unknown>;
-    score?: number;
-    scope: Scope;
-    scope_id: string | null;
-}
-
-export default class Neo4jService {
+export default class Neo4jService implements GraphStore {
     private driver: Driver | null = null;
 
     async connect(): Promise<void> {
@@ -520,16 +503,7 @@ export default class Neo4jService {
         }
     }
 
-    async getRelationships(scopes: ScopeRef[], limit = 100): Promise<Array<{
-        from_id: string;
-        from_name: string;
-        from_type: string;
-        to_id: string;
-        to_name: string;
-        to_type: string;
-        relationship: string;
-        properties: Record<string, unknown>;
-    }>> {
+    async getRelationships(scopes: ScopeRef[], limit = 100): Promise<RelationshipRow[]> {
         const session = this.getSession();
         try {
             const result = await session.executeRead(async (tx: ManagedTransaction) => {
@@ -581,7 +555,7 @@ export default class Neo4jService {
         }
     }
 
-    async getStats(): Promise<{ nodeCount: number; relationshipCount: number } | null> {
+    async getStats(): Promise<GraphStoreStats | null> {
         const session = this.getSession();
         try {
             const result = await session.executeRead(async (tx: ManagedTransaction) => {

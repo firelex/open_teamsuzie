@@ -36,10 +36,23 @@ export interface EmbeddingInput {
     mediaBase64?: string[];
 }
 
+export interface EmbeddingRuntimeStatus {
+    status: 'ok' | 'unavailable' | 'not_applicable';
+    baseUrl: string;
+    endpoint?: string;
+    modalities?: {
+        vision?: boolean;
+        audio?: boolean;
+    };
+    modelAlias?: string;
+    error?: string;
+}
+
 interface Embedder {
     readonly profile: EmbeddingProfile;
     isConfigured(): boolean;
     embed(inputs: EmbeddingInput[]): Promise<number[][]>;
+    runtimeStatus(): Promise<EmbeddingRuntimeStatus>;
 }
 
 export default class EmbeddingService {
@@ -65,6 +78,10 @@ export default class EmbeddingService {
 
     isConfigured(profileId?: string): boolean {
         return this.profileMatches(profileId) && this.embedder.isConfigured();
+    }
+
+    async runtimeStatus(): Promise<EmbeddingRuntimeStatus> {
+        return this.embedder.runtimeStatus();
     }
 
     async generateEmbedding(input: string | EmbeddingInput, context?: UsageContext, profileId?: string): Promise<number[]> {
@@ -117,6 +134,14 @@ class OpenAICompatibleTextEmbedder implements Embedder {
         return Boolean(this.profile.apiKey || this.profile.baseUrl.startsWith('http://localhost') || this.profile.baseUrl.startsWith('http://127.0.0.1'));
     }
 
+    async runtimeStatus(): Promise<EmbeddingRuntimeStatus> {
+        return {
+            status: 'not_applicable',
+            baseUrl: this.profile.baseUrl,
+            endpoint: '/embeddings'
+        };
+    }
+
     async embed(inputs: EmbeddingInput[]): Promise<number[][]> {
         for (const input of inputs) {
             if (input.mediaBase64?.length) {
@@ -147,6 +172,40 @@ class LlamaCppMultimodalEmbedder implements Embedder {
 
     isConfigured(): boolean {
         return Boolean(this.profile.baseUrl);
+    }
+
+    async runtimeStatus(): Promise<EmbeddingRuntimeStatus> {
+        const baseUrl = trimSlash(this.profile.baseUrl);
+        try {
+            const response = await fetch(`${baseUrl}/props`);
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                return {
+                    status: 'unavailable',
+                    baseUrl,
+                    endpoint: this.profile.llamaCpp?.endpoint || '/embedding',
+                    error: `/props returned ${response.status}: ${text.slice(0, 300)}`
+                };
+            }
+            const props = await response.json() as {
+                model_alias?: string;
+                modalities?: { vision?: boolean; audio?: boolean };
+            };
+            return {
+                status: 'ok',
+                baseUrl,
+                endpoint: this.profile.llamaCpp?.endpoint || '/embedding',
+                modalities: props.modalities,
+                modelAlias: props.model_alias
+            };
+        } catch (err) {
+            return {
+                status: 'unavailable',
+                baseUrl,
+                endpoint: this.profile.llamaCpp?.endpoint || '/embedding',
+                error: err instanceof Error ? err.message : String(err)
+            };
+        }
     }
 
     async embed(inputs: EmbeddingInput[]): Promise<number[][]> {

@@ -22,6 +22,7 @@ app.get('/api/health', async (_req, res) => {
         status: 'ok',
         service: 'graph-db',
         port: config.port,
+        backend: config.graph_backend,
         timestamp: new Date().toISOString()
     });
 });

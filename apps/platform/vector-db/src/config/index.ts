@@ -2,6 +2,19 @@ export default {
     port: parseInt(process.env.PORT || '3006', 10),
     node_env: process.env.NODE_ENV || 'development',
 
+    // 'milvus' (default) or 'pgvector'. Selects which VectorStore implementation
+    // the routes hold.
+    vector_backend: (process.env.VECTOR_BACKEND || 'milvus') as 'milvus' | 'pgvector',
+
+    postgres: {
+        url: process.env.POSTGRES_URL || 'postgres://teamsuzie:teamsuzie@localhost:5432/teamsuzie',
+        pool_max: parseInt(process.env.POSTGRES_POOL_MAX || '10', 10),
+        dimension: parseInt(process.env.EMBEDDING_DIMENSIONS || process.env.PGVECTOR_DIMENSION || '1024', 10),
+        // Tables are suffixed so multiple embedding profiles can coexist without
+        // mixing vectors of different dimensions.
+        table_suffix: process.env.PGVECTOR_TABLE_SUFFIX || ''
+    },
+
     milvus: {
         enabled: process.env.MILVUS_ENABLED !== 'false',
         address: process.env.MILVUS_ADDRESS || 'localhost:19530',

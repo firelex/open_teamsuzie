@@ -22,6 +22,7 @@ app.get('/api/health', async (_req, res) => {
         status: 'ok',
         service: 'vector-db',
         port: config.port,
+        backend: config.vector_backend,
         milvus_enabled: config.milvus.enabled,
         timestamp: new Date().toISOString()
     });
