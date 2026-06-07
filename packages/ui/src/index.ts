@@ -14,6 +14,10 @@ export {
   Archive,
   ArrowLeft,
   ArrowRight,
+  Boxes,
+  Briefcase,
+  Building2,
+  Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -32,12 +36,14 @@ export {
   GitCompareArrows,
   HelpCircle,
   History,
+  Home,
   Inbox,
   Info,
   LayoutGrid,
   Link as LinkIcon,
   Loader2,
   LogOut,
+  Mail,
   Menu,
   MessageSquare,
   MessageSquarePlus,
@@ -57,6 +63,7 @@ export {
   Square,
   Star,
   Tag,
+  Target,
   Trash2,
   Undo2,
   Upload,
@@ -136,6 +143,24 @@ export * from './components/page-header.js';
 export * from './components/page-hero-band.js';
 export * from './components/page-shell.js';
 export * from './components/page-body.js';
+export * from './components/record-detail-layout.js';
+export * from './components/property-panel.js';
+export type {
+  EditablePropertyDescriptor,
+  EditablePropertyListProps,
+  PropertyPanelProps,
+  PropertyRowProps,
+} from './components/property-panel.js';
+export * from './components/activity-timeline.js';
+export type {
+  ActivityTimelineProps,
+  TimelineEntry,
+} from './components/activity-timeline.js';
+export * from './components/pipeline-board.js';
+export type {
+  PipelineBoardProps,
+  PipelineBoardStage,
+} from './components/pipeline-board.js';
 export * from './components/activity-pill.js';
 export * from './components/generating-panel.js';
 export * from './components/collapsible-side-panel.js';
