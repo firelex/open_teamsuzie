@@ -29,9 +29,10 @@ export interface ConvertResult {
 }
 
 /**
- * Convert a binary document to Markdown. DOCX goes through mammoth+turndown
- * (best table fidelity); everything else routes to markitdown-agent's
- * /convert endpoint.
+ * Convert a binary document to Markdown. DOCX → mammoth+turndown
+ * (best table fidelity). PPTX → native adm-zip slide-xml extraction
+ * (no markitdown fallback — parse errors surface directly so a malformed
+ * deck doesn't silently re-route). Everything else → markitdown-agent.
  */
 export async function convertToMarkdown(
   bytes: Buffer | Uint8Array,
@@ -81,10 +82,10 @@ export interface ConvertFileRecord {
 
 /**
  * High-level helper: convert any uploaded file record to markdown.
- * DOCX flows through the in-process mammoth path (no markitdown-agent
- * needed); everything else routes to markitdown-agent and errors with a
- * friendly message when the agent isn't configured. Tool wrappers use
- * this so they don't have to repeat the DOCX-vs-other split each time.
+ * DOCX and PPTX flow through in-process native paths (mammoth and adm-zip
+ * respectively); everything else routes to markitdown-agent and errors
+ * with a friendly message when the agent isn't configured. Tool wrappers
+ * use this so they don't have to repeat the format split each time.
  */
 export async function convertFileToMarkdown(
   record: ConvertFileRecord,
