@@ -152,6 +152,7 @@ export * from './components/settings-cards.js';
 export * from './components/sheet.js';
 export * from './components/side-panel.js';
 export * from './components/sidebar.js';
+export * from './components/team-suzie-logo.js';
 export * from './components/status-dot.js';
 export * from './components/switch.js';
 export * from './components/table.js';
