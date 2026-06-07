@@ -20,8 +20,10 @@ function Sidebar({
       data-gradient={gradient ? "" : undefined}
       aria-label="Sidebar"
       className={cn(
-        "hidden w-60 shrink-0 flex-col border-r border-border bg-muted md:flex",
-        gradient && "bg-header-gradient-v border-[var(--color-header-edge)]/60 bg-transparent",
+        "hidden w-60 shrink-0 flex-col border-r md:flex",
+        gradient
+          ? "bg-header-gradient-v border-[var(--color-header-edge)]/60"
+          : "bg-muted border-border",
         className
       )}
       {...props}
