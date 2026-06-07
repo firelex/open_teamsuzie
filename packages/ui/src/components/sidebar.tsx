@@ -39,7 +39,7 @@ function Sidebar({
         data-gradient={gradient ? "" : undefined}
         aria-label="Sidebar"
         className={cn(
-          "relative hidden w-60 shrink-0 flex-col overflow-x-hidden border-r md:flex",
+          "relative hidden w-64 shrink-0 flex-col overflow-x-hidden border-r md:flex",
           gradient
             ? "bg-header-gradient-v border-[var(--color-header-edge)]/60"
             : "bg-muted border-border",
