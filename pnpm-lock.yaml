@@ -1851,7 +1851,13 @@ importers:
       '@teamsuzie/pdf':
         specifier: workspace:*
         version: link:../pdf
+      adm-zip:
+        specifier: ^0.5.17
+        version: 0.5.17
     devDependencies:
+      '@types/adm-zip':
+        specifier: ^0.5.8
+        version: 0.5.8
       '@types/node':
         specifier: ^22.10.5
         version: 22.19.17
