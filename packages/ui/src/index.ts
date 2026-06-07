@@ -133,6 +133,7 @@ export * from './components/markdown-view.js';
 export * from './components/mermaid-block.js';
 export * from './components/model-picker.js';
 export * from './components/page-header.js';
+export * from './components/page-hero-band.js';
 export * from './components/page-shell.js';
 export * from './components/page-body.js';
 export * from './components/activity-pill.js';
