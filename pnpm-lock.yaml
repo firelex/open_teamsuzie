@@ -1931,6 +1931,40 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/debug@4.1.13)(@types/node@22.19.17)(jiti@2.6.1)(jsdom@25.0.1(canvas@3.2.3))(lightningcss@1.32.0)(tsx@4.21.0)
 
+  packages/files:
+    dependencies:
+      '@teamsuzie/artifacts':
+        specifier: workspace:*
+        version: link:../artifacts
+      multer:
+        specifier: ^2.0.0
+        version: 2.1.1
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/multer':
+        specifier: ^2.0.0
+        version: 2.1.0
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@22.19.17)(jiti@2.6.1)(jsdom@25.0.1(canvas@3.2.3))(lightningcss@1.32.0)(tsx@4.21.0)
+
   packages/grid-review:
     dependencies:
       '@teamsuzie/citations':
