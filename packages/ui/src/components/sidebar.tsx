@@ -39,7 +39,7 @@ function Sidebar({
         data-gradient={gradient ? "" : undefined}
         aria-label="Sidebar"
         className={cn(
-          "relative hidden w-60 shrink-0 flex-col overflow-hidden border-r md:flex",
+          "relative hidden w-60 shrink-0 flex-col overflow-x-hidden border-r md:flex",
           gradient
             ? "bg-header-gradient-v border-[var(--color-header-edge)]/60"
             : "bg-muted border-border",
@@ -257,16 +257,23 @@ function SidebarNavItem({
   activityDot?: string | null
 }) {
   const { gradient } = React.useContext(SidebarContext)
-  const Comp = asChild ? Slot : "a"
   const decorated = icon !== undefined || badge !== undefined || activityDot != null
-  const content = decorated ? (
+  const itemClassName = cn(
+    "block rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
+    gradient
+      ? "text-neutral-700 hover:bg-white/70 hover:text-ev-700 aria-[current=page]:bg-[image:linear-gradient(78deg,#7438fe_-47.47%,#d267ff_100%)] aria-[current=page]:text-white aria-[current=page]:shadow-violet-glow"
+      : "text-muted-foreground hover:bg-background/60 hover:text-foreground aria-[current=page]:bg-background aria-[current=page]:text-foreground aria-[current=page]:shadow-sm",
+    className
+  )
+
+  const decorate = (labelNode: React.ReactNode) => (
     <span className="flex items-center gap-2">
       {icon && (
         <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" aria-hidden>
           {icon}
         </span>
       )}
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate">{labelNode}</span>
       {activityDot && (
         <span
           aria-hidden
@@ -279,24 +286,26 @@ function SidebarNavItem({
         </span>
       )}
     </span>
-  ) : (
-    children
   )
 
+  if (asChild) {
+    // The consumer's element (e.g. NavLink) must be the rendered DOM node —
+    // that's how routers set `aria-current="page"` for active styling. We
+    // inject the decoration as new children of that element so the badge /
+    // icon / dot still appear inside the active pill.
+    const child = React.Children.only(children) as React.ReactElement<{ children?: React.ReactNode }>
+    const innerChildren = decorated ? decorate(child.props.children) : child.props.children
+    return (
+      <Slot data-slot="sidebar-nav-item" className={itemClassName} {...props}>
+        {React.cloneElement(child, undefined, innerChildren)}
+      </Slot>
+    )
+  }
+
   return (
-    <Comp
-      data-slot="sidebar-nav-item"
-      className={cn(
-        "block rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
-        gradient
-          ? "text-neutral-700 hover:bg-white/70 hover:text-ev-700 aria-[current=page]:bg-fancy-gradient aria-[current=page]:text-white aria-[current=page]:shadow-violet-glow"
-          : "text-muted-foreground hover:bg-background/60 hover:text-foreground aria-[current=page]:bg-background aria-[current=page]:text-foreground aria-[current=page]:shadow-sm",
-        className
-      )}
-      {...props}
-    >
-      {content}
-    </Comp>
+    <a data-slot="sidebar-nav-item" className={itemClassName} {...props}>
+      {decorated ? decorate(children) : children}
+    </a>
   )
 }
 
