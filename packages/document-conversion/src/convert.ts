@@ -1,6 +1,8 @@
 import { convertDocxToMarkdown, isDocxMimeType } from '@teamsuzie/markdown-document';
+import { convertPptxToMarkdown } from './pptx-native.js';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
 export interface ConvertOptions {
   /** Source MIME type. Drives backend selection. */
@@ -21,7 +23,7 @@ export interface ConvertOptions {
 export interface ConvertResult {
   markdown: string;
   /** Backend used — useful for telemetry and debugging. */
-  backend: 'mammoth' | 'markitdown-agent';
+  backend: 'mammoth' | 'markitdown-agent' | 'pptx-native';
   /** Mammoth's conversion warnings, when present. */
   warnings?: Array<{ type: string; message: string }>;
 }
@@ -40,6 +42,12 @@ export async function convertToMarkdown(
       turndown: options.turndownOptions,
     });
     return { markdown, backend: 'mammoth', warnings: messages };
+  }
+  if (options.mime === PPTX_MIME || options.filename.toLowerCase().endsWith('.pptx')) {
+    // Native path only. No fallback to markitdown — parse errors surface
+    // to the caller verbatim so a malformed deck doesn't silently re-route.
+    const { markdown } = convertPptxToMarkdown(bytes);
+    return { markdown, backend: 'pptx-native' };
   }
   return convertViaMarkitdownAgent(bytes, options);
 }
@@ -84,9 +92,11 @@ export async function convertFileToMarkdown(
 ): Promise<string> {
   const isDocx =
     isDocxMimeType(record.mimeType) || record.name.toLowerCase().endsWith('.docx');
-  if (!opts.markitdownAgentBaseUrl && !isDocx) {
+  const isPptx =
+    record.mimeType === PPTX_MIME || record.name.toLowerCase().endsWith('.pptx');
+  if (!opts.markitdownAgentBaseUrl && !isDocx && !isPptx) {
     throw new Error(
-      `Cannot convert ${record.mimeType || record.name}: markitdown-agent is not configured. Only DOCX is supported in standalone mode.`,
+      `Cannot convert ${record.mimeType || record.name}: markitdown-agent is not configured. Only DOCX and PPTX are supported in standalone mode.`,
     );
   }
   const { markdown } = await convertToMarkdown(record.bytes, {

@@ -1,6 +1,9 @@
 export { convertToMarkdown, convertFileToMarkdown } from './convert.js';
 export type { ConvertOptions, ConvertResult, ConvertFileRecord } from './convert.js';
 
+export { convertPptxToMarkdown } from './pptx-native.js';
+export type { PptxNativeResult } from './pptx-native.js';
+
 export { exportMarkdownToDocx, exportMarkdownToPdf } from './export.js';
 export type { ExportDocxOptions, ExportPdfOptions } from './export.js';
 
