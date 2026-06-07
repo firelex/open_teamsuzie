@@ -136,4 +136,57 @@ describe('createFileRouter', () => {
       .expect(200);
     expect(res.body.url).toBe(`https://cdn.example.com/${res.body.id}/a.pdf`);
   });
+
+  it('returns 413 when multer rejects an oversized upload', async () => {
+    const app = express();
+    const store = createOfficeDocStore({ root });
+    app.use('/api/files', createFileRouter({ store, maxUploadBytes: 16 }));
+    await supertest(app)
+      .post('/api/files')
+      .attach('file', Buffer.alloc(32), { filename: 'big.pdf', contentType: PDF_MIME })
+      .expect(413);
+  });
+
+  it('urlForMeta also applies to GET /:id/meta', async () => {
+    const app = express();
+    const store = createOfficeDocStore({ root });
+    app.use(
+      '/api/files',
+      createFileRouter({
+        store,
+        urlForMeta: (m) => `https://cdn.example.com/${m.id}`,
+      }),
+    );
+    const client = supertest(app);
+    const up = await client
+      .post('/api/files')
+      .attach('file', Buffer.from('x'), { filename: 'a.pdf', contentType: PDF_MIME })
+      .expect(200);
+    const meta = await client.get(`/api/files/${up.body.id}/meta`).expect(200);
+    expect(meta.body.url).toBe(`https://cdn.example.com/${up.body.id}`);
+  });
+
+  it('resolveStore is called for GET and DELETE, not only POST', async () => {
+    const app = express();
+    const store = createOfficeDocStore({ root });
+    const seen: string[] = [];
+    app.use(
+      '/api/files',
+      createFileRouter({
+        resolveStore: (req) => {
+          seen.push(req.method);
+          return store;
+        },
+      }),
+    );
+    const client = supertest(app);
+    const up = await client
+      .post('/api/files')
+      .attach('file', Buffer.from('x'), { filename: 'a.pdf', contentType: PDF_MIME })
+      .expect(200);
+    await client.get(`/api/files/${up.body.id}/meta`).expect(200);
+    await client.get(`/api/files/${up.body.id}`).expect(200);
+    await client.delete(`/api/files/${up.body.id}`).expect(204);
+    expect(seen).toEqual(['POST', 'GET', 'GET', 'DELETE']);
+  });
 });

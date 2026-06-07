@@ -1,4 +1,4 @@
-import { Router, type RequestHandler, type Request, type Response } from 'express';
+import { Router, type RequestHandler, type Request, type Response, type NextFunction } from 'express';
 import multer from 'multer';
 import { AttachmentStore, type AttachmentMeta } from '@teamsuzie/artifacts';
 
@@ -95,6 +95,15 @@ export function createFileRouter(options: CreateFileRouterOptions): Router {
     const id = String(req.params.id);
     resolve(req).delete(id);
     res.status(204).end();
+  });
+
+  // Catch multer errors (e.g. LIMIT_FILE_SIZE) that bypass the route handler.
+  router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (err && typeof err === 'object' && (err as { code?: string }).code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({ error: 'file exceeds size limit' });
+      return;
+    }
+    next(err);
   });
 
   return router;
