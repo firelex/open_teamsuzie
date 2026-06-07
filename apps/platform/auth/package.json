@@ -7,7 +7,7 @@
   "scripts": {
     "predev": "cd ../../packages/shared-auth && npx tsc",
     "dev": "tsx watch src/bootstrap.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/oidc/views dist/oidc/views",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
@@ -22,6 +22,8 @@
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
     "ioredis": "^5.6.1",
+    "jose": "^6.2.3",
+    "oidc-provider": "^9.8.4",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
@@ -34,6 +36,7 @@
     "@types/express": "^5.0.3",
     "@types/express-session": "^1.18.1",
     "@types/node": "^22.10.5",
+    "@types/oidc-provider": "^9.5.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

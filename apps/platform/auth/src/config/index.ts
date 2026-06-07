@@ -7,6 +7,7 @@ export interface AuthConfig {
     csrf: { cookie_name: string };
     default_user_id: string;
     cors_origins: string[];
+    oidc: { issuer: string; jwkPath: string };
 }
 
 const config: AuthConfig = {
@@ -32,7 +33,11 @@ const config: AuthConfig = {
     default_user_id: process.env.DEFAULT_USER_ID || '00000000-0000-0000-0000-000000000000',
     cors_origins: process.env.CORS_ORIGINS
         ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
-        : ['http://localhost:3008', 'http://localhost:5173'],
+        : ['http://localhost:3008', 'http://localhost:5173', 'http://localhost:5174'],
+    oidc: {
+        issuer: process.env.OIDC_ISSUER_URL ?? `http://localhost:${process.env.PORT ?? 3005}`,
+        jwkPath: process.env.OIDC_SIGNING_KEY_PATH ?? './data/oidc/keys.json',
+    },
 };
 
 export default config;

@@ -35,6 +35,7 @@ export { default as AgentAuthMiddleware, type AgentContext, type ScopeRef, type 
 export { createServiceAuth, type ServiceAuthConfig } from './middleware/service-auth.js';
 export { SimpleApiKeyAuth, type SimpleApiKeyAuthOptions } from './middleware/simple-api-key-auth.js';
 export { createRequestId, type RequestIdOptions } from './middleware/request-id.js';
+export { buildValidateBearerJwt, type BearerJwtOptions } from './middleware/bearer-jwt-auth.js';
 
 // Upload hardening helpers (for when services add file-upload routes).
 export {
@@ -50,6 +51,8 @@ export { getRequestActor, type RequestActor } from './utils/actor.js';
 
 // Utils
 export { encrypt, decrypt, hashApiKey, generateApiKey, verifyApiKey, generateSecureToken } from './utils/encryption.js';
+export { JwksCache, type JwksLike } from './utils/jwks-cache.js';
+export { OidcClient, type OidcClientConfig, type OidcUserInfo, type OidcTokens } from './utils/oidc-client.js';
 
 // Errors
 export { ServiceError, handleControllerError } from './errors/index.js';
