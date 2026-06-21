@@ -1,0 +1,31 @@
+{
+  "name": "@teamsuzie/activity",
+  "version": "0.1.0",
+  "description": "SQLite-backed append-only activity timeline. Org-scoped entries on opaque (subject_type, subject_id) refs with actor metadata, event kind, summary, optional body, and arbitrary JSON metadata. Coexists with the file-backed `ActivityLog` in @teamsuzie/artifacts.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

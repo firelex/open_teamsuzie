@@ -39,7 +39,7 @@ function Sidebar({
         data-gradient={gradient ? "" : undefined}
         aria-label="Sidebar"
         className={cn(
-          "relative hidden w-64 shrink-0 flex-col overflow-x-hidden border-r md:flex",
+          "relative hidden w-64 shrink-0 flex-col overflow-x-hidden border-r font-inter antialiased md:flex",
           gradient
             ? "bg-header-gradient-v border-[var(--color-header-edge)]/60"
             : "bg-muted border-border",
@@ -152,7 +152,7 @@ function SidebarNav({
   return (
     <nav
       data-slot="sidebar-nav"
-      className={cn("flex-1 px-2 py-2", className)}
+      className={cn("relative flex-1 space-y-0.5 overflow-y-auto px-4 py-5", className)}
       {...props}
     />
   )
@@ -204,7 +204,7 @@ function SidebarSection({
   const { gradient } = React.useContext(SidebarContext)
   return (
     <>
-      {divider && <SidebarDivider />}
+      {divider && <SidebarDivider className="mt-10 mb-3" />}
       <div
         data-slot="sidebar-section"
         className={cn("mb-4 last:mb-0", className)}
@@ -213,7 +213,7 @@ function SidebarSection({
         {title && (
           <p
             className={cn(
-              "mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.18em]",
+              "mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em]",
               gradient ? "text-ev-700/60" : "text-muted-foreground"
             )}
           >
@@ -261,13 +261,13 @@ function SidebarNavItem({
   const itemClassName = cn(
     "block rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
     gradient
-      ? "text-neutral-700 hover:bg-white/70 hover:text-ev-700 aria-[current=page]:bg-[image:linear-gradient(78deg,#7438fe_-47.47%,#d267ff_100%)] aria-[current=page]:text-white aria-[current=page]:shadow-violet-glow"
+      ? "text-neutral-700 hover:bg-white/70 hover:text-ev-700 aria-[current=page]:bg-fancy-gradient aria-[current=page]:text-white aria-[current=page]:shadow-violet-glow"
       : "text-muted-foreground hover:bg-background/60 hover:text-foreground aria-[current=page]:bg-background aria-[current=page]:text-foreground aria-[current=page]:shadow-sm",
     className
   )
 
   const decorate = (labelNode: React.ReactNode) => (
-    <span className="flex items-center gap-2">
+    <span className="flex items-center gap-3">
       {icon && (
         <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" aria-hidden>
           {icon}

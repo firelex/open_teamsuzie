@@ -5,12 +5,15 @@ export interface OidcClientConfig {
     clientId: string;
     clientSecret: string;
     redirectUri: string;
+    resource?: string;
+    fetchImpl?: typeof fetch;
 }
 
 interface OidcDiscovery {
     authorization_endpoint: string;
     token_endpoint: string;
     userinfo_endpoint: string;
+    revocation_endpoint?: string;
 }
 
 export interface OidcUserInfo {
@@ -49,7 +52,8 @@ export class OidcClient {
     private async discover(): Promise<OidcDiscovery> {
         if (this.discoveryPromise) return this.discoveryPromise;
         const url = new URL('/.well-known/openid-configuration', this.config.issuer).toString();
-        this.discoveryPromise = fetch(url)
+        const fetchImpl = this.config.fetchImpl ?? fetch;
+        this.discoveryPromise = fetchImpl(url)
             .then(async (res) => {
                 if (!res.ok) throw new Error(`OIDC discovery failed: ${res.status} at ${url}`);
                 return res.json() as Promise<OidcDiscovery>;
@@ -62,7 +66,7 @@ export class OidcClient {
         return this.discoveryPromise;
     }
 
-    async buildAuthorizeUrl(args: { state: string; codeChallenge: string; scope?: string }): Promise<string> {
+    async buildAuthorizeUrl(args: { state: string; codeChallenge: string; scope?: string; prompt?: string }): Promise<string> {
         const { authorization_endpoint } = await this.discover();
         const url = new URL(authorization_endpoint);
         url.searchParams.set('response_type', 'code');
@@ -72,23 +76,55 @@ export class OidcClient {
         url.searchParams.set('state', args.state);
         url.searchParams.set('code_challenge', args.codeChallenge);
         url.searchParams.set('code_challenge_method', 'S256');
+        if (args.prompt) url.searchParams.set('prompt', args.prompt);
+        if (this.config.resource) url.searchParams.set('resource', this.config.resource);
         return url.toString();
     }
 
     async exchangeCode(args: { code: string; codeVerifier: string }): Promise<OidcTokens> {
-        const { token_endpoint } = await this.discover();
-        const body = new URLSearchParams({
+        return this.postToken({
             grant_type: 'authorization_code',
             code: args.code,
             redirect_uri: this.config.redirectUri,
-            client_id: this.config.clientId,
-            client_secret: this.config.clientSecret,
             code_verifier: args.codeVerifier,
         });
-        const res = await fetch(token_endpoint, {
+    }
+
+    async refresh(refreshToken: string): Promise<OidcTokens> {
+        return this.postToken({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+        });
+    }
+
+    async revoke(token: string): Promise<void> {
+        const { revocation_endpoint } = await this.discover();
+        if (!revocation_endpoint) return;
+        const fetchImpl = this.config.fetchImpl ?? fetch;
+        await fetchImpl(revocation_endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body,
+            body: new URLSearchParams({
+                token,
+                client_id: this.config.clientId,
+                client_secret: this.config.clientSecret,
+            }),
+        });
+    }
+
+    private async postToken(body: Record<string, string>): Promise<OidcTokens> {
+        const { token_endpoint } = await this.discover();
+        const requestBody = new URLSearchParams({
+            ...body,
+            client_id: this.config.clientId,
+            client_secret: this.config.clientSecret,
+            ...(this.config.resource ? { resource: this.config.resource } : {}),
+        });
+        const fetchImpl = this.config.fetchImpl ?? fetch;
+        const res = await fetchImpl(token_endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: requestBody,
         });
         if (!res.ok) {
             const txt = await res.text();
@@ -99,7 +135,8 @@ export class OidcClient {
 
     async fetchUserInfo(accessToken: string): Promise<OidcUserInfo> {
         const { userinfo_endpoint } = await this.discover();
-        const res = await fetch(userinfo_endpoint, {
+        const fetchImpl = this.config.fetchImpl ?? fetch;
+        const res = await fetchImpl(userinfo_endpoint, {
             headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (!res.ok) {

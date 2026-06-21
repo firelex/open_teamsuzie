@@ -107,6 +107,11 @@ export type {
   UseWorkflowsOptions,
   UseWorkflowsResult,
 } from './hooks/use-workflows.js';
+export { useAsyncAction, formatElapsed } from './hooks/use-async-action.js';
+export type {
+  UseAsyncActionOptions,
+  UseAsyncActionResult,
+} from './hooks/use-async-action.js';
 export { usePagination } from './lib/use-pagination.js';
 export type {
   UsePaginationOptions,
@@ -183,12 +188,25 @@ export * from './components/team-suzie-logo.js';
 export * from './components/status-dot.js';
 export * from './components/switch.js';
 export * from './components/table.js';
+export * from './components/tab-shell.js';
 export * from './components/tabs.js';
 export * from './components/context-menu.js';
 export * from './components/textarea.js';
 export * from './components/theme-toggle.js';
 export * from './components/tool-call-card.js';
 export * from './components/tool-use-status.js';
+export {
+  LongRunningProvider,
+  TopProgressBar,
+  useLongRunning,
+} from './components/long-running.js';
+export { TagInput } from './components/tag-input.js';
+export type { TagInputProps } from './components/tag-input.js';
+export type {
+  LongRunningContextValue,
+  LongRunningEntry,
+  TopProgressBarProps,
+} from './components/long-running.js';
 export * from './components/tooltip.js';
 export * from './components/citation-chip.js';
 export * from './components/cited-markdown-message.js';
