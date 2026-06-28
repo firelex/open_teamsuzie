@@ -22,9 +22,11 @@
   "dependencies": {
     "@teamsuzie/agent-loop": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
-    "@teamsuzie/pdf": "workspace:*"
+    "@teamsuzie/pdf": "workspace:*",
+    "adm-zip": "^0.5.17"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^22.10.5",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18"

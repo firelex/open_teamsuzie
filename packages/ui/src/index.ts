@@ -14,6 +14,10 @@ export {
   Archive,
   ArrowLeft,
   ArrowRight,
+  Boxes,
+  Briefcase,
+  Building2,
+  Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -32,12 +36,14 @@ export {
   GitCompareArrows,
   HelpCircle,
   History,
+  Home,
   Inbox,
   Info,
   LayoutGrid,
   Link as LinkIcon,
   Loader2,
   LogOut,
+  Mail,
   Menu,
   MessageSquare,
   MessageSquarePlus,
@@ -50,13 +56,16 @@ export {
   Plus,
   RefreshCw,
   Save,
+  ScrollText,
   Search,
   Send,
   Settings as SettingsIcon,
+  Shield,
   Sparkles,
   Square,
   Star,
   Tag,
+  Target,
   Trash2,
   Undo2,
   Upload,
@@ -98,6 +107,11 @@ export type {
   UseWorkflowsOptions,
   UseWorkflowsResult,
 } from './hooks/use-workflows.js';
+export { useAsyncAction, formatElapsed } from './hooks/use-async-action.js';
+export type {
+  UseAsyncActionOptions,
+  UseAsyncActionResult,
+} from './hooks/use-async-action.js';
 export { usePagination } from './lib/use-pagination.js';
 export type {
   UsePaginationOptions,
@@ -126,6 +140,7 @@ export * from './components/empty-state.js';
 export * from './components/input.js';
 export * from './components/label.js';
 export * from './components/loading-state.js';
+export * from './components/menu.js';
 export * from './components/login-form.js';
 export * from './components/markdown-message.js';
 export * from './components/markdown-components.js';
@@ -133,8 +148,27 @@ export * from './components/markdown-view.js';
 export * from './components/mermaid-block.js';
 export * from './components/model-picker.js';
 export * from './components/page-header.js';
+export * from './components/page-hero-band.js';
 export * from './components/page-shell.js';
 export * from './components/page-body.js';
+export * from './components/record-detail-layout.js';
+export * from './components/property-panel.js';
+export type {
+  EditablePropertyDescriptor,
+  EditablePropertyListProps,
+  PropertyPanelProps,
+  PropertyRowProps,
+} from './components/property-panel.js';
+export * from './components/activity-timeline.js';
+export type {
+  ActivityTimelineProps,
+  TimelineEntry,
+} from './components/activity-timeline.js';
+export * from './components/pipeline-board.js';
+export type {
+  PipelineBoardProps,
+  PipelineBoardStage,
+} from './components/pipeline-board.js';
 export * from './components/activity-pill.js';
 export * from './components/generating-panel.js';
 export * from './components/collapsible-side-panel.js';
@@ -151,15 +185,29 @@ export * from './components/settings-cards.js';
 export * from './components/sheet.js';
 export * from './components/side-panel.js';
 export * from './components/sidebar.js';
+export * from './components/team-suzie-logo.js';
 export * from './components/status-dot.js';
 export * from './components/switch.js';
 export * from './components/table.js';
+export * from './components/tab-shell.js';
 export * from './components/tabs.js';
 export * from './components/context-menu.js';
 export * from './components/textarea.js';
 export * from './components/theme-toggle.js';
 export * from './components/tool-call-card.js';
 export * from './components/tool-use-status.js';
+export {
+  LongRunningProvider,
+  TopProgressBar,
+  useLongRunning,
+} from './components/long-running.js';
+export { TagInput } from './components/tag-input.js';
+export type { TagInputProps } from './components/tag-input.js';
+export type {
+  LongRunningContextValue,
+  LongRunningEntry,
+  TopProgressBarProps,
+} from './components/long-running.js';
 export * from './components/tooltip.js';
 export * from './components/citation-chip.js';
 export * from './components/cited-markdown-message.js';

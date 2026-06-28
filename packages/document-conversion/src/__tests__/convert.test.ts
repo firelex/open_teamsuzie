@@ -54,3 +54,37 @@ async function readFixture(name: string): Promise<Uint8Array> {
   const here = path.dirname(fileURLToPath(import.meta.url));
   return new Uint8Array(await readFile(path.join(here, 'fixtures', name)));
 }
+
+import { readFileSync as _pptxRead } from 'node:fs';
+import { join as _pptxJoin } from 'node:path';
+import { fileURLToPath as _pptxFileURLToPath } from 'node:url';
+
+const __pptxFixturesDir = _pptxFileURLToPath(new URL('.', import.meta.url));
+const __pptxFixture = _pptxRead(_pptxJoin(__pptxFixturesDir, 'fixtures/sample.pptx'));
+
+describe('convertToMarkdown – pptx', () => {
+  it('uses the native pptx path (no markitdown call)', async () => {
+    let fetchCalled = false;
+    const result = await convertToMarkdown(__pptxFixture, {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      filename: 'deck.pptx',
+      markitdownAgentBaseUrl: 'http://should-not-be-called',
+      fetchImpl: (async () => {
+        fetchCalled = true;
+        throw new Error('markitdown should not be called for pptx');
+      }) as typeof fetch,
+    });
+    expect(result.backend).toBe('pptx-native');
+    expect(fetchCalled).toBe(false);
+    expect(result.markdown).toMatch(/## Slide 1\b/);
+  });
+
+  it('surfaces pptx parse errors directly (no markitdown fallback)', async () => {
+    await expect(convertToMarkdown(Buffer.from('not a zip'), {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      filename: 'broken.pptx',
+      markitdownAgentBaseUrl: 'http://should-not-be-called',
+      fetchImpl: (async () => { throw new Error('must not call'); }) as typeof fetch,
+    })).rejects.toThrow();
+  });
+});
