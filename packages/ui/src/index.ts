@@ -140,6 +140,7 @@ export * from './components/empty-state.js';
 export * from './components/input.js';
 export * from './components/label.js';
 export * from './components/loading-state.js';
+export * from './components/menu.js';
 export * from './components/login-form.js';
 export * from './components/markdown-message.js';
 export * from './components/markdown-components.js';
