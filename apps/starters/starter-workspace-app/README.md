@@ -1,0 +1,81 @@
+# starter-workspace-app
+
+A **generic, IA-driven workspace app** — the Stage-0 reference scaffold for the
+journey-driven build harness. Stamp it into a target repo, then let the build
+agent wire the navigation, object workspaces, and screens from the project's
+`docs/ux/layout.json`. **Zero domain vocabulary** — a todo app and a PE platform
+stamp the *same* skeleton and diverge only in the agent-added wiring and the real
+screen behaviour.
+
+What's **fixed by the template** (don't regenerate): the app shell, the
+governance top bar, the global approval gate, the canonical screen patterns, the
+typed connector interfaces, the auth/db/events plumbing, and the `data-testid`
+contract. What the **agent generates per build**: the nav/routes/object
+workspaces (from `layout.json`) and the real screen behaviour (per journey).
+
+## Stack
+
+- **Server** (`src/`): OAuth/OIDC auth (`OidcClient` + `SessionBundleRepo`,
+  always OAuth — no password path), SQLite (`better-sqlite3`) with
+  `@teamsuzie/events` migrations, `@teamsuzie/events` event bus + audit store,
+  `@teamsuzie/approvals` queue, `@teamsuzie/email` client, typed connector
+  interfaces (no fake data), Express with a session gate.
+- **Client** (`client/`): Vite + React + `@teamsuzie/ui` + `@teamsuzie/theme` —
+  `AppShell` + `Sidebar`, governance `TopBar`, the `ConfirmDialogProvider`
+  approval gate, and the canonical pattern library.
+
+## Canonical screen patterns (`client/src/patterns`)
+
+Every screen renders one of these archetypes, mapped from a `layout.json`
+pattern's `kind`. Author a new pattern only when none fits.
+
+| Pattern | Archetype | Composes |
+|---|---|---|
+| `CollectionWorkspace` | list / queue / index / feed | `DataTable` + filter + bulk + primary action |
+| `RecordWorkspace` | object detail | `RecordDetailLayout` + sidebar + tabbed body |
+| `GuidedWorkflowRun` | multi-step guided run | stepper + terminal action **via the approval gate** |
+| `DeliverableReview` | review & approve a deliverable | preview + approve **via the approval gate** |
+| `ConfigEditor` | settings / governance editor | editor + edit→confirm→activate **via the approval gate** |
+
+## The approval gate
+
+`ConfirmDialogProvider` wraps the app (`src/main.tsx`); every side-effecting
+pattern confirms through `useConfirm()` before acting. This is how "every
+side-effect routes through an explicit approval" holds across the whole app.
+
+## The testid contract (`client/src/lib/testids.ts`)
+
+Stable `data-testid`s are baked into the shell, top bar, approval flow, and every
+pattern root, so journey-driven acceptance tests have deterministic targets
+regardless of an app's domain content. **Don't rename them** — reuse them by
+rendering the canonical patterns.
+
+## What the build agent wires from `layout.json`
+
+1. `NAV` in `client/src/components/AppShell.tsx` — one entry per nav-group item.
+2. A `<Route>` per nav item / object workspace in `client/src/App.tsx`, each
+   rendering a canonical pattern.
+3. A `RecordWorkspace` per object (tabs from `layout.json`).
+4. App-specific connectors registered on the server's `ConnectorRegistry`, and
+   domain routers mounted on `context` in `src/index.ts`.
+
+## Run
+
+```bash
+pnpm install                 # from the open_teamsuzie monorepo root
+pnpm --filter @teamsuzie/starter-workspace-app dev   # server + client
+```
+
+Server: `http://localhost:5211` · client (Vite): `http://localhost:5273` (proxies
+`/api` to the server).
+
+Env (all optional in dev): `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`,
+`OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_RESOURCE`, `WEB_ORIGIN`,
+`DB_PATH`, `SESSION_SECRET`, `PORT`. Auth needs a reachable OIDC provider.
+
+## Stamping (used by the harness)
+
+The Stage-0 step copies this directory into the target repo (degit-style,
+without the monorepo `.git`). The stamped app keeps `@teamsuzie/*` as live deps
+so it tracks kit changes. This template is itself a real app in the monorepo, so
+it's typechecked/built in CI and stays current.
