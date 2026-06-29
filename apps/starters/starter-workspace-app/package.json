@@ -1,0 +1,32 @@
+{
+  "name": "@teamsuzie/starter-workspace-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Generic IA-driven workspace app starter (Stage-0 reference scaffold for the journey-driven build harness). Full-stack: OIDC auth + SQLite + @teamsuzie/events + approvals + email + typed connector stubs (server) and the @teamsuzie/ui shell + canonical screen patterns + data-testid contract (client). Stamp it, then wire routes/nav/objects from docs/ux/layout.json. Zero domain vocabulary.",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail -n server,client -c blue,green \"pnpm dev:server\" \"pnpm --filter @teamsuzie/starter-workspace-app-client dev\"",
+    "dev:server": "tsx watch src/bootstrap.ts",
+    "start": "node --import tsx src/bootstrap.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/approvals": "workspace:*",
+    "@teamsuzie/email": "workspace:*",
+    "@teamsuzie/events": "workspace:*",
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "openid-client": "^6.8.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "~5.8.3"
+  }
+}
