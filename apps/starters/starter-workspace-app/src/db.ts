@@ -1,38 +1,55 @@
-import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { EVENTS_MIGRATIONS } from '@teamsuzie/events';
+import { Pool } from 'pg';
 
 /**
- * Open the app's SQLite database. Creates the session table the OAuth layer
- * needs and applies the @teamsuzie/events migrations (the events/audit table is
- * owned by that package). The build agent adds its own domain tables here.
+ * Postgres is the authoritative, multi-tenant store. Every tenant-owned table
+ * carries a `tenant_id` and is queried through the request-scoped tenant context
+ * (see tenant.ts). The template ships the session, audit, and tenants tables;
+ * the build agent adds the app's domain tables the same way (always with
+ * tenant_id, never with seeded fake data).
  */
-export function openDb(path: string): Database.Database {
-  mkdirSync(dirname(path), { recursive: true });
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+export function createPool(connectionString: string): Pool {
+  return new Pool({ connectionString });
+}
 
-  db.exec(`
+export async function initSchema(pool: Pool, defaultTenantId: string): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tenants (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
     CREATE TABLE IF NOT EXISTS user_sessions (
       session_id              TEXT PRIMARY KEY,
+      tenant_id               TEXT NOT NULL REFERENCES tenants(id),
       sub                     TEXT NOT NULL,
       email                   TEXT NOT NULL,
       name                    TEXT NOT NULL DEFAULT '',
       refresh_token_enc       TEXT NOT NULL,
       access_token            TEXT NOT NULL,
-      access_token_expires_at TEXT NOT NULL,
-      last_seen_at            TEXT NOT NULL,
-      expires_at              TEXT NOT NULL,
-      created_at              TEXT NOT NULL
+      access_token_expires_at TIMESTAMPTZ NOT NULL,
+      last_seen_at            TIMESTAMPTZ NOT NULL,
+      expires_at              TIMESTAMPTZ NOT NULL,
+      created_at              TIMESTAMPTZ NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_user_sessions_sub ON user_sessions(sub);
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_sub ON user_sessions(tenant_id, sub);
     CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id          BIGSERIAL PRIMARY KEY,
+      tenant_id   TEXT NOT NULL REFERENCES tenants(id),
+      actor_sub   TEXT,
+      action      TEXT NOT NULL,
+      target      TEXT,
+      metadata    JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id, created_at DESC);
   `);
 
-  // Events/audit table is owned by @teamsuzie/events (idempotent).
-  for (const m of EVENTS_MIGRATIONS) db.exec(m.up);
-
-  return db;
+  // Seed the default tenant so the app runs before real tenant resolution is wired.
+  await pool.query(
+    `INSERT INTO tenants (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+    [defaultTenantId, 'Default tenant'],
+  );
 }

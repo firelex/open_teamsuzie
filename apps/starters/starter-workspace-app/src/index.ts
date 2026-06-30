@@ -5,11 +5,13 @@ import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
 
 import { ApprovalQueue, InMemoryApprovalStore } from '@teamsuzie/approvals';
-import { EventBus, EventsStore } from '@teamsuzie/events';
+import { EventBus } from '@teamsuzie/events';
 import { NullEmailClient, type EmailClient } from '@teamsuzie/email';
 
 import { config } from './config.ts';
-import { openDb } from './db.ts';
+import { createPool, initSchema } from './db.ts';
+import { AuditLog } from './audit.ts';
+import { tenantContext } from './tenant.ts';
 import { OidcClient } from './auth/OidcClient.ts';
 import { SessionBundleRepo } from './auth/SessionBundleRepo.ts';
 import { attachSession, requireSession } from './auth/middleware.ts';
@@ -18,18 +20,23 @@ import { ConnectorRegistry } from './connectors.ts';
 
 /**
  * The server context — the canonical full-stack plumbing every generated app
- * inherits. The build agent reads from here (and registers connectors / mounts
+ * inherits: Postgres (multi-tenant), OAuth/OIDC auth, a tenant-scoped audit
+ * trail, an in-memory event bus, approvals, email, and typed connectors. The
+ * build agent reads from here (and registers connectors / mounts tenant-scoped
  * domain routers); it does not rebuild this wiring.
  */
-const db = openDb(config.dbPath);
-const sessions = new SessionBundleRepo(db, config.sessionSecret);
+const pool = createPool(config.databaseUrl);
+await initSchema(pool, config.defaultTenantId);
+
+const sessions = new SessionBundleRepo(pool, config.sessionSecret);
 const oidc = new OidcClient(config.oidc);
 const approvals = new ApprovalQueue({ store: new InMemoryApprovalStore() });
-const events = { bus: new EventBus(), store: new EventsStore({ db }) };
+const audit = new AuditLog(pool);
+const events = { bus: new EventBus() };
 const email: EmailClient = new NullEmailClient();
 const connectors = new ConnectorRegistry();
 
-export const context = { db, sessions, oidc, approvals, events, email, connectors };
+export const context = { pool, sessions, oidc, approvals, audit, events, email, connectors };
 
 const app = express();
 app.use(cors({ origin: config.webOrigin, credentials: true }));
@@ -39,11 +46,12 @@ app.use(express.json({ limit: '2mb' }));
 app.use(attachSession(sessions, oidc));
 app.use('/api/auth', authRouter({ oidc, sessions }));
 
-// Everything else under /api requires a session.
+// Everything else under /api requires a session and runs in a tenant scope.
 app.use('/api', requireSession());
+app.use('/api', tenantContext(config.defaultTenantId));
 app.get('/api/me', (req, res) => res.json(req.user));
 app.get('/api/connectors', (_req, res) => res.json({ connectors: connectors.list() }));
-// The build agent mounts domain routers here, e.g.:
+// The build agent mounts tenant-scoped domain routers here, e.g.:
 //   app.use('/api/<resource>', <resource>Router(context));
 
 // Serve the built client (client/dist) with SPA fallback in production.

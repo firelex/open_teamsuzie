@@ -58,7 +58,8 @@ export function authRouter(deps: { oidc: OidcClient; sessions: SessionBundleRepo
         Buffer.from(tokens.id_token.split('.')[1], 'base64url').toString('utf8'),
       ) as { sub: string; email: string; name?: string };
 
-      const bundle = sessions.create({
+      const bundle = await sessions.create({
+        tenantId: config.defaultTenantId,
         sub: idPayload.sub,
         email: idPayload.email,
         name: idPayload.name ?? '',
@@ -81,10 +82,10 @@ export function authRouter(deps: { oidc: OidcClient; sessions: SessionBundleRepo
   r.post('/logout', async (req, res) => {
     const sid = readCookie(req, SESSION_COOKIE);
     if (sid) {
-      const bundle = sessions.get(sid);
+      const bundle = await sessions.get(sid);
       if (bundle) {
         try { await oidc.revoke(bundle.refreshToken); } catch { /* best effort */ }
-        sessions.delete(sid);
+        await sessions.delete(sid);
       }
     }
     clearSessionCookie(res);

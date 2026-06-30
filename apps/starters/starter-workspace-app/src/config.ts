@@ -5,7 +5,10 @@ export const config = {
   port: parseInt(process.env.PORT || '5211', 10),
   /** Origin of the Vite client dev server, for CORS + post-login redirect. */
   webOrigin: (process.env.WEB_ORIGIN || 'http://localhost:5273').replace(/\/$/, ''),
-  dbPath: process.env.DB_PATH || './data/app.db',
+  /** Authoritative tenant store. Postgres — multi-tenant, row-scoped by tenant_id. */
+  databaseUrl: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/workspace_app',
+  /** Tenant used when an app hasn't wired real tenant resolution yet (single-tenant dev). */
+  defaultTenantId: process.env.DEFAULT_TENANT_ID || 'default',
   sessionSecret: process.env.SESSION_SECRET || randomBytes(32).toString('hex'),
   oidc: {
     issuerUrl: process.env.OIDC_ISSUER_URL || 'http://localhost:3005',

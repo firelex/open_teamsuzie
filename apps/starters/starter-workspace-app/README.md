@@ -16,10 +16,12 @@ workspaces (from `layout.json`) and the real screen behaviour (per journey).
 ## Stack
 
 - **Server** (`src/`): OAuth/OIDC auth (`OidcClient` + `SessionBundleRepo`,
-  always OAuth — no password path), SQLite (`better-sqlite3`) with
-  `@teamsuzie/events` migrations, `@teamsuzie/events` event bus + audit store,
+  always OAuth — no password path), **Postgres** (`pg`) as the authoritative
+  **multi-tenant** store (every table carries `tenant_id`; a request-scoped
+  tenant context via `AsyncLocalStorage` scopes queries), a tenant-scoped
+  `audit_log`, the in-memory `@teamsuzie/events` `EventBus`,
   `@teamsuzie/approvals` queue, `@teamsuzie/email` client, typed connector
-  interfaces (no fake data), Express with a session gate.
+  interfaces (no fake data), Express with a session gate + tenant context.
 - **Client** (`client/`): Vite + React + `@teamsuzie/ui` + `@teamsuzie/theme` —
   `AppShell` + `Sidebar`, governance `TopBar`, the `ConfirmDialogProvider`
   approval gate, and the canonical pattern library.
@@ -69,9 +71,12 @@ pnpm --filter @teamsuzie/starter-workspace-app dev   # server + client
 Server: `http://localhost:5211` · client (Vite): `http://localhost:5273` (proxies
 `/api` to the server).
 
-Env (all optional in dev): `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`,
-`OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_RESOURCE`, `WEB_ORIGIN`,
-`DB_PATH`, `SESSION_SECRET`, `PORT`. Auth needs a reachable OIDC provider.
+Env: `DATABASE_URL` (Postgres — required; a reachable Postgres is needed),
+`DEFAULT_TENANT_ID`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
+`OIDC_REDIRECT_URI`, `OIDC_RESOURCE`, `WEB_ORIGIN`, `SESSION_SECRET`, `PORT`.
+Auth needs a reachable OIDC provider. The schema (tenants, user_sessions,
+audit_log) is created on boot; domain tables the agent adds must carry
+`tenant_id` and be queried through `currentTenantId()`.
 
 ## Stamping (used by the harness)
 

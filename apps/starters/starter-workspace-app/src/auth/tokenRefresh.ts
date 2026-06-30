@@ -19,7 +19,7 @@ export async function ensureFreshAccessToken(args: {
     refreshToken: fresh.refresh_token,
     accessTokenExpiresAt: new Date(Date.now() + fresh.expires_in * 1000).toISOString(),
   };
-  repo.updateTokens(bundle.sessionId, next);
+  await repo.updateTokens(bundle.sessionId, next);
   bundle.accessToken = next.accessToken;
   bundle.refreshToken = next.refreshToken;
   bundle.accessTokenExpiresAt = next.accessTokenExpiresAt;

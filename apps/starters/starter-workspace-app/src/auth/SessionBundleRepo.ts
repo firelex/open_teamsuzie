@@ -1,8 +1,9 @@
-import type Database from 'better-sqlite3';
+import type { Pool } from 'pg';
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from 'node:crypto';
 
 export interface SessionBundle {
   sessionId: string;
+  tenantId: string;
   sub: string;
   email: string;
   name: string;
@@ -16,10 +17,11 @@ export interface SessionBundle {
 
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** OAuth session bundles in Postgres. Refresh tokens are encrypted at rest. */
 export class SessionBundleRepo {
   private key: Buffer;
 
-  constructor(private db: Database.Database, secret: string) {
+  constructor(private pool: Pool, secret: string) {
     this.key = scryptSync(secret, 'suzie-session-bundle', 32);
   }
 
@@ -41,11 +43,12 @@ export class SessionBundleRepo {
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
   }
 
-  create(input: { sub: string; email: string; name: string; refreshToken: string; accessToken: string; accessTokenExpiresAt: string }): SessionBundle {
+  async create(input: { tenantId: string; sub: string; email: string; name: string; refreshToken: string; accessToken: string; accessTokenExpiresAt: string }): Promise<SessionBundle> {
     const now = new Date();
     const sessionId = randomBytes(32).toString('base64url');
     const bundle: SessionBundle = {
       sessionId,
+      tenantId: input.tenantId,
       sub: input.sub, email: input.email, name: input.name,
       refreshToken: input.refreshToken,
       accessToken: input.accessToken,
@@ -54,38 +57,43 @@ export class SessionBundleRepo {
       expiresAt: new Date(now.getTime() + TTL_MS).toISOString(),
       createdAt: now.toISOString(),
     };
-    this.db.prepare(
-      `INSERT INTO user_sessions (session_id, sub, email, name, refresh_token_enc, access_token, access_token_expires_at, last_seen_at, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(sessionId, input.sub, input.email, input.name,
-          this.encrypt(input.refreshToken), input.accessToken, input.accessTokenExpiresAt,
-          bundle.lastSeenAt, bundle.expiresAt, bundle.createdAt);
+    await this.pool.query(
+      `INSERT INTO user_sessions (session_id, tenant_id, sub, email, name, refresh_token_enc, access_token, access_token_expires_at, last_seen_at, expires_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [sessionId, input.tenantId, input.sub, input.email, input.name,
+       this.encrypt(input.refreshToken), input.accessToken, input.accessTokenExpiresAt,
+       bundle.lastSeenAt, bundle.expiresAt, bundle.createdAt],
+    );
     return bundle;
   }
 
-  get(sessionId: string): SessionBundle | null {
-    const row = this.db.prepare(`SELECT * FROM user_sessions WHERE session_id = ?`).get(sessionId) as any;
+  async get(sessionId: string): Promise<SessionBundle | null> {
+    const { rows } = await this.pool.query(`SELECT * FROM user_sessions WHERE session_id = $1`, [sessionId]);
+    const row = rows[0];
     if (!row) return null;
     return {
-      sessionId: row.session_id, sub: row.sub, email: row.email, name: row.name,
+      sessionId: row.session_id, tenantId: row.tenant_id, sub: row.sub, email: row.email, name: row.name,
       refreshToken: this.decrypt(row.refresh_token_enc),
       accessToken: row.access_token,
-      accessTokenExpiresAt: row.access_token_expires_at,
-      lastSeenAt: row.last_seen_at, expiresAt: row.expires_at, createdAt: row.created_at,
+      accessTokenExpiresAt: new Date(row.access_token_expires_at).toISOString(),
+      lastSeenAt: new Date(row.last_seen_at).toISOString(),
+      expiresAt: new Date(row.expires_at).toISOString(),
+      createdAt: new Date(row.created_at).toISOString(),
     };
   }
 
-  updateTokens(sessionId: string, t: { refreshToken: string; accessToken: string; accessTokenExpiresAt: string }): void {
-    this.db.prepare(
-      `UPDATE user_sessions SET refresh_token_enc = ?, access_token = ?, access_token_expires_at = ?, last_seen_at = ? WHERE session_id = ?`,
-    ).run(this.encrypt(t.refreshToken), t.accessToken, t.accessTokenExpiresAt, new Date().toISOString(), sessionId);
+  async updateTokens(sessionId: string, t: { refreshToken: string; accessToken: string; accessTokenExpiresAt: string }): Promise<void> {
+    await this.pool.query(
+      `UPDATE user_sessions SET refresh_token_enc = $1, access_token = $2, access_token_expires_at = $3, last_seen_at = $4 WHERE session_id = $5`,
+      [this.encrypt(t.refreshToken), t.accessToken, t.accessTokenExpiresAt, new Date().toISOString(), sessionId],
+    );
   }
 
-  delete(sessionId: string): void {
-    this.db.prepare(`DELETE FROM user_sessions WHERE session_id = ?`).run(sessionId);
+  async delete(sessionId: string): Promise<void> {
+    await this.pool.query(`DELETE FROM user_sessions WHERE session_id = $1`, [sessionId]);
   }
 
-  purgeExpired(): void {
-    this.db.prepare(`DELETE FROM user_sessions WHERE expires_at < ?`).run(new Date().toISOString());
+  async purgeExpired(): Promise<void> {
+    await this.pool.query(`DELETE FROM user_sessions WHERE expires_at < now()`);
   }
 }

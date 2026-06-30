@@ -10,7 +10,8 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      user?: { id: string; email: string; name: string; accessToken: string };
+      user?: { id: string; email: string; name: string; accessToken: string; tenantId: string };
+      tenantId?: string;
     }
   }
 }
@@ -45,32 +46,31 @@ export function clearSessionCookie(res: Response): void {
   );
 }
 
-/** Attaches req.user if a valid session cookie is present and its access
- *  token can be (re)acquired. Never blocks the request; that's
- *  requireSession's job. */
+/** Attaches req.user (incl. tenantId) if a valid session cookie is present and
+ *  its access token can be (re)acquired. Never blocks; that's requireSession's job. */
 export function attachSession(sessions: SessionBundleRepo, oidc: OidcClient): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     const sid = readCookie(req, SESSION_COOKIE);
     if (!sid) return next();
     let bundle;
     try {
-      bundle = sessions.get(sid);
+      bundle = await sessions.get(sid);
     } catch {
-      sessions.delete(sid);
+      await sessions.delete(sid).catch(() => {});
       clearSessionCookie(res);
       return next();
     }
     if (!bundle) return next();
     if (Date.parse(bundle.expiresAt) < Date.now()) {
-      sessions.delete(sid);
+      await sessions.delete(sid).catch(() => {});
       clearSessionCookie(res);
       return next();
     }
     try {
       const accessToken = await ensureFreshAccessToken({ bundle, oidc, repo: sessions });
-      req.user = { id: bundle.sub, email: bundle.email, name: bundle.name, accessToken };
+      req.user = { id: bundle.sub, email: bundle.email, name: bundle.name, accessToken, tenantId: bundle.tenantId };
     } catch {
-      sessions.delete(sid);
+      await sessions.delete(sid).catch(() => {});
       clearSessionCookie(res);
     }
     next();
