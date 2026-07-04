@@ -44,19 +44,21 @@ test('no page re-centers content with mx-auto (PageBody owns width + inset)', ()
   );
 });
 
-test('every PageShell screen provides the canonical px-8 content inset (PageBody preferred)', () => {
-  // Preferred: wrap content in <PageBody>. Accepted: a top content container
-  // that carries the canonical px-8 inset. Rejected: no inset (content flush) —
-  // that is the ragged-edge bug. New screens should use <PageBody> (see AGENTS.md).
+test('every PageShell screen carries the canonical px-8 + py-6 inset (PageBody preferred)', () => {
+  // Preferred: wrap content in <PageBody> (owns px-8 py-6). Accepted: a raw top
+  // container carrying BOTH px-8 (left) AND py-6 (top) — full-height board/scroll
+  // screens that can't use PageBody use `flex h-full min-h-0 flex-col px-8 py-6`.
+  // Rejected: px-8 without py-6 (content crowds the hero — no top gap), or no
+  // inset at all (flush). New screens should use <PageBody> (see AGENTS.md).
   const bad = pageFiles.filter((f) => {
     const src = read(f);
     if (!/\bPageShell\b/.test(src)) return false; // not a hero+body screen
-    if (/\bRecordWorkspace\b/.test(src)) return false; // record layout owns its inset
-    return !/\bPageBody\b/.test(src) && !/\bpx-8\b/.test(src);
+    if (/\bPageBody\b/.test(src) || /\bRecordWorkspace\b/.test(src)) return false; // canonical containers own their inset
+    return !(/\bpx-8\b/.test(src) && /\bpy-6\b/.test(src));
   });
   assert.deepEqual(
     bad,
     [],
-    `PageShell screens must inset content via <PageBody> or a px-8 container so every page shares one left edge. Offenders: ${bad.join(', ')}`,
+    `PageShell screens must inset content via <PageBody> or a container with BOTH px-8 and py-6 — px-8 alone leaves no top gap and crowds the hero. Offenders: ${bad.join(', ')}`,
   );
 });
