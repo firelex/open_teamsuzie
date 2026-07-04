@@ -33,11 +33,11 @@ export function DeliverableReview({
 
   return (
     <div data-testid={testid.deliverableReview} className="flex h-full flex-col">
-      <div className="px-6 py-4">
+      <div className="py-4">
         <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-6">{children}</div>
-      <div className="flex justify-end gap-2 border-t border-neutral-200 px-6 py-3">
+      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      <div className="flex justify-end gap-2 border-t border-neutral-200 py-3">
         {onReject && (
           <Button variant="outline" disabled={busy} onClick={() => onReject()}>
             Reject

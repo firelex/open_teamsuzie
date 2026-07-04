@@ -27,7 +27,7 @@ export function CollectionWorkspace<T>({
 }: CollectionWorkspaceProps<T>) {
   return (
     <div data-testid={testid.collectionWorkspace} className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-3 px-6 py-4">
+      <div className="flex items-center justify-between gap-3 py-4">
         <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
         {primaryAction && (
           <Button data-testid={testid.primaryAction} onClick={primaryAction.onClick}>
@@ -35,7 +35,7 @@ export function CollectionWorkspace<T>({
           </Button>
         )}
       </div>
-      <div className="min-h-0 flex-1 px-6 pb-6">
+      <div className="min-h-0 flex-1 pb-6">
         <DataTable
           data={data}
           columns={columns}

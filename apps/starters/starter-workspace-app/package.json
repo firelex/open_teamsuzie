@@ -8,7 +8,8 @@
     "dev": "concurrently --kill-others-on-fail -n server,client -c blue,green \"pnpm dev:server\" \"pnpm --filter @teamsuzie/starter-workspace-app-client dev\"",
     "dev:server": "tsx watch src/bootstrap.ts",
     "start": "node --import tsx src/bootstrap.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test client/src/lib/layout-contract.test.ts"
   },
   "dependencies": {
     "@teamsuzie/approvals": "workspace:*",

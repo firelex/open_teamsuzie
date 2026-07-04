@@ -66,13 +66,26 @@ pattern root, so journey-driven acceptance tests have deterministic targets
 regardless of an app's domain content. **Don't rename them** — reuse them by
 rendering the canonical patterns.
 
+## The shell is fixed — `WorkspaceShell`
+
+`client/src/components/AppShell.tsx` renders the canonical `@teamsuzie/ui`
+`WorkspaceShell`, which produces chrome **identical to the Suzie IT Department
+parent app** (gradient sidebar, teamsuzie.com wordmark, grouped nav with section
+labels + dividers, user footer, and the top-bar frame). Every app runs the same
+kit component, so they can't drift apart. **The agent does not edit the shell
+markup** — it feeds it data. Restyling the sidebar/top-bar per app is a bug.
+
 ## What the build agent wires from `layout.json`
 
-1. `NAV` in `client/src/components/AppShell.tsx` — one entry per nav-group item.
+1. `NAV_GROUPS` in `client/src/lib/nav.ts` — one group per nav section, one item
+   per nav entry (id/path/label/icon). `WorkspaceShell` renders these into the
+   canonical sidebar. This is the ONLY shell wiring the agent does.
 2. A `<Route>` per nav item / object workspace in `client/src/App.tsx`, each
    rendering a canonical pattern.
 3. A `RecordWorkspace` per object (tabs from `layout.json`).
-4. App-specific connectors registered on the server's `ConnectorRegistry`, and
+4. App controls in `client/src/components/TopBar.tsx` (dropped into the fixed
+   top-bar frame) — credits/approvals/audit and any app-specific governance.
+5. App-specific connectors registered on the server's `ConnectorRegistry`, and
    domain routers mounted on `context` in `src/index.ts`.
 
 ## Run

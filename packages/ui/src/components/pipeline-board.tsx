@@ -60,7 +60,7 @@ function PipelineBoard<TSubject>({
     <div
       data-slot="pipeline-board"
       className={cn(
-        "flex h-full min-h-0 gap-4 overflow-x-auto px-4 py-4",
+        "flex h-full min-h-0 gap-4 overflow-x-auto py-4",
         className,
       )}
     >

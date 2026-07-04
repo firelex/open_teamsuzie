@@ -2,17 +2,16 @@ import { Sparkles, Check, FileText } from '@teamsuzie/ui';
 import { testid } from '../lib/testids';
 
 /**
- * The governance top bar — fixed by the template. Every app shows the same
- * three affordances the journeys lean on: a credit-balance chip, an approvals
- * indicator, and an audit entry point. These are placeholders wired to live
- * data by the build agent; their data-testids never change.
+ * App controls for the top-bar frame. The frame itself — height, background,
+ * bottom border, font, padding — is fixed by `WorkspaceShell`; this component
+ * supplies only the app's right-aligned controls. Every app shows the three
+ * affordances the journeys lean on: a credit-balance chip, an approvals
+ * indicator, and an audit entry point. Wired to live data by the build agent;
+ * their data-testids never change.
  */
 export function TopBar() {
   return (
-    <div
-      data-testid={testid.topBar}
-      className="flex h-12 shrink-0 items-center justify-end gap-3 border-b border-neutral-200 bg-white px-4 text-xs text-neutral-600"
-    >
+    <div className="ml-auto flex items-center gap-3 text-xs text-neutral-600">
       <span data-testid={testid.creditBalance} className="inline-flex items-center gap-1 font-mono-data">
         <Sparkles className="h-3.5 w-3.5 text-ev-700" /> — credits
       </span>

@@ -42,18 +42,18 @@ export function GuidedWorkflowRun({
 
   return (
     <div data-testid={testid.guidedWorkflowRun} className="flex h-full flex-col">
-      <div className="px-6 py-4">
+      <div className="py-4">
         <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
       </div>
-      <ol className="flex flex-wrap gap-3 px-6 pb-3 text-xs">
+      <ol className="flex flex-wrap gap-3 pb-3 text-xs">
         {steps.map((s, i) => (
           <li key={s.id} className={s.id === currentStepId ? 'font-semibold text-ev-700' : 'text-neutral-400'}>
             {i + 1}. {s.label}
           </li>
         ))}
       </ol>
-      <div className="min-h-0 flex-1 overflow-auto px-6">{children}</div>
-      <div className="flex justify-end gap-2 border-t border-neutral-200 px-6 py-3">
+      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      <div className="flex justify-end gap-2 border-t border-neutral-200 py-3">
         <Button data-testid={testid.primaryAction} disabled={busy || !isLast} onClick={run}>
           {completeLabel}
         </Button>

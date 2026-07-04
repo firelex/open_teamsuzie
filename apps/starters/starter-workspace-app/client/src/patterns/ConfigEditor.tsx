@@ -34,13 +34,13 @@ export function ConfigEditor({
 
   return (
     <div data-testid={testid.configEditor} className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-3 px-6 py-4">
+      <div className="flex items-center justify-between gap-3 py-4">
         <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
         <Button data-testid={testid.primaryAction} disabled={busy || !dirty} onClick={save}>
           {saveLabel}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">{children}</div>
+      <div className="min-h-0 flex-1 overflow-auto pb-6">{children}</div>
     </div>
   );
 }
