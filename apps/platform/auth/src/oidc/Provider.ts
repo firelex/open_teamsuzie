@@ -17,6 +17,14 @@ export async function buildOidcProvider(opts: BuildProviderOptions): Promise<Pro
   const clients = loadClientRegistry(env);
   const expiredAuthRedirectUrl = resolveExpiredAuthRedirectUrl(env);
 
+  // RFC 7591 Dynamic Client Registration — OFF by default, and hard-refused in
+  // production. Enabled only for the local dev harness, which registers each
+  // generated preview app as its own client (its dynamic preview redirect_uri)
+  // instead of every app inheriting a shared static client. Open registration
+  // is acceptable only because the auth server binds to localhost in dev.
+  const allowDynamicRegistration =
+    env.OIDC_ALLOW_DYNAMIC_REGISTRATION === 'true' && env.NODE_ENV !== 'production';
+
   const config: Configuration = {
     adapter: (name) => new SequelizeOidcAdapter(name, opts.sequelize),
     clients: clients as unknown as ClientMetadata[],
@@ -54,6 +62,22 @@ export async function buildOidcProvider(opts: BuildProviderOptions): Promise<Pro
           jwt: { sign: { alg: 'RS256' } },
         }),
       },
+      // Additive + dev-gated: exposes /reg (register) and the per-client
+      // registration_client_uri (read/update/delete) so the harness can register
+      // and refresh a preview app's client as its port changes. No effect on
+      // existing static clients or token flows.
+      ...(allowDynamicRegistration
+        ? {
+            registration: {
+              enabled: true,
+              initialAccessToken: false,
+            },
+            registrationManagement: {
+              enabled: true,
+              rotateRegistrationAccessToken: false,
+            },
+          }
+        : {}),
     },
     // NOTE: oidc-provider v9 dropped the top-level `formats: { AccessToken: 'jwt' }`
     // shape from its types. JWT access-token format is now opted into per

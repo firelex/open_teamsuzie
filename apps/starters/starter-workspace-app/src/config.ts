@@ -15,6 +15,9 @@ export const config = {
     clientId: process.env.OIDC_CLIENT_ID || 'starter-workspace-app',
     clientSecret: process.env.OIDC_CLIENT_SECRET || '',
     redirectUri: process.env.OIDC_REDIRECT_URI || 'http://localhost:5211/api/auth/callback',
-    resource: process.env.OIDC_RESOURCE || 'http://localhost:5211',
+    // Default UNSET: a browser sign-in app needs no RFC 8707 resource indicator,
+    // and apps/auth rejects an unregistered one with `invalid_target`. Set only
+    // to a resource apps/auth registers, when a resource-bound JWT is needed.
+    resource: process.env.OIDC_RESOURCE || '',
   },
 };

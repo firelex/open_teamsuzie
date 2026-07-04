@@ -9,6 +9,12 @@
  * are derived via the helper functions so they stay collision-free but stable.
  */
 export const testid = {
+  // Auth gate (the whole app sits behind this — anon users see the login page,
+  // never the shell).
+  authLoading: 'auth-loading',
+  loginScreen: 'login-screen',
+  loginButton: 'login-button',
+
   // Shell
   appShell: 'app-shell',
   sidebar: 'app-sidebar',

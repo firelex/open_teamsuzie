@@ -24,11 +24,17 @@ export interface CreateOpts {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
-  // RFC 8707 resource indicator. MUST be an absolute URI — apps/auth's
-  // oidc-provider rejects bare identifiers like 'js-tools' with
-  // `invalid_target`. The audience claim in the returned JWT is decided by
-  // apps/auth's resourceIndicators.getResourceServerInfo, not this value.
-  resource: string;
+  // OPTIONAL RFC 8707 resource indicator. Leave UNSET for a normal browser
+  // sign-in app (the default): it authenticates the user, stores the tokens in
+  // its own server-side session, and reads its own `/api/auth/me` — it never
+  // presents a resource-bound JWT to a resource server, so it needs no
+  // `resource`. apps/auth has NO defaultResource and only knows its own
+  // registered resource servers, so sending an unregistered/absolute URI here
+  // (e.g. the app's own origin) makes the token exchange fail with
+  // `invalid_target: resource indicator is missing, or unknown`. Set this ONLY
+  // to an absolute URI apps/auth registers as a resource server, when you
+  // genuinely need a resource-bound (audience-scoped) JWT.
+  resource?: string;
   fetchImpl?: typeof fetch;
   discoverImpl?: (issuerUrl: string) => Promise<OidcDiscovery>;
 }
@@ -65,22 +71,35 @@ export class OidcClient {
     u.searchParams.set('state', state);
     u.searchParams.set('code_challenge', codeChallenge);
     u.searchParams.set('code_challenge_method', 'S256');
-    u.searchParams.set('resource', this.opts.resource);
+    const resource = this.resourceParam();
+    if (resource) u.searchParams.set('resource', resource);
     return { url: u.toString(), state, codeVerifier };
   }
 
   async exchangeCode(args: { code: string; codeVerifier: string }): Promise<OidcTokenResponse> {
+    const resource = this.resourceParam();
     return this.postToken({
       grant_type: 'authorization_code',
       code: args.code,
       redirect_uri: this.opts.redirectUri,
       code_verifier: args.codeVerifier,
-      resource: this.opts.resource,
+      ...(resource ? { resource } : {}),
     });
   }
 
   async refresh(refreshToken: string): Promise<OidcTokenResponse> {
-    return this.postToken({ grant_type: 'refresh_token', refresh_token: refreshToken, resource: this.opts.resource });
+    const resource = this.resourceParam();
+    return this.postToken({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      ...(resource ? { resource } : {}),
+    });
+  }
+
+  /** The configured resource indicator, or '' when unset — in which case the
+   *  `resource` param is omitted entirely (a plain browser sign-in flow). */
+  private resourceParam(): string {
+    return this.opts.resource?.trim() ?? '';
   }
 
   async revoke(token: string): Promise<void> {

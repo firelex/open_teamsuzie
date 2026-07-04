@@ -7,11 +7,12 @@ agent wire the navigation, object workspaces, and screens from the project's
 stamp the *same* skeleton and diverge only in the agent-added wiring and the real
 screen behaviour.
 
-What's **fixed by the template** (don't regenerate): the app shell, the
-governance top bar, the global approval gate, the canonical screen patterns, the
-typed connector interfaces, the auth/db/events plumbing, and the `data-testid`
-contract. What the **agent generates per build**: the nav/routes/object
-workspaces (from `layout.json`) and the real screen behaviour (per journey).
+What's **fixed by the template** (don't regenerate): the auth gate (the whole
+app sits behind a login page), the app shell, the governance top bar, the global
+approval gate, the canonical screen patterns, the typed connector interfaces, the
+auth/db/events plumbing, and the `data-testid` contract. What the **agent
+generates per build**: the nav/routes/object workspaces (from `layout.json`) and
+the real screen behaviour (per journey).
 
 ## Stack
 
@@ -38,6 +39,19 @@ pattern's `kind`. Author a new pattern only when none fits.
 | `GuidedWorkflowRun` | multi-step guided run | stepper + terminal action **via the approval gate** |
 | `DeliverableReview` | review & approve a deliverable | preview + approve **via the approval gate** |
 | `ConfigEditor` | settings / governance editor | editor + edit→confirm→activate **via the approval gate** |
+
+## The auth gate
+
+`AuthGate` (`client/src/components/AuthGate.tsx`) wraps the whole app in
+`src/main.tsx`. On load it probes the session once (`GET /api/auth/me`); an
+anonymous user sees the **login page and nothing else**, and the shell, nav, and
+every data widget render only after sign-in. This is the boundary — the whole
+site sits behind login. Because unauthenticated users can't reach protected
+screens, those screens must **not** fall back to inline "Authentication required"
+boxes as their primary unauthenticated UX; that state is unreachable in normal
+use. The static client is served to anonymous users (only `/api` is gated), so
+the login page can always load. `useAuth()` exposes the signed-in user to the
+authed subtree. **Fixed by the template — don't remove or bypass it.**
 
 ## The approval gate
 
