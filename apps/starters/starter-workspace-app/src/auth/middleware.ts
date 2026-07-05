@@ -3,7 +3,12 @@ import type { SessionBundleRepo } from './SessionBundleRepo.ts';
 import type { OidcClient } from './OidcClient.ts';
 import { ensureFreshAccessToken } from './tokenRefresh.ts';
 
-export const SESSION_COOKIE = 'suzie_session';
+// Per-app cookie name. Preview apps and the parent harness all run on
+// localhost, and cookies are scoped by host NOT port — a shared name means one
+// app's login overwrites/clears another's cookie and bounces the user out. The
+// harness injects a unique SESSION_COOKIE_NAME per app; the default keeps this
+// app distinct from the harness's own `suzie_session` when run standalone.
+export const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME || 'suzie_app_session';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 declare global {
