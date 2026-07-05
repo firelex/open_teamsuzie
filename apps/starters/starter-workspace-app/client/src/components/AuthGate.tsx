@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import { fetchMe, login, type AuthUser } from '../lib/auth';
+import { fetchMe, login, AUTH_UNAUTHORIZED_EVENT, type AuthUser } from '../lib/auth';
 import { testid } from '../lib/testids';
 
 /**
@@ -45,6 +45,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
         if (!ctrl.signal.aborted) setStatus({ kind: 'error', message: String(err?.message ?? err) });
       });
     return () => ctrl.abort();
+  }, []);
+
+  // A session can die while the SPA stays mounted (the probe above runs only
+  // once). When an authenticated `/api` call 401s, `notifyUnauthorized` fires
+  // this event — drop back to the login page so the shell and its data pollers
+  // unmount instead of spamming 401s. Only acts when currently authenticated.
+  useEffect(() => {
+    const onUnauthorized = () => setStatus((s) => (s.kind === 'authed' ? { kind: 'anon' } : s));
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   if (status.kind === 'loading') {

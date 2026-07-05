@@ -20,6 +20,25 @@ export interface AuthUser {
 export const LOGIN_PATH = '/api/auth/login';
 
 /**
+ * Fired when an authenticated `/api` call is rejected with 401 so <AuthGate>
+ * can drop a now-stale session back to the login page instead of letting
+ * pollers spam 401s. A session can die (expire / lose its refresh token) while
+ * the SPA stays mounted; the gate only probes `/api/auth/me` once at load, so
+ * without this the stale user keeps the shell — and its data pollers — alive.
+ *
+ * REQUIRED WIRING: your API client must call `notifyUnauthorized(res.status)`
+ * on every `/api` response (see AGENTS.md). It is a no-op unless the status is
+ * 401, so it is safe to call unconditionally after each fetch.
+ */
+export const AUTH_UNAUTHORIZED_EVENT = 'suzie:unauthorized';
+
+export function notifyUnauthorized(status: number): void {
+  if (status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+  }
+}
+
+/**
  * Session probe. GET `/api/auth/me` → the signed-in user, or `null` when the
  * server says 401 (not signed in). Any other status is a real error and throws,
  * so the gate can distinguish "anonymous" from "auth service is down".
