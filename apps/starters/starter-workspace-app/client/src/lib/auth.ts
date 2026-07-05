@@ -53,12 +53,27 @@ export async function fetchMe(signal?: AbortSignal): Promise<AuthUser | null> {
 /**
  * Start sign-in: send the browser to the server OIDC login route, preserving
  * where the user was so the callback can return them there.
+ *
+ * Navigates the TOP-LEVEL window. OIDC providers refuse to be framed
+ * (clickjacking protection via `frame-ancestors`), so when this app is embedded
+ * — e.g. in the harness preview iframe — the sign-in redirect must break out to
+ * the top window or the provider page is blocked and sign-in silently fails. The
+ * URL is absolute because `window.top` may be a different origin.
  */
 export function login(
   returnTo: string = window.location.pathname + window.location.search,
-  navigate: (url: string) => void = (url) => { window.location.assign(url); },
+  navigate: (url: string) => void = topNavigate,
 ): void {
-  navigate(`${LOGIN_PATH}?return_to=${encodeURIComponent(returnTo)}`);
+  navigate(`${window.location.origin}${LOGIN_PATH}?return_to=${encodeURIComponent(returnTo)}`);
+}
+
+function topNavigate(url: string): void {
+  const top = window.top && window.top !== window ? window.top : window;
+  try {
+    top.location.href = url; // break out of an embedding iframe for the auth redirect
+  } catch {
+    window.location.href = url; // sandbox forbids top navigation — fall back to self
+  }
 }
 
 /**
