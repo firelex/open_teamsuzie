@@ -40,6 +40,8 @@ export const testid = {
 
   // Common pattern controls
   primaryAction: 'primary-action',
+  /** Visible in-viewport error/refusal shown when a terminal action fails or is refused. */
+  workflowError: 'workflow-error',
   dataTable: 'data-table',
   rowAction: (rowId: string) => `row-action-${rowId}`,
   bulkActionBar: 'bulk-action-bar',
