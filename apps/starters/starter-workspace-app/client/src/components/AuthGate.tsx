@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { fetchMe, login, AUTH_UNAUTHORIZED_EVENT, type AuthUser } from '../lib/auth';
 import { testid } from '../lib/testids';
@@ -36,6 +36,8 @@ type Status =
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
+  const statusRef = useRef<Status>(status);
+  statusRef.current = status;
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -49,10 +51,25 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   // A session can die while the SPA stays mounted (the probe above runs only
   // once). When an authenticated `/api` call 401s, `notifyUnauthorized` fires
-  // this event — drop back to the login page so the shell and its data pollers
-  // unmount instead of spamming 401s. Only acts when currently authenticated.
+  // this event. RE-VERIFY via `/api/auth/me` before logging out: a single 401
+  // can be spurious (a racy poll right after login, or an endpoint that 401s for
+  // its own reason), and dropping a live session on it would bounce the user
+  // straight back to the login page. Only drop to login when the session is
+  // actually gone. Guarded so it acts only while authed and never overlaps.
   useEffect(() => {
-    const onUnauthorized = () => setStatus((s) => (s.kind === 'authed' ? { kind: 'anon' } : s));
+    let verifying = false;
+    const onUnauthorized = async () => {
+      if (verifying || statusRef.current.kind !== 'authed') return;
+      verifying = true;
+      try {
+        const user = await fetchMe();
+        setStatus(user ? { kind: 'authed', user } : { kind: 'anon' });
+      } catch {
+        // a network error verifying the session — leave the user as-is
+      } finally {
+        verifying = false;
+      }
+    };
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
