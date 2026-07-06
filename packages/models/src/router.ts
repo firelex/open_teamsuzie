@@ -4,6 +4,15 @@ import { ModelGateway } from './gateway.js';
 import type { ChatMessage } from './types.js';
 
 /**
+ * A router mountable with `app.use(path, modelsRouter(gateway))` on ANY express
+ * major version. Typed as a plain middleware callable so the package doesn't leak
+ * a version-specific express `Router` type across its boundary — apps here use a
+ * mix of express 4 and 5. It is a real express Router at runtime.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type MountableRouter = (req: any, res: any, next: any) => void;
+
+/**
  * Express router for the Models feature. Mount at `/api/models`:
  *   GET  /api/models        → { configured, setup, models: ModelInfo[] }
  *   POST /api/models/chat    → Server-Sent Events: {text} deltas, then {done:true}
@@ -11,7 +20,7 @@ import type { ChatMessage } from './types.js';
  * Errors (bad model, missing key, provider failure) are streamed as a visible
  * {error} event so the UI shows the reason in-viewport rather than failing silently.
  */
-export function modelsRouter(gateway: ModelGateway): Router {
+export function modelsRouter(gateway: ModelGateway): MountableRouter {
   const router = Router();
 
   router.get('/', async (_req: Request, res: Response) => {
@@ -67,7 +76,7 @@ export function modelsRouter(gateway: ModelGateway): Router {
     }
   });
 
-  return router;
+  return router as unknown as MountableRouter;
 }
 
 function normalizeMessages(value: unknown): ChatMessage[] {
