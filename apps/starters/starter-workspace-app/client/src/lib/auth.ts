@@ -51,28 +51,35 @@ export async function fetchMe(signal?: AbortSignal): Promise<AuthUser | null> {
 }
 
 /**
- * Start sign-in: send the browser to the server OIDC login route, preserving
- * where the user was so the callback can return them there.
+ * Start sign-in at the server OIDC login route, preserving where the user was.
  *
- * Navigates the TOP-LEVEL window. OIDC providers refuse to be framed
- * (clickjacking protection via `frame-ancestors`), so when this app is embedded
- * — e.g. in the harness preview iframe — the sign-in redirect must break out to
- * the top window or the provider page is blocked and sign-in silently fails. The
- * URL is absolute because `window.top` may be a different origin.
+ * OIDC providers refuse to be framed (clickjacking protection via
+ * `frame-ancestors`). So when this app is embedded — e.g. in the harness preview
+ * iframe — sign-in must run OUTSIDE the frame. We open it in a NEW TAB, which
+ * keeps the embedding page (the harness) intact instead of taking over its
+ * window. When the app is standalone we just redirect the current tab. The URL
+ * is absolute because the new tab / top window may be a different origin.
  */
 export function login(
   returnTo: string = window.location.pathname + window.location.search,
-  navigate: (url: string) => void = topNavigate,
+  navigate: (url: string) => void = openSignIn,
 ): void {
   navigate(`${window.location.origin}${LOGIN_PATH}?return_to=${encodeURIComponent(returnTo)}`);
 }
 
-function topNavigate(url: string): void {
-  const top = window.top && window.top !== window ? window.top : window;
+function openSignIn(url: string): void {
+  const embedded = !!window.top && window.top !== window;
+  if (!embedded) {
+    window.location.href = url; // standalone: normal same-tab redirect
+    return;
+  }
+  const opened = window.open(url, '_blank', 'noopener'); // embedded: a new tab keeps the harness intact
+  if (opened) return;
+  // Popup blocked — break out of the frame in place as a last resort.
   try {
-    top.location.href = url; // break out of an embedding iframe for the auth redirect
+    (window.top as Window).location.href = url;
   } catch {
-    window.location.href = url; // sandbox forbids top navigation — fall back to self
+    window.location.href = url;
   }
 }
 
