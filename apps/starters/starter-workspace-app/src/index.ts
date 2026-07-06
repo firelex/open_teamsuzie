@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { ApprovalQueue, InMemoryApprovalStore } from '@teamsuzie/approvals';
 import { EventBus } from '@teamsuzie/events';
 import { NullEmailClient, type EmailClient } from '@teamsuzie/email';
+import { ModelGateway, modelsRouter } from '@teamsuzie/models';
 
 import { config } from './config.ts';
 import { createPool, initSchema } from './db.ts';
@@ -35,8 +36,13 @@ const audit = new AuditLog(pool);
 const events = { bus: new EventBus() };
 const email: EmailClient = new NullEmailClient();
 const connectors = new ConnectorRegistry();
+// Real model gateway (replaces the old UnconfiguredModelGateway stub). Reads
+// provider API keys from the environment — inherited from the parent harness —
+// so the app never asks the user for a key. Workflows can inject reachable local
+// runtimes via `listLocalRuntimes`; the starter ships with hosted-only.
+const modelGateway = new ModelGateway();
 
-export const context = { pool, sessions, oidc, approvals, audit, events, email, connectors };
+export const context = { pool, sessions, oidc, approvals, audit, events, email, connectors, modelGateway };
 
 const app = express();
 app.use(cors({ origin: config.webOrigin, credentials: true }));
@@ -51,6 +57,11 @@ app.use('/api', requireSession());
 app.use('/api', tenantContext(config.defaultTenantId));
 app.get('/api/me', (req, res) => res.json(req.user));
 app.get('/api/connectors', (_req, res) => res.json({ connectors: connectors.list() }));
+// Shared Models mechanism (written once in @teamsuzie/models): hosted providers
+// (Anthropic/OpenAI/Qwen via inherited keys) + reachable local runtimes, with a
+// pick-and-chat surface at /models. Every generated app inherits a working
+// Models page — no per-app model plumbing, no key entry.
+app.use('/api/models', modelsRouter(modelGateway));
 // The build agent mounts tenant-scoped domain routers here, e.g.:
 //   app.use('/api/<resource>', <resource>Router(context));
 

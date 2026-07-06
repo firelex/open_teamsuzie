@@ -1,4 +1,4 @@
-import { LayoutGrid, type LucideIcon } from '@teamsuzie/ui';
+import { LayoutGrid, Boxes, type LucideIcon } from '@teamsuzie/ui';
 
 /**
  * Navigation data — THE ONE PART OF THE SHELL THE BUILD AGENT WIRES from
@@ -29,6 +29,10 @@ export interface AppNavGroup {
 export const NAV_GROUPS: AppNavGroup[] = [
   {
     title: 'Overview',
-    items: [{ id: 'home', to: '/', label: 'Home', icon: LayoutGrid, end: true }],
+    items: [
+      { id: 'home', to: '/', label: 'Home', icon: LayoutGrid, end: true },
+      // Shared Models page (from @teamsuzie/models-ui) — ships in every app.
+      { id: 'models', to: '/models', label: 'Models', icon: Boxes },
+    ],
   },
 ];
