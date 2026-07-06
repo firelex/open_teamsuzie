@@ -60,10 +60,23 @@ export interface LocalRuntime {
   models: string[];
 }
 
+/**
+ * Persists the app/tenant's chosen default model — the model workflows use, and
+ * the one the Models picker restores. The app supplies the storage (e.g. a
+ * tenant-scoped row); the gateway only reads/writes an id string. Omit it and the
+ * default is simply the first available model (no persistence).
+ */
+export interface DefaultModelStore {
+  get(): Promise<string | null> | string | null;
+  set(id: string): Promise<void> | void;
+}
+
 /** Injected env + fetch, so the gateway is testable with no real network. */
 export interface GatewayDeps {
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
   /** Lister for reachable local runtimes; default returns none. */
   listLocalRuntimes?: () => Promise<LocalRuntime[]> | LocalRuntime[];
+  /** Persistence for the chosen default model; default is the first available model. */
+  defaultModelStore?: DefaultModelStore;
 }

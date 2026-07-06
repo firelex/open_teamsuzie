@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PageShell, PageBody, Card, Button, Boxes, Send, Loader2 } from '@teamsuzie/ui';
 
 import type { ChatMessage, ModelInfo } from './api.js';
-import { fetchModels, streamChat } from './api.js';
+import { fetchModels, streamChat, setDefaultModel } from './api.js';
 import { ModelPicker } from './ModelPicker.js';
 
 /** Stable test ids for the Models page (self-contained in the package). */
@@ -39,8 +39,13 @@ export function ModelsPage() {
         if (!live) return;
         setModels(r.models);
         setSetup(r.setup);
-        const firstAvailable = r.models.find((m) => m.available);
-        if (firstAvailable) setSelected(firstAvailable.id);
+        // Restore the persisted default (the workflow model) if still available,
+        // else fall back to the first available model.
+        const preset =
+          r.defaultModelId && r.models.some((m) => m.id === r.defaultModelId && m.available)
+            ? r.defaultModelId
+            : r.models.find((m) => m.available)?.id;
+        if (preset) setSelected(preset);
       })
       .catch((e) => {
         if (!live) return;
@@ -58,6 +63,14 @@ export function ModelsPage() {
   }, [error]);
 
   const anyAvailable = (models ?? []).some((m) => m.available);
+
+  // Picking a model both drives the chat AND persists it as the default the
+  // app's workflows use.
+  const onPickModel = (id: string) => {
+    setSelected(id);
+    setError(null);
+    void setDefaultModel(id).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  };
 
   const send = async () => {
     const text = input.trim();
@@ -105,14 +118,19 @@ export function ModelsPage() {
           </Card>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium text-foreground">Model</span>
-              <ModelPicker
-                models={models}
-                value={selected}
-                onChange={setSelected}
-                testid={MODELS_TESTIDS.picker}
-              />
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-foreground">Model</span>
+                <ModelPicker
+                  models={models}
+                  value={selected}
+                  onChange={onPickModel}
+                  testid={MODELS_TESTIDS.picker}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">
+                The selected model is used for chat here and by the app's workflows.
+              </span>
             </div>
 
             {error && (

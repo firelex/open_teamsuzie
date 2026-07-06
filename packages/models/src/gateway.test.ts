@@ -122,6 +122,29 @@ describe('ModelGateway — chat', () => {
     ).rejects.toThrow(/openai request failed \(429\)/);
   });
 
+  it('getDefaultModelId returns the persisted default when available, else the first available', async () => {
+    let stored: string | null = null;
+    const store = { get: () => stored, set: (id: string) => { stored = id; } };
+    const g = new ModelGateway({ env: { ANTHROPIC_API_KEY: 'k', OPENAI_API_KEY: 'k' }, fetchImpl: notCalled, defaultModelStore: store });
+    // No stored default → first available (anthropic curated is first).
+    expect(await g.getDefaultModelId()).toBe('anthropic/claude-sonnet-5');
+    // Set + read back.
+    await g.setDefaultModelId('openai/gpt-5.5');
+    expect(stored).toBe('openai/gpt-5.5');
+    expect(await g.getDefaultModelId()).toBe('openai/gpt-5.5');
+  });
+
+  it('setDefaultModelId rejects a model that is not available (no key)', async () => {
+    const g = new ModelGateway({ env: { ANTHROPIC_API_KEY: 'k' }, fetchImpl: notCalled });
+    await expect(g.setDefaultModelId('openai/gpt-5.5')).rejects.toThrow(/not available/);
+  });
+
+  it('getDefaultModelId is null and chatDefault throws when nothing is configured', async () => {
+    const g = new ModelGateway({ env: {}, fetchImpl: notCalled });
+    expect(await g.getDefaultModelId()).toBeNull();
+    await expect(g.chatDefault([{ role: 'user', content: 'hi' }])).rejects.toThrow(/no provider API keys/i);
+  });
+
   it('routes a local runtime by its injected base URL', async () => {
     let url = '';
     const fetchImpl = (async (u: string) => {

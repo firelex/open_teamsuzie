@@ -32,11 +32,13 @@ describe('modelsRouter', () => {
       listModels: async () => [
         { id: 'openai/gpt', provider: 'openai', model: 'gpt', label: 'GPT', deployment: 'hosted', available: true },
       ],
+      getDefaultModelId: async () => 'openai/gpt',
     });
     const body = await (await fetch(`${base}/api/models`)).json();
     expect(body.configured).toBe(true);
     expect(body.setup).toBe('Model gateway ready.');
     expect(body.models[0].id).toBe('openai/gpt');
+    expect(body.defaultModelId).toBe('openai/gpt');
   });
 
   it('POST /chat streams SSE text deltas then a done event', async () => {

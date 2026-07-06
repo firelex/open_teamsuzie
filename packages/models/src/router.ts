@@ -29,9 +29,33 @@ export function modelsRouter(gateway: ModelGateway): MountableRouter {
         configured: gateway.isConfigured(),
         setup: gateway.describeSetup(),
         models: await gateway.listModels(),
+        defaultModelId: await gateway.getDefaultModelId(),
       });
     } catch (err) {
       res.status(500).json({ error: message(err) });
+    }
+  });
+
+  // The default model (workflows use it; the picker restores it).
+  router.get('/default', async (_req: Request, res: Response) => {
+    try {
+      res.json({ id: await gateway.getDefaultModelId() });
+    } catch (err) {
+      res.status(500).json({ error: message(err) });
+    }
+  });
+
+  router.put('/default', async (req: Request, res: Response) => {
+    const id = typeof (req.body as { id?: unknown })?.id === 'string' ? (req.body as { id: string }).id : '';
+    if (!id) {
+      res.status(400).json({ error: 'A model `id` is required.' });
+      return;
+    }
+    try {
+      await gateway.setDefaultModelId(id);
+      res.json({ id });
+    } catch (err) {
+      res.status(400).json({ error: message(err) });
     }
   });
 

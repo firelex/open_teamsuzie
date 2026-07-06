@@ -1,8 +1,10 @@
 import { curatedHostedModels } from './curated.js';
 import { hostedProviders, streamChat, chatOnce, type ProviderConfig } from './providers.js';
 import type {
+  ChatMessage,
   ChatRequest,
   ChatResult,
+  DefaultModelStore,
   GatewayDeps,
   LocalRuntime,
   ModelInfo,
@@ -24,11 +26,13 @@ export class ModelGateway {
   private readonly env: NodeJS.ProcessEnv;
   private readonly fetchImpl: typeof fetch;
   private readonly listLocal: () => Promise<LocalRuntime[]> | LocalRuntime[];
+  private readonly defaultStore?: DefaultModelStore;
 
   constructor(deps: GatewayDeps = {}) {
     this.env = deps.env ?? process.env;
     this.fetchImpl = deps.fetchImpl ?? fetch;
     this.listLocal = deps.listLocalRuntimes ?? (() => []);
+    this.defaultStore = deps.defaultModelStore;
   }
 
   /** Which hosted providers have a key present (with a reason when not). */
@@ -117,6 +121,34 @@ export class ModelGateway {
       signal: req.signal,
     });
     return { provider: config.id, model, text };
+  }
+
+  /**
+   * The default model id workflows should use: the persisted choice if it's still
+   * available, else the first available model, else null (nothing configured).
+   */
+  async getDefaultModelId(): Promise<string | null> {
+    const models = await this.listModels();
+    const available = models.filter((m) => m.available);
+    const stored = (await this.defaultStore?.get()) ?? null;
+    if (stored && available.some((m) => m.id === stored)) return stored;
+    return available[0]?.id ?? null;
+  }
+
+  /** Persist the chosen default model. Rejects an id that isn't an available model. */
+  async setDefaultModelId(id: string): Promise<void> {
+    const models = await this.listModels();
+    if (!models.some((m) => m.id === id && m.available)) {
+      throw new Error(`Model is not available: ${id}`);
+    }
+    await this.defaultStore?.set(id);
+  }
+
+  /** Real inference using the default model. Throws (visibly) if nothing is configured. */
+  async chatDefault(messages: ChatMessage[], maxTokens?: number): Promise<ChatResult> {
+    const id = await this.getDefaultModelId();
+    if (!id) throw new Error(this.describeSetup());
+    return this.chat({ id, messages, maxTokens });
   }
 
   /** Resolve a `provider/model` id (or `openai-compatible/<runtime>:<model>`) to a callable config. */

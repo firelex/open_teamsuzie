@@ -6,6 +6,8 @@ export interface ModelsListResponse {
   configured: boolean;
   setup: string;
   models: ModelInfo[];
+  /** The persisted default model (the one workflows use); null if none set. */
+  defaultModelId: string | null;
 }
 
 /** Load the selectable model catalogue from the app's `/api/models`. */
@@ -13,6 +15,20 @@ export async function fetchModels(signal?: AbortSignal): Promise<ModelsListRespo
   const res = await fetch('/api/models', { credentials: 'include', signal });
   if (!res.ok) throw new Error(`Failed to load models (${res.status})`);
   return (await res.json()) as ModelsListResponse;
+}
+
+/** Persist the chosen default model — the one workflows use. */
+export async function setDefaultModel(id: string): Promise<void> {
+  const res = await fetch('/api/models/default', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || `Failed to set default model (${res.status})`);
+  }
 }
 
 /**

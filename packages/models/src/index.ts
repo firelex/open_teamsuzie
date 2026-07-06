@@ -12,5 +12,6 @@ export type {
   ChatResult,
   LocalRuntime,
   GatewayDeps,
+  DefaultModelStore,
 } from './types.js';
 export type { ProviderConfig, WireFormat } from './providers.js';
