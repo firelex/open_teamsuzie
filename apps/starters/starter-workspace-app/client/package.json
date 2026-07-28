@@ -1,0 +1,30 @@
+{
+  "name": "@teamsuzie/starter-workspace-app-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Client for starter-workspace-app — a generic IA-driven workspace app (Vite + React + @teamsuzie/ui + @teamsuzie/theme). The shell, top bar, canonical screen patterns, and data-testid contract are fixed; the build agent wires routes/nav/objects from the project's docs/ux/layout.json.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/models-ui": "workspace:*",
+    "@teamsuzie/theme": "workspace:*",
+    "@teamsuzie/ui": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.3"
+  }
+}

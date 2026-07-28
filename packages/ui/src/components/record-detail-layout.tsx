@@ -47,7 +47,7 @@ function RecordDetailLayout({
         <div
           data-slot="record-detail-main"
           className={cn(
-            "min-w-0 flex-1 overflow-y-auto px-6 py-5",
+            "min-w-0 flex-1 overflow-y-auto px-8 py-5",
             mainClassName,
           )}
         >
@@ -107,7 +107,7 @@ function RecordDetailHeaderContent({
     <div
       data-slot="record-detail-header-content"
       className={cn(
-        "flex items-start justify-between gap-4 px-6 py-5",
+        "flex items-start justify-between gap-4 px-8 py-5",
         className,
       )}
       {...props}

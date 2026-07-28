@@ -1,0 +1,34 @@
+{
+  "name": "@teamsuzie/models",
+  "version": "0.1.0",
+  "description": "Shared model gateway: hosted-provider (Anthropic/OpenAI/Qwen) + reachable local-runtime inference, using API keys inherited from the environment. No key entry in the app — pick a model, the parent's keys are used.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "express": "^4.0.0 || ^5.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "express": "^4.21.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
