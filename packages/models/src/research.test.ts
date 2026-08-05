@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
-import { researchAnthropic, type ResearchParams } from './research.js';
+import {
+  providerSupportsWebSearch,
+  researchAnthropic,
+  researchQwen,
+  WebSearchUnsupportedError,
+  type ResearchParams,
+} from './research.js';
 import { hostedProviders } from './providers.js';
+import { ModelGateway } from './gateway.js';
 
 /** Build an SSE response body from JSON payload lines. */
 function sse(lines: string[]): Response {
@@ -89,5 +96,123 @@ describe('researchAnthropic', () => {
     await expect(researchAnthropic(anthropicParams(fetchImpl))).rejects.toThrow(
       /anthropic research request failed \(529\)/,
     );
+  });
+});
+
+function qwenParams(fetchImpl: typeof fetch, onSearch?: (q: string) => void): ResearchParams {
+  return {
+    config: hostedProviders({})['qwen'],
+    apiKey: 'qk',
+    model: 'qwen3.8-max',
+    messages: [
+      { role: 'system', content: 'be a researcher' },
+      { role: 'user', content: 'uk legal market' },
+    ],
+    maxTokens: 1500,
+    fetchImpl,
+    onSearch,
+  };
+}
+
+describe('researchQwen', () => {
+  it('sends enable_search and collects text + search_info sources', async () => {
+    let captured!: { url: string; init: RequestInit };
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      captured = { url: String(url), init };
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'Finding B' } }],
+          search_info: {
+            search_results: [{ url: 'https://c.example/three', title: 'Three', site_name: 'C' }],
+          },
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+    const searches: string[] = [];
+    const res = await researchQwen(qwenParams(fetchImpl, (q) => searches.push(q)));
+
+    expect(res.text).toBe('Finding B');
+    expect(res.citations).toEqual([{ url: 'https://c.example/three', title: 'Three' }]);
+    expect(res.searchQueries).toEqual(['uk legal market']);
+    expect(searches).toEqual(['uk legal market']);
+
+    expect(captured.url).toBe('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions');
+    const body = JSON.parse(captured.init.body as string);
+    expect(body.stream).toBe(false);
+    expect(body.enable_search).toBe(true);
+    expect(body.search_options).toEqual({
+      forced_search: false,
+      enable_source: true,
+      enable_citation: false,
+      search_strategy: 'standard',
+    });
+    expect((captured.init.headers as Record<string, string>).authorization).toBe('Bearer qk');
+  });
+
+  it('returns no citations (without throwing) when search_info is absent', async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ choices: [{ message: { content: 'no sources' } }] }), {
+        status: 200,
+      })) as unknown as typeof fetch;
+    const res = await researchQwen(qwenParams(fetchImpl));
+    expect(res.text).toBe('no sources');
+    expect(res.citations).toEqual([]);
+  });
+
+  it('reads search_info nested under output too', async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'x' } }],
+          output: { search_info: { search_results: [{ url: 'https://d.example', title: 'D' }] } },
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    const res = await researchQwen(qwenParams(fetchImpl));
+    expect(res.citations).toEqual([{ url: 'https://d.example', title: 'D' }]);
+  });
+
+  it('throws a descriptive error on a non-OK response', async () => {
+    const fetchImpl = (async () => new Response('bad key', { status: 401 })) as unknown as typeof fetch;
+    await expect(researchQwen(qwenParams(fetchImpl))).rejects.toThrow(/qwen research request failed \(401\)/);
+  });
+});
+
+describe('providerSupportsWebSearch', () => {
+  it('anthropic and qwen only', () => {
+    expect(providerSupportsWebSearch('anthropic')).toBe(true);
+    expect(providerSupportsWebSearch('qwen')).toBe(true);
+    expect(providerSupportsWebSearch('openai')).toBe(false);
+    expect(providerSupportsWebSearch('openai-compatible')).toBe(false);
+  });
+});
+
+describe('ModelGateway.researchChat', () => {
+  it('rejects a provider without native search', async () => {
+    const notCalled = (async () => {
+      throw new Error('fetch should not be called');
+    }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { OPENAI_API_KEY: 'k' }, fetchImpl: notCalled });
+    await expect(
+      g.researchChat({ id: 'openai/gpt-5.5', messages: [{ role: 'user', content: 'hi' }] }),
+    ).rejects.toThrow(WebSearchUnsupportedError);
+  });
+
+  it('routes an anthropic id to the anthropic research adapter', async () => {
+    let url = '';
+    const fetchImpl = (async (u: string) => {
+      url = String(u);
+      return new Response('data: {"type":"message_stop"}\n\n', { status: 200 });
+    }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { ANTHROPIC_API_KEY: 'k' }, fetchImpl });
+    const res = await g.researchChat({
+      id: 'anthropic/claude-sonnet-5',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    expect(res.provider).toBe('anthropic');
+    expect(res.model).toBe('claude-sonnet-5');
   });
 });

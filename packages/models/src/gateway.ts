@@ -1,5 +1,12 @@
 import { curatedHostedModels } from './curated.js';
 import { hostedProviders, streamChat, chatOnce, type ProviderConfig } from './providers.js';
+import {
+  providerSupportsWebSearch,
+  researchAnthropic,
+  researchQwen,
+  WebSearchUnsupportedError,
+  type ResearchResult,
+} from './research.js';
 import type {
   ChatMessage,
   ChatRequest,
@@ -12,6 +19,17 @@ import type {
 } from './types.js';
 
 const DEFAULT_MAX_TOKENS = 2048;
+
+/** A researchChat request: ChatRequest plus the live search-progress hook. */
+export interface ResearchChatRequest extends ChatRequest {
+  /** Fires as each executed search query becomes known. */
+  onSearch?: (query: string) => void;
+}
+
+export interface ResearchChatResult extends ResearchResult {
+  provider: ProviderId;
+  model: string;
+}
 
 /**
  * The real model gateway. Replaces the scaffold's UnconfiguredModelGateway stub.
@@ -149,6 +167,29 @@ export class ModelGateway {
     const id = await this.getDefaultModelId();
     if (!id) throw new Error(this.describeSetup());
     return this.chat({ id, messages, maxTokens });
+  }
+
+  /**
+   * Real inference WITH provider-native web search (Anthropic `web_search`
+   * server tool / Qwen DashScope `enable_search`). Rejects providers without
+   * native search with WebSearchUnsupportedError — callers choose their own
+   * fallback; the gateway never silently degrades a research call.
+   */
+  async researchChat(req: ResearchChatRequest): Promise<ResearchChatResult> {
+    const { config, apiKey, model } = await this.resolve(req.id);
+    if (!providerSupportsWebSearch(config.id)) throw new WebSearchUnsupportedError(config.id);
+    const params = {
+      config,
+      apiKey,
+      model,
+      messages: req.messages,
+      maxTokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+      fetchImpl: this.fetchImpl,
+      signal: req.signal,
+      onSearch: req.onSearch,
+    };
+    const result = config.id === 'anthropic' ? await researchAnthropic(params) : await researchQwen(params);
+    return { provider: config.id, model, ...result };
   }
 
   /** Resolve a `provider/model` id (or `openai-compatible/<runtime>:<model>`) to a callable config. */

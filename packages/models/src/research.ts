@@ -146,6 +146,66 @@ export async function researchAnthropic(p: ResearchParams): Promise<ResearchResu
   return { text, citations, searchQueries };
 }
 
+// --- Qwen (DashScope enable_search, OpenAI-compatible mode) ------------------
+
+const QWEN_SEARCH_OPTIONS = {
+  forced_search: false,
+  enable_source: true,
+  enable_citation: false,
+  search_strategy: 'standard',
+} as const;
+
+interface QwenSearchInfo {
+  search_results?: Array<{ url?: unknown; title?: unknown }>;
+}
+
+export async function researchQwen(p: ResearchParams): Promise<ResearchResult> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
+
+  // DashScope reports which sources it used but not its internal queries, so the
+  // effective query (the user content) is surfaced once, up front.
+  const query = p.messages.filter((m) => m.role === 'user').map((m) => m.content).join(' ');
+  if (query) p.onSearch?.(query);
+
+  const res = await p.fetchImpl(`${p.config.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers,
+    signal: p.signal,
+    body: JSON.stringify({
+      model: p.model,
+      messages: p.messages,
+      max_tokens: p.maxTokens,
+      stream: false,
+      enable_search: true,
+      search_options: QWEN_SEARCH_OPTIONS,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await safeText(res);
+    throw new Error(`qwen research request failed (${res.status})${detail ? `: ${detail}` : ''}`);
+  }
+
+  const json = (await res.json()) as {
+    choices?: Array<{ message?: { content?: unknown } }>;
+    search_info?: QwenSearchInfo;
+    output?: { search_info?: QwenSearchInfo };
+  };
+  const content = json.choices?.[0]?.message?.content;
+  const info = json.search_info ?? json.output?.search_info;
+  const citations: ResearchCitation[] = [];
+  for (const r of info?.search_results ?? []) {
+    if (typeof r.url === 'string') {
+      citations.push({ url: r.url, title: typeof r.title === 'string' ? r.title : r.url });
+    }
+  }
+  return {
+    text: typeof content === 'string' ? content : '',
+    citations,
+    searchQueries: query ? [query] : [],
+  };
+}
+
 // --- SSE plumbing (mirrors providers.ts, which keeps its parser private) -----
 
 async function* sseData(res: Response): AsyncIterable<string> {

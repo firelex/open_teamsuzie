@@ -1,4 +1,13 @@
-export { ModelGateway } from './gateway.js';
+export { ModelGateway, type ResearchChatRequest, type ResearchChatResult } from './gateway.js';
+export {
+  providerSupportsWebSearch,
+  researchAnthropic,
+  researchQwen,
+  WebSearchUnsupportedError,
+  type ResearchCitation,
+  type ResearchResult,
+  type ResearchParams,
+} from './research.js';
 export { modelsRouter } from './router.js';
 export { hostedProviders, streamChat, chatOnce } from './providers.js';
 export { curatedHostedModels, type CuratedModel } from './curated.js';
