@@ -6,7 +6,7 @@ import type { ProviderId } from './types.js';
  * and label are env-overridable so a provider renaming its API string never
  * requires a code change or blocks sign-in-to-inference.
  *
- * Defaults chosen with the user: Claude Sonnet 5, GPT-5.5, Qwen 3.7-Max.
+ * Defaults chosen with the user: Claude Sonnet 5, GPT-5.5, Qwen 3.8-Max.
  */
 export interface CuratedModel {
   provider: ProviderId;
@@ -28,8 +28,8 @@ export function curatedHostedModels(env: NodeJS.ProcessEnv): CuratedModel[] {
     },
     {
       provider: 'qwen',
-      model: env.MODELS_QWEN_MODEL || 'qwen3.7-max',
-      label: env.MODELS_QWEN_LABEL || 'Qwen 3.7-Max',
+      model: env.MODELS_QWEN_MODEL || 'qwen3.8-max',
+      label: env.MODELS_QWEN_LABEL || 'Qwen 3.8-Max',
     },
   ];
 }
