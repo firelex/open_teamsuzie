@@ -149,7 +149,8 @@ export async function researchAnthropic(p: ResearchParams): Promise<ResearchResu
 // --- Qwen (DashScope enable_search, OpenAI-compatible mode) ------------------
 
 const QWEN_SEARCH_OPTIONS = {
-  forced_search: false,
+  // A research call always searches — the model must not answer from recall.
+  forced_search: true,
   enable_source: true,
   enable_citation: false,
   search_strategy: 'standard',
@@ -177,6 +178,9 @@ export async function researchQwen(p: ResearchParams): Promise<ResearchResult> {
       messages: p.messages,
       max_tokens: p.maxTokens,
       stream: false,
+      // Thinking mode off: qwen3.x-max with search + thinking regularly exceeds
+      // a 120s research timeout (verified live); the firm default is thinking-off.
+      enable_thinking: false,
       enable_search: true,
       search_options: QWEN_SEARCH_OPTIONS,
     }),

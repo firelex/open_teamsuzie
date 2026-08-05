@@ -142,8 +142,11 @@ describe('researchQwen', () => {
     const body = JSON.parse(captured.init.body as string);
     expect(body.stream).toBe(false);
     expect(body.enable_search).toBe(true);
+    // Research lanes ALWAYS search, and thinking mode must be off: with it on,
+    // qwen3.8-max regularly blows past a 120s lane timeout (verified live).
+    expect(body.enable_thinking).toBe(false);
     expect(body.search_options).toEqual({
-      forced_search: false,
+      forced_search: true,
       enable_source: true,
       enable_citation: false,
       search_strategy: 'standard',
