@@ -1,0 +1,32 @@
+{
+  "name": "@teamsuzie/email-fixture",
+  "version": "0.1.0",
+  "description": "An in-memory mailbox loaded from a JSON file, for building and testing email features without a real account",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@teamsuzie/email": "workspace:*",
+    "zod": "^3.23.8"
+  }
+}
