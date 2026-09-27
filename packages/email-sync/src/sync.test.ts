@@ -83,6 +83,12 @@ describe('MailSync', () => {
         await expect(sync.syncOnce()).rejects.toThrow('run initialImport first');
     });
 
+    it('reports imported threads oldest first, so a host that learns from earlier threads sees them in the order they happened', async () => {
+        const { sync, changed } = setup();
+        await sync.initialImport(50);
+        expect(changed).toEqual(['t1', 't2']);
+    });
+
     it('never stores attachment content', async () => {
         const { store, sync } = setup();
         await sync.initialImport(50);

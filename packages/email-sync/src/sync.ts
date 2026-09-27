@@ -147,7 +147,8 @@ export class MailSync {
             }
         }
         // Hooks run before the cursor is stored: if one fails, the whole import is retried and every hook runs again.
-        for (const id of ids) await this.opts.onThreadChanged?.(id);
+        // Oldest first (the listing is newest first), so a host that learns from earlier threads sees them in order.
+        for (const id of [...ids].reverse()) await this.opts.onThreadChanged?.(id);
         await store.setCursor(account, cursor);
         return { threads: ids.length, messages };
     }
