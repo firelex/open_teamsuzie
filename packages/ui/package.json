@@ -18,6 +18,10 @@
     "./lib/default-models": {
       "import": "./dist/lib/default-models.js",
       "types": "./dist/lib/default-models.d.ts"
+    },
+    "./email": {
+      "import": "./dist/components/email/index.js",
+      "types": "./dist/components/email/index.d.ts"
     }
   },
   "files": [
