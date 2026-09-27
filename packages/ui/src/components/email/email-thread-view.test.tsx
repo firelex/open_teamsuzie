@@ -57,11 +57,14 @@ describe('EmailThreadView', () => {
     expect(screen.getByTestId('host-html')).toBeTruthy();
   });
 
-  it('opens an attachment with the message id and file name', () => {
+  it('opens an attachment by its id, even when two share a file name', () => {
     const onOpen = vi.fn();
-    render(<EmailThreadView messages={[message({ attachments: [{ filename: 'SPA v3.docx', contentType: 'application/octet-stream', size: 20480 }] })]} order="latest_first" renderHtml={() => null} onOpenAttachment={onOpen} />);
-    fireEvent.click(screen.getByRole('button', { name: /SPA v3\.docx/ }));
-    expect(onOpen).toHaveBeenCalledWith('m1', 'SPA v3.docx');
+    render(<EmailThreadView messages={[message({ attachments: [
+      { id: 'a1', filename: 'image001.png', contentType: 'image/png', size: 100 },
+      { id: 'a2', filename: 'image001.png', contentType: 'image/png', size: 200 },
+    ] })]} order="latest_first" renderHtml={() => null} onOpenAttachment={onOpen} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /image001\.png/ })[1]!);
+    expect(onOpen).toHaveBeenCalledWith('m1', 'a2');
   });
 
   it('marks unread messages', () => {

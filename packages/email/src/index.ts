@@ -1,3 +1,4 @@
+export { addressOf, splitAddressList } from './addresses.js';
 export {
     EMAIL_ACTION_FORWARD,
     EMAIL_ACTION_REPLY,

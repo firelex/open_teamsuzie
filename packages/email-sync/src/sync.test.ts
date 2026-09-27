@@ -87,8 +87,69 @@ describe('MailSync', () => {
         const { store, sync } = setup();
         await sync.initialImport(50);
         const m1 = (store as MemoryMailStore).messages(ACCOUNT).get('m1')!;
-        expect(m1.attachments).toEqual([{ filename: 'SPA.docx', contentType: 'application/octet-stream', size: 4 }]);
+        expect(m1.attachments).toEqual([{ id: 'm1.0', filename: 'SPA.docx', contentType: 'application/octet-stream', size: 4 }]);
         expect(JSON.stringify(m1)).not.toContain('UEsDBA');
+    });
+});
+
+describe('MailSync, review fixes', () => {
+    it('ignores a read or label change on a message outside the copied window, and keeps syncing', async () => {
+        const client = new FixtureEmailClient(mailbox());
+        const store = new MemoryMailStore();
+        const sync = new MailSync({ client, store, account: ACCOUNT });
+        await sync.initialImport(1); // only t2, the newest
+        await client.setRead(['m1'], true); // m1 is in t1, never copied
+        await client.modifyLabels('t1', ['Deal/Falcon'], []);
+        client.deliver('t2', { id: 'm4', subject: 'x', from: 'ben@hawk.com', to: ACCOUNT, date: '2026-09-26T09:00:00Z', bodyText: 'Monday?', unread: true });
+        await sync.syncOnce();
+        expect(store.messages(ACCOUNT).has('m4')).toBe(true);
+        expect(store.messages(ACCOUNT).has('m1')).toBe(false);
+    });
+
+    it('keeps the cursor when a thread hook fails, so every thread in the batch gets its hook next time', async () => {
+        const client = new FixtureEmailClient(mailbox());
+        const store = new MemoryMailStore();
+        const seen: string[] = [];
+        let fail = true;
+        const sync = new MailSync({ client, store, account: ACCOUNT, onThreadChanged: (id) => { seen.push(id); if (fail && id === 't1') throw new Error('summary failed'); } });
+        fail = false;
+        await sync.initialImport(50);
+        fail = true;
+        seen.length = 0;
+        client.deliver('t1', { id: 'm4', subject: 'x', from: 'anna@sterlingrowe.com', to: ACCOUNT, date: '2026-09-26T09:00:00Z', bodyText: 'a', unread: true });
+        client.deliver('t2', { id: 'm5', subject: 'x', from: 'ben@hawk.com', to: ACCOUNT, date: '2026-09-26T10:00:00Z', bodyText: 'b', unread: true });
+        await expect(sync.syncOnce()).rejects.toThrow('summary failed');
+        expect(await store.getCursor(ACCOUNT)).toBe('0');
+        fail = false;
+        seen.length = 0;
+        await sync.syncOnce();
+        expect(seen.sort()).toEqual(['t1', 't2']);
+    });
+
+    it('marks a message outbound only when the sender is exactly the account', async () => {
+        const client = new FixtureEmailClient({ account: 'ben@hawk.com', threads: [{ id: 't', labels: [], messages: [
+            { id: 'a', subject: 's', from: 'reuben@hawk.com', to: 'ben@hawk.com', date: '2026-09-20T09:00:00Z', bodyText: 'x', unread: true },
+            { id: 'b', subject: 's', from: '"Cole, Ben" <Ben@Hawk.com>', to: 'reuben@hawk.com', date: '2026-09-21T09:00:00Z', bodyText: 'y', unread: false },
+        ] }] });
+        const store = new MemoryMailStore();
+        await new MailSync({ client, store, account: 'ben@hawk.com' }).initialImport(10);
+        expect(store.messages('ben@hawk.com').get('a')!.direction).toBe('inbound');
+        expect(store.messages('ben@hawk.com').get('b')!.direction).toBe('outbound');
+    });
+
+    it('keeps "Last, First" names whole in the recipient lists, and keeps each attachment\'s id', async () => {
+        const box = mailbox();
+        box.threads[1]!.messages[0]!.cc = '"Wu, Cara" <cara@hawk.com>, "Reed, Anna" <anna@x.com>';
+        box.threads[1]!.messages[0]!.attachments = [
+            { filename: 'image001.png', contentType: 'image/png', content: 'QQ==' },
+            { filename: 'image001.png', contentType: 'image/png', content: 'Qg==' },
+        ];
+        const client = new FixtureEmailClient(box);
+        const store = new MemoryMailStore();
+        await new MailSync({ client, store, account: ACCOUNT }).initialImport(50);
+        const m3 = store.messages(ACCOUNT).get('m3')!;
+        expect(m3.cc).toEqual(['"Wu, Cara" <cara@hawk.com>', '"Reed, Anna" <anna@x.com>']);
+        expect(m3.attachments.map((a) => a.id)).toEqual(['m3.0', 'm3.1']);
     });
 });
 
@@ -109,6 +170,15 @@ describe('sanitizeEmailHtml', () => {
         expect(out).not.toContain('iframe');
         expect(out).not.toContain('form');
         expect(out).toContain('color:red');
+    });
+
+    it('strips CSS that fetches through escapes, image-set and similar, and drops positioning', () => {
+        const out = sanitizeEmailHtml('<div style="background:u\\72l(https://t.co/p.png);color:blue">a</div><div style="background-image:image-set(\'https://t.co/p.png\' 1x)">b</div><div style="background-image:-webkit-image-set(\'https://t.co/q.png\' 1x)">c</div><div style="position:fixed;top:0;z-index:99;font-weight:bold">d</div>');
+        expect(out).not.toContain('t.co');
+        expect(out).not.toContain('position');
+        expect(out).not.toContain('z-index');
+        expect(out).toContain('color:blue');
+        expect(out).toContain('font-weight:bold');
     });
 
     it('replaces remote images with a marker and keeps embedded ones', () => {
@@ -144,6 +214,25 @@ describe('emailText', () => {
 
     it('leaves a message with no quote whole', () => {
         expect(emailText({ bodyText: 'Can we sign Friday?\nThanks, Ben' })).toEqual({ text: 'Can we sign Friday?\nThanks, Ben', quotedFrom: null });
+    });
+
+    it('does not treat a line that merely starts with ">" as quoted history', () => {
+        expect(emailText({ bodyText: 'Numbers:\n>5% of shares must consent\nPlease confirm by Friday.' }).quotedFrom).toBeNull();
+    });
+
+    it('does not treat a quoted clause in the middle of an email as history', () => {
+        const m = emailText({ bodyHtml: '<p>Clause 4 reads:</p><blockquote>The Seller shall indemnify the Buyer.</blockquote><p>We cannot accept this.</p>' });
+        expect(m.quotedFrom).toBeNull();
+        expect(m.text).toContain('We cannot accept this.');
+    });
+
+    it('leaves a reply written below or between quoted lines whole', () => {
+        expect(emailText({ bodyText: '> quoted old\n> more old\n\nMy answer below.' }).quotedFrom).toBeNull();
+    });
+
+    it('treats a cited blockquote as history', () => {
+        const m = emailText({ bodyHtml: '<p>Agreed.</p><blockquote type="cite">Cap at 20%?</blockquote>' });
+        expect(m.text.slice(0, m.quotedFrom!).trim()).toBe('Agreed.');
     });
 
     it('fails loudly on a message with no body at all', () => {

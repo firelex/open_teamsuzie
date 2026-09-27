@@ -16,6 +16,7 @@ import type {
     ReplyEmailInput,
     SendEmailInput,
 } from '@teamsuzie/email';
+import { addressOf, splitAddressList } from '@teamsuzie/email';
 
 const isoDate = z.string().refine((s) => /^\d{4}-\d{2}-\d{2}T/.test(s) && !Number.isNaN(Date.parse(s)), 'is not an ISO date');
 
@@ -33,6 +34,7 @@ const FixtureMessageSchema = z.object({
     messageIdHeader: z.string().nullable().optional(),
     unread: z.boolean(),
     attachments: z.array(z.object({
+        id: z.string().min(1).optional(),
         filename: z.string().min(1),
         contentType: z.string().min(1),
         size: z.number().int().nonnegative().optional(),
@@ -64,8 +66,12 @@ export type FixtureSent =
     | { kind: 'reply_all'; input: ReplyEmailInput }
     | { kind: 'forward'; input: ForwardEmailInput };
 
-const addresses = (list: string | null | undefined): string[] =>
-    (list ?? '').split(',').map((a) => a.trim()).filter(Boolean);
+const addresses = splitAddressList;
+
+/** Attachments without an id get one from their position: "<message id>.<index>". */
+function withAttachmentIds<M extends EmailMessage>(m: M): M {
+    return m.attachments ? { ...m, attachments: m.attachments.map((a, i) => ({ ...a, id: a.id ?? `${m.id}.${i}` })) } : m;
+}
 
 const withoutContent = (m: EmailMessage): EmailMessage => ({
     ...m,
@@ -97,7 +103,7 @@ export class FixtureEmailClient implements EmailClient {
                 seen.add(m.id);
                 if (m.threadId !== undefined && m.threadId !== t.id) throw new Error(`Fixture mailbox is invalid: thread ${t.id} message ${m.id}: threadId is ${m.threadId}`);
             }
-            this.threads.set(t.id, { id: t.id, labels: [...t.labels], messages: t.messages.map((m) => ({ ...m, threadId: t.id, labels: [...t.labels] })) });
+            this.threads.set(t.id, { id: t.id, labels: [...t.labels], messages: t.messages.map((m) => withAttachmentIds({ ...m, threadId: t.id, labels: [...t.labels] })) });
         }
     }
 
@@ -115,7 +121,7 @@ export class FixtureEmailClient implements EmailClient {
         if (this.findMessage(m.id)) throw new Error(`message id ${m.id} is already in the mailbox`);
         const thread = this.threads.get(threadId) ?? { id: threadId, labels: ['INBOX'], messages: [] };
         this.threads.set(threadId, thread);
-        thread.messages.push({ ...m, threadId, labels: [...thread.labels] });
+        thread.messages.push(withAttachmentIds({ ...m, threadId, labels: [...thread.labels] }));
         this.changes.push({ kind: 'message_added', threadId, messageId: m.id });
     }
 
@@ -167,11 +173,11 @@ export class FixtureEmailClient implements EmailClient {
         return { changes: this.changes.slice(from), cursor: String(this.changes.length) };
     }
 
-    async openAttachment(messageId: string, filename: string): Promise<EmailAttachment> {
+    async openAttachment(messageId: string, attachmentId: string): Promise<EmailAttachment> {
         const found = this.findMessage(messageId);
         if (!found) throw new Error(`message ${messageId} is not in the mailbox`);
-        const a = found.message.attachments?.find((x) => x.filename === filename);
-        if (!a || a.content === undefined) throw new Error(`message ${messageId} has no attachment ${filename}`);
+        const a = found.message.attachments?.find((x) => x.id === attachmentId);
+        if (!a || a.content === undefined) throw new Error(`message ${messageId} has no attachment ${attachmentId}`);
         return { ...a };
     }
 
@@ -210,8 +216,9 @@ export class FixtureEmailClient implements EmailClient {
         if (!found) throw new Error(`message ${input.messageId} is not in the mailbox`);
         this.sent.push({ kind, input });
         const original = found.message;
+        const skip = new Set([addressOf(this.account), addressOf(original.from ?? '')]);
         const others = kind === 'reply_all'
-            ? [...addresses(original.to), ...addresses(original.cc)].filter((a) => a !== this.account && a !== original.from)
+            ? [...addresses(original.to), ...addresses(original.cc)].filter((a) => !skip.has(addressOf(a)))
             : [];
         this.appendOutbound(found.thread.id, {
             subject: `RE: ${stripPrefix(original.subject)}`, to: original.from ?? '', cc: others.length ? others.join(', ') : null,
@@ -234,7 +241,7 @@ export class FixtureEmailClient implements EmailClient {
 
     private summary(t: StoredThread): EmailThread {
         const latest = t.messages.reduce((a, b) => (b.date > a.date ? b : a));
-        const participants = [...new Set(t.messages.flatMap((m) => [m.from ?? '', ...addresses(m.to), ...addresses(m.cc)]).filter(Boolean))];
+        const participants = [...new Set(t.messages.flatMap((m) => [m.from ?? '', ...addresses(m.to), ...addresses(m.cc)]).filter(Boolean).map(addressOf))];
         return {
             id: t.id,
             subject: t.messages[0]!.subject,

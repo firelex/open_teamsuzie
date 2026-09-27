@@ -23,6 +23,8 @@ export interface EmailAccount {
 }
 
 export interface EmailAttachment {
+    /** The provider's id for this attachment on its message. File names are not unique (Outlook repeats image001.png). */
+    id?: string;
     filename: string;
     contentType: string;
     size?: number;

@@ -35,8 +35,8 @@ export interface EmailClient {
     modifyLabels?(threadId: string, add: string[], remove: string[]): Promise<void>;
     /** Changes after `cursor`. A null cursor starts now: no changes, and the current cursor. */
     changesSince?(cursor: string | null): Promise<ChangesResult>;
-    /** One attachment of a message, with its base64 `content`. */
-    openAttachment?(messageId: string, filename: string): Promise<EmailAttachment>;
+    /** One attachment of a message, by its `id`, with its base64 `content`. */
+    openAttachment?(messageId: string, attachmentId: string): Promise<EmailAttachment>;
     createDraft?(input: CreateDraftInput): Promise<{ draftId: string }>;
 }
 

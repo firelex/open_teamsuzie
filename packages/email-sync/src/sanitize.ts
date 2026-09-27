@@ -1,16 +1,38 @@
 import sanitizeHtml from 'sanitize-html';
 
 const LAYOUT_ATTRIBUTES = ['style', 'align', 'valign', 'width', 'height', 'colspan', 'rowspan', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'dir'];
-/** CSS values that can run code or fetch from the network. */
-const DANGEROUS_CSS = /expression\s*\(|url\s*\(|behavior\s*:|-moz-binding|javascript:|@import/i;
+/**
+ * The CSS properties email layout needs. Anything else is dropped, including
+ * every property that can load an image (background, list-style-image,
+ * content, cursor) and positioning that could cover the host page.
+ */
+const ALLOWED_CSS = new Set([
+    'color', 'background-color', 'font', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
+    'text-align', 'text-decoration', 'text-transform', 'text-indent', 'line-height', 'letter-spacing', 'word-spacing', 'white-space', 'direction',
+    'vertical-align', 'width', 'height', 'max-width', 'min-width', 'max-height', 'min-height',
+    'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-color', 'border-style', 'border-width', 'border-radius',
+    'border-collapse', 'border-spacing', 'list-style-type', 'table-layout',
+]);
+
+/** A value is kept only without escapes, comments or functions other than colours: nothing can be smuggled past the property check. */
+function safeValue(value: string): boolean {
+    const withoutColours = value.replace(/\b(rgba?|hsla?)\(\s*[\d.%\s,/]+\)/gi, '');
+    return !/[\\(]|\/\*|expression|javascript:/i.test(withoutColours);
+}
 
 function safeStyle(style: string): string {
-    return style.split(';').map((d) => d.trim()).filter((d) => d && !DANGEROUS_CSS.test(d)).join(';');
+    return style.split(';').map((d) => d.trim()).filter((d) => {
+        const colon = d.indexOf(':');
+        if (colon < 1) return false;
+        return ALLOWED_CSS.has(d.slice(0, colon).trim().toLowerCase()) && safeValue(d.slice(colon + 1));
+    }).join(';');
 }
 
 /**
  * Email HTML made safe to show: no scripts, event handlers, frames, forms,
- * javascript links or network-fetching CSS, and no remote images (they are
+ * javascript links, positioning, or CSS beyond an allowlist of layout
+ * properties (so no CSS can fetch anything), and no remote images (they are
  * tracking pixels as often as pictures; each becomes "[image]"). Tables and
  * inline styles stay, so Outlook-style layouts still look right. Images
  * embedded in the message (cid: and data:) stay.

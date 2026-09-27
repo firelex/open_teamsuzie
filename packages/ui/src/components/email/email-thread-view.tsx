@@ -16,7 +16,8 @@ export interface EmailThreadMessage {
   text: string;
   /** Offset into `text` where quoted history starts; null when the message quotes nothing. */
   quotedFrom: number | null;
-  attachments: Array<{ filename: string; contentType: string; size: number | null }>;
+  /** `id` opens the attachment; file names are not unique. */
+  attachments: Array<{ id: string; filename: string; contentType: string; size: number | null }>;
   unread: boolean;
 }
 
@@ -28,7 +29,7 @@ export interface EmailThreadViewProps {
    * sandboxed iframe); this component never inserts HTML itself.
    */
   renderHtml: (html: string) => React.ReactNode;
-  onOpenAttachment?: (messageId: string, filename: string) => void;
+  onOpenAttachment?: (messageId: string, attachmentId: string) => void;
   className?: string;
 }
 
@@ -87,7 +88,7 @@ export function EmailThreadView({ messages, order, renderHtml, onOpenAttachment,
           {m.attachments.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {m.attachments.map((a) => (
-                <EmailAttachmentChip key={a.filename} filename={a.filename} size={a.size} onOpen={onOpenAttachment ? () => onOpenAttachment(m.id, a.filename) : undefined} />
+                <EmailAttachmentChip key={a.id} filename={a.filename} size={a.size} onOpen={onOpenAttachment ? () => onOpenAttachment(m.id, a.id) : undefined} />
               ))}
             </div>
           )}

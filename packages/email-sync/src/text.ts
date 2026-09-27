@@ -13,21 +13,49 @@ export function htmlToText(html: string): string {
         .trim();
 }
 
-/** Where quoted history starts in plain text, by the patterns mail programs use; null when there is none. */
-const QUOTE_STARTS: RegExp[] = [
-    /^On [^\n]{4,300}wrote:\s*$/m,
-    /^-{2,}\s*Original Message\s*-{2,}\s*$/im,
-    /^From: [^\n]+\n(?:Sent|Date): /m,
-    /^>/m,
-];
+const isQuoted = (line: string) => line.startsWith('>');
+const isBlank = (line: string) => line.trim() === '';
 
+/**
+ * Where quoted history starts in plain text; null when there is none. History
+ * is only ever the tail of a message: when the writer's own words come after
+ * a quote (answering below or between quoted lines), nothing is treated as
+ * history, so nothing they wrote is hidden.
+ */
 function quoteStart(text: string): number | null {
-    const found = QUOTE_STARTS.map((p) => p.exec(text)?.index).filter((i): i is number => i !== undefined);
-    return found.length ? Math.min(...found) : null;
+    const lines = text.split('\n');
+    const offsets: number[] = [];
+    let at = 0;
+    for (const l of lines) { offsets.push(at); at += l.length + 1; }
+    const restIsQuoted = (from: number) => lines.slice(from).every((l) => isBlank(l) || isQuoted(l));
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!;
+        // "On Tue, 22 Sep 2026, Anna wrote:" followed only by quoted lines.
+        if (/^On .{4,300}wrote:\s*$/.test(line) && restIsQuoted(i + 1)) return offsets[i]!;
+        // Outlook: everything after the original-message marker is the original.
+        if (/^-{2,}\s*Original Message\s*-{2,}\s*$/i.test(line)) return offsets[i]!;
+        if (/^From: /.test(line) && /^(Sent|Date): /.test(lines[i + 1] ?? '')) return offsets[i]!;
+        // Two or more ">" lines running to the end.
+        if (isQuoted(line) && isQuoted(lines[i + 1] ?? '') && restIsQuoted(i)) return offsets[i]!;
+    }
+    return null;
 }
 
-/** The first HTML quote container: Gmail's gmail_quote block or a blockquote. */
-const HTML_QUOTE = /<div[^>]*class="[^"]*gmail_quote[^"]*"[^>]*>|<blockquote\b[^>]*>/i;
+/**
+ * The first HTML quote container: Gmail's gmail_quote block, a cited
+ * blockquote, or a plain blockquote right after a "… wrote:" line. Any other
+ * blockquote is part of the message (a quoted clause, for example).
+ */
+function htmlQuoteStart(html: string): number | null {
+    const gmail = /<div[^>]*class="[^"]*gmail_quote[^"]*"[^>]*>/i.exec(html);
+    const cite = /<blockquote\b[^>]*type="cite"[^>]*>/i.exec(html);
+    const found = [gmail?.index, cite?.index].filter((i): i is number => i !== undefined);
+    const plain = /<blockquote\b[^>]*>/gi;
+    for (let m = plain.exec(html); m; m = plain.exec(html)) {
+        if (/wrote:\s*$/i.test(htmlToText(html.slice(0, m.index)))) { found.push(m.index); break; }
+    }
+    return found.length ? Math.min(...found) : null;
+}
 
 /**
  * A message's plain text and where its quoted history starts (a character
@@ -40,10 +68,10 @@ export function emailText(message: { bodyText?: string | null; bodyHtml?: string
         return { text, quotedFrom: quoteStart(text) };
     }
     if (message.bodyHtml == null || message.bodyHtml.trim() === '') throw new Error('The message has neither a text nor an HTML body');
-    const split = HTML_QUOTE.exec(message.bodyHtml);
-    if (split) {
-        const before = htmlToText(message.bodyHtml.slice(0, split.index));
-        const after = htmlToText(message.bodyHtml.slice(split.index));
+    const split = htmlQuoteStart(message.bodyHtml);
+    if (split !== null) {
+        const before = htmlToText(message.bodyHtml.slice(0, split));
+        const after = htmlToText(message.bodyHtml.slice(split));
         return before ? { text: `${before}\n${after}`, quotedFrom: before.length + 1 } : { text: after, quotedFrom: 0 };
     }
     const text = htmlToText(message.bodyHtml);

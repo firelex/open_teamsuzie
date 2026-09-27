@@ -1,4 +1,4 @@
-import type { EmailClient, EmailMessage, EmailThreadDetail } from '@teamsuzie/email';
+import { addressOf, splitAddressList, type EmailClient, type EmailMessage, type EmailThreadDetail } from '@teamsuzie/email';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { emailText } from './text.js';
 
@@ -20,7 +20,8 @@ export interface StoredMessage {
     text: string;
     /** Offset into `text` where quoted history starts; null when there is none. */
     quotedFrom: number | null;
-    attachments: Array<{ filename: string; contentType: string; size: number | null }>;
+    /** `id` is the provider's attachment id, used to open it; file names are not unique. */
+    attachments: Array<{ id: string; filename: string; contentType: string; size: number | null }>;
 }
 
 /** Where the host keeps its copy of the mailbox (for example database tables). */
@@ -29,7 +30,12 @@ export interface MailStore {
     setCursor(account: string, cursor: string): Promise<void>;
     upsertMessage(account: string, m: StoredMessage): Promise<'inserted' | 'updated'>;
     deleteMessage(account: string, messageId: string): Promise<void>;
-    setFlags(account: string, messageId: string, flags: { unread?: boolean; labels?: string[] }): Promise<void>;
+    /**
+     * Returns false when the message is not held: it lies outside the copied
+     * window (older than the first import) or was deleted in the same batch.
+     * Sync then has nothing to update, which is correct, not an error.
+     */
+    setFlags(account: string, messageId: string, flags: { unread?: boolean; labels?: string[] }): Promise<boolean>;
 }
 
 /** A store in memory, for tests and demos. */
@@ -62,15 +68,15 @@ export class MemoryMailStore implements MailStore {
         this.messages(account).delete(messageId);
     }
 
-    async setFlags(account: string, messageId: string, flags: { unread?: boolean; labels?: string[] }): Promise<void> {
+    async setFlags(account: string, messageId: string, flags: { unread?: boolean; labels?: string[] }): Promise<boolean> {
         const m = this.messages(account).get(messageId);
-        if (!m) throw new Error(`Message ${messageId} is not in the store for ${account}`);
+        if (!m) return false;
         if (flags.unread !== undefined) m.unread = flags.unread;
         if (flags.labels !== undefined) m.labels = [...flags.labels];
+        return true;
     }
 }
 
-const list = (value: string | null | undefined): string[] => (value ?? '').split(',').map((a) => a.trim()).filter(Boolean);
 
 function toStored(account: string, m: EmailMessage, threadId: string): StoredMessage {
     if (!m.from) throw new Error(`Message ${m.id} has no sender`);
@@ -80,17 +86,20 @@ function toStored(account: string, m: EmailMessage, threadId: string): StoredMes
         id: m.id,
         threadId,
         from: m.from,
-        to: list(m.to),
-        cc: list(m.cc),
+        to: splitAddressList(m.to),
+        cc: splitAddressList(m.cc),
         subject: m.subject,
         sentAt: new Date(m.date).toISOString(),
         unread: m.unread ?? false,
         labels: m.labels ?? [],
-        direction: m.from.toLowerCase().includes(account.toLowerCase()) ? 'outbound' : 'inbound',
+        direction: addressOf(m.from) === addressOf(account) ? 'outbound' : 'inbound',
         html: m.bodyHtml ? sanitizeEmailHtml(m.bodyHtml) : null,
         text,
         quotedFrom,
-        attachments: (m.attachments ?? []).map((a) => ({ filename: a.filename, contentType: a.contentType, size: a.size ?? null })),
+        attachments: (m.attachments ?? []).map((a) => {
+            if (!a.id) throw new Error(`Attachment ${a.filename} of message ${m.id} has no id; the email client must give every attachment one`);
+            return { id: a.id, filename: a.filename, contentType: a.contentType, size: a.size ?? null };
+        }),
     };
 }
 
@@ -103,8 +112,9 @@ function required<K extends keyof EmailClient>(client: EmailClient, member: K): 
 /**
  * Keeps a local copy of one mailbox up to date. `initialImport` copies the
  * newest threads; `syncOnce` applies what changed since. The cursor moves
- * only once every change is applied, so a failure part-way is retried in
- * full next time; applying a message twice updates it rather than copying it.
+ * only once every change is applied and every thread hook has run, so a
+ * failure part-way is retried in full next time; applying a message twice
+ * updates it rather than copying it. Hooks must therefore be idempotent.
  */
 export class MailSync {
     constructor(private readonly opts: {
@@ -136,8 +146,9 @@ export class MailSync {
                 messages++;
             }
         }
-        await store.setCursor(account, cursor);
+        // Hooks run before the cursor is stored: if one fails, the whole import is retried and every hook runs again.
         for (const id of ids) await this.opts.onThreadChanged?.(id);
+        await store.setCursor(account, cursor);
         return { threads: ids.length, messages };
     }
 
@@ -172,8 +183,9 @@ export class MailSync {
                     break;
             }
         }
-        await store.setCursor(account, next);
+        // Hooks run before the cursor moves: if one fails, the batch is applied again (idempotently) and every hook runs again.
         for (const id of touched) await this.opts.onThreadChanged?.(id);
+        await store.setCursor(account, next);
         return { applied: changes.length, threads: [...touched] };
     }
 }

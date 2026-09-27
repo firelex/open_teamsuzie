@@ -91,13 +91,44 @@ describe('FixtureEmailClient', () => {
 
     it('opens an attachment with its content, and fails loudly when there is none', async () => {
         const client = new FixtureEmailClient(mailbox());
-        expect((await client.openAttachment('m1', 'SPA v3.docx')).content).toBe('UEsDBA==');
-        await expect(client.openAttachment('m1', 'missing.pdf')).rejects.toThrow('message m1 has no attachment missing.pdf');
+        const [att] = (await client.getThread('t1')).messages[0]!.attachments!;
+        expect(att!.id).toBe('m1.0');
+        expect((await client.openAttachment('m1', 'm1.0')).content).toBe('UEsDBA==');
+        await expect(client.openAttachment('m1', 'm1.7')).rejects.toThrow('message m1 has no attachment m1.7');
     });
 
     it('never exposes attachment content in thread listings', async () => {
         const client = new FixtureEmailClient(mailbox());
         const thread = await client.getThread('t1');
         expect(thread.messages[0]!.attachments![0]).not.toHaveProperty('content');
+    });
+
+    it('tells apart two attachments with the same file name', async () => {
+        const box = mailbox();
+        box.threads[0]!.messages[0]!.attachments = [
+            { filename: 'image001.png', contentType: 'image/png', content: 'QQ==' },
+            { filename: 'image001.png', contentType: 'image/png', content: 'Qg==' },
+        ];
+        const client = new FixtureEmailClient(box);
+        const ids = (await client.getThread('t1')).messages[0]!.attachments!.map((a) => a.id);
+        expect(ids).toEqual(['m1.0', 'm1.1']);
+        expect((await client.openAttachment('m1', 'm1.1')).content).toBe('Qg==');
+    });
+
+    it('keeps "Last, First" display names whole when replying to all', async () => {
+        const box = mailbox();
+        box.threads[1]!.messages[0]!.cc = '"Wu, Cara" <cara@hawk.com>, me@firm.com';
+        const client = new FixtureEmailClient(box);
+        await client.replyAll({ messageId: 'm3', body: 'Noted.' });
+        expect((await client.getThread('t2')).messages.at(-1)).toMatchObject({ cc: '"Wu, Cara" <cara@hawk.com>' });
+    });
+
+    it('does not count the account itself as another recipient when it appears in display form', async () => {
+        const box = mailbox();
+        box.threads[1]!.messages[0]!.to = '"Me" <ME@firm.com>';
+        box.threads[1]!.messages[0]!.cc = 'cara@hawk.com';
+        const client = new FixtureEmailClient(box);
+        await client.replyAll({ messageId: 'm3', body: 'Noted.' });
+        expect((await client.getThread('t2')).messages.at(-1)).toMatchObject({ cc: 'cara@hawk.com' });
     });
 });
