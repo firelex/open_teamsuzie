@@ -13,3 +13,12 @@ describe('email errors', () => {
         expect(cursor.message).toBe('History 123 is too old');
     });
 });
+
+describe('not found', () => {
+    it('is its own class, for a thread or message the provider no longer has', async () => {
+        const { EmailNotFoundError } = await import('./index.js');
+        const e = new EmailNotFoundError('Thread t1 no longer exists');
+        expect(e).toBeInstanceOf(Error);
+        expect(e.name).toBe('EmailNotFoundError');
+    });
+});

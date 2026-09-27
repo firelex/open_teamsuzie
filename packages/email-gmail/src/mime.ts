@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { splitAddressList } from '@teamsuzie/email';
 
 export interface MimeInput {
     from: string; to: string; cc?: string; bcc?: string; subject: string;
@@ -11,6 +12,21 @@ const CRLF = '\r\n';
 /** RFC 2047 "B" encoding for a header value that is not plain ASCII. */
 export function encodeHeader(value: string): string {
     return /^[\x20-\x7e]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+}
+
+/** A header value must stay on one line: a line break would let the text add headers of its own (a hidden Bcc). */
+function oneLine(name: string, value: string): string {
+    if (/[\r\n]/.test(value)) throw new Error(`The ${name} header contains a line break, which could add headers to the message, so it was not sent`);
+    return value;
+}
+
+/** An address list with any non-ASCII display name encoded ("Jürgen Müller" <jm@x.de> becomes =?UTF-8?B?...?= <jm@x.de>). */
+function addresses(name: string, list: string): string {
+    return splitAddressList(oneLine(name, list)).map((entry) => {
+        const m = /^\s*"?(.*?)"?\s*<([^<>]+)>\s*$/.exec(entry);
+        if (!m || /^[\x20-\x7e]*$/.test(m[1]!)) return entry.trim();
+        return `${encodeHeader(m[1]!)} <${m[2]}>`;
+    }).join(', ');
 }
 
 /** Base64 wrapped at 76 characters, as MIME requires. */
@@ -31,13 +47,13 @@ function bodyPart(input: MimeInput): string {
 /** The whole RFC 822 message, with CRLF line endings, ready to base64url-encode for Gmail's `raw`. */
 export function buildMime(input: MimeInput): string {
     const headers = [
-        `From: ${input.from}`,
-        `To: ${input.to}`,
-        ...(input.cc ? [`Cc: ${input.cc}`] : []),
-        ...(input.bcc ? [`Bcc: ${input.bcc}`] : []),
-        `Subject: ${encodeHeader(input.subject)}`,
-        ...(input.inReplyTo ? [`In-Reply-To: ${input.inReplyTo}`] : []),
-        ...(input.references ? [`References: ${input.references}`] : []),
+        `From: ${addresses('From', input.from)}`,
+        `To: ${addresses('To', input.to)}`,
+        ...(input.cc ? [`Cc: ${addresses('Cc', input.cc)}`] : []),
+        ...(input.bcc ? [`Bcc: ${addresses('Bcc', input.bcc)}`] : []),
+        `Subject: ${encodeHeader(oneLine('Subject', input.subject))}`,
+        ...(input.inReplyTo ? [`In-Reply-To: ${oneLine('In-Reply-To', input.inReplyTo)}`] : []),
+        ...(input.references ? [`References: ${oneLine('References', input.references)}`] : []),
         'MIME-Version: 1.0',
     ];
     if (!input.attachments?.length) return [...headers, bodyPart(input)].join(CRLF);

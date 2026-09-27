@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { EmailClient } from '@teamsuzie/email';
 import { FixtureEmailClient, type FixtureMailbox } from '@teamsuzie/email-fixture';
 import { MailSync, MemoryMailStore, emailText, sanitizeEmailHtml, type MailStore, type StoredMessage } from './index.js';
 
@@ -156,6 +157,25 @@ describe('MailSync, review fixes', () => {
         const m3 = store.messages(ACCOUNT).get('m3')!;
         expect(m3.cc).toEqual(['"Wu, Cara" <cara@hawk.com>', '"Reed, Anna" <anna@x.com>']);
         expect(m3.attachments.map((a) => a.id)).toEqual(['m3.0', 'm3.1']);
+    });
+});
+
+describe('MailSync, a thread the provider no longer has', () => {
+    it('treats every changed message in it as gone, and moves on', async () => {
+        const store = new MemoryMailStore();
+        const { client, sync } = setup(store);
+        await sync.initialImport(50);
+        const before = await store.getCursor(ACCOUNT);
+        const { EmailNotFoundError } = await import('@teamsuzie/email');
+        // A draft the user discarded: history says it was added, but its thread is gone by the time we look.
+        const gone: EmailClient = Object.assign(Object.create(client), {
+            changesSince: async () => ({ changes: [{ kind: 'message_added', threadId: 't1', messageId: 'm1' }], cursor: 'next-1' }),
+            getThread: async (id: string) => { throw new EmailNotFoundError(`Thread ${id} no longer exists`); },
+        });
+        await new MailSync({ client: gone, store, account: ACCOUNT }).syncOnce();
+        expect(store.messages(ACCOUNT).has('m1')).toBe(false);
+        expect(await store.getCursor(ACCOUNT)).toBe('next-1');
+        expect(before).not.toBe('next-1');
     });
 });
 

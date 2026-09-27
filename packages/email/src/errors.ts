@@ -7,3 +7,8 @@ export class EmailAuthError extends Error {
 export class EmailCursorExpiredError extends Error {
     override readonly name = 'EmailCursorExpiredError';
 }
+
+/** The provider no longer has this thread or message (deleted, or a draft that was discarded). */
+export class EmailNotFoundError extends Error {
+    override readonly name = 'EmailNotFoundError';
+}

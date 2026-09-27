@@ -1,5 +1,5 @@
 import {
-    addressOf, EmailCursorExpiredError,
+    addressOf, EmailCursorExpiredError, EmailNotFoundError, splitAddressList,
     type CreateDraftInput, type ForwardEmailInput, type QueuedEmailResult, type ReplyEmailInput, type SendEmailInput,
     type ChangesResult, type EmailAttachment, type EmailChange, type EmailClient, type EmailMessage, type EmailStatus,
     type EmailThread, type EmailThreadDetail, type ListThreadsInput, type ListThreadsResult,
@@ -71,8 +71,10 @@ export class GmailClient implements EmailClient {
         return this.labelsById;
     }
 
-    private async labelName(): Promise<(id: string) => string> {
-        const map = await this.labelMap();
+    /** A lookup from label id to name that knows every id given; the list is fetched again once if one is new. */
+    private async labelName(ids: string[] = []): Promise<(id: string) => string> {
+        let map = await this.labelMap();
+        if (ids.some((id) => !map.has(id))) map = await this.labelMap(true);
         return (id) => {
             const name = map.get(id);
             if (name === undefined) throw new Error(`Gmail label ${id} is not in the mailbox's label list`);
@@ -80,10 +82,13 @@ export class GmailClient implements EmailClient {
         };
     }
 
-    /** Label ids for names, creating any that do not exist yet. */
-    private async labelIds(names: string[]): Promise<string[]> {
+    /**
+     * Label ids for names (Gmail compares label names regardless of case). With `create`, a missing label is
+     * made; without it (removing a label, filtering by one) a label that does not exist is simply not there.
+     */
+    private async labelIds(names: string[], create: boolean): Promise<string[]> {
         let map = await this.labelMap();
-        const idOf = (m: Map<string, string>, name: string) => [...m].find(([, n]) => n === name)?.[0];
+        const idOf = (m: Map<string, string>, name: string) => [...m].find(([, n]) => n.toLowerCase() === name.toLowerCase())?.[0];
         const out: string[] = [];
         for (const name of names) {
             let id = idOf(map, name);
@@ -91,6 +96,7 @@ export class GmailClient implements EmailClient {
                 map = await this.labelMap(true);
                 id = idOf(map, name);
             }
+            if (!id && !create) continue;
             if (!id) {
                 const made = await this.call<{ id: string; name: string }>('POST', '/labels', { body: { name, labelListVisibility: 'labelShow', messageListVisibility: 'show' } });
                 map.set(made.id, made.name);
@@ -102,11 +108,20 @@ export class GmailClient implements EmailClient {
     }
 
     private async fullThread(id: string): Promise<EmailThreadDetail> {
-        const t = await this.call<{ id: string; messages: GmailApiMessage[] }>('GET', `/threads/${encodeURIComponent(id)}`, { query: { format: 'full' } });
-        const labelName = await this.labelName();
+        let t: { id: string; messages: GmailApiMessage[] };
+        try {
+            t = await this.call('GET', `/threads/${encodeURIComponent(id)}`, { query: { format: 'full' } });
+        } catch (err) {
+            if (err instanceof GmailHttpError && err.status === 404) throw new EmailNotFoundError(`Gmail thread ${id} no longer exists`);
+            throw err;
+        }
+        // Unsent drafts are the user's own work in progress, not mail: they are left out.
+        const sent = t.messages.filter((m) => !(m.labelIds ?? []).includes('DRAFT'));
+        if (sent.length === 0) throw new EmailNotFoundError(`Gmail thread ${id} holds only unsent drafts`);
+        t = { ...t, messages: sent };
+        const labelName = await this.labelName(sent.flatMap((m) => m.labelIds ?? []));
         const messages = t.messages.map((m) => parseGmailMessage(m, labelName));
-        const last = messages[messages.length - 1];
-        if (!last) throw new Error(`Gmail thread ${id} has no messages`);
+        const last = messages[messages.length - 1]!;
         return {
             id: t.id,
             subject: messages[0]!.subject ?? null,
@@ -125,7 +140,7 @@ export class GmailClient implements EmailClient {
             query: {
                 maxResults: String(input.limit ?? 50),
                 pageToken: input.pageToken ?? undefined,
-                labelIds: input.labels?.length ? await this.labelIds(input.labels) : undefined,
+                labelIds: input.labels?.length ? await this.labelIds(input.labels, false) : undefined,
             },
         });
         const threads: EmailThread[] = [];
@@ -142,7 +157,7 @@ export class GmailClient implements EmailClient {
 
     async getMessage(id: string): Promise<EmailMessage> {
         const m = await this.call<GmailApiMessage>('GET', `/messages/${encodeURIComponent(id)}`, { query: { format: 'full' } });
-        return parseGmailMessage(m, await this.labelName());
+        return parseGmailMessage(m, await this.labelName(m.labelIds ?? []));
     }
 
     async setRead(messageIds: string[], read: boolean): Promise<void> {
@@ -150,7 +165,7 @@ export class GmailClient implements EmailClient {
     }
 
     async modifyLabels(threadId: string, add: string[], remove: string[]): Promise<void> {
-        await this.call('POST', `/threads/${encodeURIComponent(threadId)}/modify`, { body: { addLabelIds: await this.labelIds(add), removeLabelIds: await this.labelIds(remove) } });
+        await this.call('POST', `/threads/${encodeURIComponent(threadId)}/modify`, { body: { addLabelIds: await this.labelIds(add, true), removeLabelIds: await this.labelIds(remove, false) } });
     }
 
     async changesSince(cursor: string | null): Promise<ChangesResult> {
@@ -158,7 +173,6 @@ export class GmailClient implements EmailClient {
             const profile = await this.call<{ historyId: string }>('GET', '/profile');
             return { changes: [], cursor: profile.historyId };
         }
-        const labelName = await this.labelName();
         const changes: EmailChange[] = [];
         let pageToken: string | undefined;
         let latest = cursor;
@@ -173,8 +187,10 @@ export class GmailClient implements EmailClient {
                 if (err instanceof GmailHttpError && err.status === 404) throw new EmailCursorExpiredError(`Gmail no longer keeps history from ${cursor}; the mailbox must be imported again`);
                 throw err;
             }
+            const labelName = await this.labelName((page.history ?? []).flatMap((h) => [...(h.labelsAdded ?? []), ...(h.labelsRemoved ?? [])].flatMap((l) => l.message.labelIds ?? [])));
             for (const h of page.history ?? []) {
-                for (const a of h.messagesAdded ?? []) changes.push({ kind: 'message_added', threadId: a.message.threadId, messageId: a.message.id });
+                // Unsent drafts are not mail (see fullThread).
+                for (const a of (h.messagesAdded ?? []).filter((x) => !(x.message.labelIds ?? []).includes('DRAFT'))) changes.push({ kind: 'message_added', threadId: a.message.threadId, messageId: a.message.id });
                 for (const d of h.messagesDeleted ?? []) changes.push({ kind: 'message_deleted', threadId: d.message.threadId, messageId: d.message.id });
                 for (const l of [...(h.labelsAdded ?? []), ...(h.labelsRemoved ?? [])]) {
                     const now = l.message.labelIds ?? [];
@@ -208,7 +224,7 @@ export class GmailClient implements EmailClient {
     /** What a reply needs from the message it answers: the thread and the threading headers. */
     private async answering(messageId: string): Promise<{ original: EmailMessage; references: string; subject: (prefix: 'Re' | 'Fwd') => string }> {
         const raw = await this.call<GmailApiMessage>('GET', `/messages/${encodeURIComponent(messageId)}`, { query: { format: 'full' } });
-        const original = parseGmailMessage(raw, await this.labelName());
+        const original = parseGmailMessage(raw, await this.labelName(raw.labelIds ?? []));
         if (!original.messageIdHeader) throw new Error(`Message ${messageId} has no Message-ID header, so a reply could not be threaded`);
         const prior = raw.payload.headers?.find((h) => h.name.toLowerCase() === 'references')?.value ?? '';
         const base = (original.subject ?? '').replace(/^\s*((re|fwd?)\s*:\s*)+/i, '');
@@ -230,12 +246,13 @@ export class GmailClient implements EmailClient {
         const { original, references, subject } = await this.answering(input.messageId);
         if (!original.from) throw new Error(`Message ${input.messageId} has no sender to reply to`);
         const me = addressOf(this.opts.account);
-        const others = (list: string | null | undefined) => (list ?? '').split(',').map((s) => s.trim()).filter((s) => s && addressOf(s) !== me);
+        const others = (list: string | null | undefined) => splitAddressList(list).filter((s) => addressOf(s) !== me);
         const to = all ? [original.from, ...others(original.to)].filter((s, i, a) => a.findIndex((x) => addressOf(x) === addressOf(s)) === i) : [original.from];
         const cc = all ? others(original.cc) : [];
+        // A host that showed the user a draft passes its recipients and subject, so what is sent is what was shown.
         return this.post({
-            from: this.opts.account, to: to.join(', '), cc: cc.length ? cc.join(', ') : undefined,
-            subject: subject('Re'), text: input.body, html: input.html,
+            from: this.opts.account, to: input.to ?? to.join(', '), cc: input.cc ?? (cc.length ? cc.join(', ') : undefined),
+            subject: input.subject ?? subject('Re'), text: input.body, html: input.html,
             inReplyTo: original.messageIdHeader!, references,
         }, original.threadId!);
     }

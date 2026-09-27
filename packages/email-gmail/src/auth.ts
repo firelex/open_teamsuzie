@@ -11,6 +11,14 @@ export const GMAIL_SCOPES: readonly string[] = [
     'email',
 ];
 
+/** Google reports some scopes under other names in its token response ("email" as its userinfo URL). */
+const GRANTED_AS: Record<string, string[]> = { email: ['email', 'https://www.googleapis.com/auth/userinfo.email'] };
+
+/** The scopes in GMAIL_SCOPES that a grant's scope list does not include, reading Google's own names. */
+export function missingScopes(granted: string[]): string[] {
+    return GMAIL_SCOPES.filter((s) => !(GRANTED_AS[s] ?? [s]).some((name) => granted.includes(name)));
+}
+
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';

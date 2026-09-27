@@ -149,6 +149,13 @@ export interface SendEmailInput extends EmailDeliveryOptions {
 export interface ReplyEmailInput extends EmailDeliveryOptions {
     messageId: string;
     body: string;
+    /**
+     * Who the reply goes to, and its subject, exactly as the user saw and approved them. A host that shows
+     * a draft passes these, so what is sent is what was shown; without them the client works them out.
+     */
+    to?: string;
+    cc?: string;
+    subject?: string;
     html?: string;
     replyAll?: boolean;
     fromAccount?: string;

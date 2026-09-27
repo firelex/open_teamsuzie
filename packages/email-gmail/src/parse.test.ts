@@ -45,3 +45,15 @@ describe('parsing a Gmail message', () => {
         expect(parseGmailMessage(single, labelName)).toMatchObject({ bodyText: 'Hi', bodyHtml: null, unread: false, subject: null, attachments: [] });
     });
 });
+
+describe('character sets', () => {
+    it('decodes a body in the charset its part declares', () => {
+        const latin1 = Buffer.from([0x50, 0x72, 0x65, 0x69, 0x73, 0x3a, 0x20, 0x35, 0x20, 0x80, 0x2c, 0x20, 0xfc]).toString('base64url'); // "Preis: 5 €, ü" in windows-1252
+        const m: GmailApiMessage = { id: 'm9', threadId: 't9', labelIds: [], internalDate: '0', payload: { mimeType: 'text/plain', headers: [{ name: 'From', value: 'a@x.de' }, { name: 'Content-Type', value: 'text/plain; charset="windows-1252"' }], body: { data: latin1 } } };
+        expect(parseGmailMessage(m, labelName).bodyText).toBe('Preis: 5 €, ü');
+    });
+    it('names the message and charset when it cannot decode one', () => {
+        const m: GmailApiMessage = { id: 'm10', threadId: 't9', labelIds: [], internalDate: '0', payload: { mimeType: 'text/plain', headers: [{ name: 'From', value: 'a@x.de' }, { name: 'Content-Type', value: 'text/plain; charset=unknown-8bit' }], body: { data: b64('x') } } };
+        expect(() => parseGmailMessage(m, labelName)).toThrow(/m10.*unknown-8bit/);
+    });
+});

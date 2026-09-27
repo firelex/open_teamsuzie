@@ -82,3 +82,13 @@ describe('Google sign-in', () => {
         await expect(revokeToken({ token: 'rt', fetch: down.f })).rejects.toThrow(/500/);
     });
 });
+
+describe('granted permissions', () => {
+    it('reads Google\'s full scope names, as its token endpoint really returns them', async () => {
+        const { missingScopes } = await import('./auth.js');
+        const real = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send', 'openid', 'https://www.googleapis.com/auth/userinfo.email'];
+        expect(missingScopes(real)).toEqual([]);
+        expect(missingScopes(real.filter((s) => !s.endsWith('gmail.send')))).toEqual(['https://www.googleapis.com/auth/gmail.send']);
+        expect(missingScopes(['openid'])).toContain('email');
+    });
+});

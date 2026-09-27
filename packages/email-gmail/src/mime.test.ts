@@ -29,3 +29,15 @@ describe('building a message', () => {
         expect(raw).toContain('Cc: b@x.test\r\n');
     });
 });
+
+describe('header safety', () => {
+    it('refuses a header value with a line break, so an email cannot smuggle in a Bcc', () => {
+        expect(() => buildMime({ from: 'me@firm.test', to: 'x\r\nBcc: spy@evil.test', subject: 'Re: hi', text: 'ok' })).toThrow(/line break/);
+        expect(() => buildMime({ from: 'me@firm.test', to: 'a@x.test', subject: 'Re: hi', text: 'ok', inReplyTo: '<a@x>\nBcc: spy@evil.test' })).toThrow(/line break/);
+    });
+    it('encodes non-ASCII display names in address headers', () => {
+        const raw = buildMime({ from: 'me@firm.test', to: '"Jürgen Müller" <jm@x.de>', subject: 'Hallo', text: 'ok' });
+        expect(raw).toMatch(/To: =\?UTF-8\?B\?[^?]+\?= <jm@x\.de>\r\n/);
+        expect(decodeWords(raw.match(/To: (.*)\r\n/)![1]!)).toBe('Jürgen Müller <jm@x.de>');
+    });
+});

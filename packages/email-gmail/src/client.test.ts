@@ -197,3 +197,68 @@ describe('GmailClient writing', () => {
         expect(Buffer.from((sent[0] as { message: { raw: string } }).message.raw, 'base64url').toString('utf8')).toContain('In-Reply-To: <m1@x.test>');
     });
 });
+
+describe('GmailClient review fixes', () => {
+    const base = (sent: unknown[], extra: Record<string, Handler> = {}) => fakeGmail({
+        'GET /labels': () => ({ json: labels }),
+        'GET /messages/m1': () => ({ json: original }),
+        'POST /messages/send': (_u: URL, body: unknown) => { sent.push(body); return { json: { id: 'new-1' } }; },
+        ...extra,
+    });
+
+    it('sends a reply to exactly the recipients and subject the draft showed', async () => {
+        const sent: unknown[] = [];
+        await client(base(sent).f).reply({ messageId: 'm1', body: 'Thanks', to: 'carl@x.test', cc: 'dora@x.test', subject: 'RE: SPA mark-up' });
+        const raw = rawOf(sent[0]);
+        expect(raw).toContain('To: carl@x.test\r\n');
+        expect(raw).toContain('Cc: dora@x.test\r\n');
+        expect(raw).toContain('Subject: RE: SPA mark-up\r\n');
+        expect(raw).toContain('In-Reply-To: <m1@x.test>\r\n');
+    });
+
+    it('keeps "Last, First" names whole when replying to all', async () => {
+        const sent: unknown[] = [];
+        const withComma: GmailApiMessage = { ...original, payload: { ...original.payload, headers: original.payload.headers!.map((h) => h.name === 'To' ? { name: 'To', value: '"Müller, Hans" <hans@x.de>, me@firm.test' } : h) } };
+        await client(base(sent, { 'GET /messages/m1': () => ({ json: withComma }) }).f).replyAll({ messageId: 'm1', body: 'Thanks all' });
+        expect(rawOf(sent[0])).toMatch(/To: "Anna Reed" <anna@x\.test>, =\?UTF-8\?B\?[^?]+\?= <hans@x\.de>\r\n/);
+    });
+
+    it('says a thread is gone (EmailNotFoundError), and never treats unsent drafts as mail', async () => {
+        const { EmailNotFoundError } = await import('@teamsuzie/email');
+        const g = fakeGmail({
+            'GET /labels': () => ({ json: { labels: [...labels.labels, { id: 'DRAFT', name: 'DRAFT' }] } }),
+            'GET /threads/gone': () => ({ status: 404, json: { error: { code: 404, message: 'Requested entity was not found.' } } }),
+            'GET /threads/drafty': () => ({ json: { id: 'drafty', messages: [msg('d1', 'drafty', ['DRAFT'])] } }),
+            'GET /threads/mixed': () => ({ json: { id: 'mixed', messages: [msg('m1', 'mixed', ['INBOX']), msg('d2', 'mixed', ['DRAFT'])] } }),
+            'GET /history': () => ({ json: { historyId: '9', history: [{ id: '8', messagesAdded: [{ message: { id: 'd3', threadId: 'x', labelIds: ['DRAFT'] } }, { message: { id: 'm4', threadId: 'y', labelIds: ['INBOX'] } }] }] } }),
+        });
+        const c = client(g.f);
+        await expect(c.getThread('gone')).rejects.toBeInstanceOf(EmailNotFoundError);
+        await expect(c.getThread('drafty')).rejects.toBeInstanceOf(EmailNotFoundError);
+        expect((await c.getThread('mixed')).messages.map((m) => m.id)).toEqual(['m1']);
+        expect((await c.changesSince('1')).changes).toEqual([{ kind: 'message_added', threadId: 'y', messageId: 'm4' }]);
+    });
+
+    it('looks the label list up again once when it meets a label it has not seen', async () => {
+        let loads = 0;
+        const g = fakeGmail({
+            'GET /labels': () => { loads++; return { json: loads === 1 ? labels : { labels: [...labels.labels, { id: 'Label_new', name: 'Deal/Heron' }] } }; },
+            'GET /threads/t1': () => ({ json: { id: 't1', messages: [msg('m1', 't1', ['Label_new'])] } }),
+        });
+        const c = client(g.f);
+        await c.changesSince('1').catch(() => undefined); // loads the list once (history route missing here)
+        expect((await c.getThread('t1')).messages[0]!.labels).toEqual(['Deal/Heron']);
+        expect(loads).toBe(2);
+    });
+
+    it('removes a label without creating it, and matches label names regardless of case', async () => {
+        const g = fakeGmail({
+            'GET /labels': () => ({ json: { labels: [...labels.labels, { id: 'Label_8', name: 'deal/heron' }] } }),
+            'POST /labels': () => ({ status: 409, json: { error: { code: 409, message: 'Label name exists or conflicts' } } }),
+            'POST /threads/t1/modify': () => ({ json: {} }),
+        });
+        await client(g.f).modifyLabels('t1', ['Deal/Heron'], ['Deal/Gone']);
+        expect(g.calls.filter((x) => x.method === 'POST' && x.path === '/labels')).toEqual([]);
+        expect(g.calls.find((x) => x.path === '/threads/t1/modify')!.body).toEqual({ addLabelIds: ['Label_8'], removeLabelIds: [] });
+    });
+});

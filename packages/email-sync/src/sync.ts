@@ -1,4 +1,4 @@
-import { addressOf, splitAddressList, type EmailClient, type EmailMessage, type EmailThreadDetail } from '@teamsuzie/email';
+import { addressOf, EmailNotFoundError, splitAddressList, type EmailClient, type EmailMessage, type EmailThreadDetail } from '@teamsuzie/email';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { emailText } from './text.js';
 
@@ -165,7 +165,11 @@ export class MailSync {
             touched.add(change.threadId);
             switch (change.kind) {
                 case 'message_added': {
-                    const thread = threads.get(change.threadId) ?? await getThread(change.threadId);
+                    const thread = threads.get(change.threadId) ?? await getThread(change.threadId).catch((err: unknown) => {
+                        // The whole thread is gone (for example a draft the user discarded): it has no messages now.
+                        if (err instanceof EmailNotFoundError) return { messages: [] as EmailMessage[], id: change.threadId } as unknown as EmailThreadDetail;
+                        throw err;
+                    });
                     threads.set(change.threadId, thread);
                     const message = thread.messages.find((m) => m.id === change.messageId);
                     // Added and deleted again before this sync: it no longer exists, so the copy must not either.
