@@ -233,3 +233,7 @@ export type {
   ChatStreamEvent,
   ChatAttachment,
 } from './components/chat-thread/types.js';
+export { EmailThreadView } from './components/email/email-thread-view.js';
+export type { EmailThreadMessage, EmailThreadViewProps } from './components/email/email-thread-view.js';
+export { EmailAttachmentChip } from './components/email/email-attachment-chip.js';
+export type { EmailAttachmentChipProps } from './components/email/email-attachment-chip.js';
