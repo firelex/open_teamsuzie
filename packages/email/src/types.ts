@@ -47,6 +47,63 @@ export interface EmailMessage {
     date?: string | Date | null;
     attachments?: EmailAttachment[];
     status?: 'pending' | 'approved' | 'rejected' | 'sent' | 'delivered' | (string & {});
+    /** Provider labels or folders on this message (Gmail: INBOX, UNREAD, user labels). */
+    labels?: string[];
+    unread?: boolean;
+    /** The RFC 822 Message-ID header, used for threading replies. */
+    messageIdHeader?: string | null;
+}
+
+/** A conversation: every message that belongs to one provider thread. */
+export interface EmailThread {
+    id: string;
+    subject: string | null;
+    participants: string[];
+    messageIds: string[];
+    labels: string[];
+    unread: boolean;
+    /** ISO date of the newest message. */
+    lastMessageAt: string;
+    snippet: string | null;
+}
+
+export interface EmailThreadDetail extends EmailThread {
+    messages: EmailMessage[];
+}
+
+export interface ListThreadsInput {
+    account?: string;
+    labels?: string[];
+    pageToken?: string | null;
+    limit?: number;
+}
+
+export interface ListThreadsResult {
+    threads: EmailThread[];
+    nextPageToken: string | null;
+}
+
+/** One change in the mailbox since a sync cursor. */
+export type EmailChange =
+    | { kind: 'message_added'; threadId: string; messageId: string }
+    | { kind: 'message_deleted'; threadId: string; messageId: string }
+    | { kind: 'labels_changed'; threadId: string; messageId: string; labels: string[] }
+    | { kind: 'read_changed'; threadId: string; messageId: string; unread: boolean };
+
+export interface ChangesResult {
+    changes: EmailChange[];
+    /** Pass back to the next changesSince call. */
+    cursor: string;
+}
+
+export interface CreateDraftInput {
+    threadId?: string;
+    inReplyToId?: string;
+    to: string;
+    cc?: string;
+    subject: string;
+    body: string;
+    html?: string;
 }
 
 export interface ListEmailMessagesInput {
