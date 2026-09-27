@@ -1,8 +1,10 @@
 import {
-    EmailCursorExpiredError,
+    addressOf, EmailCursorExpiredError,
+    type CreateDraftInput, type ForwardEmailInput, type QueuedEmailResult, type ReplyEmailInput, type SendEmailInput,
     type ChangesResult, type EmailAttachment, type EmailChange, type EmailClient, type EmailMessage, type EmailStatus,
     type EmailThread, type EmailThreadDetail, type ListThreadsInput, type ListThreadsResult,
 } from '@teamsuzie/email';
+import { buildMime, type MimeInput } from './mime.js';
 import { parseGmailMessage, type GmailApiMessage } from './parse.js';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -194,7 +196,81 @@ export class GmailClient implements EmailClient {
         return { ...meta, size: data.size, content: Buffer.from(data.data, 'base64url').toString('base64') };
     }
 
-    async send(): Promise<never> {
-        throw new Error('GmailClient.send is added in the next task');
+    private raw(input: MimeInput): string {
+        return Buffer.from(buildMime(input), 'utf8').toString('base64url');
     }
+
+    private async post(input: MimeInput, threadId?: string): Promise<QueuedEmailResult> {
+        const sent = await this.call<{ id: string }>('POST', '/messages/send', { body: { raw: this.raw(input), ...(threadId ? { threadId } : {}) } });
+        return { queueId: sent.id, queued: true, direct: true };
+    }
+
+    /** What a reply needs from the message it answers: the thread and the threading headers. */
+    private async answering(messageId: string): Promise<{ original: EmailMessage; references: string; subject: (prefix: 'Re' | 'Fwd') => string }> {
+        const raw = await this.call<GmailApiMessage>('GET', `/messages/${encodeURIComponent(messageId)}`, { query: { format: 'full' } });
+        const original = parseGmailMessage(raw, await this.labelName());
+        if (!original.messageIdHeader) throw new Error(`Message ${messageId} has no Message-ID header, so a reply could not be threaded`);
+        const prior = raw.payload.headers?.find((h) => h.name.toLowerCase() === 'references')?.value ?? '';
+        const base = (original.subject ?? '').replace(/^\s*((re|fwd?)\s*:\s*)+/i, '');
+        return {
+            original,
+            references: `${prior} ${original.messageIdHeader}`.trim(),
+            subject: (prefix) => `${prefix}: ${base}`,
+        };
+    }
+
+    async send(input: SendEmailInput): Promise<QueuedEmailResult> {
+        return this.post({ from: this.opts.account, to: input.to, cc: input.cc, bcc: input.bcc, subject: input.subject, text: input.body, html: input.html, attachments: input.attachments?.map((a) => {
+            if (!a.content) throw new Error(`Attachment ${a.filename} has no content to send`);
+            return { filename: a.filename, contentType: a.contentType, content: a.content };
+        }) });
+    }
+
+    private async replyTo(input: ReplyEmailInput, all: boolean): Promise<QueuedEmailResult> {
+        const { original, references, subject } = await this.answering(input.messageId);
+        if (!original.from) throw new Error(`Message ${input.messageId} has no sender to reply to`);
+        const me = addressOf(this.opts.account);
+        const others = (list: string | null | undefined) => (list ?? '').split(',').map((s) => s.trim()).filter((s) => s && addressOf(s) !== me);
+        const to = all ? [original.from, ...others(original.to)].filter((s, i, a) => a.findIndex((x) => addressOf(x) === addressOf(s)) === i) : [original.from];
+        const cc = all ? others(original.cc) : [];
+        return this.post({
+            from: this.opts.account, to: to.join(', '), cc: cc.length ? cc.join(', ') : undefined,
+            subject: subject('Re'), text: input.body, html: input.html,
+            inReplyTo: original.messageIdHeader!, references,
+        }, original.threadId!);
+    }
+
+    async reply(input: ReplyEmailInput): Promise<QueuedEmailResult> {
+        return this.replyTo(input, input.replyAll === true);
+    }
+
+    async replyAll(input: ReplyEmailInput): Promise<QueuedEmailResult> {
+        return this.replyTo(input, true);
+    }
+
+    async forward(input: ForwardEmailInput): Promise<QueuedEmailResult> {
+        const { original, subject } = await this.answering(input.messageId);
+        const attachments = [];
+        for (const a of original.attachments ?? []) {
+            const opened = await this.openAttachment(original.id, a.id!);
+            attachments.push({ filename: opened.filename, contentType: opened.contentType, content: opened.content! });
+        }
+        const quote = [
+            '---------- Forwarded message ----------',
+            `From: ${original.from ?? ''}`, `Date: ${original.date ? new Date(original.date).toUTCString() : ''}`,
+            `Subject: ${original.subject ?? ''}`, `To: ${original.to ?? ''}`, '', original.bodyText ?? '',
+        ].join('\n');
+        return this.post({ from: this.opts.account, to: input.to, cc: input.cc, subject: subject('Fwd'), text: `${input.body ?? ''}\n\n${quote}`, attachments });
+    }
+
+    async createDraft(input: CreateDraftInput): Promise<{ draftId: string }> {
+        const threading = input.inReplyToId ? await this.answering(input.inReplyToId) : null;
+        const raw = this.raw({
+            from: this.opts.account, to: input.to, cc: input.cc, subject: input.subject, text: input.body, html: input.html,
+            inReplyTo: threading?.original.messageIdHeader ?? undefined, references: threading?.references,
+        });
+        const draft = await this.call<{ id: string }>('POST', '/drafts', { body: { message: { raw, ...(input.threadId ? { threadId: input.threadId } : {}) } } });
+        return { draftId: draft.id };
+    }
+
 }

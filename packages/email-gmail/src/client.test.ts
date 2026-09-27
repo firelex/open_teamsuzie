@@ -128,3 +128,72 @@ describe('GmailClient reading', () => {
         await expect(client(g.f).getThread('t1')).rejects.toThrow(/GET \/labels.*500.*Backend Error/);
     });
 });
+
+const rawOf = (body: unknown) => Buffer.from((body as { raw: string }).raw, 'base64url').toString('utf8');
+const original: GmailApiMessage = {
+    id: 'm1', threadId: 't1', labelIds: ['INBOX'], internalDate: String(Date.parse('2026-09-22T08:00:00Z')),
+    payload: { mimeType: 'multipart/mixed', headers: [
+        { name: 'From', value: '"Anna Reed" <anna@x.test>' }, { name: 'To', value: 'me@firm.test, carl@x.test' }, { name: 'Cc', value: 'dora@x.test' },
+        { name: 'Subject', value: 'Re: SPA mark-up' }, { name: 'Message-ID', value: '<m1@x.test>' }, { name: 'References', value: '<m0@x.test>' },
+    ], parts: [
+        { mimeType: 'text/plain', body: { data: b64('Please see attached.') } },
+        { mimeType: 'application/pdf', filename: 'SPA.pdf', body: { attachmentId: 'att-1', size: 3 } },
+    ] },
+};
+
+describe('GmailClient writing', () => {
+    const routes = (sent: unknown[]) => ({
+        'GET /labels': () => ({ json: labels }),
+        'GET /messages/m1': () => ({ json: original }),
+        'GET /messages/m1/attachments/att-1': () => ({ json: { size: 3, data: 'JVBE' } }),
+        'POST /messages/send': (_u: URL, body: unknown) => { sent.push(body); return { json: { id: 'new-1', threadId: (body as { threadId?: string }).threadId ?? 'tnew' } }; },
+        'POST /drafts': (_u: URL, body: unknown) => { sent.push(body); return { json: { id: 'd-1' } }; },
+    });
+
+    it('sends a new message and reports the Gmail id', async () => {
+        const sent: unknown[] = [];
+        const r = await client(fakeGmail(routes(sent)).f).send({ to: 'anna@x.test', subject: 'Hello', body: 'Hi' });
+        expect(r).toMatchObject({ queueId: 'new-1', queued: true, direct: true });
+        expect(rawOf(sent[0])).toContain('From: me@firm.test\r\n');
+        expect((sent[0] as { threadId?: string }).threadId).toBeUndefined();
+    });
+
+    it('replies in the same Gmail thread, to the sender, with threading headers and one "Re:"', async () => {
+        const sent: unknown[] = [];
+        await client(fakeGmail(routes(sent)).f).reply({ messageId: 'm1', body: 'Thanks' });
+        expect((sent[0] as { threadId: string }).threadId).toBe('t1');
+        const raw = rawOf(sent[0]);
+        expect(raw).toContain('To: "Anna Reed" <anna@x.test>\r\n');
+        expect(raw).not.toContain('Cc:');
+        expect(raw).toContain('Subject: Re: SPA mark-up\r\n');
+        expect(raw).toContain('In-Reply-To: <m1@x.test>\r\n');
+        expect(raw).toContain('References: <m0@x.test> <m1@x.test>\r\n');
+    });
+
+    it('replies to all: everyone on the message except this mailbox', async () => {
+        const sent: unknown[] = [];
+        await client(fakeGmail(routes(sent)).f).replyAll({ messageId: 'm1', body: 'Thanks all' });
+        const raw = rawOf(sent[0]);
+        expect(raw).toContain('To: "Anna Reed" <anna@x.test>, carl@x.test\r\n');
+        expect(raw).toContain('Cc: dora@x.test\r\n');
+    });
+
+    it('forwards with "Fwd:", the original text quoted, and its attachments', async () => {
+        const sent: unknown[] = [];
+        await client(fakeGmail(routes(sent)).f).forward({ messageId: 'm1', to: 'erin@y.test', body: 'FYI' });
+        const raw = rawOf(sent[0]);
+        expect(raw).toContain('Subject: Fwd: SPA mark-up\r\n');
+        expect(raw).toContain('filename="SPA.pdf"');
+        const text = Buffer.from(raw.split('Content-Transfer-Encoding: base64\r\n\r\n')[1]!.split('\r\n--')[0]!.replace(/\r\n/g, ''), 'base64').toString('utf8');
+        expect(text).toContain('FYI');
+        expect(text).toContain('---------- Forwarded message ----------');
+        expect(text).toContain('Please see attached.');
+    });
+
+    it('saves a draft in a thread', async () => {
+        const sent: unknown[] = [];
+        expect(await client(fakeGmail(routes(sent)).f).createDraft({ threadId: 't1', inReplyToId: 'm1', to: 'anna@x.test', subject: 'Re: SPA mark-up', body: 'Draft' })).toEqual({ draftId: 'd-1' });
+        expect((sent[0] as { message: { threadId: string } }).message.threadId).toBe('t1');
+        expect(Buffer.from((sent[0] as { message: { raw: string } }).message.raw, 'base64url').toString('utf8')).toContain('In-Reply-To: <m1@x.test>');
+    });
+});
