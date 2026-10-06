@@ -21,6 +21,16 @@ class GmailHttpError extends Error {
 }
 
 /**
+ * Smallest gap between two Gmail calls from one client. A full thread costs 10 of Gmail's quota units, so this
+ * keeps a burst (an import) near 140 units a second, well under Gmail's limit of 250 a second per user.
+ */
+export const GMAIL_CALL_GAP_MS = 70;
+
+/** How the client waits between calls; tests pass their own clock. */
+export interface GmailPace { now: () => number; sleep: (ms: number) => Promise<void> }
+const REAL_PACE: GmailPace = { now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)) };
+
+/**
  * EmailClient over the Gmail REST API for one mailbox. It is handed a function
  * that returns a current access token and never stores tokens. Gmail's label
  * ids are turned into names on the way in and back into ids on the way out.
@@ -29,7 +39,11 @@ export class GmailClient implements EmailClient {
     private labelsById: Map<string, string> | null = null;
     private lastError: string | null = null;
 
-    constructor(private readonly opts: { account: string; accessToken: () => Promise<string>; fetch?: typeof fetch }) {}
+    private lastCallAt: number | null = null;
+    /** Threads the last listing fetched in full, handed to the next getThread for each instead of fetching again. */
+    private listed = new Map<string, EmailThreadDetail>();
+
+    constructor(private readonly opts: { account: string; accessToken: () => Promise<string>; fetch?: typeof fetch; pace?: GmailPace }) {}
 
     status(): EmailStatus {
         return { configured: true, fromAccount: this.opts.account, reachable: this.lastError === null, lastError: this.lastError };
@@ -42,6 +56,12 @@ export class GmailClient implements EmailClient {
 
     /** One Gmail API call. Any non-2xx answer throws, naming the call. */
     protected async call<T>(method: string, path: string, opts: { query?: Record<string, string | string[] | undefined>; body?: unknown } = {}): Promise<T> {
+        const pace = this.opts.pace ?? REAL_PACE;
+        if (this.lastCallAt !== null) {
+            const wait = this.lastCallAt + GMAIL_CALL_GAP_MS - pace.now();
+            if (wait > 0) await pace.sleep(wait);
+        }
+        this.lastCallAt = pace.now();
         const url = new URL(API + path);
         for (const [k, v] of Object.entries(opts.query ?? {})) {
             if (v === undefined) continue;
@@ -150,13 +170,21 @@ export class GmailClient implements EmailClient {
         });
         const threads: EmailThread[] = [];
         for (const { id } of page.threads ?? []) {
-            const { messages: _messages, ...summary } = await this.fullThread(id);
+            const detail = await this.fullThread(id);
+            this.listed.set(id, detail);
+            const { messages: _messages, ...summary } = detail;
             threads.push(summary);
         }
         return { threads, nextPageToken: page.nextPageToken ?? null };
     }
 
     async getThread(id: string): Promise<EmailThreadDetail> {
+        // Listing a thread fetched it in full already (an import lists, then gets each): hand that over once.
+        const listed = this.listed.get(id);
+        if (listed) {
+            this.listed.delete(id);
+            return listed;
+        }
         return this.fullThread(id);
     }
 

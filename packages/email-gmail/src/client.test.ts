@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EmailCursorExpiredError, EmailRateLimitError } from '@teamsuzie/email';
-import { GmailClient } from './client.js';
+import { GMAIL_CALL_GAP_MS, GmailClient } from './client.js';
 import type { GmailApiMessage } from './parse.js';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -75,6 +75,32 @@ describe('GmailClient reading', () => {
             { kind: 'message_deleted', threadId: 't0', messageId: 'm0' },
         ]);
         expect(g.calls.find((x) => x.path === '/history')!.url.searchParams.get('startHistoryId')).toBe('100');
+    });
+
+    it('fetches a listed thread once: getThread after listThreads uses what the listing fetched', async () => {
+        const g = fakeGmail({
+            'GET /labels': () => ({ json: labels }),
+            'GET /threads': () => ({ json: { threads: [{ id: 't1' }, { id: 't2' }] } }),
+            'GET /threads/t[12]': (url) => { const id = url.pathname.split('/').pop()!; return { json: { id, messages: [msg(`m-${id}`, id, ['INBOX'])] } }; },
+        });
+        const c = client(g.f);
+        await c.listThreads({ limit: 2 });
+        expect((await c.getThread('t1')).messageIds).toEqual(['m-t1']);
+        expect((await c.getThread('t2')).messageIds).toEqual(['m-t2']);
+        expect(g.calls.filter((x) => /^\/threads\/t/.test(x.path))).toHaveLength(2);
+        // Once handed over, a thread is fetched afresh next time: it may have changed.
+        await c.getThread('t1');
+        expect(g.calls.filter((x) => x.path === '/threads/t1')).toHaveLength(2);
+    });
+
+    it('spaces its calls, so a burst stays under Gmail\'s per-second limit', async () => {
+        const g = fakeGmail({ 'GET /labels': () => ({ json: labels }), 'GET /threads/t1': () => ({ json: { id: 't1', messages: [msg('m1', 't1', ['INBOX'])] } }) });
+        let clock = 0;
+        const waits: number[] = [];
+        const paced = new GmailClient({ account: 'me@firm.test', accessToken: async () => 'at-1', fetch: g.f, pace: { now: () => clock, sleep: async (ms) => { waits.push(ms); clock += ms; } } });
+        for (let i = 0; i < 3; i++) await paced.getThread('t1');
+        // labels, then three thread calls: each waits for the gap since the one before.
+        expect(waits).toEqual([GMAIL_CALL_GAP_MS, GMAIL_CALL_GAP_MS, GMAIL_CALL_GAP_MS]);
     });
 
     it('throws EmailRateLimitError when Gmail asks to slow down (a 403 quota answer or a 429), and a plain error for other 403s', async () => {
