@@ -12,3 +12,11 @@ export class EmailCursorExpiredError extends Error {
 export class EmailNotFoundError extends Error {
     override readonly name = 'EmailNotFoundError';
 }
+
+/**
+ * The provider asked the caller to slow down (a rate limit or a short-term quota). Nothing is wrong with the
+ * account: the host should leave it running and try again later, saying so, rather than stop it.
+ */
+export class EmailRateLimitError extends Error {
+    override readonly name = 'EmailRateLimitError';
+}

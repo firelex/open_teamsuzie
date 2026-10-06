@@ -1,9 +1,8 @@
 import {
-    addressOf, EmailCursorExpiredError, EmailNotFoundError, splitAddressList,
+    addressOf, EmailCursorExpiredError, EmailNotFoundError, EmailRateLimitError, splitAddressList,
     type CreateDraftInput, type ForwardEmailInput, type QueuedEmailResult, type ReplyEmailInput, type SendEmailInput,
     type ChangesResult, type EmailAttachment, type EmailChange, type EmailClient, type EmailMessage, type EmailStatus,
-    type EmailThread, type EmailThreadDetail, type ListThreadsInput, type ListThreadsResult,
-} from '@teamsuzie/email';
+    type EmailThread, type EmailThreadDetail, type ListThreadsInput, type ListThreadsResult } from '@teamsuzie/email';
 import { buildMime, type MimeInput } from './mime.js';
 import { parseGmailMessage, type GmailApiMessage } from './parse.js';
 
@@ -55,8 +54,14 @@ export class GmailClient implements EmailClient {
         });
         const text = await res.text();
         if (!res.ok) {
-            const detail = (() => { try { return (JSON.parse(text) as { error?: { message?: string } }).error?.message ?? text; } catch { return text; } })();
+            const parsed = (() => { try { return (JSON.parse(text) as { error?: { message?: string; errors?: Array<{ reason?: string }> } }).error; } catch { return undefined; } })();
+            const detail = parsed?.message ?? text;
             this.lastError = `Gmail ${method} ${path} answered ${res.status}: ${detail}`;
+            // Gmail's documented "slow down" answers: 429, and 403 with a rate-limit reason. The account is fine.
+            const reasons = (parsed?.errors ?? []).map((e) => e.reason);
+            if (res.status === 429 || (res.status === 403 && reasons.some((r) => r === 'rateLimitExceeded' || r === 'userRateLimitExceeded'))) {
+                throw new EmailRateLimitError(this.lastError);
+            }
             throw new GmailHttpError(res.status, this.lastError);
         }
         this.lastError = null;

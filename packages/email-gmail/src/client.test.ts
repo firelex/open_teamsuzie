@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EmailCursorExpiredError } from '@teamsuzie/email';
+import { EmailCursorExpiredError, EmailRateLimitError } from '@teamsuzie/email';
 import { GmailClient } from './client.js';
 import type { GmailApiMessage } from './parse.js';
 
@@ -75,6 +75,18 @@ describe('GmailClient reading', () => {
             { kind: 'message_deleted', threadId: 't0', messageId: 'm0' },
         ]);
         expect(g.calls.find((x) => x.path === '/history')!.url.searchParams.get('startHistoryId')).toBe('100');
+    });
+
+    it('throws EmailRateLimitError when Gmail asks to slow down (a 403 quota answer or a 429), and a plain error for other 403s', async () => {
+        const quota = { error: { code: 403, message: "Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user'", errors: [{ reason: 'rateLimitExceeded', domain: 'usageLimits' }] } };
+        const slowed = fakeGmail({ 'GET /labels': () => ({ json: labels }), 'GET /threads/t1': () => ({ status: 403, json: quota }) });
+        await expect(client(slowed.f).getThread('t1')).rejects.toBeInstanceOf(EmailRateLimitError);
+        const busy = fakeGmail({ 'GET /labels': () => ({ json: labels }), 'GET /threads/t1': () => ({ status: 429, json: { error: { code: 429, message: 'Too many concurrent requests for user' } } }) });
+        await expect(client(busy.f).getThread('t1')).rejects.toBeInstanceOf(EmailRateLimitError);
+        const forbidden = fakeGmail({ 'GET /labels': () => ({ json: labels }), 'GET /threads/t1': () => ({ status: 403, json: { error: { code: 403, message: 'Request had insufficient authentication scopes.', errors: [{ reason: 'insufficientPermissions' }] } } }) });
+        const err = await client(forbidden.f).getThread('t1').catch((e: unknown) => e);
+        expect(err).not.toBeInstanceOf(EmailRateLimitError);
+        expect(String(err)).toMatch(/insufficient authentication scopes/);
     });
 
     it('throws EmailCursorExpiredError when Gmail no longer has the history', async () => {
