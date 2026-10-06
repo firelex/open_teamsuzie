@@ -32,4 +32,4 @@ export type {
     ReplyEmailInput,
     SendEmailInput,
 } from './types.js';
-export { EmailAuthError, EmailCursorExpiredError, EmailNotFoundError } from './errors.js';
+export { EmailAuthError, EmailCursorExpiredError, EmailNotFoundError, EmailRateLimitError } from './errors.js';
