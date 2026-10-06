@@ -10,7 +10,11 @@ updates:
         dependency-type: development
 
   - package-ecosystem: pip
-    directory: "/apps/agents/xlsx-agent"
+    directories:
+      - "/apps/agents/xlsx-agent"
+      - "/apps/agents/markitdown-agent"
+      - "/apps/agents/docx-template-agent"
+      - "/apps/agents/pptx-template-agent"
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
@@ -21,11 +25,10 @@ updates:
       interval: weekly
 
   - package-ecosystem: docker
-    directory: "/apps/agents/pptx-agent"
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: docker
-    directory: "/apps/agents/xlsx-agent"
+    directories:
+      - "/apps/agents/markitdown-agent"
+      - "/apps/agents/pptx-agent"
+      - "/apps/agents/pptx-template-agent"
+      - "/apps/agents/xlsx-agent"
     schedule:
       interval: weekly
