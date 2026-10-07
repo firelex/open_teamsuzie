@@ -28,7 +28,7 @@
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
     "sequelize-typescript": "^2.1.6",
-    "umzug": "^3.8.2"
+    "umzug": "^3.8.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
