@@ -29,6 +29,14 @@ function safeStyle(style: string): string {
     }).join(';');
 }
 
+export interface SanitizeOptions {
+    /**
+     * Where a remote image is shown from instead of the sender's server: the host's own image proxy, which fetches it
+     * without the reader's address or cookies. Without it, remote images are not shown.
+     */
+    remoteImage?: (src: string) => string;
+}
+
 /**
  * Inline styles senders use to hide text: preview text shown only in the inbox list, parts meant for one mail client.
  * (font-size:0 is left alone: layout tables use it around content that is shown.)
@@ -54,12 +62,13 @@ function tiny(attribs: Record<string, string>): boolean {
 /**
  * Email HTML made safe to show: no scripts, event handlers, frames, forms,
  * javascript links, positioning, or CSS beyond an allowlist of layout
- * properties (so no CSS can fetch anything), and no remote images (they are
- * tracking pixels as often as pictures): one with a description shows it as "[description]", a pixel or one
- * without a description is left out. Text the sender hid is left out too. Tables and inline styles stay, so
- * Outlook-style layouts still look right. Images embedded in the message (cid: and data:) stay.
+ * properties (so no CSS can fetch anything). Remote images never load from the sender: with `remoteImage`, each
+ * is shown through the address it returns (the host's own image proxy); without it, one with a description shows
+ * it as "[description]" and one without is left out. Tracking pixels (2px or less) are always left out. Text the
+ * sender hid is left out too. Tables and inline styles stay, so Outlook-style layouts still look right. Images
+ * embedded in the message (cid: and data:) stay.
  */
-export function sanitizeEmailHtml(html: string): string {
+export function sanitizeEmailHtml(html: string, opts: SanitizeOptions = {}): string {
     return sanitizeHtml(withoutHidden(html), {
         allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'span', 'font', 'center', 'u', 's', 'hr'],
         allowedAttributes: {
@@ -81,9 +90,13 @@ export function sanitizeEmailHtml(html: string): string {
                 return { tagName, attribs: style ? { ...rest, style } : rest };
             },
             img: (tagName, attribs) => {
-                if (/^(cid|data):/i.test(attribs.src ?? '')) return { tagName, attribs: attribs.style === undefined ? attribs : { ...attribs, style: safeStyle(attribs.style) } };
+                const styled = (a: Record<string, string>) => (a.style === undefined ? a : { ...a, style: safeStyle(a.style) });
+                const src = attribs.src ?? '';
+                if (/^(cid|data):/i.test(src)) return { tagName, attribs: styled(attribs) };
+                if (!/^https?:\/\//i.test(src) || tiny(attribs)) return { tagName: 'span', attribs: {}, text: '' };
+                if (opts.remoteImage) return { tagName, attribs: styled({ ...attribs, src: opts.remoteImage(src) }) };
                 const alt = (attribs.alt ?? '').trim();
-                return { tagName: 'span', attribs: {}, text: alt && !tiny(attribs) ? `[${alt}]` : '' };
+                return { tagName: 'span', attribs: {}, text: alt ? `[${alt}]` : '' };
             },
         },
     });

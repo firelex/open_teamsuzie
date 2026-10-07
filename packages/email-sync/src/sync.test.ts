@@ -217,6 +217,18 @@ describe('sanitizeEmailHtml', () => {
         expect(out).toContain('src="data:image/png;base64,AAAA"');
     });
 
+    it('shows a remote image through the host\'s own address when given one, still leaving out pixels', () => {
+        const via = (src: string) => `/api/mail/images?src=${encodeURIComponent(src)}`;
+        const out = sanitizeEmailHtml('<img src="https://cdn.x/photo.jpg" alt="Maria" width="80" style="border-radius:4px;background:url(https://t.co/p)"><img src="https://track.er/p.gif" width="1" height="1"><img src="javascript:alert(1)">', { remoteImage: via });
+        expect(out).toContain(`src="${via('https://cdn.x/photo.jpg')}"`.replace(/&/g, '&amp;'));
+        expect(out).toContain('alt="Maria"');
+        expect(out).toContain('width="80"');
+        expect(out).toContain('border-radius:4px');
+        expect(out).not.toContain('t.co');
+        expect(out).not.toContain('track.er');
+        expect(out).not.toContain('javascript');
+    });
+
     it('leaves out text the sender hid (preview text, Outlook-only parts), keeping what is shown', () => {
         const out = sanitizeEmailHtml([
             '<div style="display:none;max-height:0;overflow:hidden">Maria, Software Engineering Team Lead</div>',

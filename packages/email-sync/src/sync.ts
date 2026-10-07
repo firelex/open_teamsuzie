@@ -1,5 +1,5 @@
 import { addressOf, EmailNotFoundError, splitAddressList, type EmailClient, type EmailMessage, type EmailThreadDetail } from '@teamsuzie/email';
-import { sanitizeEmailHtml } from './sanitize.js';
+import { sanitizeEmailHtml, type SanitizeOptions } from './sanitize.js';
 import { emailText } from './text.js';
 
 /** One message as the host keeps it. Attachment content is never stored; it is fetched when opened. */
@@ -78,7 +78,7 @@ export class MemoryMailStore implements MailStore {
 }
 
 
-function toStored(account: string, m: EmailMessage, threadId: string): StoredMessage {
+function toStored(account: string, m: EmailMessage, threadId: string, sanitize: SanitizeOptions): StoredMessage {
     if (!m.from) throw new Error(`Message ${m.id} has no sender`);
     if (!m.date) throw new Error(`Message ${m.id} has no date`);
     const { text, quotedFrom } = emailText(m);
@@ -93,7 +93,7 @@ function toStored(account: string, m: EmailMessage, threadId: string): StoredMes
         unread: m.unread ?? false,
         labels: m.labels ?? [],
         direction: addressOf(m.from) === addressOf(account) ? 'outbound' : 'inbound',
-        html: m.bodyHtml ? sanitizeEmailHtml(m.bodyHtml) : null,
+        html: m.bodyHtml ? sanitizeEmailHtml(m.bodyHtml, sanitize) : null,
         text,
         quotedFrom,
         attachments: (m.attachments ?? []).map((a) => {
@@ -121,6 +121,8 @@ export class MailSync {
         client: EmailClient;
         store: MailStore;
         account: string;
+        /** How stored email HTML is cleaned (for example where remote images are shown from); see sanitizeEmailHtml. */
+        sanitize?: SanitizeOptions;
         /** Called once per thread that changed, after the change is stored. */
         onThreadChanged?: (threadId: string) => void | Promise<void>;
     }) {}
@@ -142,7 +144,7 @@ export class MailSync {
         for (const id of ids) {
             const thread = await getThread(id);
             for (const m of thread.messages) {
-                await store.upsertMessage(account, toStored(account, m, thread.id));
+                await store.upsertMessage(account, toStored(account, m, thread.id, this.opts.sanitize ?? {}));
                 messages++;
             }
         }
@@ -174,7 +176,7 @@ export class MailSync {
                     const message = thread.messages.find((m) => m.id === change.messageId);
                     // Added and deleted again before this sync: it no longer exists, so the copy must not either.
                     if (!message) await store.deleteMessage(account, change.messageId);
-                    else await store.upsertMessage(account, toStored(account, message, thread.id));
+                    else await store.upsertMessage(account, toStored(account, message, thread.id, this.opts.sanitize ?? {}));
                     break;
                 }
                 case 'message_deleted':
