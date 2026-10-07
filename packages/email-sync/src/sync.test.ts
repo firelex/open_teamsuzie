@@ -207,12 +207,24 @@ describe('sanitizeEmailHtml', () => {
         expect(out).toContain('font-weight:bold');
     });
 
-    it('replaces remote images with a marker and keeps embedded ones', () => {
-        const out = sanitizeEmailHtml('<img src="https://track.er/pixel.gif"><img src="cid:logo@x"><img src="data:image/png;base64,AAAA">');
-        expect(out).toContain('[image]');
+    it('never loads a remote image: one with a description shows it as text, a pixel or one without is left out; embedded images stay', () => {
+        const out = sanitizeEmailHtml('<img src="https://track.er/pixel.gif" width="1" height="1"><img src="https://cdn.x/logo.png" alt="LinkedIn"><img src="https://cdn.x/photo.jpg"><img src="cid:logo@x"><img src="data:image/png;base64,AAAA">');
         expect(out).not.toContain('track.er');
+        expect(out).not.toContain('cdn.x');
+        expect(out).toContain('[LinkedIn]');
+        expect(out).not.toContain('[image]');
         expect(out).toContain('src="cid:logo@x"');
         expect(out).toContain('src="data:image/png;base64,AAAA"');
+    });
+
+    it('leaves out text the sender hid (preview text, Outlook-only parts), keeping what is shown', () => {
+        const out = sanitizeEmailHtml([
+            '<div style="display:none;max-height:0;overflow:hidden">Maria, Software Engineering Team Lead</div>',
+            '<span style="visibility: hidden">hidden</span><table><tr><td style="mso-hide:all">outlook only</td><td>Shown cell</td></tr></table>',
+            '<div style="max-height:0px;overflow:hidden">clipped</div><p style="opacity:0">faded</p><p style="font-size:0">kept</p><p>Body</p>',
+        ].join(''));
+        for (const gone of ['Maria, Software', 'hidden', 'outlook only', 'clipped', 'faded']) expect(out, gone).not.toContain(gone);
+        for (const kept of ['Shown cell', 'kept', 'Body']) expect(out, kept).toContain(kept);
     });
 });
 

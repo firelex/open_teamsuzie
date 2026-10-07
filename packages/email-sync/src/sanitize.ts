@@ -30,15 +30,37 @@ function safeStyle(style: string): string {
 }
 
 /**
+ * Inline styles senders use to hide text: preview text shown only in the inbox list, parts meant for one mail client.
+ * (font-size:0 is left alone: layout tables use it around content that is shown.)
+ */
+const HIDDEN = /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|mso-hide\s*:\s*all|max-height\s*:\s*0(?:px)?\s*(?:!important)?\s*(?:;|$)|opacity\s*:\s*0(?:\.0+)?\s*(?:!important)?\s*(?:;|$))/i;
+
+/** The email with every element its sender hid taken out, with its contents (judged on the original styles). */
+function withoutHidden(html: string): string {
+    // Everything else passes untouched (schemes included: embedded cid: and data: images); the second pass makes it safe.
+    return sanitizeHtml(html, { allowedTags: false, allowedAttributes: false, allowVulnerableTags: true, allowedSchemesAppliedToAttributes: [], exclusiveFilter: (frame) => HIDDEN.test(frame.attribs.style ?? '') });
+}
+
+/** A remote image's size from its attributes or style, when given: 2px or less is a tracking pixel or a spacer. */
+function tiny(attribs: Record<string, string>): boolean {
+    const px = (v: string | undefined) => (v === undefined ? null : Number.parseFloat(v));
+    const style = attribs.style ?? '';
+    const fromStyle = (prop: string) => px(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([\\d.]+)px`, 'i').exec(style)?.[1]);
+    const w = px(attribs.width) ?? fromStyle('width');
+    const h = px(attribs.height) ?? fromStyle('height');
+    return (w !== null && w <= 2) || (h !== null && h <= 2);
+}
+
+/**
  * Email HTML made safe to show: no scripts, event handlers, frames, forms,
  * javascript links, positioning, or CSS beyond an allowlist of layout
  * properties (so no CSS can fetch anything), and no remote images (they are
- * tracking pixels as often as pictures; each becomes "[image]"). Tables and
- * inline styles stay, so Outlook-style layouts still look right. Images
- * embedded in the message (cid: and data:) stay.
+ * tracking pixels as often as pictures): one with a description shows it as "[description]", a pixel or one
+ * without a description is left out. Text the sender hid is left out too. Tables and inline styles stay, so
+ * Outlook-style layouts still look right. Images embedded in the message (cid: and data:) stay.
  */
 export function sanitizeEmailHtml(html: string): string {
-    return sanitizeHtml(html, {
+    return sanitizeHtml(withoutHidden(html), {
         allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'span', 'font', 'center', 'u', 's', 'hr'],
         allowedAttributes: {
             '*': LAYOUT_ATTRIBUTES,
@@ -58,9 +80,11 @@ export function sanitizeEmailHtml(html: string): string {
                 const { style: _dropped, ...rest } = attribs;
                 return { tagName, attribs: style ? { ...rest, style } : rest };
             },
-            img: (tagName, attribs) => (/^(cid|data):/i.test(attribs.src ?? '')
-                ? { tagName, attribs: attribs.style === undefined ? attribs : { ...attribs, style: safeStyle(attribs.style) } }
-                : { tagName: 'span', attribs: {}, text: '[image]' }),
+            img: (tagName, attribs) => {
+                if (/^(cid|data):/i.test(attribs.src ?? '')) return { tagName, attribs: attribs.style === undefined ? attribs : { ...attribs, style: safeStyle(attribs.style) } };
+                const alt = (attribs.alt ?? '').trim();
+                return { tagName: 'span', attribs: {}, text: alt && !tiny(attribs) ? `[${alt}]` : '' };
+            },
         },
     });
 }
