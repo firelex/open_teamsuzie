@@ -32,7 +32,7 @@ Install your pick, sign in, and confirm `claude`, `codex`, or `opencode` runs in
 
 You need three things on your machine before your assistant can do anything useful:
 
-- **[Node.js 22+](https://nodejs.org)** plus **`pnpm`** — install pnpm with `npm install -g pnpm` if you don't have it.
+- **[Node.js 20+](https://nodejs.org)** plus **`pnpm`** — install pnpm with `npm install -g pnpm` if you don't have it.
 - **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** — the local stack runs Postgres and Redis, plus (optionally) Milvus and Neo4j in containers. **Open Docker Desktop and make sure it's running.** If you run the heavy vector/graph engines, give Docker ≥6 GB memory in *Settings → Resources* — Milvus won't start otherwise. A single-Postgres "lite" profile skips Milvus and Neo4j entirely (see [Storage backends](#storage-backends)).
 - **Git**.
 
@@ -486,6 +486,7 @@ The reusable core lives in `packages/*` — ~50 workspaces that downstream apps 
 | `@teamsuzie/markdown-document` | MarkdownDocument navigation/drafting primitive + agent-loop tools |
 | `@teamsuzie/docx` · `@teamsuzie/docx-diff` · `@teamsuzie/pdf` · `@teamsuzie/xlsx` | Lossless OOXML round-trip, paragraph-level diff, DOCX→PDF, read-only xlsx AST |
 | `@teamsuzie/document-conversion` · `@teamsuzie/citations` | markitdown facade + inline-citation wire format |
+| `@teamsuzie/legal-research` · `@teamsuzie/playbook` · `@teamsuzie/reference-design` | Legal-research tools for agent-runtime apps, firm playbooks that flag deviations in a document, and reference documents broken into reusable structure |
 | `@teamsuzie/artifacts` · `@teamsuzie/files` · `@teamsuzie/document-versions` | Markdown artifacts, scoped upload/download router, immutable version chains |
 
 **Workspaces & UI**
@@ -495,6 +496,7 @@ The reusable core lives in `packages/*` — ~50 workspaces that downstream apps 
 | `@teamsuzie/workspaces` · `@teamsuzie/matters` · `@teamsuzie/sharing` | Generic doc-container schema, the "matter" composition layer, and cross-subject membership |
 | `@teamsuzie/chats` · `@teamsuzie/user-memory` · `@teamsuzie/personas` | Persisted chats, per-user long-lived memory, persona registry |
 | `@teamsuzie/db-sqlite` · `@teamsuzie/jobs` · `@teamsuzie/email` | SQLite plumbing, async job queue, provider-agnostic email contracts |
+| `@teamsuzie/email-gmail` · `@teamsuzie/email-sync` · `@teamsuzie/email-insights` · `@teamsuzie/email-fixture` | Gmail sign-in and client, a synced local mailbox copy, checked model-written thread summaries, and an in-memory test mailbox |
 | `@teamsuzie/skills` | Headless skill runtime — discovery, template rendering, pluggable target |
 | `@teamsuzie/ui` · `@teamsuzie/theme` | Shared React component library and the CSS-only design tokens (Tailwind 4) |
 
@@ -519,6 +521,8 @@ apps/examples  # small reference services for extension contracts
 | `pptx-agent` | 3009 | LLM-powered PowerPoint generation |
 | `xlsx-agent` | 3012 | LLM-powered spreadsheet generation (FastAPI) |
 | `markitdown-agent` | 3013 | Document ↔ markdown conversion (FastAPI + pandoc) |
+| `pptx-template-agent` | 8081 | Writes content into an existing .pptx template's named shapes, keeping its layouts and brand (`python-pptx`) |
+| `docx-template-agent` | 8082 | Fills the `[BRACKETED TOKENS]` in an existing .docx template, keeping its styles and letterhead |
 | `skill-catalog-host` | 3021 | Example external skill catalog for `HttpSkillSource` |
 | `starter-chat` | 16311 / 17276 | Generic full-stack chat starter (Express + Vite + React) |
 | `starter-chat-openclaw` | 14311 / 15276 | OpenClaw-oriented chat starter |
