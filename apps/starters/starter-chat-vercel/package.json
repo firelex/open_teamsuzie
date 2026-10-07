@@ -24,11 +24,11 @@
   },
   "devDependencies": {
     "@teamsuzie/agent-runtime": "workspace:*",
-    "@tailwindcss/postcss": "^4.1.11",
-    "@types/node": "^22.10.5",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.4",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "tailwindcss": "^4.1.11",
-    "typescript": "^5.7.3"
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
   }
 }
