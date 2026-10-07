@@ -9,5 +9,5 @@ pydantic-settings>=2.4,<3
 markitdown[docx,pdf,pptx,xlsx]>=0.1.0,<1
 pypandoc-binary>=1.13,<2
 # Testing
-pytest>=8,<9
+pytest>=9.1.1,<10
 httpx>=0.27,<1
