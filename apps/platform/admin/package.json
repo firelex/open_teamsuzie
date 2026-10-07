@@ -30,7 +30,7 @@
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
     "sequelize-typescript": "^2.1.6",
-    "ws": "^8.18.3"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -39,7 +39,7 @@
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^6.0.2",
-    "@types/ws": "^8.5.13",
+    "@types/ws": "^8.18.2",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
