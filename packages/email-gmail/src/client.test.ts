@@ -188,10 +188,10 @@ describe('GmailClient writing', () => {
         'POST /drafts': (_u: URL, body: unknown) => { sent.push(body); return { json: { id: 'd-1' } }; },
     });
 
-    it('sends a new message and reports the Gmail id', async () => {
+    it('sends a new message and reports the Gmail id and the new thread', async () => {
         const sent: unknown[] = [];
         const r = await client(fakeGmail(routes(sent)).f).send({ to: 'anna@x.test', subject: 'Hello', body: 'Hi' });
-        expect(r).toMatchObject({ queueId: 'new-1', queued: true, direct: true });
+        expect(r).toMatchObject({ queueId: 'new-1', queued: true, direct: true, threadId: 'tnew' });
         expect(rawOf(sent[0])).toContain('From: me@firm.test\r\n');
         expect((sent[0] as { threadId?: string }).threadId).toBeUndefined();
     });

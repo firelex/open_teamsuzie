@@ -73,6 +73,15 @@ describe('FixtureEmailClient', () => {
         expect(client.sent).toEqual([{ kind: 'reply', input: { messageId: 'm3', body: 'Friday works.' } }]);
     });
 
+    it('sends a new email as its own thread, reports that thread, and records the call with its attachments', async () => {
+        const client = new FixtureEmailClient(mailbox());
+        const attachments = [{ filename: 'NDA v1.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', content: 'UEsDBA==' }];
+        const result = await client.send({ to: 'anna@sterlingrowe.com', subject: 'NDA – draft for review', body: 'Please find attached.', attachments });
+        expect(result).toMatchObject({ queued: true, direct: true, threadId: 'sent-1' });
+        expect((await client.getThread('sent-1')).messages).toMatchObject([{ from: 'me@firm.com', to: 'anna@sterlingrowe.com', subject: 'NDA – draft for review', inReplyToId: null }]);
+        expect(client.sent).toEqual([{ kind: 'send', input: { to: 'anna@sterlingrowe.com', subject: 'NDA – draft for review', body: 'Please find attached.', attachments } }]);
+    });
+
     it('replies to everyone on reply-all, except the account itself', async () => {
         const box = mailbox();
         box.threads[1]!.messages[0]!.cc = 'cara@hawk.com, me@firm.com';

@@ -189,7 +189,7 @@ export class FixtureEmailClient implements EmailClient {
         this.sent.push({ kind: 'send', input });
         const threadId = `sent-${this.outboundCount + 1}`;
         this.appendOutbound(threadId, { subject: input.subject, to: input.to, cc: input.cc ?? null, bodyText: input.body, bodyHtml: input.html ?? null, inReplyToId: null });
-        return this.queued();
+        return { ...this.queued(), threadId };
     }
 
     async reply(input: ReplyEmailInput): Promise<QueuedEmailResult> {

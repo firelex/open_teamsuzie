@@ -250,8 +250,8 @@ export class GmailClient implements EmailClient {
     }
 
     private async post(input: MimeInput, threadId?: string): Promise<QueuedEmailResult> {
-        const sent = await this.call<{ id: string }>('POST', '/messages/send', { body: { raw: this.raw(input), ...(threadId ? { threadId } : {}) } });
-        return { queueId: sent.id, queued: true, direct: true };
+        const sent = await this.call<{ id: string; threadId?: string }>('POST', '/messages/send', { body: { raw: this.raw(input), ...(threadId ? { threadId } : {}) } });
+        return { queueId: sent.id, queued: true, direct: true, ...(sent.threadId ? { threadId: sent.threadId } : {}) };
     }
 
     /** What a reply needs from the message it answers: the thread and the threading headers. */

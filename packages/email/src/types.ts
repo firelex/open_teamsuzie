@@ -179,4 +179,6 @@ export interface QueuedEmailResult {
     queued: true;
     message?: string;
     direct?: boolean;
+    /** The conversation the sent message is in, when the provider says (a new email starts its own). */
+    threadId?: string;
 }
