@@ -1,5 +1,5 @@
 import { curatedHostedModels } from './curated.js';
-import { hostedProviders, streamChat, chatOnce, type ProviderConfig } from './providers.js';
+import { hostedProviders, streamChat, chatOnce, chatWithTools, type ProviderConfig } from './providers.js';
 import {
   providerSupportsWebSearch,
   researchAnthropic,
@@ -16,6 +16,8 @@ import type {
   LocalRuntime,
   ModelInfo,
   ProviderId,
+  ToolChatRequest,
+  ToolChatResult,
 } from './types.js';
 
 const DEFAULT_MAX_TOKENS = 2048;
@@ -123,6 +125,8 @@ export class ModelGateway {
       maxTokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
       fetchImpl: this.fetchImpl,
       signal: req.signal,
+      thinking: req.thinking,
+      json: req.json,
     });
   }
 
@@ -137,8 +141,28 @@ export class ModelGateway {
       maxTokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
       fetchImpl: this.fetchImpl,
       signal: req.signal,
+      thinking: req.thinking,
+      json: req.json,
     });
     return { provider: config.id, model, text };
+  }
+
+  /** One turn with tool calling (OpenAI-format providers). Returns the text, the tool calls and the token usage. */
+  async chatTools(req: ToolChatRequest): Promise<ToolChatResult> {
+    const { config, apiKey, model } = await this.resolve(req.id);
+    const out = await chatWithTools({
+      config,
+      apiKey,
+      model,
+      messages: req.messages,
+      tools: req.tools,
+      maxTokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+      fetchImpl: this.fetchImpl,
+      signal: req.signal,
+      thinking: req.thinking,
+      json: req.json,
+    });
+    return { provider: config.id, model, ...out };
   }
 
   /**

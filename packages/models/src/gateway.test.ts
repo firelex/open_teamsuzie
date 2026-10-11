@@ -107,6 +107,25 @@ describe('ModelGateway — chat', () => {
     expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
   });
 
+  it('sends enable_thinking:false and a JSON reply format to Qwen when asked', async () => {
+    let body!: Record<string, unknown>;
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(init.body as string);
+      return sse(['{"choices":[{"delta":{"content":"{}"}}]}', '[DONE]']);
+    }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl });
+    await g.chat({ id: 'qwen/qwen3.8-max', messages: [{ role: 'user', content: 'hi' }], thinking: false, json: true });
+    expect(body.enable_thinking).toBe(false);
+    expect(body.response_format).toEqual({ type: 'json_object' });
+  });
+
+  it('refuses thinking:false for OpenAI and json:true for Anthropic', async () => {
+    const g = new ModelGateway({ env: { OPENAI_API_KEY: 'k', ANTHROPIC_API_KEY: 'a' }, fetchImpl: notCalled });
+    const messages = [{ role: 'user' as const, content: 'hi' }];
+    await expect(g.chat({ id: 'openai/gpt-5.5', messages, thinking: false })).rejects.toThrow(/cannot turn thinking off/);
+    await expect(g.chat({ id: 'anthropic/claude-sonnet-5', messages, json: true })).rejects.toThrow(/no JSON reply mode/);
+  });
+
   it('refuses a provider with no key, naming the env var', async () => {
     const g = new ModelGateway({ env: {}, fetchImpl: notCalled });
     await expect(
@@ -164,5 +183,66 @@ describe('ModelGateway — chat', () => {
     });
     expect(res.text).toBe('ok');
     expect(url).toBe('http://localhost:1234/v1/chat/completions');
+  });
+});
+
+describe('ModelGateway — chatTools', () => {
+  const completion = (message: Record<string, unknown>, finish = 'tool_calls') =>
+    new Response(JSON.stringify({ choices: [{ message, finish_reason: finish }], usage: { prompt_tokens: 120, completion_tokens: 30 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+
+  it('sends tools and tool messages in OpenAI format and returns tool calls with usage', async () => {
+    let body!: Record<string, any>;
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(init.body as string);
+      return completion({ content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'add_clause', arguments: '{"heading":"Term"}' } }] });
+    }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl });
+    const res = await g.chatTools({
+      id: 'qwen/qwen3.8-max',
+      thinking: false,
+      tools: [{ name: 'add_clause', description: 'Add a clause', parameters: { type: 'object', properties: { heading: { type: 'string' } } } }],
+      messages: [
+        { role: 'system', content: 'draft' },
+        { role: 'user', content: 'go' },
+        { role: 'assistant', content: null, toolCalls: [{ id: 'call_0', name: 'outline', arguments: '{}' }] },
+        { role: 'tool', toolCallId: 'call_0', content: 'The agreement is empty.' },
+      ],
+    });
+    expect(res.toolCalls).toEqual([{ id: 'call_1', name: 'add_clause', arguments: '{"heading":"Term"}' }]);
+    expect(res.usage).toEqual({ inputTokens: 120, outputTokens: 30 });
+    expect(body.stream).toBe(false);
+    expect(body.enable_thinking).toBe(false);
+    expect(body.tools[0]).toEqual({ type: 'function', function: { name: 'add_clause', description: 'Add a clause', parameters: { type: 'object', properties: { heading: { type: 'string' } } } } });
+    expect(body.messages[2]).toEqual({ role: 'assistant', content: null, tool_calls: [{ id: 'call_0', type: 'function', function: { name: 'outline', arguments: '{}' } }] });
+    expect(body.messages[3]).toEqual({ role: 'tool', tool_call_id: 'call_0', content: 'The agreement is empty.' });
+  });
+
+  it('sends an assistant turn without tool calls as plain content, never an empty tool_calls list', async () => {
+    let body!: Record<string, any>;
+    const fetchImpl = (async (_url: string, init: RequestInit) => { body = JSON.parse(init.body as string); return completion({ content: 'ok' }, 'stop'); }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl });
+    await g.chatTools({ id: 'qwen/x', tools: [], messages: [{ role: 'user', content: 'go' }, { role: 'assistant', content: null, toolCalls: [] }, { role: 'user', content: 'use the tools' }] });
+    expect(body.messages[1]).toEqual({ role: 'assistant', content: '' });
+  });
+
+  it('omits tools when none are given and can ask for JSON', async () => {
+    let body!: Record<string, any>;
+    const fetchImpl = (async (_url: string, init: RequestInit) => { body = JSON.parse(init.body as string); return completion({ content: '{"a":1}' }, 'stop'); }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl });
+    const res = await g.chatTools({ id: 'qwen/qwen3.8-max', tools: [], json: true, messages: [{ role: 'user', content: 'hi' }] });
+    expect(res.text).toBe('{"a":1}');
+    expect(res.toolCalls).toEqual([]);
+    expect(body.tools).toBeUndefined();
+    expect(body.response_format).toEqual({ type: 'json_object' });
+  });
+
+  it('fails loudly on a cut-off reply, a missing usage report, an HTTP error, and Anthropic', async () => {
+    const cut = (async () => completion({ content: 'half' }, 'length')) as unknown as typeof fetch;
+    await expect(new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl: cut }).chatTools({ id: 'qwen/x', tools: [], messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(/token limit/);
+    const noUsage = (async () => new Response(JSON.stringify({ choices: [{ message: { content: 'x' }, finish_reason: 'stop' }] }), { status: 200 })) as unknown as typeof fetch;
+    await expect(new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl: noUsage }).chatTools({ id: 'qwen/x', tools: [], messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(/no token usage/);
+    const http = (async () => new Response('busy', { status: 503 })) as unknown as typeof fetch;
+    await expect(new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl: http }).chatTools({ id: 'qwen/x', tools: [], messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(/503/);
+    await expect(new ModelGateway({ env: { ANTHROPIC_API_KEY: 'a' }, fetchImpl: notCalled }).chatTools({ id: 'anthropic/claude-sonnet-5', tools: [], messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(/tool calls/);
   });
 });

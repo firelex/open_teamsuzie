@@ -9,7 +9,7 @@ export {
   type ResearchParams,
 } from './research.js';
 export { modelsRouter } from './router.js';
-export { hostedProviders, streamChat, chatOnce } from './providers.js';
+export { hostedProviders, streamChat, chatOnce, chatWithTools } from './providers.js';
 export { curatedHostedModels, type CuratedModel } from './curated.js';
 export type {
   ProviderId,
@@ -22,5 +22,10 @@ export type {
   LocalRuntime,
   GatewayDeps,
   DefaultModelStore,
+  ToolDefinition,
+  ToolCall,
+  ToolChatMessage,
+  ToolChatRequest,
+  ToolChatResult,
 } from './types.js';
 export type { ProviderConfig, WireFormat } from './providers.js';

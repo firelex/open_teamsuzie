@@ -38,6 +38,15 @@ export interface ChatRequest {
   messages: ChatMessage[];
   /** Optional cap on generated tokens (providers that need it, e.g. Anthropic). */
   maxTokens?: number;
+  /**
+   * Set false to turn a model's thinking mode off. Sent as `enable_thinking: false`
+   * to Qwen and local OpenAI-compatible runtimes. Anthropic models do not think
+   * unless asked, so false is already their behaviour. OpenAI reasoning models
+   * cannot turn it off, so false throws for them.
+   */
+  thinking?: boolean;
+  /** Ask for a single JSON object as the reply (OpenAI-format providers only; throws for Anthropic). */
+  json?: boolean;
   signal?: AbortSignal;
 }
 
@@ -79,4 +88,43 @@ export interface GatewayDeps {
   listLocalRuntimes?: () => Promise<LocalRuntime[]> | LocalRuntime[];
   /** Persistence for the chosen default model; default is the first available model. */
   defaultModelStore?: DefaultModelStore;
+}
+
+/** A function the model may call, described by a JSON Schema for its arguments. */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/** One call the model made: `arguments` is the raw JSON text the model wrote. */
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: string;
+}
+
+/** A conversation with tool use: the assistant's tool calls and each call's result. */
+export type ToolChatMessage =
+  | ChatMessage
+  | { role: 'assistant'; content: string | null; toolCalls: ToolCall[] }
+  | { role: 'tool'; toolCallId: string; content: string };
+
+export interface ToolChatRequest {
+  id: string;
+  messages: ToolChatMessage[];
+  /** May be empty: then no tools are sent and the reply is plain text (or JSON with `json`). */
+  tools: ToolDefinition[];
+  maxTokens?: number;
+  thinking?: boolean;
+  json?: boolean;
+  signal?: AbortSignal;
+}
+
+export interface ToolChatResult {
+  provider: ProviderId;
+  model: string;
+  text: string;
+  toolCalls: ToolCall[];
+  usage: { inputTokens: number; outputTokens: number };
 }

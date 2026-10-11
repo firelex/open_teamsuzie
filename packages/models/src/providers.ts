@@ -1,4 +1,4 @@
-import type { ChatMessage, ProviderId } from './types.js';
+import type { ChatMessage, ProviderId, ToolCall, ToolChatMessage, ToolDefinition } from './types.js';
 
 /**
  * Provider adapters. The ONLY place that knows a provider's wire shape. Two
@@ -55,6 +55,10 @@ export interface StreamChatParams {
   maxTokens: number;
   fetchImpl: typeof fetch;
   signal?: AbortSignal;
+  /** false turns thinking off; see ChatRequest.thinking. */
+  thinking?: boolean;
+  /** true asks for a JSON object reply; see ChatRequest.json. */
+  json?: boolean;
 }
 
 /** Stream text deltas from a provider. Throws a descriptive Error on a non-OK response. */
@@ -92,13 +96,22 @@ export async function chatOnce(p: StreamChatParams): Promise<string> {
 // --- OpenAI-compatible ------------------------------------------------------
 
 function postOpenAi(p: StreamChatParams): Promise<Response> {
+  if (p.thinking === false && p.config.id === 'openai') {
+    throw new Error('OpenAI models cannot turn thinking off; drop `thinking: false` or pick a Qwen or local model.');
+  }
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
   return p.fetchImpl(`${p.config.baseUrl}/chat/completions`, {
     method: 'POST',
     headers,
     signal: p.signal,
-    body: JSON.stringify({ model: p.model, messages: p.messages, stream: true }),
+    body: JSON.stringify({
+      model: p.model,
+      messages: p.messages,
+      stream: true,
+      ...(p.thinking === false ? { enable_thinking: false } : {}),
+      ...(p.json ? { response_format: { type: 'json_object' } } : {}),
+    }),
   });
 }
 
@@ -111,6 +124,7 @@ function openAiDelta(json: unknown): string {
 // --- Anthropic --------------------------------------------------------------
 
 function postAnthropic(p: StreamChatParams): Promise<Response> {
+  if (p.json) throw new Error('Anthropic has no JSON reply mode; ask for JSON in the prompt instead of passing `json: true`.');
   // Anthropic takes `system` at the top level, not as a message role.
   const system = p.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
   const messages = p.messages
@@ -173,4 +187,66 @@ async function safeText(res: Response): Promise<string> {
   } catch {
     return '';
   }
+}
+
+// --- Tool calling (OpenAI format, non-streaming) -----------------------------
+
+export interface ToolChatParams extends Omit<StreamChatParams, 'messages'> {
+  messages: ToolChatMessage[];
+  tools: ToolDefinition[];
+}
+
+function openAiMessage(m: ToolChatMessage): Record<string, unknown> {
+  if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId, content: m.content };
+  if ('toolCalls' in m) {
+    // An assistant turn without calls goes as plain content: providers reject an empty tool_calls list or null content alone.
+    if (!m.toolCalls.length) return { role: 'assistant', content: m.content ?? '' };
+    return { role: 'assistant', content: m.content, tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })) };
+  }
+  return { role: m.role, content: m.content };
+}
+
+interface OpenAiCompletion {
+  choices?: Array<{ finish_reason?: string; message?: { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>;
+  usage?: { prompt_tokens: number; completion_tokens: number };
+}
+
+/** One non-streaming turn with tools (OpenAI format only). Throws on a cut-off reply or a missing usage report. */
+export async function chatWithTools(p: ToolChatParams): Promise<{ text: string; toolCalls: ToolCall[]; usage: { inputTokens: number; outputTokens: number } }> {
+  if (p.config.format !== 'openai') {
+    throw new Error(`${p.config.id} does not support tool calls through this gateway; use an OpenAI-format provider (OpenAI, Qwen or a local runtime).`);
+  }
+  if (p.thinking === false && p.config.id === 'openai') {
+    throw new Error('OpenAI models cannot turn thinking off; drop `thinking: false` or pick a Qwen or local model.');
+  }
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
+  const res = await p.fetchImpl(`${p.config.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers,
+    signal: p.signal,
+    body: JSON.stringify({
+      model: p.model,
+      messages: p.messages.map(openAiMessage),
+      max_tokens: p.maxTokens,
+      stream: false,
+      ...(p.tools.length ? { tools: p.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })) } : {}),
+      ...(p.thinking === false ? { enable_thinking: false } : {}),
+      ...(p.json ? { response_format: { type: 'json_object' } } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await safeText(res);
+    throw new Error(`${p.config.id} request failed (${res.status})${detail ? `: ${detail}` : ''}`);
+  }
+  const body = (await res.json()) as OpenAiCompletion;
+  const choice = body.choices?.[0];
+  if (!choice?.message) throw new Error(`${p.config.id} returned no message: ${JSON.stringify(body).slice(0, 300)}`);
+  if (choice.finish_reason === 'length') throw new Error(`${p.config.id} stopped at the ${p.maxTokens}-token limit before finishing its reply`);
+  if (!body.usage) throw new Error(`${p.config.id} reported no token usage`);
+  return {
+    text: choice.message.content ?? '',
+    toolCalls: (choice.message.tool_calls ?? []).map((c) => ({ id: c.id, name: c.function.name, arguments: c.function.arguments })),
+    usage: { inputTokens: body.usage.prompt_tokens, outputTokens: body.usage.completion_tokens },
+  };
 }
