@@ -129,13 +129,15 @@ function resolve(
     const body = getBodyChildren(tree);
     let foundAny = false;
 
-    // Walk every paragraph; collect indices of paragraphs whose paragraph
+    // Walk every paragraph — top-level body paragraphs and paragraphs in
+    // table cells or other containers — and note the ones whose paragraph
     // mark carries an `id`-matching `<w:ins>`/`<w:del>`. Resolve content
     // wrappers in place. Paragraph-mark merges happen after the walk so we
-    // don't invalidate indices mid-traversal.
-    const pMarksToMergeWithNext: number[] = [];
+    // don't invalidate indices mid-traversal; each merge stays inside the
+    // paragraph's own container (body, table cell, ...).
+    const pMarksToMergeWithNext = new Map<XmlNode[], number[]>();
 
-    function visitParagraph(p: XmlNode, paragraphBodyIdx: number) {
+    function visitParagraph(p: XmlNode, container: XmlNode[], index: number) {
         const pChildren = p['w:p'] as XmlNode[];
         const pPr = pChildren.find((c) => 'w:pPr' in c);
         let paragraphMarkType: 'ins' | 'del' | null = null;
@@ -160,26 +162,24 @@ function resolve(
         //   accept-del  → marker gone + merge with next paragraph.
         //   reject-ins  → marker gone + merge with next paragraph.
         //   reject-del  → marker gone, paragraph stays.
-        if (paragraphMarkType === 'ins' && action === 'reject') {
-            pMarksToMergeWithNext.push(paragraphBodyIdx);
-        } else if (paragraphMarkType === 'del' && action === 'accept') {
-            pMarksToMergeWithNext.push(paragraphBodyIdx);
+        if (
+            (paragraphMarkType === 'ins' && action === 'reject') ||
+            (paragraphMarkType === 'del' && action === 'accept')
+        ) {
+            const list = pMarksToMergeWithNext.get(container) ?? [];
+            list.push(index);
+            pMarksToMergeWithNext.set(container, list);
         }
-        // Resolve content wrappers anywhere in the paragraph (including
-        // inside tables nested in pStructures, though we don't currently
-        // emit those; safe to traverse).
+        // Resolve content wrappers anywhere in the paragraph.
         if (resolveContentWrappersIn(pChildren, id, action)) foundAny = true;
     }
 
-    for (let i = 0; i < body.length; i++) {
-        const n = body[i];
-        if ('w:p' in n) visitParagraph(n, i);
-    }
+    visitParagraphsIn(body, visitParagraph);
 
-    // Merge from the back so earlier indices stay valid.
-    pMarksToMergeWithNext.sort((a, b) => b - a);
-    for (const bodyIdx of pMarksToMergeWithNext) {
-        mergeParagraphWithNext(body, bodyIdx);
+    // Merge from the back of each container so earlier indices stay valid.
+    for (const [container, indexes] of pMarksToMergeWithNext) {
+        indexes.sort((a, b) => b - a);
+        for (const index of indexes) mergeParagraphWithNext(container, index);
     }
 
     if (foundAny && opts.markDirty !== false) {
@@ -274,31 +274,114 @@ function rewriteDelTextToText(node: XmlNode): XmlNode {
 }
 
 /**
- * Merge the paragraph at `bodyIdx` with the paragraph at `bodyIdx + 1`:
- * concatenate the second paragraph's content children into the first,
- * then drop the second from the body. Skips if there's no following
- * paragraph (last paragraph; nothing to merge with).
+ * Call `visit` for every `<w:p>` under `nodes` (body paragraphs and
+ * paragraphs inside tables, cells, content controls, ...), with the array
+ * that holds it and its index there. Does not descend into paragraphs, so
+ * paragraphs inside text boxes are not visited separately (content
+ * wrappers inside them are still resolved as part of their host
+ * paragraph).
  */
-function mergeParagraphWithNext(body: XmlNode[], bodyIdx: number): void {
-    const first = body[bodyIdx];
+function visitParagraphsIn(
+    nodes: XmlNode[],
+    visit: (p: XmlNode, container: XmlNode[], index: number) => void,
+): void {
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (!node || typeof node !== 'object') continue;
+        if ('w:p' in node) {
+            visit(node, nodes, i);
+            continue;
+        }
+        const tag = primaryTag(node);
+        if (!tag) continue;
+        const value = node[tag];
+        if (Array.isArray(value)) visitParagraphsIn(value as XmlNode[], visit);
+    }
+}
+
+/**
+ * Merge the paragraph at `index` of `container` with the next paragraph in
+ * the same container: concatenate the second paragraph's content children
+ * into the first, then drop the second. Skips if there's no following
+ * paragraph in the container (the last paragraph of the body or of a
+ * table cell; nothing to merge with).
+ *
+ * The merged paragraph keeps the first paragraph's properties (`<w:pPr>`).
+ * Its paragraph mark is the second paragraph's mark, though — the first
+ * one is the break being removed — so any revision markers still pending
+ * on the second paragraph's mark (`<w:pPr>/<w:rPr>/<w:ins|w:del>`) replace
+ * whatever is left on the first's. Resolving those revisions later then
+ * merges again, which is what makes runs of adjacent deleted (accept) or
+ * inserted (reject) paragraphs disappear completely.
+ */
+function mergeParagraphWithNext(container: XmlNode[], index: number): void {
+    const first = container[index];
     if (!first || !('w:p' in first)) return;
     // Find the next w:p (skipping non-paragraph nodes like sectPr, tables).
     let nextIdx = -1;
-    for (let i = bodyIdx + 1; i < body.length; i++) {
-        if ('w:p' in body[i]) {
+    for (let i = index + 1; i < container.length; i++) {
+        if ('w:p' in container[i]) {
             nextIdx = i;
             break;
         }
     }
     if (nextIdx === -1) return;
-    const second = body[nextIdx];
+    const second = container[nextIdx];
     const firstChildren = first['w:p'] as XmlNode[];
     const secondChildren = second['w:p'] as XmlNode[];
+
+    const carried = paragraphMarkMarkers(secondChildren);
+    const firstMarkRPr = markRPrOf(firstChildren);
+    if (firstMarkRPr) {
+        const rPrChildren = firstMarkRPr['w:rPr'] as XmlNode[];
+        for (let i = rPrChildren.length - 1; i >= 0; i--) {
+            const tag = primaryTag(rPrChildren[i]);
+            if (tag === 'w:ins' || tag === 'w:del') rPrChildren.splice(i, 1);
+        }
+    }
+    if (carried.length > 0) {
+        const rPr = firstMarkRPr ?? ensureMarkRPr(firstChildren);
+        // Schema order puts the mark's ins/del first inside <w:rPr>.
+        (rPr['w:rPr'] as XmlNode[]).unshift(...carried);
+    }
+
     // Take all non-pPr children from the second and append to the first.
     for (const c of secondChildren) {
         if (!('w:pPr' in c)) firstChildren.push(c);
     }
-    body.splice(nextIdx, 1);
+    container.splice(nextIdx, 1);
+}
+
+/** The paragraph mark's `<w:pPr>/<w:rPr>` node, if present. */
+function markRPrOf(pChildren: XmlNode[]): XmlNode | undefined {
+    const pPr = pChildren.find((c) => 'w:pPr' in c);
+    if (!pPr) return undefined;
+    return (pPr['w:pPr'] as XmlNode[]).find((c) => 'w:rPr' in c);
+}
+
+/** The paragraph mark's pending `<w:ins>`/`<w:del>` markers, in order. */
+function paragraphMarkMarkers(pChildren: XmlNode[]): XmlNode[] {
+    const rPr = markRPrOf(pChildren);
+    if (!rPr) return [];
+    return (rPr['w:rPr'] as XmlNode[]).filter((c) => {
+        const tag = primaryTag(c);
+        return tag === 'w:ins' || tag === 'w:del';
+    });
+}
+
+function ensureMarkRPr(pChildren: XmlNode[]): XmlNode {
+    let pPr = pChildren.find((c) => 'w:pPr' in c);
+    if (!pPr) {
+        pPr = { 'w:pPr': [] };
+        pChildren.unshift(pPr);
+    }
+    const pPrChildren = pPr['w:pPr'] as XmlNode[];
+    let rPr = pPrChildren.find((c) => 'w:rPr' in c);
+    if (!rPr) {
+        rPr = { 'w:rPr': [] };
+        pPrChildren.push(rPr);
+    }
+    return rPr;
 }
 
 /**

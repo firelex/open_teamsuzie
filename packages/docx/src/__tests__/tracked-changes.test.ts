@@ -3,6 +3,7 @@ import PizZip from 'pizzip';
 import {
     TrackedChangesEditor,
     acceptAllRevisions,
+    rejectAllRevisions,
     bodyParagraphInfos,
     bodyParagraphTexts,
     computeNextRevisionId,
@@ -1067,5 +1068,82 @@ describe('listRevisions', () => {
             expect(r.date).toBe('2026-05-02T12:00:00Z');
             expect(r.id).toBeGreaterThan(0);
         }
+    });
+});
+
+describe('TrackedChangesEditor.insertParagraphBefore', () => {
+    it('inserts a tracked paragraph directly before the given paragraph', () => {
+        const file = loadDocx(
+            buildMinimalDocx([{ text: 'first' }, { text: 'second' }]),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        const id = editor.insertParagraphBefore(1, 'inserted middle');
+        expect(bodyParagraphTexts(file)).toEqual(['first', 'inserted middle', 'second']);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).toContain(`<w:ins w:id="${id}"`);
+        expect(out).toMatch(/<w:rPr><w:ins [^>]*(?:\/>|><\/w:ins>)<\/w:rPr>/);
+        const accepted = loadDocx(saveDocx(file));
+        acceptAllRevisions(accepted);
+        expect(bodyParagraphTexts(accepted)).toEqual(['first', 'inserted middle', 'second']);
+        const rejected = loadDocx(saveDocx(file));
+        rejectAllRevisions(rejected);
+        expect(bodyParagraphTexts(rejected)).toEqual(['first', 'second']);
+    });
+
+    it('a paragraph after a table gets its insert after the table, not inside the last cell', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+              <w:tbl><w:tr><w:tc>
+                <w:p><w:r><w:t>cell one</w:t></w:r></w:p>
+              </w:tc></w:tr></w:tbl>
+              <w:p><w:r><w:t>outro</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraphBefore(2, 'before outro');
+        expect(bodyParagraphTexts(file)).toEqual(['intro', 'cell one', 'before outro', 'outro']);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out.indexOf('</w:tbl>')).toBeLessThan(out.indexOf('before outro'));
+        expect(out.indexOf('before outro')).toBeLessThan(out.indexOf('outro</w:t>'));
+    });
+
+    it('inserts inside a table cell, before the given cell paragraph', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+              <w:tbl><w:tr><w:tc>
+                <w:p><w:r><w:t>cell one</w:t></w:r></w:p>
+              </w:tc></w:tr></w:tbl>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraphBefore(1, 'cell zero');
+        expect(bodyParagraphTexts(file)).toEqual(['intro', 'cell zero', 'cell one']);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out.indexOf('<w:tc>')).toBeLessThan(out.indexOf('cell zero'));
+        const rejected = loadDocx(saveDocx(file));
+        rejectAllRevisions(rejected);
+        expect(bodyParagraphTexts(rejected)).toEqual(['intro', 'cell one']);
+    });
+
+    it('carries the given pPr and run rPr onto the new paragraph', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'only' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        const pPr = { 'w:pPr': [{ 'w:pStyle': [], ':@': { '@_w:val': 'Heading1' } }] } as XmlNode;
+        const rPr = { 'w:rPr': [{ 'w:b': [] }] } as XmlNode;
+        editor.insertParagraphBefore(0, 'heading', { pPr, rPr });
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).toContain('<w:pStyle w:val="Heading1"');
+        expect(out).toMatch(/<w:r><w:rPr><w:b(?:\/>|><\/w:b>)<\/w:rPr><w:t xml:space="preserve">heading<\/w:t>/);
+        // The caller's pPr object is not mutated.
+        expect(pPr['w:pPr']).toHaveLength(1);
+    });
+
+    it('throws for an index out of range', () => {
+        const file = loadDocx(buildMinimalDocx([{ text: 'only' }]));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        expect(() => editor.insertParagraphBefore(1, 'x')).toThrow(/out of range/);
+        expect(() => editor.insertParagraphBefore(-1, 'x')).toThrow(/out of range/);
     });
 });

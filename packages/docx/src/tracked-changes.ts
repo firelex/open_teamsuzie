@@ -369,6 +369,18 @@ export class TrackedChangesEditor {
      * paragraph-mark deletion marker inside `<w:pPr>/<w:rPr>`. Word will
      * strike the paragraph through and, on accept-all, merge it into the
      * next paragraph.
+     *
+     * The last paragraph of its container (the end of the body, or the
+     * last paragraph of a table cell) has no next paragraph to merge into,
+     * and Word never deletes that final paragraph mark. So when nothing
+     * but already-deleted paragraphs follows it in its container, the
+     * deletion marker goes on the mark of the nearest earlier paragraph
+     * that is not itself deleted instead — what Word records when you
+     * delete a document's last paragraph — and accept-all leaves no empty
+     * paragraph behind. If there is no such earlier paragraph (or a table
+     * or other block sits in between), the paragraph's own mark is used,
+     * as for any other paragraph. A mark that is already a tracked
+     * deletion is left as it is (it already joins on accept).
      */
     deleteParagraph(index: number): number {
         const paragraphs = bodyParagraphRefs(this.file.document());
@@ -376,13 +388,18 @@ export class TrackedChangesEditor {
             throw new Error(`paragraph index ${index} out of range`);
         }
         const id = this.allocId();
-        const pNode = paragraphs[index].node;
+        const ref = paragraphs[index];
+        const pNode = ref.node;
         const pChildren = pNode['w:p'] as XmlNode[];
 
-        // Ensure pPr/rPr exists so we can hang the paragraph-mark del marker on it.
+        // Ensure pPr exists so the paragraph keeps a pPr slot.
         const pPr = ensurePPr(pChildren);
-        const rPr = ensureRPr(pPr);
-        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:del', id));
+        const markHost = tailDeletionMarkHost(ref) ?? pNode;
+        const markPPr = ensurePPr(markHost['w:p'] as XmlNode[]);
+        const markRPr = ensureRPr(markPPr);
+        if (!markHasRevision(markRPr, 'w:del')) {
+            (markRPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:del', id));
+        }
 
         // Wrap each non-pPr child in <w:del>, rewriting w:t → w:delText
         // for any run text inside.
@@ -408,6 +425,14 @@ export class TrackedChangesEditor {
      * from the source-side paragraph in the right document); optional `rPr`
      * lets the caller carry the source's run formatting onto the inserted
      * content run.
+     *
+     * When the anchor is the last paragraph of its container (the end of
+     * the body, or the last paragraph of a table cell), the new paragraph
+     * becomes the container's last paragraph, whose mark Word never treats
+     * as inserted. The insertion marker then goes on the anchor's mark
+     * instead — what Word records when you press Enter at the end of a
+     * document — so reject-all joins the anchor with the rejected
+     * paragraph and leaves no empty paragraph behind.
      */
     insertParagraph(
         afterIndex: number,
@@ -420,10 +445,23 @@ export class TrackedChangesEditor {
             throw new Error(`afterIndex ${afterIndex} out of range`);
         }
         const id = this.allocId();
+        const anchor = afterIndex === -1 ? null : paragraphs[afterIndex];
+        // An anchor whose mark is already a tracked insertion keeps it; the
+        // new paragraph then carries its own marker, as elsewhere.
+        const existingAnchorMark = anchor ? paragraphMarkRPr(anchor.node) : undefined;
+        const markOnAnchor =
+            anchor !== null &&
+            isLastInContainer(anchor) &&
+            !(existingAnchorMark && markHasRevision(existingAnchorMark, 'w:ins'));
 
         const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
-        const rPr = ensureRPr(pPr);
-        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+        if (markOnAnchor) {
+            const anchorMarkRPr = ensureRPr(ensurePPr(anchor!.node['w:p'] as XmlNode[]));
+            (anchorMarkRPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+        } else {
+            const rPr = ensureRPr(pPr);
+            (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+        }
 
         const inheritedRPr = opts?.rPr ? cloneNode(opts.rPr) : undefined;
 
@@ -433,17 +471,54 @@ export class TrackedChangesEditor {
                 this.wrapInIns([makeRun(text, false, inheritedRPr)], id),
             ],
         };
-        if (afterIndex === -1) {
+        if (anchor) {
+            anchor.parent.splice(anchor.index + 1, 0, newP);
+        } else {
             const first = paragraphs[0];
             if (first) {
                 first.parent.splice(first.index, 0, newP);
             } else {
                 body.splice(emptyBodyInsertIndex(body), 0, newP);
             }
-        } else {
-            const anchor = paragraphs[afterIndex];
-            anchor.parent.splice(anchor.index + 1, 0, newP);
         }
+        this.file.markDocumentDirty();
+        return id;
+    }
+
+    /**
+     * Insert a new paragraph directly before the main-document paragraph at
+     * `index`, inside that paragraph's own container: before a table-cell
+     * paragraph it lands in the same cell, and before the first paragraph
+     * after a table it lands after the table (where `insertParagraph(index
+     * - 1)` would put it inside the table's last cell). The new paragraph
+     * carries a paragraph-mark insertion marker and wraps its content run
+     * in `<w:ins>`, exactly like `insertParagraph`; `opts.pPr` / `opts.rPr`
+     * are deep-cloned onto it the same way. Returns the issued revision id.
+     */
+    insertParagraphBefore(
+        index: number,
+        text: string,
+        opts?: { pPr?: XmlNode; rPr?: XmlNode },
+    ): number {
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (index < 0 || index >= paragraphs.length) {
+            throw new Error(
+                `paragraph index ${index} out of range (body has ${paragraphs.length} paragraphs)`,
+            );
+        }
+        const id = this.allocId();
+        const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
+        const rPr = ensureRPr(pPr);
+        (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
+        const inheritedRPr = opts?.rPr ? cloneNode(opts.rPr) : undefined;
+        const newP: XmlNode = {
+            'w:p': [
+                pPr,
+                this.wrapInIns([makeRun(text, false, inheritedRPr)], id),
+            ],
+        };
+        const target = paragraphs[index];
+        target.parent.splice(target.index, 0, newP);
         this.file.markDocumentDirty();
         return id;
     }
@@ -838,6 +913,104 @@ function collectParagraphRefs(nodes: XmlNode[], out: ParagraphRef[]): void {
         if (!Array.isArray(value)) continue;
         collectParagraphRefs(value as XmlNode[], out);
     }
+}
+
+/**
+ * Elements that can sit next to paragraphs without being content: the
+ * body's section properties, a cell's properties, and range markers.
+ */
+const NON_CONTENT_SIBLINGS = new Set([
+    'w:sectPr',
+    'w:tcPr',
+    'w:bookmarkStart',
+    'w:bookmarkEnd',
+    'w:commentRangeStart',
+    'w:commentRangeEnd',
+    'w:permStart',
+    'w:permEnd',
+    'w:proofErr',
+]);
+
+/** A sibling that is not content: one of `NON_CONTENT_SIBLINGS`, or whitespace text between elements. */
+function isNonContentSibling(node: XmlNode): boolean {
+    const tag = primaryTag(node);
+    if (tag === '#text') {
+        const text = (node as { '#text': unknown })['#text'];
+        return typeof text === 'string' && text.trim() === '';
+    }
+    return tag !== null && NON_CONTENT_SIBLINGS.has(tag);
+}
+
+/** True when nothing but non-content siblings follows the paragraph in its container. */
+function isLastInContainer(ref: ParagraphRef): boolean {
+    for (let i = ref.index + 1; i < ref.parent.length; i++) {
+        if (!isNonContentSibling(ref.parent[i])) return false;
+    }
+    return true;
+}
+
+/** The paragraph mark's `<w:pPr>/<w:rPr>` node, if present. */
+function paragraphMarkRPr(pNode: XmlNode): XmlNode | undefined {
+    const pPr = (pNode['w:p'] as XmlNode[]).find(isPPr);
+    if (!pPr) return undefined;
+    return (pPr['w:pPr'] as XmlNode[]).find((c) => 'w:rPr' in c);
+}
+
+function markHasRevision(markRPr: XmlNode, tag: 'w:ins' | 'w:del'): boolean {
+    return (markRPr['w:rPr'] as XmlNode[]).some((c) => primaryTag(c) === tag);
+}
+
+/**
+ * A paragraph that is entirely deleted already: it has no live content
+ * (every child besides `<w:pPr>` and range markers is a `<w:del>`), and
+ * either some deleted content or a deleted paragraph mark. An empty
+ * paragraph with neither is live (a deliberate blank line).
+ */
+function isFullyDeleted(pNode: XmlNode): boolean {
+    let hasDeletedContent = false;
+    for (const child of pNode['w:p'] as XmlNode[]) {
+        const tag = primaryTag(child);
+        if (tag === 'w:pPr') continue;
+        if (tag === 'w:del') {
+            hasDeletedContent = true;
+            continue;
+        }
+        if (isNonContentSibling(child)) continue;
+        return false;
+    }
+    if (hasDeletedContent) return true;
+    const markRPr = paragraphMarkRPr(pNode);
+    return markRPr !== undefined && markHasRevision(markRPr, 'w:del');
+}
+
+/**
+ * For `deleteParagraph`: when only already-deleted paragraphs (and
+ * non-content siblings) follow `ref` in its container, return the nearest
+ * earlier paragraph in the same container that is not deleted, skipping
+ * deleted paragraphs and non-content siblings. Its mark should carry the
+ * deletion. Returns null when `ref` is not at the tail, or when a table or
+ * other block (or the container's start) comes before any live paragraph.
+ */
+function tailDeletionMarkHost(ref: ParagraphRef): XmlNode | null {
+    for (let i = ref.index + 1; i < ref.parent.length; i++) {
+        const node = ref.parent[i];
+        const tag = primaryTag(node);
+        if (tag === 'w:p') {
+            if (!isFullyDeleted(node)) return null;
+            continue;
+        }
+        if (!isNonContentSibling(node)) return null;
+    }
+    for (let i = ref.index - 1; i >= 0; i--) {
+        const node = ref.parent[i];
+        const tag = primaryTag(node);
+        if (tag === 'w:p') {
+            if (isFullyDeleted(node)) continue;
+            return node;
+        }
+        if (!isNonContentSibling(node)) return null;
+    }
+    return null;
 }
 
 function emptyBodyInsertIndex(body: XmlNode[]): number {
