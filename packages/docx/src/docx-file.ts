@@ -1,6 +1,75 @@
+import { inflateRawSync } from 'node:zlib';
 import PizZip from 'pizzip';
 import { parseXml, serializeXml } from './xml.js';
 import type { XmlTree } from './types.js';
+
+/** A package that would unpack to more than `DocxLoadOptions.maxUncompressedBytes`. */
+export class DocxTooLargeError extends Error {
+    constructor(readonly limit: number, detail: string) {
+        super(`The package unpacks to more than ${limit} bytes (${detail})`);
+        this.name = 'DocxTooLargeError';
+    }
+}
+
+/** A package that cannot be read as a zip, or holds a part it cannot unpack. Raised only when loading with a limit. */
+export class DocxInvalidError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'DocxInvalidError';
+    }
+}
+
+export interface DocxLoadOptions {
+    /**
+     * The most all parts together may unpack to. Measured before any part is turned into bytes, by unpacking each
+     * part's compressed data (the exact bytes the zip reader would unpack) with that ceiling, so a small file that
+     * would unpack to gigabytes (a "zip bomb") is refused without ever being unpacked in full.
+     */
+    maxUncompressedBytes?: number;
+}
+
+/** The zip reader's own record of a part read from the package (pizzip's internal CompressedObject). */
+interface ReadPart {
+    compressionMethod: string;
+    getCompressedContent: () => Uint8Array | Buffer | string;
+}
+const STORED = '\x00\x00';
+const DEFLATED = '\x08\x00';
+
+/**
+ * Unpacks every part the zip reader found, as it will read them, within `limit` bytes in total: a stored part counts
+ * its length, a deflated one what it unpacks to (inflated with the budget left as its ceiling). Throws
+ * DocxTooLargeError past the limit, DocxInvalidError for a part it cannot unpack.
+ */
+function assertWithinLimit(zip: PizZip, limit: number): void {
+    let used = 0;
+    for (const path of Object.keys(zip.files)) {
+        const entry = zip.files[path]!;
+        if (entry.dir) continue;
+        const data = (entry as unknown as { _data: unknown })._data as Partial<ReadPart> | null;
+        if (!data || typeof data.getCompressedContent !== 'function' || typeof data.compressionMethod !== 'string') {
+            throw new DocxInvalidError(`Part ${path} was not read from the package`);
+        }
+        const raw = data.getCompressedContent();
+        const compressed = typeof raw === 'string' ? Buffer.from(raw, 'binary') : Buffer.from(raw);
+        const remaining = limit - used;
+        let size: number;
+        if (data.compressionMethod === STORED) {
+            size = compressed.length;
+        } else if (data.compressionMethod === DEFLATED) {
+            try {
+                size = inflateRawSync(compressed, { maxOutputLength: Math.max(1, remaining) }).length;
+            } catch (err) {
+                if (err instanceof RangeError) throw new DocxTooLargeError(limit, `part ${path} alone unpacks past what is left`);
+                throw new DocxInvalidError(`Part ${path} cannot be unpacked: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        } else {
+            throw new DocxInvalidError(`Part ${path} uses a compression method this reader does not support`);
+        }
+        used += size;
+        if (used > limit) throw new DocxTooLargeError(limit, `reached at part ${path}`);
+    }
+}
 
 /**
  * A loaded `.docx` package. Every part read from the source zip is held as
@@ -31,9 +100,20 @@ export class DocxFile {
         this.originalParts = originalParts;
     }
 
-    static load(bytes: Buffer | Uint8Array): DocxFile {
+    static load(bytes: Buffer | Uint8Array, options: DocxLoadOptions = {}): DocxFile {
         const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-        const zip = new PizZip(buf);
+        const limit = options.maxUncompressedBytes;
+        let zip: PizZip;
+        if (limit === undefined) {
+            zip = new PizZip(buf);
+        } else {
+            try {
+                zip = new PizZip(buf);
+            } catch (err) {
+                throw new DocxInvalidError(`Not a zip package: ${err instanceof Error ? err.message : String(err)}`);
+            }
+            assertWithinLimit(zip, limit);
+        }
         const parts = new Map<string, Buffer>();
         for (const path of Object.keys(zip.files)) {
             const entry = zip.file(path);
@@ -41,7 +121,7 @@ export class DocxFile {
             parts.set(path, Buffer.from(entry.asArrayBuffer()));
         }
         if (!parts.has('word/document.xml')) {
-            throw new Error(
+            throw new DocxInvalidError(
                 'Not a valid .docx package: missing word/document.xml',
             );
         }
@@ -149,8 +229,8 @@ export class DocxFile {
 }
 
 /** Convenience entry point mirroring `JSON.parse` / `JSON.stringify` style. */
-export function loadDocx(bytes: Buffer | Uint8Array): DocxFile {
-    return DocxFile.load(bytes);
+export function loadDocx(bytes: Buffer | Uint8Array, options: DocxLoadOptions = {}): DocxFile {
+    return DocxFile.load(bytes, options);
 }
 
 export function saveDocx(file: DocxFile): Buffer {

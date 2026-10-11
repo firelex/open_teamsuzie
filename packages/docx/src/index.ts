@@ -1,4 +1,5 @@
-export { DocxFile, loadDocx, saveDocx } from './docx-file.js';
+export { DocxFile, DocxInvalidError, DocxTooLargeError, loadDocx, saveDocx } from './docx-file.js';
+export type { DocxLoadOptions } from './docx-file.js';
 export { parseXml, serializeXml } from './xml.js';
 export type { XmlAttributes, XmlNode, XmlTree } from './types.js';
 export {
