@@ -762,11 +762,42 @@ describe('Word-authored whole-paragraph revisions (distinct ids for the mark and
         expect(JSON.stringify(bodyParagraphInfos(copy)[0].pPr)).toContain('BodyText');
     });
 
-    it('one id at a time, mark first: accepting the mark deletion before a table removes the paragraph (its pending deleted text with it)', () => {
+    it('one id at a time, mark first: accepting the mark deletion before a table keeps the paragraph while its text is undecided', () => {
         const file = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${tableXml}${p('C')}`));
-        acceptRevision(file, 1);
-        expect(bodyParagraphTexts(file)).toEqual(['A', 'cell', 'C']);
+        expect(acceptRevision(file, 1)).toBe(true);
+        // The deleted text is still pending, so the paragraph stays (it reads empty in accepted view).
+        expect(bodyParagraphTexts(file)).toEqual(['A', '', 'cell', 'C']);
+        expect(listRevisions(file).map((r) => r.id)).toEqual([2]);
+        // Accepting the text too leaves the documented limitation: an empty paragraph, nothing lost.
+        expect(acceptRevision(file, 2)).toBe(true);
+        expect(bodyParagraphTexts(file)).toEqual(['A', '', 'cell', 'C']);
+    });
+
+    it('one id at a time: accepting the mark deletion then rejecting the text keeps "B"', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${tableXml}${p('C')}`));
+        expect(acceptRevision(file, 1)).toBe(true);
+        expect(rejectRevision(file, 2)).toBe(true);
+        expect(bodyParagraphTexts(file)).toEqual(['A', 'B', 'cell', 'C']);
         expect(listRevisions(file)).toEqual([]);
+    });
+
+    it('one id at a time: rejecting the inserted mark then accepting the text keeps "X"', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${insertedP(1, 2, 'X')}${tableXml}${p('C')}`));
+        expect(rejectRevision(file, 1)).toBe(true);
+        expect(acceptRevision(file, 2)).toBe(true);
+        expect(bodyParagraphTexts(file)).toEqual(['A', 'X', 'cell', 'C']);
+        expect(listRevisions(file)).toEqual([]);
+    });
+
+    it('a batch that accepts before it rejects (as the redline router does) acts on both ids and loses no text', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${tableXml}${p('C')}`));
+        const batch = { accept: [1], reject: [2] };
+        const accepted: number[] = [];
+        const rejected: number[] = [];
+        for (const id of batch.accept) if (acceptRevision(file, id)) accepted.push(id);
+        for (const id of batch.reject) if (rejectRevision(file, id)) rejected.push(id);
+        expect({ accepted, rejected }).toEqual({ accepted: [1], rejected: [2] });
+        expect(bodyParagraphTexts(loadDocx(saveDocx(file)))).toEqual(['A', 'B', 'cell', 'C']);
     });
 
     it('one id at a time, text first: accepting the text then the mark removes the paragraph', () => {

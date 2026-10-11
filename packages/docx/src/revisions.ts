@@ -320,20 +320,18 @@ function visitParagraphsIn(
  *
  * - Only range markers and whitespace may sit between the two. When a table
  *   or other block comes first, nothing is merged across it (as in Word):
- *   a paragraph with no live content left (see `hasLiveContent`) is
- *   removed, leaving its range markers (bookmarks, ...) in its place, and
- *   one with content left just keeps it (its marker is already gone).
- *   Removing it drops any revision still pending in it that this action
- *   would remove anyway (a deletion when accepting, an insertion when
- *   rejecting). Resolving one id at a time (`acceptRevision` /
- *   `rejectRevision`) can therefore settle such a pending text revision
- *   along with the mark; and the opposite case is not repaired: when the
- *   paragraph is kept because it still holds content that a LATER
- *   single-id resolution removes (accepting a mark deletion while an
- *   insertion in it is pending, then rejecting that insertion), the
- *   paragraph is left empty, since nothing records that its mark was
- *   deleted. `acceptAllRevisions` / `rejectAllRevisions` resolve text
- *   revisions first, so they never meet either case.
+ *   a paragraph with nothing at all left in it (no content and no revision
+ *   still pending) is removed, leaving its range markers (bookmarks, ...)
+ *   in its place; any other paragraph just keeps it (its marker is already
+ *   gone). `acceptAllRevisions` / `rejectAllRevisions` resolve text
+ *   revisions first, so by the time they reach the mark the paragraph's
+ *   text is settled and a wholly deleted (accept) or inserted (reject)
+ *   paragraph is removed. Resolving one id at a time (`acceptRevision` /
+ *   `rejectRevision`) with the mark first keeps the paragraph while its
+ *   text is undecided, so a later call can still restore that text; if the
+ *   later call removes the text instead, the paragraph is left empty
+ *   (known limitation: nothing records that its mark was deleted). Nothing
+ *   is lost either way.
  * - At the end of the container (the body's last paragraph, a cell's last
  *   paragraph) there is nothing to merge with and the paragraph stays.
  * - When the first paragraph has no live content left (a whole-paragraph
@@ -366,7 +364,11 @@ function mergeParagraphWithNext(container: XmlNode[], index: number, action: Act
         break;
     }
     if (nextIdx === -1) {
-        if (blockedByBlock && !hasLiveContent(firstChildren, action)) {
+        // Removed only when nothing at all is left in it: no live content
+        // and no revision still pending (a pending one may yet be rejected
+        // or accepted back into view by a later single-id call).
+        const nothingLeft = firstChildren.every((c) => 'w:pPr' in c || isNonContentSibling(c));
+        if (blockedByBlock && nothingLeft) {
             const rangeMarkers = firstChildren.filter(
                 (c) => !('w:pPr' in c) && primaryTag(c) !== '#text' && isNonContentSibling(c),
             );
