@@ -108,9 +108,22 @@ export function rejectAllRevisions(file: DocxFile): number {
 
 type Action = 'accept' | 'reject';
 
+/**
+ * Resolve every revision. Text revisions (content wrappers) go before
+ * paragraph-mark revisions: Word gives a paragraph's mark and its text
+ * different ids, and the mark is listed first (it sits in `<w:pPr>`), so
+ * in document order a mark would be resolved while the paragraph still
+ * held its pending text. Resolving the text first means a removed
+ * paragraph break always sees what is really left of its paragraph.
+ * An id used for both (as `TrackedChangesEditor` does) resolves in one
+ * pass and counts as a text revision.
+ */
 function resolveAll(file: DocxFile, action: Action): number {
+    const revisions = listRevisions(file);
+    const textIds = new Set(revisions.filter((r) => r.type === 'ins' || r.type === 'del').map((r) => r.id));
     const ids = new Set<number>();
-    for (const r of listRevisions(file)) ids.add(r.id);
+    for (const r of revisions) if (textIds.has(r.id)) ids.add(r.id);
+    for (const r of revisions) ids.add(r.id);
     let count = 0;
     for (const id of ids) {
         if (resolve(file, id, action, { markDirty: false })) count++;
@@ -179,7 +192,7 @@ function resolve(
     // Merge from the back of each container so earlier indices stay valid.
     for (const [container, indexes] of pMarksToMergeWithNext) {
         indexes.sort((a, b) => b - a);
-        for (const index of indexes) mergeParagraphWithNext(container, index);
+        for (const index of indexes) mergeParagraphWithNext(container, index, action);
     }
 
     if (foundAny && opts.markDirty !== false) {
@@ -307,12 +320,24 @@ function visitParagraphsIn(
  *
  * - Only range markers and whitespace may sit between the two. When a table
  *   or other block comes first, nothing is merged across it (as in Word):
- *   a paragraph with nothing left in it is removed, and one with content
- *   left just keeps it (its marker is already gone).
+ *   a paragraph with no live content left (see `hasLiveContent`) is
+ *   removed, leaving its range markers (bookmarks, ...) in its place, and
+ *   one with content left just keeps it (its marker is already gone).
+ *   Removing it drops any revision still pending in it that this action
+ *   would remove anyway (a deletion when accepting, an insertion when
+ *   rejecting). Resolving one id at a time (`acceptRevision` /
+ *   `rejectRevision`) can therefore settle such a pending text revision
+ *   along with the mark; and the opposite case is not repaired: when the
+ *   paragraph is kept because it still holds content that a LATER
+ *   single-id resolution removes (accepting a mark deletion while an
+ *   insertion in it is pending, then rejecting that insertion), the
+ *   paragraph is left empty, since nothing records that its mark was
+ *   deleted. `acceptAllRevisions` / `rejectAllRevisions` resolve text
+ *   revisions first, so they never meet either case.
  * - At the end of the container (the body's last paragraph, a cell's last
  *   paragraph) there is nothing to merge with and the paragraph stays.
  * - When the first paragraph has no live content left (a whole-paragraph
- *   deletion, or a rejected inserted paragraph), the merged paragraph keeps
+ *   deletion, or a rejected inserted paragraph; see `hasLiveContent`), the merged paragraph keeps
  *   the SECOND paragraph's properties, as Word does: the surviving
  *   paragraph mark is the second's. When the first keeps content (a partial
  *   merge), it keeps the first paragraph's properties, and any revision
@@ -323,7 +348,7 @@ function visitParagraphsIn(
  *   adjacent deleted (accept) or inserted (reject) paragraphs disappear
  *   completely.
  */
-function mergeParagraphWithNext(container: XmlNode[], index: number): void {
+function mergeParagraphWithNext(container: XmlNode[], index: number, action: Action): void {
     const first = container[index];
     if (!first || !('w:p' in first)) return;
     const firstChildren = first['w:p'] as XmlNode[];
@@ -341,19 +366,21 @@ function mergeParagraphWithNext(container: XmlNode[], index: number): void {
         break;
     }
     if (nextIdx === -1) {
-        const empty = firstChildren.every(
-            (c) => 'w:pPr' in c || (primaryTag(c) === '#text' && isNonContentSibling(c)),
-        );
-        if (blockedByBlock && empty) container.splice(index, 1);
+        if (blockedByBlock && !hasLiveContent(firstChildren, action)) {
+            const rangeMarkers = firstChildren.filter(
+                (c) => !('w:pPr' in c) && primaryTag(c) !== '#text' && isNonContentSibling(c),
+            );
+            container.splice(index, 1, ...rangeMarkers);
+        }
         return;
     }
     const second = container[nextIdx];
     const secondChildren = second['w:p'] as XmlNode[];
 
-    if (!hasLiveContent(firstChildren)) {
+    if (!hasLiveContent(firstChildren, action)) {
         // Keep the second paragraph's properties (and with them its mark's
         // pending revisions); the first contributes only what is left in it
-        // (range markers, still-pending deletions).
+        // (range markers, revisions still pending in it).
         const secondPPr = secondChildren.filter((c) => 'w:pPr' in c);
         const firstRest = firstChildren.filter((c) => !('w:pPr' in c));
         const secondRest = secondChildren.filter((c) => !('w:pPr' in c));
@@ -385,11 +412,14 @@ function mergeParagraphWithNext(container: XmlNode[], index: number): void {
 }
 
 /**
- * Whether a paragraph still has live content: anything besides its
- * properties, range markers, whitespace and still-pending deletions.
+ * Whether a paragraph still has live content once the action under way is
+ * done: anything besides its properties, range markers and whitespace,
+ * except pending revisions that the action removes — deletions when
+ * accepting, insertions when rejecting.
  */
-function hasLiveContent(pChildren: XmlNode[]): boolean {
-    return pChildren.some((c) => !('w:pPr' in c) && primaryTag(c) !== 'w:del' && !isNonContentSibling(c));
+function hasLiveContent(pChildren: XmlNode[], action: Action): boolean {
+    const goes = action === 'accept' ? 'w:del' : 'w:ins';
+    return pChildren.some((c) => !('w:pPr' in c) && primaryTag(c) !== goes && !isNonContentSibling(c));
 }
 
 /** The paragraph mark's `<w:pPr>/<w:rPr>` node, if present. */

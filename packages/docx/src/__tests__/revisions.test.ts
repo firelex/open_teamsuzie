@@ -717,3 +717,77 @@ describe('revisions inside table cells', () => {
         expect(rejectedTexts(file)).toEqual(['intro', 'c1', 'c2', 'c3', 'd1', 'outro']);
     });
 });
+
+// Word gives a paragraph's mark revision and its text revision DIFFERENT ids.
+describe('Word-authored whole-paragraph revisions (distinct ids for the mark and the text)', () => {
+    const tableXml = '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>';
+    const by = 'w:author="Them" w:date="2026-01-01T00:00:00Z"';
+    const deletedP = (markId: number, textId: number, text: string) =>
+        `<w:p><w:pPr><w:rPr><w:del w:id="${markId}" ${by}/></w:rPr></w:pPr><w:del w:id="${textId}" ${by}><w:r><w:delText>${text}</w:delText></w:r></w:del></w:p>`;
+    const insertedP = (markId: number, textId: number, text: string) =>
+        `<w:p><w:pPr><w:rPr><w:ins w:id="${markId}" ${by}/></w:rPr></w:pPr><w:ins w:id="${textId}" ${by}><w:r><w:t>${text}</w:t></w:r></w:ins></w:p>`;
+    const p = (text: string) => `<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`;
+
+    it('accept-all removes a deleted paragraph directly before a table', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${tableXml}${p('C')}`));
+        expect(acceptedTexts(file)).toEqual(['A', 'cell', 'C']);
+        expect(rejectedTexts(file)).toEqual(['A', 'B', 'cell', 'C']);
+    });
+
+    it('reject-all removes an inserted paragraph directly before a table', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${insertedP(1, 2, 'X')}${tableXml}${p('C')}`));
+        expect(rejectedTexts(file)).toEqual(['A', 'cell', 'C']);
+        expect(acceptedTexts(file)).toEqual(['A', 'X', 'cell', 'C']);
+    });
+
+    it('accept-all removes adjacent deleted paragraphs, and reject-all adjacent inserted ones, with no table near', () => {
+        const deleted = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${deletedP(3, 4, 'C')}${p('D')}`));
+        expect(acceptedTexts(deleted)).toEqual(['A', 'D']);
+        expect(rejectedTexts(deleted)).toEqual(['A', 'B', 'C', 'D']);
+        const inserted = loadDocx(buildBodyDocx(`${p('A')}${insertedP(1, 2, 'X')}${insertedP(3, 4, 'Y')}${p('B')}`));
+        expect(rejectedTexts(inserted)).toEqual(['A', 'B']);
+        expect(acceptedTexts(inserted)).toEqual(['A', 'X', 'Y', 'B']);
+    });
+
+    it('a whole deleted paragraph leaves the next paragraph its own properties', () => {
+        const file = loadDocx(
+            buildBodyDocx(
+                `<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:rPr><w:del w:id="1" ${by}/></w:rPr></w:pPr><w:del w:id="2" ${by}><w:r><w:delText>Old heading</w:delText></w:r></w:del></w:p>` +
+                    `<w:p><w:pPr><w:pStyle w:val="BodyText"/></w:pPr><w:r><w:t>Body.</w:t></w:r></w:p>`,
+            ),
+        );
+        const copy = loadDocx(saveDocx(file));
+        acceptAllRevisions(copy);
+        expect(bodyParagraphTexts(copy)).toEqual(['Body.']);
+        expect(JSON.stringify(bodyParagraphInfos(copy)[0].pPr)).toContain('BodyText');
+    });
+
+    it('one id at a time, mark first: accepting the mark deletion before a table removes the paragraph (its pending deleted text with it)', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${tableXml}${p('C')}`));
+        acceptRevision(file, 1);
+        expect(bodyParagraphTexts(file)).toEqual(['A', 'cell', 'C']);
+        expect(listRevisions(file)).toEqual([]);
+    });
+
+    it('one id at a time, text first: accepting the text then the mark removes the paragraph', () => {
+        const file = loadDocx(buildBodyDocx(`${p('A')}${deletedP(1, 2, 'B')}${tableXml}${p('C')}`));
+        acceptRevision(file, 2);
+        expect(bodyParagraphTexts(file)).toEqual(['A', '', 'cell', 'C']);
+        acceptRevision(file, 1);
+        expect(bodyParagraphTexts(file)).toEqual(['A', 'cell', 'C']);
+    });
+
+    it('removing an emptied paragraph before a table keeps its bookmarks in place', () => {
+        const file = loadDocx(
+            buildBodyDocx(
+                `${p('A')}<w:p><w:pPr><w:rPr><w:del w:id="1" ${by}/></w:rPr></w:pPr><w:bookmarkStart w:id="0" w:name="here"/><w:del w:id="2" ${by}><w:r><w:delText>B</w:delText></w:r></w:del><w:bookmarkEnd w:id="0"/></w:p>${tableXml}${p('C')}`,
+            ),
+        );
+        const copy = loadDocx(saveDocx(file));
+        acceptAllRevisions(copy);
+        expect(bodyParagraphTexts(copy)).toEqual(['A', 'cell', 'C']);
+        const xml = bodyXml(loadDocx(saveDocx(copy)));
+        expect(xml).toContain('w:name="here"');
+        expect(xml.indexOf('w:name="here"')).toBeLessThan(xml.indexOf('<w:tbl>'));
+    });
+});
