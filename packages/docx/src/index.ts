@@ -20,7 +20,7 @@ export {
     rejectAllRevisions,
     rejectRevision,
 } from './revisions.js';
-export { applyContentKeyedEdits } from './content-keyed-edits.js';
+export { applyContentKeyedEdits, planContentKeyedEdits } from './content-keyed-edits.js';
 export { generateDocx } from './generate.js';
 export type {
     GenerateDocxSpec,
@@ -30,6 +30,8 @@ export type {
     AppliedEditResult,
     AppliedEditStatus,
     ContentKeyedEdit,
+    ContentKeyedPlan,
+    PlannedParagraph,
 } from './content-keyed-edits.js';
 export type { Revision, AcceptRejectOptions } from './revisions.js';
 export { composeRedline, redlineDownloadFilename } from './compose-redline.js';

@@ -70,72 +70,66 @@ export interface AppliedEditResult {
  * status without affecting the others. The DOCX is mutated in place; call
  * `file.save()` to materialize the bytes.
  */
-export function applyContentKeyedEdits(
-    file: DocxFile,
-    edits: ContentKeyedEdit[],
-    author: RevisionAuthor,
-): AppliedEditResult[] {
-    const paragraphs = bodyParagraphTexts(file);
-    const results: AppliedEditResult[] = edits.map(() => ({
-        status: 'not_found',
-        revisionIds: [],
-    }));
+/** One paragraph's planned change: the full word-level ops, and which edit each non-equal op belongs to. */
+export interface PlannedParagraph {
+    paragraphIndex: number;
+    /** Word-level ops covering the whole paragraph text (equal / delete / insert). */
+    ops: WordDiffOp[];
+    /** For each op in `ops`, the index of the edit it belongs to, or -1 for unchanged text. */
+    opEdits: number[];
+}
+
+export interface ContentKeyedPlan {
+    /** Per input edit, in input order: whether it can be applied, and where. */
+    results: Array<{ status: AppliedEditStatus; reason?: string; paragraphIndex?: number }>;
+    /** The paragraphs that change, in document order. */
+    paragraphs: PlannedParagraph[];
+}
+
+/**
+ * Plan content-keyed edits against plain paragraph texts, without a DOCX:
+ * locate each edit (find + context, after light normalization), reject
+ * overlaps, and refine each find→replace into word-level ops so a coarse
+ * edit still yields a minimal redline. `applyContentKeyedEdits` uses this
+ * and then writes the ops as tracked changes; callers with text only (for
+ * example clause text held in a database) use the plan directly.
+ */
+export function planContentKeyedEdits(paragraphs: string[], edits: ContentKeyedEdit[]): ContentKeyedPlan {
+    const results: ContentKeyedPlan['results'] = edits.map(() => ({ status: 'not_found' }));
 
     interface LocatedEdit {
         editIndex: number;
         paragraphIndex: number;
-        /** Half-open range of `find` within the paragraph's original text. */
         startInPara: number;
         endInPara: number;
         replace: string;
-        /** When present, insert ops for this edit will be overridden with rich runs. */
-        replaceRuns?: RichRun[];
     }
     const byParagraph = new Map<number, LocatedEdit[]>();
 
     for (let i = 0; i < edits.length; i++) {
         const edit = edits[i];
         if (edit.find.length === 0 && edit.replace.length === 0) {
-            results[i] = {
-                status: 'no_op',
-                revisionIds: [],
-                reason: 'find and replace are both empty',
-            };
+            results[i] = { status: 'no_op', reason: 'find and replace are both empty' };
             continue;
         }
         const located = locateEdit(paragraphs, edit);
         if (located.status === 'not_found' || located.status === 'ambiguous') {
-            results[i] = {
-                status: located.status,
-                revisionIds: [],
-                reason: located.reason,
-            };
+            results[i] = { status: located.status, reason: located.reason };
             continue;
         }
         const list = byParagraph.get(located.paragraphIndex) ?? [];
-        list.push({
-            editIndex: i,
-            paragraphIndex: located.paragraphIndex,
-            startInPara: located.startInPara,
-            endInPara: located.endInPara,
-            replace: edit.replace,
-            replaceRuns: edit.replaceRuns,
-        });
+        list.push({ editIndex: i, paragraphIndex: located.paragraphIndex, startInPara: located.startInPara, endInPara: located.endInPara, replace: edit.replace });
         byParagraph.set(located.paragraphIndex, list);
     }
 
-    const editor = new TrackedChangesEditor(file, author);
-    for (const [paraIdx, paraEdits] of byParagraph) {
+    const planned: PlannedParagraph[] = [];
+    for (const [paraIdx, paraEdits] of [...byParagraph.entries()].sort((a, b) => a[0] - b[0])) {
         paraEdits.sort((a, b) => a.startInPara - b.startInPara);
         // Reject overlapping edits within the same paragraph — caller can
         // retry with non-overlapping ones.
         for (let k = 1; k < paraEdits.length; k++) {
             if (paraEdits[k].startInPara < paraEdits[k - 1].endInPara) {
-                results[paraEdits[k].editIndex] = {
-                    status: 'ambiguous',
-                    revisionIds: [],
-                    reason: 'overlaps with another edit in the same paragraph',
-                };
+                results[paraEdits[k].editIndex] = { status: 'ambiguous', reason: 'overlaps with another edit in the same paragraph' };
                 paraEdits.splice(k, 1);
                 k--;
             }
@@ -144,38 +138,53 @@ export function applyContentKeyedEdits(
 
         const paraText = paragraphs[paraIdx];
         const ops: WordDiffOp[] = [];
-        // Track (opKind, editIndex) in order so we can distribute ids correctly.
-        const opMeta: Array<{ kind: 'delete' | 'insert'; editIndex: number }> = [];
+        const opEdits: number[] = [];
         let cursor = 0;
         for (const e of paraEdits) {
             if (e.startInPara > cursor) {
-                ops.push({
-                    kind: 'equal',
-                    text: paraText.slice(cursor, e.startInPara),
-                });
+                ops.push({ kind: 'equal', text: paraText.slice(cursor, e.startInPara) });
+                opEdits.push(-1);
             }
             const deleteText = paraText.slice(e.startInPara, e.endInPara);
-            const replacementOps = diffReplacement(deleteText, e.replace);
-            for (const op of replacementOps) {
+            for (const op of diffReplacement(deleteText, e.replace)) {
                 ops.push(op);
-                if (op.kind !== 'equal') {
-                    opMeta.push({ kind: op.kind, editIndex: e.editIndex });
-                }
+                opEdits.push(op.kind === 'equal' ? -1 : e.editIndex);
             }
             cursor = e.endInPara;
         }
         if (cursor < paraText.length) {
             ops.push({ kind: 'equal', text: paraText.slice(cursor) });
+            opEdits.push(-1);
         }
+        for (const e of paraEdits) results[e.editIndex] = { status: 'applied', paragraphIndex: paraIdx };
+        planned.push({ paragraphIndex: paraIdx, ops, opEdits });
+    }
+    return { results, paragraphs: planned };
+}
 
+export function applyContentKeyedEdits(
+    file: DocxFile,
+    edits: ContentKeyedEdit[],
+    author: RevisionAuthor,
+): AppliedEditResult[] {
+    const plan = planContentKeyedEdits(bodyParagraphTexts(file), edits);
+    const results: AppliedEditResult[] = plan.results.map((r) => ({
+        status: r.status,
+        revisionIds: [],
+        ...(r.reason ? { reason: r.reason } : {}),
+    }));
+
+    const editor = new TrackedChangesEditor(file, author);
+    for (const para of plan.paragraphs) {
+        const editIndexes = [...new Set(para.opEdits.filter((e) => e >= 0))];
         let issuedIds: number[];
         try {
-            issuedIds = editor.applyParagraphDiff(paraIdx, ops, {
+            issuedIds = editor.applyParagraphDiff(para.paragraphIndex, para.ops, {
                 inheritFormatting: true,
             });
         } catch (err) {
-            for (const e of paraEdits) {
-                results[e.editIndex] = {
+            for (const e of editIndexes) {
+                results[e] = {
                     status: 'not_found',
                     revisionIds: [],
                     reason: err instanceof Error ? err.message : 'apply failed',
@@ -184,37 +193,22 @@ export function applyContentKeyedEdits(
             continue;
         }
 
-        // Distribute the issued ids back to per-edit results, and apply
-        // rich-run overrides for any insert ops belonging to edits that
-        // specify replaceRuns.
-        const editReplaceRunsMap = new Map<number, RichRun[]>();
-        for (const e of paraEdits) {
-            if (e.replaceRuns) editReplaceRunsMap.set(e.editIndex, e.replaceRuns);
-        }
-
-        const editIds = new Map<number, number[]>();
-        for (const e of paraEdits) editIds.set(e.editIndex, []);
-
+        // Distribute the issued ids back to per-edit results (one id per
+        // non-equal op, in order), and apply rich-run overrides for insert
+        // ops belonging to edits that specify replaceRuns.
+        const opMeta = para.ops
+            .map((op, i) => ({ kind: op.kind, editIndex: para.opEdits[i] }))
+            .filter((m) => m.kind !== 'equal');
+        const editIds = new Map<number, number[]>(editIndexes.map((e) => [e, []]));
         for (let opIdx = 0; opIdx < opMeta.length && opIdx < issuedIds.length; opIdx++) {
             const { kind, editIndex } = opMeta[opIdx];
             const id = issuedIds[opIdx];
             editIds.get(editIndex)!.push(id);
-            // If this is an insert op and the edit has replaceRuns, override
-            // the single plain run that applyParagraphDiff emitted with the
-            // caller-supplied styled runs.
-            if (kind === 'insert') {
-                const richRuns = editReplaceRunsMap.get(editIndex);
-                if (richRuns) {
-                    editor.overrideInsertedRunContent(id, richRuns);
-                }
-            }
+            const richRuns = edits[editIndex].replaceRuns;
+            if (kind === 'insert' && richRuns) editor.overrideInsertedRunContent(id, richRuns);
         }
-
-        for (const e of paraEdits) {
-            results[e.editIndex] = {
-                status: 'applied',
-                revisionIds: editIds.get(e.editIndex) ?? [],
-            };
+        for (const e of editIndexes) {
+            results[e] = { status: 'applied', revisionIds: editIds.get(e) ?? [] };
         }
     }
 
