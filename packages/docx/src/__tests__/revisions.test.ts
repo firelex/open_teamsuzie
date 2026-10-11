@@ -3,6 +3,7 @@ import {
     TrackedChangesEditor,
     acceptAllRevisions,
     acceptRevision,
+    bodyParagraphInfos,
     bodyParagraphTexts,
     listRevisions,
     loadDocx,
@@ -392,7 +393,7 @@ describe('adjacent whole-paragraph revisions', () => {
         expect(rejectedTexts(file)).toEqual(['A', 'B']);
     });
 
-    it('a merge keeps the first paragraph\'s properties', () => {
+    it('accepting a whole deleted paragraph leaves the next paragraph its own properties', () => {
         const file = loadDocx(
             buildBodyDocx(`
               <w:p><w:pPr><w:pStyle w:val="First"/></w:pPr><w:r><w:t>A</w:t></w:r></w:p>
@@ -405,8 +406,144 @@ describe('adjacent whole-paragraph revisions', () => {
         acceptAllRevisions(copy);
         const xml = bodyXml(loadDocx(saveDocx(copy)));
         expect(bodyParagraphTexts(copy)).toEqual(['B']);
+        expect(xml).toContain('w:val="Second"');
+        expect(xml).not.toContain('w:val="First"');
+    });
+
+    it('a partial merge (the first paragraph keeps text) keeps the first paragraph\'s properties', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:pPr><w:pStyle w:val="First"/></w:pPr><w:r><w:t>A</w:t></w:r></w:p>
+              <w:p><w:pPr><w:pStyle w:val="Second"/></w:pPr><w:r><w:t>B</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        // Delete the second (last) paragraph: Word records it on the first paragraph's mark.
+        editor.deleteParagraph(1);
+        const copy = loadDocx(saveDocx(file));
+        acceptAllRevisions(copy);
+        const xml = bodyXml(loadDocx(saveDocx(copy)));
+        expect(bodyParagraphTexts(copy)).toEqual(['A']);
         expect(xml).toContain('w:val="First"');
         expect(xml).not.toContain('w:val="Second"');
+    });
+
+    it('deleting the last body paragraph before a heading leaves the heading\'s style and numbering intact', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:pPr><w:pStyle w:val="Heading1"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="7"/></w:numPr></w:pPr><w:r><w:t>Term</w:t></w:r></w:p>
+              <w:p><w:pPr><w:pStyle w:val="BodyText"/></w:pPr><w:r><w:t>Body one.</w:t></w:r></w:p>
+              <w:p><w:pPr><w:pStyle w:val="BodyText"/></w:pPr><w:r><w:t>Body two.</w:t></w:r></w:p>
+              <w:p><w:pPr><w:pStyle w:val="Heading1"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="7"/></w:numPr></w:pPr><w:r><w:t>Law</w:t></w:r></w:p>
+              <w:p><w:pPr><w:pStyle w:val="BodyText"/></w:pPr><w:r><w:t>English law.</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.deleteParagraph(2);
+        const copy = loadDocx(saveDocx(file));
+        acceptAllRevisions(copy);
+        expect(bodyParagraphTexts(copy)).toEqual(['Term', 'Body one.', 'Law', 'English law.']);
+        const infos = bodyParagraphInfos(copy);
+        expect(JSON.stringify(infos[2].pPr)).toContain('Heading1');
+        expect(JSON.stringify(infos[2].pPr)).toContain('w:numId');
+        expect(JSON.stringify(infos[1].pPr)).toContain('BodyText');
+    });
+
+    it('deleting a heading before a body paragraph leaves the body paragraph its own style', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Term</w:t></w:r></w:p>
+              <w:p><w:pPr><w:pStyle w:val="BodyText"/></w:pPr><w:r><w:t>Body one.</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.deleteParagraph(0);
+        const copy = loadDocx(saveDocx(file));
+        acceptAllRevisions(copy);
+        expect(bodyParagraphTexts(copy)).toEqual(['Body one.']);
+        const pPr = JSON.stringify(bodyParagraphInfos(copy)[0].pPr);
+        expect(pPr).toContain('BodyText');
+        expect(pPr).not.toContain('Heading1');
+    });
+});
+
+describe('a deleted paragraph directly before a table', () => {
+    const tableXml = '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>';
+
+    it('accept-all removes a deleted paragraph with text and keeps every other paragraph in order', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>A</w:t></w:r></w:p>
+              <w:p><w:r><w:t>B</w:t></w:r></w:p>
+              ${tableXml}
+              <w:p><w:r><w:t>C</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.deleteParagraph(1);
+        expect(acceptedTexts(file)).toEqual(['A', 'cell', 'C']);
+        expect(rejectedTexts(file)).toEqual(['A', 'B', 'cell', 'C']);
+        const copy = loadDocx(saveDocx(file));
+        acceptAllRevisions(copy);
+        const xml = bodyXml(loadDocx(saveDocx(copy)));
+        expect(xml.indexOf('</w:tbl>')).toBeLessThan(xml.indexOf('>C<'));
+    });
+
+    it('accept-all removes an empty spacer paragraph whose mark alone is deleted', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>A</w:t></w:r></w:p>
+              <w:p/>
+              ${tableXml}
+              <w:p><w:r><w:t>C</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.deleteParagraph(1);
+        expect(acceptedTexts(file)).toEqual(['A', 'cell', 'C']);
+        expect(rejectedTexts(file)).toEqual(['A', '', 'cell', 'C']);
+    });
+
+    it('reject-all removes an inserted paragraph directly before a table', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>A</w:t></w:r></w:p>
+              ${tableXml}
+              <w:p><w:r><w:t>C</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraph(0, 'X');
+        expect(acceptedTexts(file)).toEqual(['A', 'X', 'cell', 'C']);
+        expect(rejectedTexts(file)).toEqual(['A', 'cell', 'C']);
+    });
+
+    it('a paragraph with text left whose deleted mark sits before a table just loses the marker', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:pPr><w:rPr><w:del w:id="9" w:author="X" w:date="2026-01-01T00:00:00Z"/></w:rPr></w:pPr><w:r><w:t>A</w:t></w:r></w:p>
+              ${tableXml}
+              <w:p><w:r><w:t>C</w:t></w:r></w:p>
+            `),
+        );
+        expect(acceptedTexts(file)).toEqual(['A', 'cell', 'C']);
+    });
+
+    it('inside a cell, a deleted paragraph before a nested table is removed and nothing moves', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:tbl><w:tr><w:tc>
+                <w:p><w:r><w:t>c1</w:t></w:r></w:p>
+                ${tableXml}
+                <w:p><w:r><w:t>c2</w:t></w:r></w:p>
+              </w:tc></w:tr></w:tbl>
+              <w:p><w:r><w:t>after</w:t></w:r></w:p>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.deleteParagraph(0);
+        expect(acceptedTexts(file)).toEqual(['cell', 'c2', 'after']);
+        expect(rejectedTexts(file)).toEqual(['c1', 'cell', 'c2', 'after']);
     });
 });
 

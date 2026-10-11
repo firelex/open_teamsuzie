@@ -1147,3 +1147,62 @@ describe('TrackedChangesEditor.insertParagraphBefore', () => {
         expect(() => editor.insertParagraphBefore(-1, 'x')).toThrow(/out of range/);
     });
 });
+
+describe('TrackedChangesEditor.insertParagraphBeforeBlock', () => {
+    const doc = `
+      <w:p><w:r><w:t>intro</w:t></w:r></w:p>
+      <w:tbl><w:tr>
+        <w:tc><w:p><w:r><w:t>cell one</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>cell two</w:t></w:r></w:p></w:tc>
+      </w:tr></w:tbl>
+      <w:p><w:r><w:t>outro</w:t></w:r></w:p>
+    `;
+
+    it('for a table-cell paragraph, inserts before the whole table', () => {
+        const file = loadDocx(buildBodyDocx(doc));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        const id = editor.insertParagraphBeforeBlock(2, 'before table');
+        expect(bodyParagraphTexts(file)).toEqual(['intro', 'before table', 'cell one', 'cell two', 'outro']);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out).toContain(`<w:ins w:id="${id}"`);
+        expect(out.indexOf('before table')).toBeLessThan(out.indexOf('<w:tbl>'));
+        const rejected = loadDocx(saveDocx(file));
+        rejectAllRevisions(rejected);
+        expect(bodyParagraphTexts(rejected)).toEqual(['intro', 'cell one', 'cell two', 'outro']);
+    });
+
+    it('for a top-level paragraph, inserts directly before it', () => {
+        const file = loadDocx(buildBodyDocx(doc));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraphBeforeBlock(3, 'before outro', {
+            pPr: { 'w:pPr': [{ 'w:pStyle': [], ':@': { '@_w:val': 'Body' } }] } as XmlNode,
+        });
+        expect(bodyParagraphTexts(file)).toEqual(['intro', 'cell one', 'cell two', 'before outro', 'outro']);
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        expect(out.indexOf('</w:tbl>')).toBeLessThan(out.indexOf('before outro'));
+        expect(out).toContain('<w:pStyle w:val="Body"');
+    });
+
+    it('throws for an index out of range', () => {
+        const file = loadDocx(buildBodyDocx(doc));
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        expect(() => editor.insertParagraphBeforeBlock(4, 'x')).toThrow(/out of range/);
+    });
+});
+
+describe('non-content siblings', () => {
+    it('move-range and custom XML range markers after the last paragraph do not stop it being the last', () => {
+        const file = loadDocx(
+            buildBodyDocx(`
+              <w:p><w:r><w:t>A</w:t></w:r></w:p>
+              <w:p><w:r><w:t>B</w:t></w:r></w:p>
+              <w:moveFromRangeEnd w:id="1"/><w:moveToRangeEnd w:id="2"/><w:customXmlInsRangeEnd w:id="3"/>
+            `),
+        );
+        const editor = new TrackedChangesEditor(file, AUTHOR);
+        editor.insertParagraph(1, 'X');
+        const out = bodyXml(loadDocx(saveDocx(file)));
+        // The insertion is recorded on B's mark (B stays the anchor of the final mark).
+        expect(out).toMatch(/<w:p><w:pPr><w:rPr><w:ins [^>]*><\/w:ins><\/w:rPr><\/w:pPr><w:r><w:t>B<\/w:t>/);
+    });
+});

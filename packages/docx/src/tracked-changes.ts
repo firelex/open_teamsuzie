@@ -507,20 +507,59 @@ export class TrackedChangesEditor {
             );
         }
         const id = this.allocId();
+        const target = paragraphs[index];
+        target.parent.splice(target.index, 0, this.makeInsertedParagraph(id, text, opts));
+        this.file.markDocumentDirty();
+        return id;
+    }
+
+    /**
+     * Insert a new tracked paragraph before the top-level block (body
+     * child) that holds the main-document paragraph at `index`: before the
+     * whole table when the paragraph is in a table cell (or nested deeper),
+     * otherwise directly before the paragraph, exactly like
+     * `insertParagraphBefore`. Marking, `opts.pPr` and `opts.rPr` work as
+     * in `insertParagraph`. Returns the issued revision id.
+     */
+    insertParagraphBeforeBlock(
+        index: number,
+        text: string,
+        opts?: { pPr?: XmlNode; rPr?: XmlNode },
+    ): number {
+        const body = getBodyChildren(this.file.document());
+        const paragraphs = bodyParagraphRefs(this.file.document());
+        if (index < 0 || index >= paragraphs.length) {
+            throw new Error(
+                `paragraph index ${index} out of range (body has ${paragraphs.length} paragraphs)`,
+            );
+        }
+        const target = paragraphs[index].node;
+        const blockIndex = body.findIndex((block) => {
+            let found = block === target;
+            if (!found) walk([block], (n) => { if (n === target) found = true; });
+            return found;
+        });
+        if (blockIndex === -1) {
+            throw new Error(`paragraph ${index} is not inside any top-level block of the body`);
+        }
+        const id = this.allocId();
+        body.splice(blockIndex, 0, this.makeInsertedParagraph(id, text, opts));
+        this.file.markDocumentDirty();
+        return id;
+    }
+
+    private makeInsertedParagraph(
+        id: number,
+        text: string,
+        opts?: { pPr?: XmlNode; rPr?: XmlNode },
+    ): XmlNode {
         const pPr = cloneNode(opts?.pPr) ?? { 'w:pPr': [] };
         const rPr = ensureRPr(pPr);
         (rPr['w:rPr'] as XmlNode[]).push(this.makePMarkMarker('w:ins', id));
         const inheritedRPr = opts?.rPr ? cloneNode(opts.rPr) : undefined;
-        const newP: XmlNode = {
-            'w:p': [
-                pPr,
-                this.wrapInIns([makeRun(text, false, inheritedRPr)], id),
-            ],
+        return {
+            'w:p': [pPr, this.wrapInIns([makeRun(text, false, inheritedRPr)], id)],
         };
-        const target = paragraphs[index];
-        target.parent.splice(target.index, 0, newP);
-        this.file.markDocumentDirty();
-        return id;
     }
 
     /**
@@ -929,10 +968,27 @@ const NON_CONTENT_SIBLINGS = new Set([
     'w:permStart',
     'w:permEnd',
     'w:proofErr',
+    'w:moveFromRangeStart',
+    'w:moveFromRangeEnd',
+    'w:moveToRangeStart',
+    'w:moveToRangeEnd',
+    'w:customXmlInsRangeStart',
+    'w:customXmlInsRangeEnd',
+    'w:customXmlDelRangeStart',
+    'w:customXmlDelRangeEnd',
+    'w:customXmlMoveFromRangeStart',
+    'w:customXmlMoveFromRangeEnd',
+    'w:customXmlMoveToRangeStart',
+    'w:customXmlMoveToRangeEnd',
 ]);
 
-/** A sibling that is not content: one of `NON_CONTENT_SIBLINGS`, or whitespace text between elements. */
-function isNonContentSibling(node: XmlNode): boolean {
+/**
+ * A sibling that is not content: one of `NON_CONTENT_SIBLINGS`, or
+ * whitespace text between elements.
+ *
+ * @internal Shared with `revisions.ts`; not part of the public API.
+ */
+export function isNonContentSibling(node: XmlNode): boolean {
     const tag = primaryTag(node);
     if (tag === '#text') {
         const text = (node as { '#text': unknown })['#text'];

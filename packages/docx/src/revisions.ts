@@ -1,6 +1,6 @@
 import type { DocxFile } from './docx-file.js';
 import type { XmlNode, XmlTree } from './types.js';
-import { getBodyChildren, primaryTag, walk } from './tracked-changes.js';
+import { getBodyChildren, isNonContentSibling, primaryTag, walk } from './tracked-changes.js';
 
 export interface Revision {
     id: number;
@@ -300,35 +300,67 @@ function visitParagraphsIn(
 }
 
 /**
- * Merge the paragraph at `index` of `container` with the next paragraph in
- * the same container: concatenate the second paragraph's content children
- * into the first, then drop the second. Skips if there's no following
- * paragraph in the container (the last paragraph of the body or of a
- * table cell; nothing to merge with).
+ * Resolve a removed paragraph break: merge the paragraph at `index` of
+ * `container` with the next paragraph in the same container, concatenating
+ * the second paragraph's content children into the first and dropping the
+ * second.
  *
- * The merged paragraph keeps the first paragraph's properties (`<w:pPr>`).
- * Its paragraph mark is the second paragraph's mark, though — the first
- * one is the break being removed — so any revision markers still pending
- * on the second paragraph's mark (`<w:pPr>/<w:rPr>/<w:ins|w:del>`) replace
- * whatever is left on the first's. Resolving those revisions later then
- * merges again, which is what makes runs of adjacent deleted (accept) or
- * inserted (reject) paragraphs disappear completely.
+ * - Only range markers and whitespace may sit between the two. When a table
+ *   or other block comes first, nothing is merged across it (as in Word):
+ *   a paragraph with nothing left in it is removed, and one with content
+ *   left just keeps it (its marker is already gone).
+ * - At the end of the container (the body's last paragraph, a cell's last
+ *   paragraph) there is nothing to merge with and the paragraph stays.
+ * - When the first paragraph has no live content left (a whole-paragraph
+ *   deletion, or a rejected inserted paragraph), the merged paragraph keeps
+ *   the SECOND paragraph's properties, as Word does: the surviving
+ *   paragraph mark is the second's. When the first keeps content (a partial
+ *   merge), it keeps the first paragraph's properties, and any revision
+ *   markers still pending on the second paragraph's mark
+ *   (`<w:pPr>/<w:rPr>/<w:ins|w:del>`) replace whatever is left on the
+ *   first's, since its mark is the one that survives. Resolving those
+ *   revisions later then merges again, which is what makes runs of
+ *   adjacent deleted (accept) or inserted (reject) paragraphs disappear
+ *   completely.
  */
 function mergeParagraphWithNext(container: XmlNode[], index: number): void {
     const first = container[index];
     if (!first || !('w:p' in first)) return;
-    // Find the next w:p (skipping non-paragraph nodes like sectPr, tables).
+    const firstChildren = first['w:p'] as XmlNode[];
     let nextIdx = -1;
+    let blockedByBlock = false;
     for (let i = index + 1; i < container.length; i++) {
-        if ('w:p' in container[i]) {
+        const node = container[i];
+        if ('w:p' in node) {
             nextIdx = i;
             break;
         }
+        if (isNonContentSibling(node)) continue;
+        // sectPr ends the body: there is nothing after it to merge with.
+        blockedByBlock = primaryTag(node) !== 'w:sectPr';
+        break;
     }
-    if (nextIdx === -1) return;
+    if (nextIdx === -1) {
+        const empty = firstChildren.every(
+            (c) => 'w:pPr' in c || (primaryTag(c) === '#text' && isNonContentSibling(c)),
+        );
+        if (blockedByBlock && empty) container.splice(index, 1);
+        return;
+    }
     const second = container[nextIdx];
-    const firstChildren = first['w:p'] as XmlNode[];
     const secondChildren = second['w:p'] as XmlNode[];
+
+    if (!hasLiveContent(firstChildren)) {
+        // Keep the second paragraph's properties (and with them its mark's
+        // pending revisions); the first contributes only what is left in it
+        // (range markers, still-pending deletions).
+        const secondPPr = secondChildren.filter((c) => 'w:pPr' in c);
+        const firstRest = firstChildren.filter((c) => !('w:pPr' in c));
+        const secondRest = secondChildren.filter((c) => !('w:pPr' in c));
+        first['w:p'] = [...secondPPr, ...firstRest, ...secondRest];
+        container.splice(nextIdx, 1);
+        return;
+    }
 
     const carried = paragraphMarkMarkers(secondChildren);
     const firstMarkRPr = markRPrOf(firstChildren);
@@ -350,6 +382,14 @@ function mergeParagraphWithNext(container: XmlNode[], index: number): void {
         if (!('w:pPr' in c)) firstChildren.push(c);
     }
     container.splice(nextIdx, 1);
+}
+
+/**
+ * Whether a paragraph still has live content: anything besides its
+ * properties, range markers, whitespace and still-pending deletions.
+ */
+function hasLiveContent(pChildren: XmlNode[]): boolean {
+    return pChildren.some((c) => !('w:pPr' in c) && primaryTag(c) !== 'w:del' && !isNonContentSibling(c));
 }
 
 /** The paragraph mark's `<w:pPr>/<w:rPr>` node, if present. */
