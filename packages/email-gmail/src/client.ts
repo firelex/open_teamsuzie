@@ -269,10 +269,7 @@ export class GmailClient implements EmailClient {
     }
 
     async send(input: SendEmailInput): Promise<QueuedEmailResult> {
-        return this.post({ from: this.opts.account, to: input.to, cc: input.cc, bcc: input.bcc, subject: input.subject, text: input.body, html: input.html, attachments: input.attachments?.map((a) => {
-            if (!a.content) throw new Error(`Attachment ${a.filename} has no content to send`);
-            return { filename: a.filename, contentType: a.contentType, content: a.content };
-        }) });
+        return this.post({ from: this.opts.account, to: input.to, cc: input.cc, bcc: input.bcc, subject: input.subject, text: input.body, html: input.html, attachments: outgoing(input.attachments) });
     }
 
     private async replyTo(input: ReplyEmailInput, all: boolean): Promise<QueuedEmailResult> {
@@ -285,7 +282,7 @@ export class GmailClient implements EmailClient {
         // A host that showed the user a draft passes its recipients and subject, so what is sent is what was shown.
         return this.post({
             from: this.opts.account, to: input.to ?? to.join(', '), cc: input.cc ?? (cc.length ? cc.join(', ') : undefined),
-            subject: input.subject ?? subject('Re'), text: input.body, html: input.html,
+            subject: input.subject ?? subject('Re'), text: input.body, html: input.html, attachments: outgoing(input.attachments),
             inReplyTo: original.messageIdHeader!, references,
         }, original.threadId!);
     }
@@ -323,4 +320,12 @@ export class GmailClient implements EmailClient {
         return { draftId: draft.id };
     }
 
+}
+
+/** Files to send: each must carry its content. */
+function outgoing(attachments: EmailAttachment[] | undefined): Array<{ filename: string; contentType: string; content: string }> | undefined {
+    return attachments?.map((a) => {
+        if (!a.content) throw new Error(`Attachment ${a.filename} has no content to send`);
+        return { filename: a.filename, contentType: a.contentType, content: a.content };
+    });
 }

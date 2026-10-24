@@ -160,6 +160,8 @@ export interface ReplyEmailInput extends EmailDeliveryOptions {
     replyAll?: boolean;
     fromAccount?: string;
     fromName?: string;
+    /** Files sent with the reply; each needs its base64 `content`. */
+    attachments?: EmailAttachment[];
     accessToken?: string;
 }
 

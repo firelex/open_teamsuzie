@@ -208,6 +208,17 @@ describe('GmailClient writing', () => {
         expect(raw).toContain('References: <m0@x.test> <m1@x.test>\r\n');
     });
 
+    it('sends a reply with the files given, in the same thread', async () => {
+        const sent: unknown[] = [];
+        await client(fakeGmail(routes(sent)).f).reply({ messageId: 'm1', body: 'Our mark-up attached', attachments: [{ filename: 'NDA v2.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', content: 'UEsDBA==' }] });
+        expect((sent[0] as { threadId: string }).threadId).toBe('t1');
+        expect(rawOf(sent[0])).toContain('filename="NDA v2.docx"');
+    });
+
+    it('refuses a reply attachment with no content', async () => {
+        await expect(client(fakeGmail(routes([])).f).reply({ messageId: 'm1', body: 'x', attachments: [{ filename: 'a.docx', contentType: 'application/octet-stream' }] })).rejects.toThrow(/a.docx has no content/);
+    });
+
     it('replies to all: everyone on the message except this mailbox', async () => {
         const sent: unknown[] = [];
         await client(fakeGmail(routes(sent)).f).replyAll({ messageId: 'm1', body: 'Thanks all' });
