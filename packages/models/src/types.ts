@@ -125,6 +125,8 @@ export interface ToolChatResult {
   provider: ProviderId;
   model: string;
   text: string;
+  /** The model's reasoning text, when it thought and its runtime sends what it thought; otherwise null. */
+  reasoning: string | null;
   toolCalls: ToolCall[];
   usage: { inputTokens: number; outputTokens: number };
 }

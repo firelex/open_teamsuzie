@@ -217,6 +217,23 @@ describe('ModelGateway — chatTools', () => {
     expect(body.messages[3]).toEqual({ role: 'tool', tool_call_id: 'call_0', content: 'The agreement is empty.' });
   });
 
+  it('returns the reasoning text a thinking model sends with its turn, and asks for thinking when told to', async () => {
+    let body!: Record<string, any>;
+    const fetchImpl = (async (_url: string, init: RequestInit) => { body = JSON.parse(init.body as string); return completion({ content: 'Done.', reasoning_content: 'The rule allows 2 years.' }, 'stop'); }) as unknown as typeof fetch;
+    const g = new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl });
+    const res = await g.chatTools({ id: 'qwen/qwen3.8-max', thinking: true, tools: [], messages: [{ role: 'user', content: 'go' }] });
+    expect(res.reasoning).toBe('The rule allows 2 years.');
+    expect(body.enable_thinking).toBe(true);
+  });
+
+  it('reads reasoning sent as "reasoning", and gives null when a turn has none', async () => {
+    const reply = (message: Record<string, unknown>) => (async () => completion(message, 'stop')) as unknown as typeof fetch;
+    const viaReasoning = await new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl: reply({ content: 'x', reasoning: 'because' }) }).chatTools({ id: 'qwen/x', tools: [], messages: [{ role: 'user', content: 'go' }] });
+    expect(viaReasoning.reasoning).toBe('because');
+    const none = await new ModelGateway({ env: { DASHSCOPE_API_KEY: 'q' }, fetchImpl: reply({ content: 'x' }) }).chatTools({ id: 'qwen/x', tools: [], messages: [{ role: 'user', content: 'go' }] });
+    expect(none.reasoning).toBeNull();
+  });
+
   it('sends an assistant turn without tool calls as plain content, never an empty tool_calls list', async () => {
     let body!: Record<string, any>;
     const fetchImpl = (async (_url: string, init: RequestInit) => { body = JSON.parse(init.body as string); return completion({ content: 'ok' }, 'stop'); }) as unknown as typeof fetch;

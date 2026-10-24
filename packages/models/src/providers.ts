@@ -207,12 +207,12 @@ function openAiMessage(m: ToolChatMessage): Record<string, unknown> {
 }
 
 interface OpenAiCompletion {
-  choices?: Array<{ finish_reason?: string; message?: { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>;
+  choices?: Array<{ finish_reason?: string; message?: { content?: string | null; reasoning_content?: string | null; reasoning?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>;
   usage?: { prompt_tokens: number; completion_tokens: number };
 }
 
 /** One non-streaming turn with tools (OpenAI format only). Throws on a cut-off reply or a missing usage report. */
-export async function chatWithTools(p: ToolChatParams): Promise<{ text: string; toolCalls: ToolCall[]; usage: { inputTokens: number; outputTokens: number } }> {
+export async function chatWithTools(p: ToolChatParams): Promise<{ text: string; reasoning: string | null; toolCalls: ToolCall[]; usage: { inputTokens: number; outputTokens: number } }> {
   if (p.config.format !== 'openai') {
     throw new Error(`${p.config.id} does not support tool calls through this gateway; use an OpenAI-format provider (OpenAI, Qwen or a local runtime).`);
   }
@@ -231,7 +231,7 @@ export async function chatWithTools(p: ToolChatParams): Promise<{ text: string; 
       max_tokens: p.maxTokens,
       stream: false,
       ...(p.tools.length ? { tools: p.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })) } : {}),
-      ...(p.thinking === false ? { enable_thinking: false } : {}),
+      ...(p.thinking === false ? { enable_thinking: false } : p.thinking === true ? { enable_thinking: true } : {}),
       ...(p.json ? { response_format: { type: 'json_object' } } : {}),
     }),
   });
@@ -246,6 +246,8 @@ export async function chatWithTools(p: ToolChatParams): Promise<{ text: string; 
   if (!body.usage) throw new Error(`${p.config.id} reported no token usage`);
   return {
     text: choice.message.content ?? '',
+    // Qwen and vLLM send a thinking model's reasoning as reasoning_content; some runtimes call it reasoning.
+    reasoning: choice.message.reasoning_content ?? choice.message.reasoning ?? null,
     toolCalls: (choice.message.tool_calls ?? []).map((c) => ({ id: c.id, name: c.function.name, arguments: c.function.arguments })),
     usage: { inputTokens: body.usage.prompt_tokens, outputTokens: body.usage.completion_tokens },
   };
