@@ -109,6 +109,16 @@ describe('RouteExecutor', () => {
         expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
     });
 
+    it('reads addresses a chip keeps only in an attribute, waiting for the chips to be drawn', async () => {
+        // The chips show names ("Carol") a moment after each address is entered; the address is in the tooltip.
+        await fixture.page.evaluate(() => { (window as unknown as { __namedChips: boolean }).__namedChips = true; });
+        const recipients = route.operations.compose_send.steps[5]!;
+        if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
+        recipients.verify_recipients = { to: { css: '#chips', each: true, within: 'compose_open' }, from: 'text' };
+        await executor.run(route, 'compose_send', draft, 'live');
+        expect((await fixtureActivity(fixture.page)).sent.map((s) => s.to)).toEqual(['carol@example.com, dan@example.com']);
+    });
+
     it('only reads the recipients when none were requested, as in a test of a reply', async () => {
         const result = await executor.run(route, 'reply', { $message_id: 'm1', '$draft.body': 'x' }, 'test');
         expect(result.extracted.recipients).toEqual({ to: 'alice@example.com', cc: '', bcc: '' });
@@ -141,6 +151,28 @@ describe('RouteExecutor', () => {
         expect(error.code).toBe('target_ambiguous');
         // Scoped to the compose dialog it is exactly one.
         await expect(resolveOne({ role: 'button', name: 'Send', within: 'compose_open' }, ctx)).resolves.toBeDefined();
+    });
+
+    it('answers a discard confirmation when one appears, and skips it when the draft is already gone', async () => {
+        route.operations.compose_send.test_end = [
+            { click: { role: 'button', name: 'Discard draft', within: 'compose_open' } },
+            { click: { role: 'button', name: 'OK' } },
+        ];
+        await fixture.page.evaluate(() => { (window as unknown as { __confirmDiscard: boolean }).__confirmDiscard = true; });
+        await executor.run(route, 'compose_send', draft, 'test');
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
+        await fixture.page.evaluate(() => { (window as unknown as { __confirmDiscard: boolean }).__confirmDiscard = false; });
+        await executor.run(route, 'compose_send', draft, 'test');
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 2 });
+    });
+
+    it('still fails when a later discard step finds nothing and the draft stays open', async () => {
+        route.operations.compose_send.test_end = [
+            { click: { role: 'textbox', name: 'Subject', within: 'compose_open' } },
+            { click: { role: 'button', name: 'OK' } },
+        ];
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
+        expect(error).toMatchObject({ code: 'target_not_found', phase: 'test_end', stepIndex: 1 });
     });
 
     it('fails the test when the discard steps leave the draft open', async () => {

@@ -59,17 +59,31 @@ function commits(op: Operation): boolean {
 }
 
 /**
- * A recipient field's text with each piece of text kept apart: adjacent chips often have no space between them,
- * and reading them as one run would merge two addresses ("a@x.comb@y.com").
+ * Everything a recipient field shows about its addresses: each piece of text kept apart (adjacent chips often have
+ * no space between them, and reading them as one run would merge "a@x.comb@y.com"), plus the attribute values of
+ * the field and everything inside it. A webmail may show a recipient as a name and keep the address only in an
+ * attribute of the chip (a label or tooltip), so the text alone is not enough.
  */
 async function readRecipientSource(el: Locator, from: FieldSource): Promise<string | null> {
     if (from !== 'text') return readSource(el, from);
     return el.evaluate((node) => {
         const pieces: string[] = [];
-        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
-        for (let text = walker.nextNode(); text; text = walker.nextNode()) pieces.push(text.textContent ?? '');
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+        for (let current: Node | null = node; current; current = walker.nextNode()) {
+            if (current instanceof Element) for (const attr of Array.from(current.attributes)) pieces.push(attr.value);
+            else pieces.push(current.textContent ?? '');
+        }
         return pieces.join(' ');
     });
+}
+
+/** The element a step acts on, if it has one. */
+function stepTarget(step: Step): Target | null {
+    if ('click' in step) return step.click;
+    if ('fill' in step) return step.fill;
+    if ('type' in step) return step.type;
+    if ('scroll' in step && step.scroll !== 'page') return step.scroll;
+    return null;
 }
 
 /** Why a required field has no value, in words a reader can act on. */
@@ -131,6 +145,22 @@ export class RouteExecutor {
     private async draftOpen(route: Route, op: Operation): Promise<boolean> {
         for (const state of draftStatesOf(op)) if (await this.stateHolds(route, state)) return true;
         return false;
+    }
+
+    /**
+     * Before a later discard step: wait until either the draft is closed (true: nothing left to do) or the step can
+     * run (false: its target is on the page, or it has none). If neither happens in time, returns false and the step
+     * runs, failing with the usual "not found" evidence.
+     */
+    private async draftClosedBefore(route: Route, op: Operation, step: Step, ctx: LocateContext): Promise<boolean> {
+        const target = stepTarget(step);
+        const deadline = Date.now() + this.opts.stepTimeoutMs;
+        for (;;) {
+            if (!(await this.draftOpen(route, op))) return true;
+            if (target === null || (await inspectTarget(target, ctx)).matches > 0) return false;
+            if (Date.now() >= deadline) return false;
+            await new Promise((r) => setTimeout(r, STATE_POLL_MS));
+        }
     }
 
     /**
@@ -228,6 +258,10 @@ export class RouteExecutor {
             this.checkSignedIn(route);
             const started = Date.now();
             const ctx = this.ctx(route, operation, index, phase, params);
+            // Discard steps end once the draft is closed. Some steps answer a confirmation that appears only some
+            // of the time (Esc may discard at once, or first ask "Discard?"), so a later step runs only while the
+            // draft is still open. Whether the draft really closed is checked afterwards (checkClosed).
+            if (phase === 'test_end' && index > 0 && (await this.draftClosedBefore(route, route.operations[operation], step, ctx))) return;
             await this.runStep(route, step, ctx, result);
             if ('expect' in step && step.expect !== undefined) await this.waitForState(route, step.expect, ctx);
             this.checkSignedIn(route);
@@ -403,13 +437,28 @@ export class RouteExecutor {
      */
     private async verifyRecipients(check: RecipientCheck, ctx: LocateContext, result: OperationResult): Promise<void> {
         const kinds = ['to', 'cc', 'bcc'] as const;
-        const shown = { to: [] as string[], cc: [] as string[], bcc: [] as string[] };
-        for (const kind of kinds) {
-            const target = check[kind];
-            if (target === undefined) continue;
-            const found: string[] = [];
-            for (const chip of await resolveAll(target, ctx)) found.push(...emailsIn((await readRecipientSource(chip, check.from)) ?? ''));
-            shown[kind] = [...new Set(found)].sort();
+        const read = async () => {
+            const shown = { to: [] as string[], cc: [] as string[], bcc: [] as string[] };
+            for (const kind of kinds) {
+                const target = check[kind];
+                if (target === undefined) continue;
+                const found: string[] = [];
+                for (const chip of await resolveAll(target, ctx)) found.push(...emailsIn((await readRecipientSource(chip, check.from)) ?? ''));
+                shown[kind] = [...new Set(found)].sort();
+            }
+            return shown;
+        };
+        const wanted = (kind: typeof kinds[number]) => [...new Set(emailsIn(ctx.params[`$draft.${kind}`] ?? ''))].sort().join(',');
+        const settled = (shown: Awaited<ReturnType<typeof read>>) => ctx.params['$draft.to'] === undefined
+            ? shown.to.length > 0
+            : kinds.every((kind) => shown[kind].join(',') === wanted(kind));
+        // Webmail turns a typed address into a recipient chip a moment after it is entered, and the field may be
+        // briefly empty or half-drawn meanwhile: read until it shows what is expected or the step time runs out.
+        const deadline = Date.now() + this.opts.stepTimeoutMs;
+        let shown = await read();
+        while (!settled(shown) && Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, STATE_POLL_MS));
+            shown = await read();
         }
         if (ctx.params['$draft.to'] === undefined) {
             if (shown.to.length === 0) {

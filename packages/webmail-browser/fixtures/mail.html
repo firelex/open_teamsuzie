@@ -150,6 +150,16 @@ function addChip(container, value) {
   chip.className = 'chip';
   chip.dataset.email = address;
   chip.textContent = address;
+  if (window.__namedChips) {
+    // Like Outlook with a known contact: a moment later the chip shows a name, the address only in its tooltip.
+    chip.dataset.email = '';
+    chip.textContent = '';
+    setTimeout(() => {
+      chip.dataset.email = address;
+      chip.title = address;
+      chip.textContent = address.split('@')[0].replace(/^./, (c) => c.toUpperCase());
+    }, 300);
+  }
   container.appendChild(chip);
 }
 
@@ -259,6 +269,21 @@ document.getElementById('send').addEventListener('click', () => {
   closeDialog();
 });
 document.getElementById('discard').addEventListener('click', () => {
+  if (window.__confirmDiscard && !document.getElementById('discard-confirm')) {
+    // Like Outlook: discarding a new message first asks for confirmation.
+    const confirm = document.createElement('div');
+    confirm.id = 'discard-confirm';
+    confirm.setAttribute('role', 'alertdialog');
+    confirm.setAttribute('aria-label', 'Discard message?');
+    confirm.innerHTML = '<p>Discard message?</p><button>OK</button><button>Cancel</button>';
+    confirm.querySelectorAll('button')[0].addEventListener('click', () => { confirm.remove(); discardDraft(); });
+    confirm.querySelectorAll('button')[1].addEventListener('click', () => confirm.remove());
+    document.body.append(confirm);
+    return;
+  }
+  discardDraft();
+});
+function discardDraft() {
   window.__discards++;
   if (openDraftId) {
     window.__drafts = window.__drafts.filter((d) => d.id !== openDraftId);
@@ -268,7 +293,7 @@ document.getElementById('discard').addEventListener('click', () => {
     return;
   }
   closeDialog();
-});
+}
 render();
 </script>
 </body>
