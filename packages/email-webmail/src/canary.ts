@@ -1,6 +1,7 @@
 import { RouteError, UnreadableValueError, type ExtractedRecord } from '@teamsuzie/webmail-browser';
 import { OPERATION_NAMES, type OperationName, type Params } from '@teamsuzie/webmail-routes';
 import { checkOutput, type WebmailEmailClient } from './client.js';
+import { TEST_DRAFT_MARKER } from './goals.js';
 
 export interface CanaryResult {
     operation: OperationName;
@@ -15,7 +16,7 @@ export interface CanaryResult {
 
 // Short, so test runs have little to type; "Route check" makes any draft a failed test leaves easy to find.
 export const CANARY_SUBJECT = 'Route check';
-const CANARY_BODY = 'Route check.';
+const CANARY_BODY = TEST_DRAFT_MARKER;
 
 /**
  * Run operations in test mode against the live account: nothing is sent, every draft is discarded. Route errors are
@@ -36,11 +37,24 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
         else inboxReadable = false;
     }
 
+    // The list of leftover test drafts supplies the draft discard_draft is tested on (in test mode it is kept).
+    let draft: ExtractedRecord | null = null;
+    let draftsReadable = true;
+    if (wanted.has('list_test_drafts') || wanted.has('discard_draft')) {
+        const listing = await attempt('list_test_drafts', { $marker: TEST_DRAFT_MARKER });
+        if (wanted.has('list_test_drafts')) results.push(listing.result);
+        if (listing.records) draft = listing.records[0] ?? null;
+        else draftsReadable = false;
+    }
+
     for (const operation of OPERATION_NAMES) {
-        if (operation === 'list_inbox' || !wanted.has(operation)) continue;
-        const params = paramsFor(operation, first, client.account.address);
+        if (operation === 'list_inbox' || operation === 'list_test_drafts' || !wanted.has(operation)) continue;
+        const params = paramsFor(operation, first, draft, client.account.address);
         if (params === null) {
-            results.push({ operation, outcome: 'skipped', reason: inboxReadable ? 'the inbox is empty' : 'list_inbox failed, so there is no message to test with' });
+            const reason = operation === 'discard_draft'
+                ? (draftsReadable ? 'there are no leftover test drafts to check it on' : 'list_test_drafts failed, so there is no draft to test with')
+                : (inboxReadable ? 'the inbox is empty' : 'list_inbox failed, so there is no message to test with');
+            results.push({ operation, outcome: 'skipped', reason });
             continue;
         }
         results.push((await attempt(operation, params)).result);
@@ -51,7 +65,7 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
         try {
             const result = await client.testOperation(operation, params);
             checkOutput(operation, result);
-            const records = operation === 'list_inbox' ? result.extracted.messages as ExtractedRecord[] : null;
+            const records = operation === 'list_inbox' || operation === 'list_test_drafts' ? result.extracted.messages as ExtractedRecord[] : null;
             return { result: { operation, outcome: 'passed' }, records };
         } catch (error) {
             if (error instanceof RouteError) {
@@ -74,6 +88,8 @@ export interface TestParams {
     alternate: Partial<Record<OperationName, Params>>;
     /** Why the inbox could not be listed, when it could not; operations that need a message then have no parameters. */
     inboxError: RouteError | UnreadableValueError | null;
+    /** Why the leftover test drafts could not be listed, when they could not; discard_draft then has no parameters. */
+    draftsError: RouteError | UnreadableValueError | null;
 }
 
 /**
@@ -97,23 +113,37 @@ export async function buildTestParams(client: WebmailEmailClient): Promise<TestP
         if (!(error instanceof RouteError || error instanceof UnreadableValueError)) throw error;
         inboxError = error;
     }
+    let draft: ExtractedRecord | null = null;
+    let draftsError: RouteError | UnreadableValueError | null = null;
+    try {
+        const drafts = await client.testOperation('list_test_drafts', { $marker: TEST_DRAFT_MARKER });
+        checkOutput('list_test_drafts', drafts);
+        draft = (drafts.extracted.messages as ExtractedRecord[])[0] ?? null;
+    } catch (error) {
+        if (!(error instanceof RouteError || error instanceof UnreadableValueError)) throw error;
+        draftsError = error;
+    }
     const params: Partial<Record<OperationName, Params>> = {};
     const alternate: Partial<Record<OperationName, Params>> = {};
     for (const operation of OPERATION_NAMES) {
-        const p = paramsFor(operation, first, client.account.address);
+        const p = paramsFor(operation, first, draft, client.account.address);
         if (p !== null) params[operation] = p;
         if (!MESSAGE_OPERATIONS.has(operation)) continue;
-        const a = paramsFor(operation, second, client.account.address);
+        const a = paramsFor(operation, second, draft, client.account.address);
         if (a !== null) alternate[operation] = a;
     }
-    return { params, alternate, inboxError };
+    return { params, alternate, inboxError, draftsError };
 }
 
 /** Operations whose parameters come from a particular message. */
 const MESSAGE_OPERATIONS = new Set<OperationName>(['open_message', 'read_thread', 'search', 'reply']);
 
-function paramsFor(operation: OperationName, first: ExtractedRecord | null, account: string): Params | null {
+function paramsFor(operation: OperationName, first: ExtractedRecord | null, draft: ExtractedRecord | null, account: string): Params | null {
     switch (operation) {
+        case 'list_test_drafts':
+            return { $marker: TEST_DRAFT_MARKER };
+        case 'discard_draft':
+            return draft ? { $marker: TEST_DRAFT_MARKER, $message_id: draft.id! } : null;
         case 'read_account':
         case 'check_sent':
             return {};

@@ -52,14 +52,16 @@ export async function serveFixture(context: BrowserContext, variant: FixtureVari
 export interface FixtureActivity {
     sendClicks: number;
     discards: number;
+    /** The ids of the drafts still in the Drafts folder. */
+    drafts: string[];
     sent: Array<{ to: string; subject: string; body: string }>;
 }
 
 /** What the fixture app has recorded: Send clicks, discarded drafts and sent messages. */
 export function fixtureActivity(page: Page): Promise<FixtureActivity> {
     return page.evaluate(() => {
-        const w = window as unknown as { __sendClicks: number; __discards: number; __sent: FixtureActivity['sent'] };
-        return { sendClicks: w.__sendClicks, discards: w.__discards, sent: w.__sent.map((m) => ({ to: m.to, subject: m.subject, body: m.body })) };
+        const w = window as unknown as { __sendClicks: number; __discards: number; __sent: FixtureActivity['sent']; __drafts: Array<{ id: string }> };
+        return { sendClicks: w.__sendClicks, discards: w.__discards, drafts: w.__drafts.map((d) => d.id), sent: w.__sent.map((m) => ({ to: m.to, subject: m.subject, body: m.body })) };
     });
 }
 
@@ -96,6 +98,7 @@ export function fixtureRoute(): Route {
             search_results: { url_matches: '#search/', visible: [{ role: 'grid', name: 'Search results' }] },
             sent_list: { url_matches: '#sent$', visible: [{ role: 'grid', name: 'Sent' }] },
             message_open: { url_matches: '#(inbox|all)/.+', visible: [{ role: 'button', name: 'Reply' }] },
+            drafts_list: { url_matches: '#drafts', visible: [{ role: 'grid', name: 'Drafts' }] },
             compose_open: {
                 visible: [{ role: 'dialog', name: 'New Message' }],
                 container: { role: 'dialog', name: 'New Message' },
@@ -188,6 +191,29 @@ export function fixtureRoute(): Route {
                     { click: { role: 'button', name: 'Send', within: 'reply_open' }, commits: true, expect: 'message_open' },
                 ],
                 test_end: [{ click: { role: 'button', name: 'Discard draft', within: 'reply_open' } }],
+            },
+            list_test_drafts: {
+                steps: [
+                    { goto: 'https://mail.example.test/#drafts/search/$marker', expect: 'drafts_list' },
+                    {
+                        extract: {
+                            items: { css: 'tr.row', each: true },
+                            fields: {
+                                id: { from: 'attr:data-id', format: 'id', required: true },
+                                subject: { target: { css: 'td.subject' }, from: 'text', format: 'nonempty', required: false },
+                            },
+                        },
+                        as: 'messages',
+                    },
+                ],
+            },
+            discard_draft: {
+                steps: [
+                    { goto: 'https://mail.example.test/#drafts/open/$message_id', expect: 'compose_open' },
+                    { verify_text: { target: { role: 'textbox', name: 'Message Body', within: 'compose_open' }, from: 'text', contains: '$marker' } },
+                    { click: { role: 'button', name: 'Discard draft', within: 'compose_open' }, commits: true, expect: 'drafts_list' },
+                ],
+                test_end: [{ press: 'Escape', expect: 'drafts_list' }],
             },
             check_sent: {
                 steps: [

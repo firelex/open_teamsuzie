@@ -20,6 +20,8 @@ const params: Partial<Record<OperationName, Params>> = {
     compose_send: { '$draft.to': 'me@example.com', '$draft.subject': 'Route check', '$draft.body': 'Discarded.' },
     reply: { $message_id: 'm1', '$draft.to': 'alice@example.com', '$draft.body': 'Discarded.' },
     check_sent: {},
+    list_test_drafts: { $marker: 'Route check by email-agent: safe to discard.' },
+    discard_draft: { $marker: 'Route check by email-agent: safe to discard.', $message_id: 'd1' },
 };
 
 let callId = 0;

@@ -56,6 +56,7 @@ class FakeRuntime implements HandlerRuntime {
             reply: async (input) => { self.sent.push(input.to!); return { queueId: 'q', queued: true, threadId: 't' }; },
             readAccount: async () => self.signedInAs,
             confirmSent: async () => true,
+            cleanTestDrafts: async () => { self.calls.push('cleanTestDrafts'); return 0; },
         };
         return { ...base, ...this.clientImpl };
     }
@@ -118,13 +119,43 @@ beforeEach(() => {
 });
 
 describe('AccountHandler', () => {
-    it('boots, checks the account, runs the first inbox check and canary, and records new mail', async () => {
+    it('boots, checks the account and the inbox, without a canary at start-up, and records new mail', async () => {
         await handler.boot();
         expect(handler.state().status).toBe('ready');
-        await handler.tick(); // canary
-        await handler.tick(); // check_inbox
-        expect(runtime.calls).toContain('canary:all');
+        while ((await handler.tick()) === 'ran') { /* the first inbox check */ }
+        expect(runtime.calls).toEqual(['open']);
         expect(newMail.list({ after: 0, limit: 10 }).items.map((i) => i.id)).toEqual(['m1', 'm2']);
+    });
+
+    it('runs the first canary one interval after start-up, and none when canaries are turned off', async () => {
+        await bootAndSettle();
+        clock.advance(7 * 3_600_000);
+        await handler.tick();
+        expect(runtime.calls).toEqual(['canary:all']);
+
+        config = { ...config, canary_interval_hours: null };
+        runtime = new FakeRuntime();
+        makeHandler();
+        await bootAndSettle();
+        clock.advance(30 * 24 * 3_600_000);
+        while ((await handler.tick()) === 'ran') { /* scheduled work */ }
+        expect(runtime.calls.filter((c) => c.startsWith('canary'))).toEqual([]);
+    });
+
+    it('cleans up leftover test drafts shortly after start-up and then daily, only while both actions are healthy', async () => {
+        await bootAndSettle();
+        clock.advance(31 * 60_000);
+        while ((await handler.tick()) === 'ran') { /* scheduled work */ }
+        expect(runtime.calls).toEqual(['cleanTestDrafts']);
+        health.set(ADDRESS, 'discard_draft', { state: 'broken', last_error: 'x', last_relearn_at: clock.now().toISOString() });
+        runtime.calls = [];
+        clock.advance(24 * 3_600_000 + 1);
+        runtime.canaryResults = (only) => (only ?? [...OPERATION_NAMES]).map((operation) => ({ operation, outcome: operation === 'discard_draft' ? 'skipped' : 'passed', reason: 'there are no leftover test drafts to check it on' }) as CanaryResult);
+        // Its daily retry fails again, so it stays broken.
+        runtime.relearnOutcomes = Array.from({ length: config.learner.attempts }, () => ({ ok: false, reason: 'still broken' }) as LearnOutcome);
+        while ((await handler.tick()) === 'ran') { /* scheduled work */ }
+        expect(health.get(ADDRESS, 'discard_draft').state).toBe('broken');
+        expect(runtime.calls).not.toContain('cleanTestDrafts');
     });
 
     it('runs a job and stores its result', async () => {
@@ -287,6 +318,7 @@ describe('AccountHandler', () => {
     it('holds non-urgent jobs during quiet hours and runs urgent ones', async () => {
         await bootAndSettle();
         clock.set('2026-10-26T23:00:00.000Z'); // 23:00 in London
+        while ((await handler.tick()) === 'ran') { /* scheduled work that came due meanwhile */ }
         const normal = await runJob('list_inbox', { limit: 5 });
         expect(normal.status).toBe('queued');
         const urgent = await runJob('list_inbox', { limit: 5 }, { urgent: true });
@@ -344,7 +376,7 @@ describe('AccountHandler', () => {
         // Within the day: neither the scheduler nor the canary relearns it again.
         clock.advance(7 * 3_600_000);
         while ((await handler.tick()) === 'ran') { /* run scheduled work */ }
-        expect(runtime.calls).toEqual(['canary:all']);
+        expect(runtime.calls.filter((c) => c.startsWith('canary') || c.startsWith('relearn'))).toEqual(['canary:all']);
         expect(health.get(ADDRESS, 'search').state).toBe('broken');
         // A day after the last relearn it is tried again.
         clock.advance(18 * 3_600_000);

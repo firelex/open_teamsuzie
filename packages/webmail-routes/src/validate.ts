@@ -34,6 +34,7 @@ const STEP_KEYS: Record<string, Set<string>> = {
     wait_for: new Set(['wait_for']),
     extract: new Set(['extract', 'as']),
     verify_recipients: new Set(['verify_recipients']),
+    verify_text: new Set(['verify_text']),
 };
 
 type Json = Record<string, unknown>;
@@ -158,6 +159,7 @@ export function validateRoute(route: unknown): string[] {
             }
         }
         if (commits > 1) add(`${path} may have at most one commit step`);
+        if (name === 'discard_draft') checkDiscardGuard(operation.steps, path, add);
         if (commits === 1 && (!Array.isArray(operation.test_end) || operation.test_end.length === 0)) {
             add(`${path} commits, so it needs a non-empty test_end`);
         }
@@ -170,6 +172,21 @@ export function assertValidRoute(route: unknown): Route {
     const problems = validateRoute(route);
     if (problems.length > 0) throw new RouteValidationError(problems);
     return route as Route;
+}
+
+/**
+ * discard_draft deletes a draft, so it may only run on the service's own test drafts: the step right before its
+ * commit step must be a verify_text that requires the draft to contain "$marker".
+ */
+function checkDiscardGuard(steps: unknown[], path: string, add: (m: string) => void): void {
+    const commitIndex = steps.findIndex((step) => isObject(step) && step.commits === true);
+    if (commitIndex === -1) {
+        add(`${path} must have a commit step (the click or key that discards the draft)`);
+        return;
+    }
+    const before = steps[commitIndex - 1];
+    const guarded = isObject(before) && isObject(before.verify_text) && before.verify_text.contains === '$marker';
+    if (!guarded) add(`${path}.steps[${commitIndex - 1}] must be a verify_text step with "contains": "$marker", so only drafts the service made can be discarded`);
 }
 
 function checkHostList(value: unknown, path: string, add: (m: string) => void): string[] {
@@ -356,6 +373,19 @@ function checkStep(step: unknown, path: string, ctx: TargetContext, domains: str
             }
             if (!isObject(spec.fields)) add(`${path}.extract.fields must be an object`);
             else for (const [name, field] of Object.entries(spec.fields)) checkField(field, `${path}.extract.fields.${name}`, ctx);
+            break;
+        }
+        case 'verify_text': {
+            const check = step.verify_text;
+            if (!isObject(check)) {
+                add(`${path}.verify_text must be an object`);
+                break;
+            }
+            for (const key of Object.keys(check)) if (!['target', 'from', 'contains'].includes(key)) add(`${path}.verify_text has unknown key "${key}"`);
+            checkTarget(check.target, `${path}.verify_text.target`, ctx, { allowWithin: true });
+            checkFieldSource(check.from, `${path}.verify_text.from`, add);
+            if (!isNonEmptyString(check.contains)) add(`${path}.verify_text.contains must be non-empty text`);
+            else checkPlaceholders(check.contains, `${path}.verify_text.contains`, add);
             break;
         }
         case 'verify_recipients': {

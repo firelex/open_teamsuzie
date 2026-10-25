@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { assertValidRoute, type ProviderKey, type Route } from '@teamsuzie/webmail-routes';
+import { assertValidRoute, nextRouteVersion, type ProviderKey, type Route } from '@teamsuzie/webmail-routes';
 
 /**
  * Routes on disk: `<dir>/<provider>/current.json` is the route in use; every version ever saved is kept in
@@ -29,6 +29,28 @@ export class FileRouteStore {
         const tmp = join(providerDir, 'current.json.tmp');
         writeFileSync(tmp, text);
         renameSync(tmp, this.currentPath(route.provider));
+    }
+
+    /**
+     * When the current route was saved before some operations existed, add those operations from `seed` (with any
+     * states they need that the route lacks) and save it as a new version. Returns the operations added.
+     */
+    addMissingOperations(seed: Route, now: Date): string[] {
+        const path = this.currentPath(seed.provider);
+        if (!existsSync(path)) throw new Error(`No ${seed.provider} route at ${path}; seed it first`);
+        const route = JSON.parse(readFileSync(path, 'utf8')) as Route;
+        const missing = (Object.keys(seed.operations) as Array<keyof Route['operations']>).filter((op) => route.operations[op] === undefined);
+        if (missing.length === 0) return [];
+        for (const op of missing) {
+            route.operations[op] = structuredClone(seed.operations[op]);
+            const text = JSON.stringify(seed.operations[op]);
+            for (const [name, state] of Object.entries(seed.states)) {
+                if (route.states[name] === undefined && text.includes(`"${name}"`)) route.states[name] = structuredClone(state);
+            }
+        }
+        route.route_version = nextRouteVersion(route.route_version, now);
+        this.save(route);
+        return missing;
     }
 
     /** Saved versions, oldest first. */

@@ -34,6 +34,7 @@ const FAILURE_MEANINGS: Record<string, string> = {
     state_not_reached: 'after the step, the page did not reach the state the step expected',
     extract_invalid: 'a value the step had to read was missing or not in the expected form',
     recipients_mismatch: 'the recipients the page showed were not the ones requested (or could not be read)',
+    verification_failed: 'a verify_text step found that the element did not contain the required text (for discard_draft: the opened draft is not one of the service\'s test drafts, or the step reads the wrong element)',
     cleanup_failed: 'the test_end steps ran but the draft or reply was still open afterwards, so they do not really discard it (check that the discard button is right, and whether the page asks to confirm the discard)',
 };
 
@@ -66,6 +67,7 @@ export function buildRepairPrompt(req: RepairRequest): string {
         + `- extract: keys "extract", "as". {"extract": {"items": <target with "each": true>, "fields": {<field name>: <field>, ...}}, "as": "<name>"} reads values. With "items", one record is read from each matching element; without "items", one record is read from the page. The "extract" object allows only the keys "items" and "fields".\n`
         + `- verify_recipients: key "verify_recipients" only. {"verify_recipients": {"to": <target with "each": true>, "cc": <target with "each": true>, "bcc": <target with "each": true>, "from": "text" | "name" | "attr:<attribute>"}} reads the recipient chips the page shows (one element per address) and stops unless they are exactly the requested recipients. "cc" and "bcc" are optional.\n`
         + `Prefer the webmail's own keyboard shortcuts over clicking through menus and toolbars wherever one exists (for example a shortcut that opens a new message or a reply): shortcuts do not depend on the window size, on overflow menus or on which ribbon tab is showing. This is the web version of the webmail, whose shortcuts can differ from the desktop app's and depend on the account's settings: call read_shortcut_help to see this account's list, then test a shortcut with run_operation and always give its step an "expect" state that proves it worked; if it does not work, click instead.\n`
+        + `- verify_text: key "verify_text" only. {"verify_text": {"target": <target>, "from": "text" | "name" | "attr:<attribute>", "contains": "<text>"}} stops the task unless that element's text contains the given text. discard_draft must check, right before its commit step, that the draft contains "$marker".\n`
         + `A task with a commit step must have a "test_end" list that undoes the task instead (for example, discards the draft); in test runs the program stops before the commit step and runs "test_end". "test_end" must not contain a commit step.`,
 
         `HOW FIELDS ARE WRITTEN (inside "extract")\nA field allows only these keys: "target", "from", "pattern", "format", "required".\n`

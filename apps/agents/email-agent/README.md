@@ -16,11 +16,16 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
   harmless keys are allowed, and a sending key only as the step marked as the commit, so tests never send by
   keyboard. Gmail's shortcuts are off by default (Settings > General > Keyboard shortcuts on); without them the
   learner clicks. The browser window is 1920×1080 so toolbars show their buttons.
+- **Leftover test drafts.** Every draft the service writes while testing carries the text
+  `Route check by email-agent: safe to discard.` Shortly after start-up and then daily, it searches Drafts for that
+  text and discards up to 20 such drafts. Before discarding, it checks the opened draft really contains the text;
+  a draft without it is closed untouched. Your own drafts are never discarded.
 - **Clean start.** Every action starts from the inbox: any draft or reply left open is discarded first, then the
   inbox is loaded and must show. A test-mode run also checks that its discard really closed the draft
   (`cleanup_failed` otherwise), so broken discard steps are caught on their first test, not by piling up drafts.
 - **Knowing when to relearn.** A route is checked again when a job fails on it, when the inbox layout's fingerprint
-  changes (checked on every inbox poll), and by a canary every few hours. The canary and every relearning test run
+  changes (checked on every inbox poll), and by a canary every `canary_interval_hours` (`null` for none; there is no
+  canary at start-up). The canary and every relearning test run
   in test mode: drafts are filled and then discarded, Send is never pressed.
 - **Relearning speed.** Relearning's own test runs type about three times faster than the human pace of real
   jobs and give up on a missing element after 3 s (6 s for a page state); one attempt typically takes under a

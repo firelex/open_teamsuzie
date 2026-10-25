@@ -64,7 +64,13 @@ export async function startService(config: AgentConfig, options: ServiceOptions)
     });
 
     const routes = new FileRouteStore(join(config.data_dir, 'routes'));
-    for (const account of config.accounts) routes.seed(SEED_ROUTES[account.provider]);
+    for (const provider of new Set(config.accounts.map((a) => a.provider))) {
+        routes.seed(SEED_ROUTES[provider]);
+        // A route learned before an operation existed gets that operation from the seed (and is then relearned
+        // like any other when it does not match the page).
+        const added = routes.addMissingOperations(SEED_ROUTES[provider], now());
+        if (added.length > 0) log(`[routes] added ${added.join(', ')} to the ${provider} route from its starting route`);
+    }
     const apiKey = config.learner.api_key_env === null ? undefined : process.env[config.learner.api_key_env];
     const model = openAiCompatibleRouteModel({ baseUrl: config.learner.base_url, model: config.learner.model, apiKey, maxTokens: config.learner.max_tokens });
 

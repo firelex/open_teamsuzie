@@ -141,6 +141,19 @@ describe('validateRoute', () => {
         expect(anyMatches(validateRoute(keyboardSend), /test_end/)).toBe(true);
     });
 
+    it('only lets discard_draft discard after checking the draft contains the marker', () => {
+        expect(anyMatches(errorsAfter((r) => { r.operations.discard_draft.steps.splice(1, 1); }), /verify_text step with "contains": "\$marker"/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => {
+            const step = r.operations.discard_draft.steps[1]!;
+            if ('verify_text' in step) step.verify_text.contains = 'Route check';
+        }), /verify_text step with "contains": "\$marker"/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => { r.operations.discard_draft.steps = [{ goto: 'home' }]; }), /must have a commit step/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => {
+            const step = r.operations.discard_draft.steps[1]!;
+            if ('verify_text' in step) (step.verify_text as unknown as Record<string, unknown>).regex = 'x';
+        }), /verify_text has unknown key "regex"/)).toBe(true);
+    });
+
     it('requires test_end on an operation that commits, without a commit step in it', () => {
         expect(anyMatches(errorsAfter((r) => { delete r.operations.compose_send.test_end; }), /test_end/)).toBe(true);
         expect(anyMatches(errorsAfter((r) => { r.operations.compose_send.test_end = [{ click: { role: 'button', name: 'Send' }, commits: true }]; }), /test_end.*commit/)).toBe(true);

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -35,6 +35,23 @@ describe('seed routes', () => {
 });
 
 describe('FileRouteStore', () => {
+    it('adds operations a saved route predates from the seed, as a new version', () => {
+        dir = mkdtempSync(join(tmpdir(), 'routes-'));
+        const store = new FileRouteStore(dir);
+        const old = structuredClone(SEED_ROUTES.outlook) as unknown as { operations: Record<string, unknown>; states: Record<string, unknown>; route_version: string };
+        delete old.operations.list_test_drafts;
+        delete old.operations.discard_draft;
+        delete old.states.drafts_list;
+        old.route_version = '2026-10-25.7';
+        mkdirSync(join(dir, 'outlook'), { recursive: true });
+        writeFileSync(join(dir, 'outlook', 'current.json'), JSON.stringify(old));
+        expect(store.addMissingOperations(SEED_ROUTES.outlook, new Date('2026-10-25T18:00:00Z'))).toEqual(['list_test_drafts', 'discard_draft']);
+        const upgraded = store.current('outlook');
+        expect(upgraded.route_version).toBe('2026-10-25.8');
+        expect(upgraded.states.drafts_list).toEqual(SEED_ROUTES.outlook.states.drafts_list);
+        expect(store.addMissingOperations(SEED_ROUTES.outlook, new Date('2026-10-25T18:00:00Z'))).toEqual([]);
+    });
+
     it('seeds once, saves versions to history and reads the current route', () => {
         dir = mkdtempSync(join(tmpdir(), 'routes-'));
         const store = new FileRouteStore(dir);

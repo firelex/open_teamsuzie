@@ -33,6 +33,14 @@ export function minimalRoute(): Route {
             },
         ],
     };
+    operations.discard_draft = {
+        steps: [
+            { goto: 'https://mail.example.com/#drafts/$message_id', expect: 'compose_open' },
+            { verify_text: { target: { role: 'textbox', name: 'Body', within: 'compose_open' }, from: 'text', contains: '$marker' } },
+            { click: { role: 'button', name: 'Discard draft', within: 'compose_open' }, commits: true, expect: 'inbox_list' },
+        ],
+        test_end: [{ press: 'Escape' }],
+    };
     operations.open_message = {
         steps: [{ goto: 'https://mail.example.com/#inbox/$message_id', expect: 'message_open' }],
     };

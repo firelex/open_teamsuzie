@@ -13,6 +13,8 @@ export const OPERATION_NAMES = [
     'compose_send',
     'reply',
     'check_sent',
+    'list_test_drafts',
+    'discard_draft',
 ] as const;
 
 export type OperationName = typeof OPERATION_NAMES[number];
@@ -71,6 +73,13 @@ export interface RecipientCheck {
     from: FieldSource;
 }
 
+/** Stops the operation unless the element's text (or accessible name, or attribute) contains `contains`. */
+export interface TextCheck {
+    target: Target;
+    from: FieldSource;
+    contains: string;
+}
+
 export type Step =
     | { goto: string; expect?: string }
     | { click: Target; commits?: boolean; expect?: string }
@@ -80,9 +89,10 @@ export type Step =
     | { scroll: Target | 'page' }
     | { wait_for: string }
     | { extract: ExtractSpec; as: string }
-    | { verify_recipients: RecipientCheck };
+    | { verify_recipients: RecipientCheck }
+    | { verify_text: TextCheck };
 
-export const STEP_ACTIONS = ['goto', 'click', 'fill', 'type', 'press', 'scroll', 'wait_for', 'extract', 'verify_recipients'] as const;
+export const STEP_ACTIONS = ['goto', 'click', 'fill', 'type', 'press', 'scroll', 'wait_for', 'extract', 'verify_recipients', 'verify_text'] as const;
 
 export type StepAction = typeof STEP_ACTIONS[number];
 

@@ -30,6 +30,7 @@ export const OUTLOOK_SEED_ROUTE: Route = {
         inbox_list: { url_matches: '/mail/(inbox)?/?$', visible: [{ role: 'listbox', name_pattern: 'message list' }] },
         search_results: { url_matches: '/mail/', visible: [{ role: 'listbox', name_pattern: 'message list' }] },
         sent_list: { url_matches: '/mail/sentitems', visible: [{ role: 'listbox', name_pattern: 'message list' }] },
+        drafts_list: { url_matches: '/mail/drafts', visible: [{ role: 'listbox', name_pattern: 'message list' }] },
         message_open: { visible: [{ css: `${READING_PANE} div[role="document"]` }], container: { css: READING_PANE } },
         compose_open: {
             visible: [{ role: 'textbox', name_pattern: '^Message body' }],
@@ -121,6 +122,31 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                 { click: { role: 'button', name: 'Send', within: 'compose_open' }, commits: true, expect: 'message_open' },
             ],
             test_end: [{ click: { role: 'button', name: 'Discard', within: 'compose_open' } }],
+        },
+        list_test_drafts: {
+            steps: [
+                { goto: 'https://outlook.cloud.microsoft/mail/drafts', expect: 'drafts_list' },
+                { type: { role: 'combobox', name_pattern: '^Search' }, value: '$marker', then_press: 'Enter', expect: 'search_results' },
+                {
+                    extract: {
+                        items: { role: 'option', css: '[data-convid]', each: true },
+                        fields: {
+                            id: { from: 'attr:data-convid', format: 'id', required: true },
+                            subject: { from: 'attr:aria-label', format: 'text', required: false },
+                        },
+                    },
+                    as: 'messages',
+                },
+            ],
+        },
+        discard_draft: {
+            steps: [
+                { goto: 'https://outlook.cloud.microsoft/mail/drafts', expect: 'drafts_list' },
+                { click: { role: 'option', css: '[data-convid="$message_id"]' }, expect: 'compose_open' },
+                { verify_text: { target: { role: 'textbox', name_pattern: '^Message body', within: 'compose_open' }, from: 'text', contains: '$marker' } },
+                { click: { role: 'button', name: 'Discard', within: 'compose_open' }, commits: true, expect: 'drafts_list' },
+            ],
+            test_end: [{ goto: 'https://outlook.cloud.microsoft/mail/drafts', expect: 'drafts_list' }],
         },
         check_sent: {
             steps: [

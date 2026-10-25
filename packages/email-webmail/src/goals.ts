@@ -30,11 +30,26 @@ export const OPERATION_GOALS: Record<OperationName, string> = {
         + '$draft.body in the reply\'s message body, check that the recipients shown on the reply are exactly '
         + '$draft.to, then press Send. The Send step must be marked as the commit step, and test_end must discard the '
         + 'unsent reply.',
+    list_test_drafts:
+        'Find the drafts this service left behind: search the Drafts folder for the text given as $marker (every test '
+        + 'draft the service writes contains it in its body), and read the list of drafts found: for each, the id the '
+        + 'page uses for it and, if shown, its subject. Do not open, change or delete anything.',
+    discard_draft:
+        'Open the draft whose id is given as $message_id, check that its body contains the text given as $marker '
+        + '(with a verify_text step right before discarding), then discard that draft with its own Discard or Delete '
+        + 'button, marked as the commit step. test_end must close the draft without discarding it (for example with '
+        + 'Escape or the draft\'s close button), so test runs leave the draft in place.',
     check_sent:
         'Go to the Sent folder and read the list of sent messages on the first page: for each, the message id the page '
         + 'uses and the subject, and, where the list shows them, the recipients (names or addresses, as shown) and the '
         + 'date sent.',
 };
+
+/**
+ * Every draft the service writes while testing contains this text in its body, so its own leftover drafts can be
+ * found and told apart from the user's (discard_draft checks for it before discarding anything).
+ */
+export const TEST_DRAFT_MARKER = 'Route check by email-agent: safe to discard.';
 
 /** What a returned value must look like, checked on the value itself whatever format the route declares. */
 export type OutputFormat = 'id' | 'email' | 'emails' | 'date' | 'nonempty' | 'text' | 'flag';
@@ -68,6 +83,8 @@ export const OPERATION_OUTPUTS: Record<OperationName, OperationOutput | null> = 
     compose_send: null,
     reply: null,
     // Sent lists often show recipients' names, not addresses (Outlook does), so recipients are free text here.
+    list_test_drafts: { as: 'messages', list: true, required: ['id'], optional: ['subject'], formats: { id: 'id', subject: 'text' } },
+    discard_draft: null,
     check_sent: { as: 'messages', list: true, required: ['id', 'subject'], optional: ['to', 'date'], formats: { id: 'id', subject: 'nonempty', to: 'text', date: 'date' } },
 };
 

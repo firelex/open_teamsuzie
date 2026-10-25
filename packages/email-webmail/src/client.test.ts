@@ -114,11 +114,23 @@ describe('WebmailEmailClient', () => {
     });
 });
 
+describe('cleanTestDrafts', () => {
+    it('discards only the drafts carrying the test marker, up to the limit', async () => {
+        expect(await client.cleanTestDrafts(1)).toBe(1);
+        expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d2', 'd3']);
+        expect(await client.cleanTestDrafts(20)).toBe(1);
+        expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d2']);
+        expect(await client.cleanTestDrafts(20)).toBe(0);
+        expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
+    });
+});
+
 describe('runCanary', () => {
     it('passes every operation on a matching route without sending anything', async () => {
         const results = await runCanary(client);
         expect(results.map((r) => [r.operation, r.outcome])).toEqual([
             ['list_inbox', 'passed'],
+            ['list_test_drafts', 'passed'],
             ['read_account', 'passed'],
             ['open_message', 'passed'],
             ['read_thread', 'passed'],
@@ -126,8 +138,10 @@ describe('runCanary', () => {
             ['compose_send', 'passed'],
             ['reply', 'passed'],
             ['check_sent', 'passed'],
+            ['discard_draft', 'passed'],
         ]);
-        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 2 });
+        // Test mode sends nothing and keeps the test draft it opened.
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 2, drafts: ['d1', 'd2', 'd3'] });
     });
 
     it('reports a broken operation and skips those that depend on the inbox when it cannot be read', async () => {
@@ -183,14 +197,16 @@ describe('buildTestParams', () => {
         expect(alternate.open_message).toEqual({ $message_id: 'm1' });
         expect(alternate.reply).toMatchObject({ $message_id: 'm1', '$draft.to': 'alice@example.com' });
         expect(alternate.compose_send).toBeUndefined();
+        expect(params.discard_draft).toEqual({ $marker: 'Route check by email-agent: safe to discard.', $message_id: 'd1' });
         expect(params.reply).toMatchObject({ $message_id: 'm2', '$draft.to': 'bob@example.org' });
         expect(params.compose_send).toMatchObject({ '$draft.to': 'me@example.com' });
     });
 
     it('leaves out operations that need a message when the inbox cannot be listed, and says why', async () => {
         route.states.inbox_list = { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Primary' }] };
-        const { params, inboxError } = await buildTestParams(client);
+        const { params, inboxError, draftsError } = await buildTestParams(client);
         expect(inboxError?.code).toBe('state_not_reached');
-        expect(Object.keys(params).sort()).toEqual(['check_sent', 'compose_send', 'list_inbox', 'read_account']);
+        expect(draftsError?.code).toBe('state_not_reached');
+        expect(Object.keys(params).sort()).toEqual(['check_sent', 'compose_send', 'list_inbox', 'list_test_drafts', 'read_account']);
     });
 });

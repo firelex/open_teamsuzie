@@ -72,7 +72,17 @@ export class RouteExecutor {
         const op = route.operations[operation];
         const result: OperationResult = { extracted: {}, steps: [] };
         await this.startFromInbox(route, operation);
-        await this.runSteps(route, operation, op.steps, 'steps', params, mode, result);
+        try {
+            await this.runSteps(route, operation, op.steps, 'steps', params, mode, result);
+        } catch (error) {
+            // A failed verify_text means the page holds something the operation must not act on (for example a
+            // draft without the service's marker). Close it with test_end without acting on it, so the next clean
+            // start does not discard it either.
+            if (error instanceof RouteError && error.code === 'verification_failed' && op.test_end) {
+                await this.runSteps(route, operation, op.test_end, 'test_end', params, 'test', { extracted: {}, steps: [] });
+            }
+            throw error;
+        }
         if (mode === 'test' && op.test_end) {
             await this.runSteps(route, operation, op.test_end, 'test_end', params, mode, result);
             await this.checkClosed(route, operation, op.test_end);
@@ -217,6 +227,14 @@ export class RouteExecutor {
             await this.waitForState(route, step.wait_for, ctx);
         } else if ('extract' in step) {
             result.extracted[step.as] = await this.extract(step.extract, ctx);
+        } else if ('verify_text' in step) {
+            const check = step.verify_text;
+            const element = await resolveOne(check.target, ctx);
+            const text = (await readSource(element, check.from)) ?? '';
+            const wanted = substitute(check.contains, ctx.params, 'none');
+            if (!text.includes(wanted)) {
+                throw new RouteError('verification_failed', ctx.operation, ctx.stepIndex, `${describeTarget(check.target)} shows ${JSON.stringify(text.length > 160 ? `${text.slice(0, 160)}…` : text)}, which does not contain ${JSON.stringify(wanted)}`, ctx.phase, await describeElements(element, 1));
+            }
         } else if ('verify_recipients' in step) {
             await this.verifyRecipients(step.verify_recipients, ctx);
         } else {

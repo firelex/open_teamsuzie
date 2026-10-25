@@ -31,6 +31,7 @@ class MemoryRuntime implements HandlerRuntime {
             reply: async (input) => { this.sent.push(input.to!); return { queueId: 'q', queued: true }; },
             readAccount: async () => 'me@firm.com',
             confirmSent: async () => true,
+            cleanTestDrafts: async () => 0,
         };
     }
 }

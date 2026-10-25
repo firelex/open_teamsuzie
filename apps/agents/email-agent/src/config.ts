@@ -42,7 +42,8 @@ const schema = z.object({
         max_tokens: positiveInt,
     }).strict(),
     notifications: z.enum(['macos', 'none']),
-    canary_interval_hours: positive,
+    /** Hours between full canaries, or null for none (real failures, layout changes and daily retries still trigger checks). */
+    canary_interval_hours: positive.nullable(),
     check_inbox_minutes: z.tuple([positive, positive]).refine(([min, max]) => min <= max, 'the first number must not be larger than the second'),
     default_job_timeout_minutes: positive,
     login_timeout_minutes: positive,

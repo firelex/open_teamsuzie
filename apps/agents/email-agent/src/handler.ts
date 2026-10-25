@@ -24,6 +24,7 @@ export interface HandlerClient {
     reply(input: ReplyEmailInput): Promise<QueuedEmailResult>;
     readAccount(): Promise<string>;
     confirmSent(subject: string, to: string): Promise<boolean>;
+    cleanTestDrafts(max: number): Promise<number>;
 }
 
 /** The browser side of one account. The real one drives Chrome; tests use a fake. */
@@ -77,6 +78,9 @@ const OPERATIONS_FOR: Record<JobKindName, OperationName[]> = {
 const SEND_OPERATIONS: OperationName[] = ['compose_send', 'reply'];
 const DAY = 86_400_000;
 const LOGIN_RETRY_MS = 60_000;
+/** The first clean-up of leftover test drafts comes this long after start-up. */
+const DRAFT_CLEANUP_DELAY_MS = 30 * 60_000;
+const MAX_DRAFTS_PER_CLEANUP = 20;
 
 /** Thrown when a job must wait for the user to sign in. */
 class LoginPending extends Error {}
@@ -93,7 +97,10 @@ export class AccountHandler {
     private stopping = false;
     private loopDone: Promise<void> | null = null;
     private nextCheckInbox = 0;
-    private nextCanary = 0;
+    /** Set at boot: the first scheduled canary comes one interval after start-up, never at start-up. */
+    private nextCanary = Number.POSITIVE_INFINITY;
+    /** Set at boot: leftover test drafts are cleaned up shortly after start-up, then daily. */
+    private nextDraftCleanup = Number.POSITIVE_INFINITY;
     /** When each unreadable-value alert was last raised, so the same one is not repeated on every job. */
     private readonly unreadableAlerted = new Map<string, number>();
     private readonly workerId: string;
@@ -156,6 +163,9 @@ export class AccountHandler {
     /** Opens the browser and checks the signed-in account. Public for tests; the loop calls it. */
     boot(): Promise<void> {
         return this.exclusive(async () => {
+            const now = this.deps.now().getTime();
+            this.nextCanary = this.canaryAfter(now);
+            this.nextDraftCleanup = now + DRAFT_CLEANUP_DELAY_MS;
             await this.deps.runtime.open();
             await this.verifyAccountOrLogin();
         });
@@ -199,8 +209,13 @@ export class AccountHandler {
             this.nextCheckInbox = now + (min + (max - min) * this.deps.random()) * 60_000;
         }
         if (now >= this.nextCanary) {
-            this.nextCanary = now + this.deps.config.canary_interval_hours * 3_600_000 * (0.8 + 0.4 * this.deps.random());
+            this.nextCanary = this.canaryAfter(now);
             await this.withLoginHandling(() => this.canaryAll());
+            return 'ran';
+        }
+        if (now >= this.nextDraftCleanup) {
+            this.nextDraftCleanup = now + DAY;
+            await this.withLoginHandling(() => this.cleanTestDrafts());
             return 'ran';
         }
         const due = OPERATION_NAMES.filter((op) => this.retryDue(op, now));
@@ -452,6 +467,30 @@ export class AccountHandler {
         const result = (await this.deps.runtime.canary([operation])).find((r) => r.operation === operation);
         if (!result) throw new Error(`The canary returned no result for ${operation}`);
         return result;
+    }
+
+    /** When the next scheduled canary is due after `now`: never when canaries are turned off. */
+    private canaryAfter(now: number): number {
+        const hours = this.deps.config.canary_interval_hours;
+        return hours === null ? Number.POSITIVE_INFINITY : now + hours * 3_600_000 * (0.8 + 0.4 * this.deps.random());
+    }
+
+    /**
+     * Discard drafts the service's own tests left behind (they carry the test-draft marker). Skipped while either
+     * operation it needs is not healthy. A failure goes through the usual repair (and alert), and is logged here.
+     */
+    private async cleanTestDrafts(): Promise<void> {
+        if (!(['list_test_drafts', 'discard_draft'] as OperationName[]).every((op) => this.deps.health.get(this.address, op).state === 'healthy')) {
+            this.log('skipping the clean-up of test drafts: list_test_drafts or discard_draft is not healthy');
+            return;
+        }
+        try {
+            const discarded = await this.runWithRecovery(() => this.deps.runtime.client().cleanTestDrafts(MAX_DRAFTS_PER_CLEANUP));
+            if (discarded > 0) this.log(`discarded ${discarded} leftover test draft(s)`);
+        } catch (error) {
+            if (!(error instanceof JobFailure) && !(error instanceof LoginPending)) throw error;
+            this.log(`cleaning up test drafts stopped: ${error.message}`);
+        }
     }
 
     /** A broken operation is relearned again once a day: a day after its last relearn. */

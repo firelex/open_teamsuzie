@@ -10,7 +10,7 @@ import {
     type Behaviour, type ExtractedRecord, type OperationResult, type RouteExecutor, type VolumeLimiter,
 } from '@teamsuzie/webmail-browser';
 import type { OperationName, Params, ProviderKey, Route } from '@teamsuzie/webmail-routes';
-import { OPERATION_OUTPUTS, type OutputFormat } from './goals.js';
+import { OPERATION_OUTPUTS, TEST_DRAFT_MARKER, type OutputFormat } from './goals.js';
 
 export interface WebmailAccount {
     address: string;
@@ -160,6 +160,20 @@ export class WebmailEmailClient implements EmailClient {
         });
     }
 
+    /**
+     * Discard drafts the service's own tests left behind: those whose body contains the test-draft marker, at most
+     * `max` per call. discard_draft checks the marker in each draft before discarding it. Returns how many went.
+     */
+    async cleanTestDrafts(max: number): Promise<number> {
+        const drafts = await this.list('list_test_drafts', {});
+        let discarded = 0;
+        for (const draft of drafts.slice(0, max)) {
+            await this.run('discard_draft', { $message_id: draft.id! }, 'live');
+            discarded++;
+        }
+        return discarded;
+    }
+
     /** Run one operation in test mode: nothing is sent, drafts are discarded. */
     testOperation(operation: OperationName, params: Params): Promise<OperationResult> {
         return this.run(operation, params, 'test');
@@ -175,7 +189,7 @@ export class WebmailEmailClient implements EmailClient {
 
     private async run(operation: OperationName, params: Params, mode: 'live' | 'test'): Promise<OperationResult> {
         const route = this.deps.routes.current();
-        const result = await this.deps.executor.run(route, operation, { $account: this.deps.account.address, ...params }, mode);
+        const result = await this.deps.executor.run(route, operation, { $account: this.deps.account.address, $marker: TEST_DRAFT_MARKER, ...params }, mode);
         if (mode === 'live') checkOutput(operation, result);
         return result;
     }

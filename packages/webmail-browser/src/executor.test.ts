@@ -154,6 +154,24 @@ describe('RouteExecutor', () => {
         expect(await fixture.page.locator('#shortcut-help').count()).toBe(0);
     });
 
+    it('lists the service\'s test drafts and discards only one that carries the marker', async () => {
+        const marker = { $marker: 'Route check by email-agent: safe to discard.' };
+        const listed = await executor.run(route, 'list_test_drafts', marker, 'live');
+        expect((listed.extracted.messages as Array<Record<string, string>>).map((m) => m.id)).toEqual(['d1', 'd3']);
+        await executor.run(route, 'discard_draft', { ...marker, $message_id: 'd1' }, 'test');
+        expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d1', 'd2', 'd3']);
+        await executor.run(route, 'discard_draft', { ...marker, $message_id: 'd1' }, 'live');
+        expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d2', 'd3']);
+        // The user's own draft has no marker: the check stops before Discard.
+        const error = await routeError(executor.run(route, 'discard_draft', { ...marker, $message_id: 'd2' }, 'live'));
+        expect(error.code).toBe('verification_failed');
+        expect(error.detail).toContain('which does not contain "Route check by email-agent: safe to discard."');
+        expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d2', 'd3']);
+        // It was closed, not left open: the next operation's clean start must not discard it.
+        await executor.run(route, 'list_inbox', {}, 'live');
+        expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d2', 'd3']);
+    });
+
     it('fails with target_not_found when the button is gone', async () => {
         route.operations.compose_send.steps[1] = { click: { role: 'button', name: 'Write' }, expect: 'compose_open' };
         const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));

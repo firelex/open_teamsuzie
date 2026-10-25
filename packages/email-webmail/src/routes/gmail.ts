@@ -30,6 +30,7 @@ export const GMAIL_SEED_ROUTE: Route = {
         inbox_list: { url_matches: '#inbox$', visible: [{ role: 'main' }] },
         search_results: { url_matches: '#search/', visible: [{ role: 'main' }] },
         sent_list: { url_matches: '#sent$', visible: [{ role: 'main' }] },
+        drafts_list: { url_matches: '#drafts', visible: [{ role: 'main' }] },
         message_open: { url_matches: '#[a-z]+(/[^/]+)?/[A-Za-z0-9]+$', visible: [{ css: 'h2.hP' }] },
         compose_open: {
             visible: [{ role: 'dialog', has: { css: 'input[name="subjectbox"]' } }],
@@ -121,6 +122,30 @@ export const GMAIL_SEED_ROUTE: Route = {
                 { click: { role: 'button', name_pattern: '^Send', within: 'reply_open' }, commits: true, expect: 'message_open' },
             ],
             test_end: [{ click: { role: 'button', name_pattern: '^Discard draft', within: 'reply_open' } }],
+        },
+        list_test_drafts: {
+            steps: [
+                { goto: 'https://mail.google.com/mail/u/0/#search/in%3Adrafts+$marker', expect: 'search_results' },
+                {
+                    extract: {
+                        items: { css: 'div[role="main"] tr.zA', each: true },
+                        fields: {
+                            id: { target: { css: '[data-legacy-thread-id]' }, from: 'attr:data-legacy-thread-id', format: 'id', required: true },
+                            subject: { target: { css: 'span.bog' }, from: 'text', format: 'text', required: false },
+                        },
+                    },
+                    as: 'messages',
+                },
+            ],
+        },
+        discard_draft: {
+            steps: [
+                { goto: 'https://mail.google.com/mail/u/0/#drafts', expect: 'drafts_list' },
+                { click: { css: 'div[role="main"] tr.zA:has([data-legacy-thread-id="$message_id"])' }, expect: 'compose_open' },
+                { verify_text: { target: { role: 'textbox', name: 'Message Body', within: 'compose_open' }, from: 'text', contains: '$marker' } },
+                { click: { role: 'button', name_pattern: '^Discard draft', within: 'compose_open' }, commits: true, expect: 'drafts_list' },
+            ],
+            test_end: [{ press: 'Escape' }],
         },
         check_sent: {
             steps: [

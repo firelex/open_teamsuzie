@@ -9,6 +9,7 @@ export const PLACEHOLDERS = [
     '$message_id',
     '$thread_id',
     '$account',
+    '$marker',
 ] as const;
 
 export type PlaceholderName = typeof PLACEHOLDERS[number];
