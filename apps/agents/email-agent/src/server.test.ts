@@ -21,6 +21,7 @@ class MemoryRuntime implements HandlerRuntime {
     async relearn(): Promise<never> { throw new Error('not expected'); }
     async fingerprint() { return 'fp'; }
     async login() { return 'completed' as const; }
+    async capture() { return ['/tmp/capture.json']; }
     client(): HandlerClient {
         return {
             listMessages: async () => ({ messages: [{ id: 'm1', threadId: 't1', from: 'bob@other.org', subject: 'Lunch', to: null, date: '2026-10-26T09:00:00.000Z', bodyPreview: 'Free?', unread: true }] }),
@@ -130,6 +131,7 @@ describe('the service over HTTP', () => {
         expect((await admin('POST', '/canary/me@firm.com')).body).toHaveLength(OPERATION_NAMES.length);
         expect((await admin('POST', '/relearn/me@firm.com/delete_everything')).status).toBe(400);
         expect((await admin('POST', '/canary/someone@else.com')).status).toBe(404);
+        expect((await admin('POST', '/capture/me@firm.com')).body).toEqual({ files: ['/tmp/capture.json'] });
     });
 
     it('serves the console page, whose tool calls act as the console agent and need the admin token', async () => {

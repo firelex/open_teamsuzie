@@ -37,6 +37,11 @@ export interface OperationResult {
 
 export type ExtractedRecord = Record<string, string | null>;
 
+/** The states a test_end works inside (its clicks' `within`): the open draft or reply it is meant to close. */
+function draftStatesOf(testEnd: Step[]): string[] {
+    return [...new Set(testEnd.flatMap((step) => ('click' in step && step.click.within ? [step.click.within] : [])))];
+}
+
 /** Why a required field has no value, in words a reader can act on. */
 function fieldProblem(field: FieldSpec, found: boolean, raw: string | null, matched: string | null): string {
     const shown = (text: string) => JSON.stringify(text.length > 160 ? `${text.slice(0, 160)}…` : text);
@@ -70,8 +75,25 @@ export class RouteExecutor {
         await this.runSteps(route, operation, op.steps, 'steps', params, mode, result);
         if (mode === 'test' && op.test_end) {
             await this.runSteps(route, operation, op.test_end, 'test_end', params, mode, result);
+            await this.checkClosed(route, operation, op.test_end);
         }
         return result;
+    }
+
+    /**
+     * After test_end, the draft it was meant to close must be gone: every state its steps work `within` must stop
+     * holding. Otherwise the discard did not work, and the next operation would start with a draft still open.
+     */
+    private async checkClosed(route: Route, operation: OperationName, testEnd: Step[]): Promise<void> {
+        const deadline = Date.now() + this.opts.stateTimeoutMs;
+        for (const state of draftStatesOf(testEnd)) {
+            while (await this.stateHolds(route, state)) {
+                if (Date.now() >= deadline) {
+                    throw new RouteError('cleanup_failed', operation, testEnd.length - 1, `after the test_end steps ran, state "${state}" still holds: the draft or reply was not closed, so the discard steps do not work`, 'test_end');
+                }
+                await new Promise((r) => setTimeout(r, STATE_POLL_MS));
+            }
+        }
     }
 
     /**
@@ -92,11 +114,7 @@ export class RouteExecutor {
     private async discardOpenDrafts(route: Route): Promise<void> {
         for (const [name, op] of Object.entries(route.operations) as Array<[OperationName, Route['operations'][OperationName]]>) {
             if (!op.test_end || !op.steps.some((step) => 'click' in step && step.commits === true)) continue;
-            const draftStates = [...new Set(op.test_end.flatMap((step) => {
-                const target = 'click' in step ? step.click : null;
-                return target?.within ? [target.within] : [];
-            }))];
-            for (const state of draftStates) {
+            for (const state of draftStatesOf(op.test_end)) {
                 if (!(await this.stateHolds(route, state))) continue;
                 const result: OperationResult = { extracted: {}, steps: [] };
                 await this.runSteps(route, name, op.test_end, 'test_end', {}, 'test', result);

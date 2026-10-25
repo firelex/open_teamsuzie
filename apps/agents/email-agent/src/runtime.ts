@@ -1,11 +1,11 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
     buildTestParams, checkOutput, describeOutput, runCanary, WebmailEmailClient, OPERATION_GOALS,
     type CanaryResult, type FileRouteStore,
 } from '@teamsuzie/email-webmail';
 import {
-    computeFingerprint, HumanBehaviour, launchSession, loginHandoff, NavigationError, RouteError, RouteExecutor,
+    capturePage, computeFingerprint, HumanBehaviour, launchSession, loginHandoff, NavigationError, RouteError, RouteExecutor,
     VolumeLimiter, type Session,
 } from '@teamsuzie/webmail-browser';
 import { RouteLearner, type LearnerRound, type LearnOutcome, type RouteModel } from '@teamsuzie/webmail-learn';
@@ -23,6 +23,8 @@ export interface ChromeRuntimeDeps {
 }
 
 const LOGIN_POLL_MS = 2000;
+/** A diagnostic capture keeps far more of the outline than a prompt does. */
+const DIAGNOSTIC_OUTLINE_CHARS = 400_000;
 
 /** The real browser side of one account: installed Chrome on the account's own profile. */
 export class ChromeRuntime implements HandlerRuntime {
@@ -123,6 +125,19 @@ export class ChromeRuntime implements HandlerRuntime {
         }
         await this.waitForInbox(executor, route);
         return computeFingerprint(this.session.page);
+    }
+
+    async capture(): Promise<string[]> {
+        if (!this.session) throw new Error(`The browser for ${this.deps.account.address} is not open`);
+        const dir = join(this.deps.config.data_dir, 'captures');
+        mkdirSync(dir, { recursive: true, mode: 0o700 });
+        const base = join(dir, `${this.deps.now().toISOString().replace(/[:.]/g, '-')}-${this.deps.account.address.toLowerCase()}`);
+        const capture = await capturePage(this.session.page, DIAGNOSTIC_OUTLINE_CHARS);
+        writeFileSync(`${base}.json`, `${JSON.stringify(capture, null, 2)}\n`, { mode: 0o600 });
+        writeFileSync(`${base}.outline.txt`, `${capture.url}\n\n${capture.outline}\n`, { mode: 0o600 });
+        writeFileSync(`${base}.aria.yaml`, `${capture.aria}\n`, { mode: 0o600 });
+        await this.session.page.screenshot({ path: `${base}.png`, fullPage: false });
+        return [`${base}.json`, `${base}.outline.txt`, `${base}.aria.yaml`, `${base}.png`];
     }
 
     login(): Promise<'completed' | 'timed_out'> {

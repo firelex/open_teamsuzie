@@ -15,7 +15,7 @@ afterAll(async () => {
 describe('capturePage', () => {
     it('captures the url, accessibility snapshot and unnamed interactive elements', async () => {
         await fixture.page.goto(FIXTURE_HOME);
-        const capture = await capturePage(fixture.page);
+        const capture = await capturePage(fixture.page, 40_000);
         expect(capture.url).toBe(FIXTURE_HOME);
         expect(capture.aria).toContain('button "Compose"');
         expect(capture.aria).toContain('grid "Inbox"');

@@ -12,7 +12,8 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
   search, send, reply, … — a list of steps with accessibility targets. A fixed executor (`@teamsuzie/webmail-browser`)
   runs them strictly: a target that matches nothing or more than one thing is a failure, never a guess.
 - **Clean start.** Every action starts from the inbox: any draft or reply left open is discarded first, then the
-  inbox is loaded and must show. A failed test can no longer leave the page in a state that breaks the next action.
+  inbox is loaded and must show. A test-mode run also checks that its discard really closed the draft
+  (`cleanup_failed` otherwise), so broken discard steps are caught on their first test, not by piling up drafts.
 - **Knowing when to relearn.** A route is checked again when a job fails on it, when the inbox layout's fingerprint
   changes (checked on every inbox poll), and by a canary every few hours. The canary and every relearning test run
   in test mode: drafts are filled and then discarded, Send is never pressed.
@@ -72,7 +73,8 @@ the alerts. The console's mail actions go through the same MCP tools as the `con
 waits for approval.
 
 **CLI.** `status`, `login <account>`, `canary <account>`, `relearn <account> <action>`, `approvals`,
-`approve <id>`, `reject <id> [reason]`, `alerts`.
+`approve <id>`, `reject <id> [reason]`, `alerts`, and `capture <account>`, which saves the account's page as it
+is now (accessibility tree, outline and screenshot, under `data_dir/captures/`) for diagnosing a failing action.
 
 ## Job errors
 

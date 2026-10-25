@@ -45,6 +45,7 @@ class FakeRuntime implements HandlerRuntime {
     }
     async fingerprint() { return this.fingerprintValue; }
     async login() { this.calls.push('login'); return this.loginOutcome; }
+    async capture() { this.calls.push('capture'); return ['/tmp/capture.json']; }
     client(): HandlerClient {
         const self = this;
         const base: HandlerClient = {

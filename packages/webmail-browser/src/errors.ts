@@ -4,7 +4,8 @@ export type RouteErrorCode =
     | 'target_ambiguous'
     | 'state_not_reached'
     | 'extract_invalid'
-    | 'recipients_mismatch';
+    | 'recipients_mismatch'
+    | 'cleanup_failed';
 
 /**
  * Where in an operation a failure happened: its steps, its test_end steps, or `start`, the return to a clean inbox

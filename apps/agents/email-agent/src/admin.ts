@@ -8,7 +8,7 @@ import { SEND_APPROVAL_ACTION } from './jobs.js';
 
 export interface AdminDeps {
     adminToken: string;
-    handlers: Map<string, Pick<AccountHandler, 'state' | 'requestLogin' | 'requestRelearn' | 'requestCanary'>>;
+    handlers: Map<string, Pick<AccountHandler, 'state' | 'requestLogin' | 'requestRelearn' | 'requestCanary' | 'requestCapture'>>;
     approvals: ApprovalQueue;
     alerts: AlertStore;
     log: (message: string) => void;
@@ -69,6 +69,12 @@ export function adminRouter(deps: AdminDeps): Router {
         const handler = handlerFor(req, res);
         if (!handler) return;
         res.json(await handler.requestCanary());
+    }));
+
+    router.post('/capture/:account', route(async (req, res) => {
+        const handler = handlerFor(req, res);
+        if (!handler) return;
+        res.json({ files: await handler.requestCapture() });
     }));
 
     router.get('/approvals', route(async (_req, res) => {

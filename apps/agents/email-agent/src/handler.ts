@@ -39,6 +39,8 @@ export interface HandlerRuntime {
     fingerprint(): Promise<string>;
     /** Visible sign-in window; the headless session must be closed first. */
     login(): Promise<'completed' | 'timed_out'>;
+    /** Save the page as it is now (accessibility tree, outline, screenshot) for diagnosis; returns the files written. */
+    capture(): Promise<string[]>;
 }
 
 export type HandlerStatus = 'starting' | 'ready' | 'logging_in' | 'needs_login' | 'account_mismatch' | 'failed' | 'stopped';
@@ -140,6 +142,11 @@ export class AccountHandler {
     /** Run the canary on every operation now, repairing what fails. */
     requestCanary(): Promise<CanaryResult[]> {
         return this.exclusive(() => this.canaryAll());
+    }
+
+    /** Save the account's page as it is now, without changing it. */
+    requestCapture(): Promise<string[]> {
+        return this.exclusive(() => this.deps.runtime.capture());
     }
 
     /** One step of work. Public for tests; the loop calls it. */

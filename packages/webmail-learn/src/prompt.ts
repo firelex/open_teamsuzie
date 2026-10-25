@@ -33,6 +33,7 @@ const FAILURE_MEANINGS: Record<string, string> = {
     state_not_reached: 'after the step, the page did not reach the state the step expected',
     extract_invalid: 'a value the step had to read was missing or not in the expected form',
     recipients_mismatch: 'the recipients the page showed were not the ones requested (or could not be read)',
+    cleanup_failed: 'the test_end steps ran but the draft or reply was still open afterwards, so they do not really discard it (check that the discard button is right, and whether the page asks to confirm the discard)',
 };
 
 /** A self-contained, plain-English request to repair one operation of a webmail route. */
@@ -75,7 +76,7 @@ export function buildRepairPrompt(req: RepairRequest): string {
         + `- {"role": "button", "name": "Send"} matches by accessibility role and exact accessible name. Use "name_pattern": "<case-insensitive regular expression>" instead of "name" when the name varies; never give both. Anchor patterns with ^ and $ when a longer name could also match, for example "^New mail$" so that a "New mail options" button does not match too.\n`
         + `- {"css": "<selector>"} only for elements with no accessible name. "role" and "css" together must both match.\n`
         + `- "within": "<state name>" searches only inside that state's "container" element. "has": <target> keeps only elements that contain a match for the inner target; an inner target may not use "within".\n`
-        + `- A target must match exactly one visible element, unless it has "each": true (used for lists). Never use ids or labels the page generates per visit, such as #116-group, #588 or [aria-labelledby="116-label"]; prefer roles, accessible names, aria-label, title, name and data-* attributes that describe the element.`,
+        + `- A target must match exactly one visible element, unless it has "each": true (used for lists). Never use ids or labels the page generates per visit, such as #116-group, #588 or [aria-labelledby="116-label"], and never use class names that look generated (random letters and digits such as .QdrUx, .r1f29ykk or .___1n1jw41): they change whenever the webmail is updated. Prefer, in this order: role and accessible name; aria-label, title, name and placeholder; data-* attributes whose names describe the element (such as data-convid). Choose what a person would recognise on screen, because that changes least.`,
 
         `VALUES\nText values and names may use only these placeholders, which the program fills in: ${PLACEHOLDERS.join(', ')}.`,
 

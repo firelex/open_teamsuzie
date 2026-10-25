@@ -14,6 +14,7 @@ Commands:
   login <account>               Open a Chrome window to sign in to the account
   canary <account>              Check every mail action now without sending anything
   relearn <account> <action>    Relearn one mail action now (e.g. compose_send)
+  capture <account>             Save the account's page as it is now (tree, outline, screenshot) for diagnosis
   approvals                     Sends waiting for your approval
   approve <id>                  Approve and queue a send
   reject <id> [reason]          Reject a send
@@ -96,6 +97,10 @@ async function main(): Promise<void> {
         case 'relearn': {
             const [account, action] = need(rest, 2, 'relearn <account> <action>');
             return print(await admin(config, 'POST', `/relearn/${enc(account!)}/${enc(action!)}`));
+        }
+        case 'capture': {
+            const [account] = need(rest, 1, 'capture <account>');
+            return print(await admin(config, 'POST', `/capture/${enc(account!)}`));
         }
         case 'approvals':
             return print(await admin(config, 'GET', '/approvals'));

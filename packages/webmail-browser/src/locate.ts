@@ -62,6 +62,7 @@ export function describeTarget(target: Target): string {
 }
 
 const MAX_EVIDENCE = 10;
+const MAX_CANDIDATES = 20;
 
 /**
  * One line per element: its tag and describing attributes, its text, and the labelled regions it sits in, so a
@@ -69,7 +70,7 @@ const MAX_EVIDENCE = 10;
  */
 export function describeElements(locator: Locator, max = MAX_EVIDENCE): Promise<string[]> {
     return locator.evaluateAll((elements, limit) => elements.slice(0, limit).map((el) => {
-        const keep = /^(role|aria-label|aria-level|title|name|type|class|href|placeholder|data-[\w-]+)$/;
+        const keep = /^(role|aria-label|aria-level|aria-selected|aria-expanded|aria-checked|title|name|type|class|href|placeholder|data-[\w-]+)$/;
         const attrs: string[] = [];
         for (const attr of Array.from(el.attributes)) {
             if (!keep.test(attr.name)) continue;
@@ -89,13 +90,27 @@ export function describeElements(locator: Locator, max = MAX_EVIDENCE): Promise<
     }), max);
 }
 
+/** Words of a target's name or name pattern, to rank candidates by how close their text is. */
+function wantedWords(target: Target): string[] {
+    const source = target.name ?? target.name_pattern ?? '';
+    return source.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+}
+
 /** When a target matched nothing: the nearest things that are on the page, to show what is there instead. */
 async function candidatesFor(root: Root, target: Target, ctx: LocateContext): Promise<string[]> {
     const evidence: string[] = [];
+    const selectedTabs = await describeElements(ctx.page.locator('[role="tab"][aria-selected="true"]').filter({ visible: true }), 5);
+    if (selectedTabs.length > 0) evidence.push(...selectedTabs.map((l) => `selected tab (the page is showing this tab's controls): ${l}`));
     if (target.role !== undefined) {
         const sameRole = root.getByRole(target.role as AriaRole).filter({ visible: true });
-        const lines = await describeElements(sameRole);
-        evidence.push(...(lines.length > 0 ? lines.map((l) => `visible ${target.role}: ${l}`) : [`no visible element has the role "${target.role}" here`]));
+        const lines = await describeElements(sameRole, 200);
+        // Closest names first: elements sharing words with the wanted name, then the rest in page order.
+        const words = wantedWords(target);
+        const score = (line: string) => words.filter((w) => line.toLowerCase().includes(w)).length;
+        const ranked = lines.map((line, i) => ({ line, i, score: score(line) })).sort((a, b) => b.score - a.score || a.i - b.i);
+        const shown = ranked.slice(0, MAX_CANDIDATES).map((r) => `visible ${target.role}: ${r.line}`);
+        if (lines.length > MAX_CANDIDATES) shown.push(`… and ${lines.length - MAX_CANDIDATES} more visible ${target.role} elements`);
+        evidence.push(...(lines.length > 0 ? shown : [`no visible element has the role "${target.role}" here`]));
     }
     if (target.css !== undefined) {
         const css = root.locator(substitute(target.css, ctx.params, 'css'));

@@ -11,6 +11,9 @@ import { applyRepair, parseRepair, RepairParseError } from './parse.js';
 import { buildRepairPrompt } from './prompt.js';
 
 /** One model round, recorded so the model's behaviour can be reviewed afterwards. */
+/** How much of the page outline goes into a prompt. */
+const PROMPT_OUTLINE_CHARS = 40_000;
+
 export interface LearnerRound {
     at: string;
     model: string;
@@ -106,7 +109,7 @@ export class RouteLearner {
                 goal: input.goal,
                 outputs: input.outputs,
                 failure: { code: failure.code, phase: failure.phase, stepIndex: failure.stepIndex, message: failure.detail, evidence: failure.evidence },
-                capture: await capturePage(this.deps.executor.page),
+                capture: await capturePage(this.deps.executor.page, PROMPT_OUTLINE_CHARS),
                 previousProblems: problems,
             });
             const reply = await this.deps.model.complete(prompt);

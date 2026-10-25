@@ -4,6 +4,7 @@ import { HumanBehaviour } from './behaviour.js';
 import { NeedsLoginError, RouteError, UnreadableValueError } from './errors.js';
 import { RouteExecutor } from './executor.js';
 import { resolveOne } from './locate.js';
+import { capturePage } from './capture.js';
 import {
     fixtureActivity, fixtureRoute, openFixtureBrowser, serveFixture, setAutocomplete, FIXTURE_HOME,
     type FixtureBrowser,
@@ -128,6 +129,15 @@ describe('RouteExecutor', () => {
         await expect(resolveOne({ role: 'button', name: 'Send', within: 'compose_open' }, ctx)).resolves.toBeDefined();
     });
 
+    it('fails the test when the discard steps leave the draft open', async () => {
+        // A test_end that clicks something harmless inside the draft instead of discarding it.
+        route.operations.compose_send.test_end = [{ click: { role: 'textbox', name: 'Subject', within: 'compose_open' } }];
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
+        expect(error).toMatchObject({ code: 'cleanup_failed', phase: 'test_end' });
+        expect(error.detail).toContain('state "compose_open" still holds');
+        expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
+    });
+
     it('fails with target_not_found when the button is gone', async () => {
         route.operations.compose_send.steps[1] = { click: { role: 'button', name: 'Write' }, expect: 'compose_open' };
         const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
@@ -172,10 +182,30 @@ describe('RouteExecutor', () => {
         ]));
     });
 
-    it('lists what is there when a target matches nothing', async () => {
-        route.operations.compose_send.steps[1] = { click: { role: 'button', name: 'Write' }, expect: 'compose_open' };
+    it('lists what is there when a target matches nothing, closest names first, with the selected tab', async () => {
+        await serveFixture(fixture.context, 'ribbon');
+        await fixture.page.goto('about:blank');
+        route.operations.compose_send.steps[1] = { click: { role: 'button', name: 'Compose message' }, expect: 'compose_open' };
         const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
-        expect(error.evidence.some((e) => e.startsWith('visible button: <button id="compose"') || e.includes('text "Compose"'))).toBe(true);
+        expect(error.evidence[0]).toMatch(/^selected tab \(the page is showing this tab's controls\): <button role="tab" aria-selected="true"> text "Home"/);
+        expect(error.evidence[1]).toMatch(/^visible button: <button> text "Compose"/);
+    });
+
+    it('waits for the accessibility tree and leaves anonymous wrappers out of the outline', async () => {
+        await fixture.page.evaluate(() => {
+            const deep = document.createElement('div');
+            deep.innerHTML = '<div class="QdrUx"><div class="___1n1jw41"><div><button aria-label="Deep action"><span><span>Deep</span></span></button></div></div></div>';
+            document.body.append(deep);
+            // Like Outlook while it re-renders: the whole page is hidden from assistive technology for a moment.
+            const children = Array.from(document.body.children);
+            children.forEach((c) => c.setAttribute('aria-hidden', 'true'));
+            setTimeout(() => children.forEach((c) => c.removeAttribute('aria-hidden')), 700);
+        });
+        const capture = await capturePage(fixture.page, 40_000);
+        expect(capture.aria).toContain('grid "Inbox"');
+        expect(capture.outline).toMatch(/^ *<button aria-label="Deep action"> Deep$/m);
+        expect(capture.outline).not.toContain('QdrUx');
+        expect(capture.outline).toContain('<tr class="row unread" data-id="m1" data-thread="t1"');
     });
 
     it('says when a field pattern did not match, rather than calling the value invalid', async () => {
