@@ -28,7 +28,7 @@ const STEP_KEYS: Record<string, Set<string>> = {
     goto: new Set(['goto', 'expect']),
     click: new Set(['click', 'commits', 'expect']),
     fill: new Set(['fill', 'value', 'expect']),
-    type: new Set(['type', 'value', 'each_address', 'then_press', 'at', 'expect']),
+    type: new Set(['type', 'value', 'each_address', 'then_press', 'pick_suggestion', 'at', 'expect']),
     press: new Set(['press', 'commits', 'expect']),
     scroll: new Set(['scroll']),
     wait_for: new Set(['wait_for']),
@@ -349,6 +349,11 @@ function checkStep(step: unknown, path: string, ctx: TargetContext, domains: str
                 else if (keyKind(step.then_press) === 'forbidden') add(`${path}.then_press "${step.then_press}" is not an allowed key. Allowed: ${ALLOWED_KEYS_DESCRIPTION}`);
             }
             if (step.each_address !== undefined && typeof step.each_address !== 'boolean') add(`${path}.each_address must be a boolean`);
+            if (action === 'type' && step.pick_suggestion !== undefined) {
+                checkTarget(step.pick_suggestion, `${path}.pick_suggestion`, ctx, { allowWithin: true });
+                if (step.each_address !== true) add(`${path}.pick_suggestion needs "each_address": true (a suggestion is picked for each address)`);
+                if (step.then_press !== undefined) add(`${path} has both then_press and pick_suggestion; use one way to turn an address into a recipient`);
+            }
             if (step.at !== undefined && (action !== 'type' || step.at !== 'start')) add(`${path}.at may only be "start", on a type step`);
             break;
         }

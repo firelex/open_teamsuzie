@@ -84,7 +84,12 @@ export type Step =
     | { goto: string; expect?: string }
     | { click: Target; commits?: boolean; expect?: string }
     | { fill: Target; value: string; expect?: string }
-    | { type: Target; value: string; each_address?: boolean; then_press?: string; at?: 'start'; expect?: string }
+    /**
+     * `pick_suggestion` (with `each_address`): after typing each address, wait for the one suggestion among these
+     * elements that mentions the address, and click it. Webmail only turns an address into a recipient when a
+     * suggestion is picked or a key is pressed after the suggestions appear; the chip it makes may show only a name.
+     */
+    | { type: Target; value: string; each_address?: boolean; then_press?: string; pick_suggestion?: Target; at?: 'start'; expect?: string }
     | { press: string; commits?: boolean; expect?: string }
     | { scroll: Target | 'page' }
     | { wait_for: string }

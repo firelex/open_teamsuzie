@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Route } from '@teamsuzie/webmail-routes';
 import { HumanBehaviour } from './behaviour.js';
 import { NeedsLoginError, RecipientsDifferError, RouteError, UnreadableValueError } from './errors.js';
-import { RouteExecutor } from './executor.js';
+import { RouteExecutor, suggestionName } from './executor.js';
 import { resolveOne } from './locate.js';
 import { capturePage } from './capture.js';
 import {
@@ -126,6 +126,33 @@ describe('RouteExecutor', () => {
         const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
         expect(error.code).toBe('recipients_mismatch');
         expect(error.evidence.join('\n')).toContain('markup inside:\n<input');
+    });
+
+    it('picks the suggestion for each address and accepts a chip that shows only the name', async () => {
+        // Like Outlook: suggestions appear a moment after typing, only picking one makes a chip, and the chip shows
+        // the contact's name ("Carol Example"), or the address for someone with no name.
+        await fixture.page.evaluate(() => { (window as unknown as { __suggestions: Record<string, string> }).__suggestions = { 'carol@example.com': 'Carol Example' }; });
+        const to = route.operations.compose_send.steps[2]!;
+        if (!('type' in to)) throw new Error('fixture changed');
+        delete to.then_press;
+        to.pick_suggestion = { role: 'option', each: true };
+        const recipients = route.operations.compose_send.steps[5]!;
+        if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
+        recipients.verify_recipients = { to: { css: '#chips', each: true, within: 'compose_open' }, from: 'text' };
+        await executor.run(route, 'compose_send', draft, 'live');
+        expect((await fixtureActivity(fixture.page)).sent.map((s) => s.to)).toEqual(['carol@example.com, dan@example.com']);
+    });
+
+    it('fails when no suggestion mentioning the address appears', async () => {
+        await fixture.page.evaluate(() => { (window as unknown as { __suggestions: Record<string, string> }).__suggestions = {}; });
+        const to = route.operations.compose_send.steps[2]!;
+        if (!('type' in to)) throw new Error('fixture changed');
+        delete to.then_press;
+        to.pick_suggestion = { role: 'option', name_pattern: 'nobody', each: true };
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
+        expect(error).toMatchObject({ code: 'target_not_found', stepIndex: 2 });
+        expect(error.detail).toContain('mentions carol@example.com');
+        expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
     });
 
     it('only reads the recipients when none were requested, as in a test of a reply', async () => {
@@ -419,5 +446,13 @@ describe('RouteExecutor', () => {
     it('checks whether a state holds', async () => {
         expect(await executor.stateHolds(route, 'inbox_list')).toBe(true);
         expect(await executor.stateHolds(route, 'compose_open')).toBe(false);
+    });
+});
+
+describe('suggestionName', () => {
+    it('takes the name a suggestion shows next to the address', () => {
+        expect(suggestionName('Mathias Strasser - mstrasser@scissero.com', 'mstrasser@scissero.com')).toBe('Mathias Strasser');
+        expect(suggestionName('Ann Lee <ANN@x.com>', 'ann@x.com')).toBe('Ann Lee');
+        expect(suggestionName('ann@x.com', 'ann@x.com')).toBeNull();
     });
 });

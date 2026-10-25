@@ -77,6 +77,17 @@ async function readRecipientSource(el: Locator, from: FieldSource): Promise<stri
     });
 }
 
+/**
+ * The name a suggestion shows next to `address`: its label without the address and the punctuation around it
+ * ("Ann Lee - ann@x.com" and "Ann Lee <ann@x.com>" give "Ann Lee"). Null when it shows only the address.
+ */
+export function suggestionName(label: string, address: string): string | null {
+    const index = label.toLowerCase().indexOf(address.toLowerCase());
+    const rest = `${label.slice(0, index)} ${label.slice(index + address.length)}`;
+    const name = rest.replace(/[\s\-–—<>()[\],;:"']+/g, ' ').trim();
+    return name.length > 0 ? name : null;
+}
+
 /** The element a step acts on, if it has one. */
 function stepTarget(step: Step): Target | null {
     if ('click' in step) return step.click;
@@ -102,6 +113,12 @@ const STATE_POLL_MS = 150;
 
 /** Runs a route's operations on one page, exactly as written: no alternative targets, no guessing. */
 export class RouteExecutor {
+    /**
+     * For this run: each address entered by picking a suggestion, and the name that suggestion showed with it (null
+     * when it showed only the address). The recipient chip may show just that name.
+     */
+    private pickedRecipients = new Map<string, string | null>();
+
     constructor(private readonly opts: ExecutorOptions) {}
 
     get page(): Page {
@@ -115,6 +132,7 @@ export class RouteExecutor {
     async run(route: Route, operation: OperationName, params: Params, mode: RunMode): Promise<OperationResult> {
         const op = route.operations[operation];
         const result: OperationResult = { extracted: {}, steps: [] };
+        this.pickedRecipients = new Map();
         await this.startFromInbox(route, operation);
         try {
             await this.runSteps(route, operation, op.steps, 'steps', params, mode, result);
@@ -296,6 +314,7 @@ export class RouteExecutor {
             for (const part of parts) {
                 await behaviour.typeText(page, await resolveOne(step.type, ctx), part);
                 if (step.then_press !== undefined) await behaviour.press(page, step.then_press);
+                if (step.pick_suggestion !== undefined) await this.pickSuggestion(step.pick_suggestion, part, ctx);
             }
         } else if ('press' in step) {
             await behaviour.press(page, step.press);
@@ -443,7 +462,16 @@ export class RouteExecutor {
                 const target = check[kind];
                 if (target === undefined) continue;
                 const found: string[] = [];
-                for (const chip of await resolveAll(target, ctx)) found.push(...emailsIn((await readRecipientSource(chip, check.from)) ?? ''));
+                let fieldText = '';
+                for (const chip of await resolveAll(target, ctx)) {
+                    const source = (await readRecipientSource(chip, check.from)) ?? '';
+                    found.push(...emailsIn(source));
+                    fieldText += ` ${source.replace(/\s+/g, ' ')}`;
+                }
+                // An address picked from a suggestion counts as shown when its chip shows the suggestion's name.
+                for (const [address, name] of this.pickedRecipients) {
+                    if (name !== null && fieldText.toLowerCase().includes(name.toLowerCase())) found.push(address);
+                }
                 shown[kind] = [...new Set(found)].sort();
             }
             return shown;
@@ -480,6 +508,38 @@ export class RouteExecutor {
         }
         if (kinds.some((kind) => shown[kind].join(',') !== expected[kind].join(','))) {
             throw new RecipientsDifferError(ctx.operation, shown, expected);
+        }
+    }
+
+    /**
+     * After an address is typed: wait for the one element among `target`'s matches whose label or text contains the
+     * address (case does not matter), click it, and remember the name it shows with the address.
+     */
+    private async pickSuggestion(target: Target, address: string, ctx: LocateContext): Promise<void> {
+        const wanted = address.toLowerCase();
+        const deadline = Date.now() + this.opts.stepTimeoutMs;
+        for (;;) {
+            const matching: Array<{ el: Locator; label: string }> = [];
+            for (const el of await resolveAll(target, ctx)) {
+                // Its accessible label, or else its text: whichever of the two mentions the address.
+                const sources = await el.evaluate((node) => [node.getAttribute('aria-label') ?? '', (node as HTMLElement).innerText ?? ''].map((t) => t.replace(/\s+/g, ' ').trim()));
+                const label = sources.find((text) => text.toLowerCase().includes(wanted));
+                if (label !== undefined) matching.push({ el, label });
+            }
+            if (matching.length > 1) {
+                throw new RouteError('target_ambiguous', ctx.operation, ctx.stepIndex, `${matching.length} suggestions matching ${describeTarget(target)} mention ${address}; exactly one must`, ctx.phase, matching.map((m) => m.label));
+            }
+            if (matching.length === 1) {
+                await this.opts.behaviour.click(this.opts.page, matching[0]!.el);
+                this.pickedRecipients.set(wanted, suggestionName(matching[0]!.label, address));
+                return;
+            }
+            if (Date.now() >= deadline) {
+                const shown = await resolveAll(target, ctx);
+                const evidence = shown.length > 0 ? await describeElements(locatorIn(this.opts.page, target, ctx.params)) : [`nothing visible matches ${describeTarget(target)}`];
+                throw new RouteError('target_not_found', ctx.operation, ctx.stepIndex, `no suggestion matching ${describeTarget(target)} that mentions ${address} appeared after typing it`, ctx.phase, evidence);
+            }
+            await new Promise((r) => setTimeout(r, STATE_POLL_MS));
         }
     }
 

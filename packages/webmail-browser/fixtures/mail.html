@@ -143,7 +143,7 @@ function recordSend(to, subject, body) {
   window.__sendClicks++;
   window.__sent.push({ to, subject, body, date: 'Sat, Oct 25, 2026, 1:00 PM' });
 }
-function chipsIn(el) { return [...el.querySelectorAll('.chip')].map((c) => c.dataset.email); }
+function chipsIn(el) { return [...el.querySelectorAll('.chip')].map((c) => c.dataset.email || c.__email); }
 function addChip(container, value) {
   const address = window.__autocomplete[value] || value;
   const chip = document.createElement('span');
@@ -214,8 +214,40 @@ document.getElementById('compose').addEventListener('click', () => {
   showRibbonTab('message');
   document.getElementById('to').focus();
 });
+// Like Outlook: with __suggestions on, typing shows suggestions a moment later; picking one makes a chip that shows
+// only the contact's name. Pressing Enter or Tab before picking makes no chip.
+document.getElementById('to').addEventListener('input', (e) => {
+  if (!window.__suggestions) return;
+  document.getElementById('suggestions')?.remove();
+  const typed = e.target.value.trim();
+  setTimeout(() => {
+    if (document.getElementById('to').value.trim() !== typed || !typed.includes('@')) return;
+    const list = document.createElement('div');
+    list.id = 'suggestions';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'Suggested contacts');
+    const name = window.__suggestions[typed];
+    const option = document.createElement('div');
+    option.setAttribute('role', 'option');
+    option.setAttribute('aria-label', name ? name + ' - ' + typed : typed);
+    option.textContent = name || typed;
+    option.addEventListener('click', () => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.__email = typed;
+      chip.textContent = name || typed;
+      document.getElementById('chips').appendChild(chip);
+      document.getElementById('to').value = '';
+      list.remove();
+      document.getElementById('to').focus();
+    });
+    list.appendChild(option);
+    document.body.appendChild(list);
+  }, 300);
+});
 document.getElementById('to').addEventListener('keydown', (e) => {
   const value = e.target.value.trim();
+  if (window.__suggestions) return;
   if ((e.key === 'Tab' || e.key === 'Enter' || e.key === ',') && value) {
     // Like Gmail: only real key presses commit a recipient chip.
     if (!e.isTrusted) return;

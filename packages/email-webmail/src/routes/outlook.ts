@@ -5,9 +5,11 @@ import type { Route } from '@teamsuzie/webmail-routes';
  *
  * Reading (read_account, list_inbox, open_message, read_thread, search) is what the relearning model learned on a
  * live en-GB Outlook account and verified there. Sending uses Outlook's default keyboard shortcuts: N opens a new
- * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step). Discarding a draft (Esc, or the Discard button) asks for confirmation, so
- * tests discard with Esc and then OK. list_test_drafts and the search-results state are as relearned on that account.
- * The recipient check reads the To field's text. List subjects are read from a generated class name (TtcXM), which
+ * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step). Each recipient is
+ * entered by picking Outlook's suggestion for the typed address: Enter pressed before the suggestions appear makes no
+ * recipient, and the chip then shows only the contact's name, which the recipient check accepts for that address.
+ * Discarding a draft (Esc, or the Discard button) may ask for confirmation, so tests discard with Esc and then OK
+ * when the draft is still open. list_test_drafts and the search-results state are as relearned on that account. List subjects are read from a generated class name (TtcXM), which
  * is likely to change with a future Outlook build; the failure checks then relearn it.
  */
 export const OUTLOOK_SEED_ROUTE: Route = {
@@ -411,7 +413,10 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                     },
                     "value": "$draft.to",
                     "each_address": true,
-                    "then_press": "Enter"
+                    "pick_suggestion": {
+                        "role": "option",
+                        "each": true
+                    }
                 },
                 {
                     "fill": {
