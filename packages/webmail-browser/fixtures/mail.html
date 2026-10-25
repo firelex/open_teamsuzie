@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fixture Mail</title>
+<style>
+  body { font-family: sans-serif; margin: 0; }
+  header, nav, .toolbar { padding: 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  tr.row { cursor: pointer; }
+  tr.row td { padding: 6px; border-bottom: 1px solid #ddd; }
+  tr.unread { font-weight: bold; }
+  [role="dialog"] { position: fixed; right: 20px; bottom: 20px; width: 480px; background: #fff; border: 1px solid #888; padding: 8px; }
+  .chip { display: inline-block; background: #eef; margin: 2px; padding: 2px 6px; }
+  [contenteditable] { min-height: 60px; border: 1px solid #ccc; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header role="banner">
+  <input type="text" role="searchbox" aria-label="Search mail" id="search">
+  <button id="account" aria-label="Fixture Account: Me (me@example.com)">Me</button>
+</header>
+<nav aria-label="Folders">
+  <a href="#inbox">Inbox</a>
+  <a href="#sent">Sent</a>
+</nav>
+<div class="toolbar" role="toolbar" aria-label="Actions">
+  <button id="compose">__COMPOSE_LABEL__</button>
+  <button aria-label="Refresh">⟳</button>
+</div>
+<main id="main"></main>
+<!-- A hidden button with the same name must never count as a match. -->
+<button class="hidden">Send</button>
+
+<div role="dialog" aria-label="New Message" id="dialog" class="hidden">
+  <div>
+    <span id="chips"></span>
+    <input type="text" role="combobox" aria-label="To recipients" id="to">
+  </div>
+  <div><input type="text" aria-label="Subject" id="subject"></div>
+  <div contenteditable="true" role="textbox" aria-label="Message Body" id="body"></div>
+  <button id="send">Send</button>
+  <button id="discard" aria-label="Discard draft">🗑</button>
+</div>
+
+<script>
+const VARIANT = '__VARIANT__';
+const ME = 'me@example.com';
+window.__sendClicks = 0;
+window.__sent = [];
+window.__discards = 0;
+window.__autocomplete = {};
+
+const messages = [
+  { id: 'm0', thread: 't1', from: 'alice@example.com', fromName: 'Alice Example', to: ME, subject: 'Quarterly numbers', date: 'Thu, Oct 23, 2026, 4:02 PM', body: 'Numbers coming tomorrow.', unread: false },
+  { id: 'm1', thread: 't1', from: 'alice@example.com', fromName: 'Alice Example', to: ME, cc: 'dan@example.com', subject: 'Quarterly numbers', date: 'Fri, Oct 24, 2026, 9:15 AM', body: 'Here are the quarterly numbers.\nRevenue is up.', unread: true },
+  { id: 'm2', thread: 't2', from: 'bob@example.org', fromName: 'Bob', to: ME, subject: 'Lunch on Tuesday?', date: 'Fri, Oct 24, 2026, 11:40 AM', body: 'Are you free for lunch on Tuesday?', unread: false },
+];
+
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+function latestPerThread(list) {
+  const byThread = new Map();
+  for (const m of list) byThread.set(m.thread, m);
+  return [...byThread.values()].reverse();
+}
+function rowsHtml(list, label) {
+  return `<table role="grid" aria-label="${label}"><tbody>` + list.map((m) => `
+    <tr class="row${m.unread ? ' unread' : ''}" data-id="${m.id}" data-thread="${m.thread}" aria-label="${m.unread ? 'unread, ' : ''}${esc(m.fromName || m.to)}, ${esc(m.subject)}">
+      <td class="from"><span data-email="${esc(m.from)}">${esc(m.fromName || m.from)}</span></td>
+      <td class="subject">${esc(m.subject)}</td>
+      <td class="snippet">${esc(m.body.slice(0, 40))}</td>
+      <td class="date"><span title="${esc(m.date)}">${esc(m.date.slice(5, 11))}</span></td>
+    </tr>`).join('') + '</tbody></table>';
+}
+function messageHtml(id) {
+  const msg = messages.find((m) => m.id === id) || messages.filter((m) => m.thread === id).pop();
+  if (!msg) return '<p>Message not found</p>';
+  const thread = messages.filter((m) => m.thread === msg.thread);
+  return `<h2 class="subject">${esc(msg.subject)}</h2>` + thread.map((m) => `
+    <div class="msg" data-message-id="${m.id}" role="listitem">
+      <span class="sender" data-email="${esc(m.from)}">${esc(m.fromName)}</span>
+      <span class="to" title="to ${esc(m.to)}">to ${esc(m.to)}</span>
+      ${m.cc ? `<span class="cc" title="cc ${esc(m.cc)}">cc ${esc(m.cc)}</span>` : ''}
+      <span class="when" title="${esc(m.date)}">${esc(m.date)}</span>
+      <div class="body">${esc(m.body).replace(/\n/g, '<br>')}</div>
+    </div>`).join('') +
+    `<button id="reply" data-for="${msg.id}">Reply</button><div id="reply-slot"></div>`;
+}
+function render() {
+  const hash = decodeURIComponent(location.hash || '#inbox');
+  const main = document.getElementById('main');
+  let match;
+  if (hash === '#inbox') {
+    main.innerHTML = rowsHtml(latestPerThread(messages), 'Inbox');
+  } else if (hash === '#sent') {
+    main.innerHTML = rowsHtml(window.__sent.map((s, i) => ({ id: 's' + i, thread: 'st' + i, from: s.to, fromName: s.to, to: s.to, subject: s.subject, date: s.date, body: s.body })), 'Sent');
+  } else if ((match = /^#search\/(.*)$/.exec(hash))) {
+    const q = match[1].toLowerCase();
+    main.innerHTML = rowsHtml(messages.filter((m) => m.subject.toLowerCase().includes(q) || m.from.includes(q)), 'Search results');
+  } else if ((match = /^#(?:inbox|all)\/(.+)$/.exec(hash))) {
+    main.innerHTML = messageHtml(match[1]);
+  } else {
+    main.innerHTML = '<p>Unknown view</p>';
+  }
+}
+function recordSend(to, subject, body) {
+  window.__sendClicks++;
+  window.__sent.push({ to, subject, body, date: 'Sat, Oct 25, 2026, 1:00 PM' });
+}
+function chipsIn(el) { return [...el.querySelectorAll('.chip')].map((c) => c.dataset.email); }
+function addChip(container, value) {
+  const address = window.__autocomplete[value] || value;
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.dataset.email = address;
+  chip.textContent = address;
+  container.appendChild(chip);
+}
+
+window.addEventListener('hashchange', render);
+document.getElementById('search').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') location.hash = '#search/' + encodeURIComponent(e.target.value);
+});
+document.getElementById('main').addEventListener('click', (e) => {
+  const row = e.target.closest('tr.row');
+  if (row && !location.hash.startsWith('#sent')) {
+    location.hash = '#inbox/' + row.dataset.id;
+    return;
+  }
+  if (e.target.id === 'reply') {
+    const msg = messages.find((m) => m.id === e.target.dataset.for);
+    document.getElementById('reply-slot').innerHTML = `
+      <div role="region" aria-label="Reply" id="reply-box">
+        <span class="chips"><span class="chip" data-email="${esc(msg.from)}">${esc(msg.fromName)}</span></span>
+        <div contenteditable="true" role="textbox" aria-label="Message Body" id="reply-body"></div>
+        <button id="reply-send">Send</button>
+        <button aria-label="Discard draft" id="reply-discard">🗑</button>
+      </div>`;
+    return;
+  }
+  if (e.target.id === 'reply-send') {
+    const box = document.getElementById('reply-box');
+    const subject = document.querySelector('h2.subject').textContent;
+    recordSend(chipsIn(box).join(', '), 'Re: ' + subject, document.getElementById('reply-body').innerText);
+    box.remove();
+    return;
+  }
+  if (e.target.id === 'reply-discard') {
+    window.__discards++;
+    document.getElementById('reply-box').remove();
+  }
+});
+document.getElementById('compose').addEventListener('click', () => {
+  if (VARIANT === 'expire') {
+    location.href = 'https://login.example.test/signin';
+    return;
+  }
+  document.getElementById('dialog').classList.remove('hidden');
+  document.getElementById('to').focus();
+});
+document.getElementById('to').addEventListener('keydown', (e) => {
+  const value = e.target.value.trim();
+  if ((e.key === 'Tab' || e.key === 'Enter' || e.key === ',') && value) {
+    // Like Gmail: only real key presses commit a recipient chip.
+    if (!e.isTrusted) return;
+    addChip(document.getElementById('chips'), value);
+    e.target.value = '';
+    if (e.key !== 'Tab') e.preventDefault();
+  }
+});
+function closeDialog() {
+  document.getElementById('dialog').classList.add('hidden');
+  document.getElementById('chips').innerHTML = '';
+  document.getElementById('to').value = '';
+  document.getElementById('subject').value = '';
+  document.getElementById('body').innerText = '';
+}
+document.getElementById('send').addEventListener('click', () => {
+  recordSend(chipsIn(document.getElementById('dialog')).join(', '), document.getElementById('subject').value, document.getElementById('body').innerText);
+  closeDialog();
+});
+document.getElementById('discard').addEventListener('click', () => {
+  window.__discards++;
+  closeDialog();
+});
+render();
+</script>
+</body>
+</html>

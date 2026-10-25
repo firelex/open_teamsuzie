@@ -1,0 +1,38 @@
+{
+  "name": "@teamsuzie/webmail-browser",
+  "version": "0.1.0",
+  "description": "Runs webmail routes in installed Chrome through Playwright: strict executor, human-like input and pacing, page capture, sign-in handoff",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./testing": {
+      "import": "./dist/testing/fixture.js",
+      "types": "./dist/testing/fixture.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "fixtures"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/webmail-routes": "workspace:*",
+    "playwright-core": "^1.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
