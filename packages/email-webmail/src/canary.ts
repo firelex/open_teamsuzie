@@ -66,6 +66,11 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
 
 export interface TestParams {
     params: Partial<Record<OperationName, Params>>;
+    /**
+     * The same operations' parameters for a second, different message (another subject and sender where the inbox
+     * has one), so a repair can be checked to work for any message, not only the one it was tested on.
+     */
+    alternate: Partial<Record<OperationName, Params>>;
     /** Why the inbox could not be listed, when it could not; operations that need a message then have no parameters. */
     inboxError: RouteError | UnreadableValueError | null;
 }
@@ -76,22 +81,35 @@ export interface TestParams {
  */
 export async function buildTestParams(client: WebmailEmailClient): Promise<TestParams> {
     let first: ExtractedRecord | null = null;
+    let second: ExtractedRecord | null = null;
     let inboxError: RouteError | UnreadableValueError | null = null;
     try {
         const listing = await client.testOperation('list_inbox', {});
         checkOutput('list_inbox', listing);
-        first = (listing.extracted.messages as ExtractedRecord[])[0] ?? null;
+        const messages = listing.extracted.messages as ExtractedRecord[];
+        first = messages[0] ?? null;
+        // Prefer a message that differs from the first in both subject and sender.
+        second = messages.slice(1).find((m) => m.subject !== first!.subject && m.from !== first!.from)
+            ?? messages.slice(1).find((m) => m.subject !== first!.subject)
+            ?? null;
     } catch (error) {
         if (!(error instanceof RouteError || error instanceof UnreadableValueError)) throw error;
         inboxError = error;
     }
     const params: Partial<Record<OperationName, Params>> = {};
+    const alternate: Partial<Record<OperationName, Params>> = {};
     for (const operation of OPERATION_NAMES) {
         const p = paramsFor(operation, first, client.account.address);
         if (p !== null) params[operation] = p;
+        if (!MESSAGE_OPERATIONS.has(operation)) continue;
+        const a = paramsFor(operation, second, client.account.address);
+        if (a !== null) alternate[operation] = a;
     }
-    return { params, inboxError };
+    return { params, alternate, inboxError };
 }
+
+/** Operations whose parameters come from a particular message. */
+const MESSAGE_OPERATIONS = new Set<OperationName>(['open_message', 'read_thread', 'search', 'reply']);
 
 function paramsFor(operation: OperationName, first: ExtractedRecord | null, account: string): Params | null {
     switch (operation) {

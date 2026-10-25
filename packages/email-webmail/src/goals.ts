@@ -88,6 +88,6 @@ export function describeOutput(operation: OperationName): string {
     const shape = output.list ? `a list of records (one extract step with items, each: true)` : 'one record (one extract step without items)';
     const fieldLine = (name: string) => `"${name}": ${FORMAT_WORDS[output.formats[name]!]}`;
     return `This operation must return ${shape} under the name "${output.as}". Required fields: ${output.required.map(fieldLine).join('; ')}.`
-        + (output.optional.length > 0 ? ` Optional fields: ${output.optional.map(fieldLine).join('; ')}.` : '')
+        + (output.optional.length > 0 ? ` Optional fields: ${output.optional.map(fieldLine).join('; ')}. Leave an optional field out when the page does not show it in that form; do not spend effort on it.` : '')
         + ' The program checks each value: an id that is really a name, or a sender that is a name instead of an address, is rejected. If the value is in an attribute (for example data-*, title or datetime), read it from that attribute.';
 }

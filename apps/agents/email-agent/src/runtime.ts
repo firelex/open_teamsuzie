@@ -89,7 +89,7 @@ export class ChromeRuntime implements HandlerRuntime {
 
     async relearn(operation: OperationName): Promise<LearnOutcome> {
         const client = this.client();
-        const { params, inboxError } = await buildTestParams(client);
+        const { params, alternate, inboxError } = await buildTestParams(client);
         if (inboxError) this.deps.log(`[${this.deps.account.address}] test parameters without the inbox: ${inboxError.message}`);
         if (params[operation] === undefined) {
             return { ok: false, reason: `${operation} cannot be tested: ${inboxError ? `the inbox could not be listed (${inboxError.message})` : 'the inbox is empty'}` };
@@ -109,6 +109,7 @@ export class ChromeRuntime implements HandlerRuntime {
             goal: OPERATION_GOALS[operation],
             outputs: describeOutput(operation),
             params,
+            alternateParams: alternate,
             checkResult: checkOutput,
         });
         if (outcome.ok && outcome.changed) this.deps.routes.save(outcome.route);

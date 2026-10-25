@@ -177,9 +177,12 @@ describe('runCanary', () => {
 
 describe('buildTestParams', () => {
     it('takes parameters from the first inbox message', async () => {
-        const { params, inboxError } = await buildTestParams(client);
+        const { params, alternate, inboxError } = await buildTestParams(client);
         expect(inboxError).toBeNull();
         expect(params.open_message).toEqual({ $message_id: 'm2' });
+        expect(alternate.open_message).toEqual({ $message_id: 'm1' });
+        expect(alternate.reply).toMatchObject({ $message_id: 'm1', '$draft.to': 'alice@example.com' });
+        expect(alternate.compose_send).toBeUndefined();
         expect(params.reply).toMatchObject({ $message_id: 'm2', '$draft.to': 'bob@example.org' });
         expect(params.compose_send).toMatchObject({ '$draft.to': 'me@example.com' });
     });

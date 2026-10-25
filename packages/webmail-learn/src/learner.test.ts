@@ -63,8 +63,15 @@ function learner(model: RouteModel, limits: { maxSubmissions?: number; maxToolCa
     });
 }
 
+const alternateParams: Partial<Record<OperationName, Params>> = {
+    open_message: { $message_id: 'm2' },
+    read_thread: { $thread_id: 't2' },
+    search: { $query: 'quarterly' },
+    reply: { $message_id: 'm2', '$draft.to': 'bob@example.org', '$draft.body': 'Discarded.' },
+};
+
 function input(operation: OperationName = 'compose_send') {
-    return { route: fixtureRoute(), operation, goal: OPERATION_GOALS[operation], outputs: describeOutput(operation), params, checkResult: checkOutput };
+    return { route: fixtureRoute(), operation, goal: OPERATION_GOALS[operation], outputs: describeOutput(operation), params, alternateParams, checkResult: checkOutput };
 }
 
 beforeAll(async () => {
@@ -207,6 +214,32 @@ describe('RouteLearner with tools', () => {
             },
         ]);
         expect((await learner(model).relearn(input())).ok).toBe(true);
+    });
+
+    it('rejects a repair that only works for the message it was tested on', async () => {
+        const route = fixtureRoute();
+        const step = route.operations.open_message.steps[1]!;
+        if ('extract' in step) step.extract.fields.subject = { target: { role: 'heading' }, from: 'text', format: 'nonempty', required: true };
+        const overfitted = structuredClone(fixtureRoute().operations.open_message);
+        const fixedStep = overfitted.steps[1]!;
+        if (!('extract' in fixedStep)) throw new Error('fixture changed');
+        fixedStep.extract.fields.subject = { target: { role: 'heading', name: 'Quarterly numbers' }, from: 'text', format: 'nonempty', required: true };
+        const general = structuredClone(fixtureRoute().operations.open_message);
+        const model = scriptedModel([
+            call('run_operation', overfitted),
+            (messages) => {
+                const [result] = toolResults(messages);
+                expect(result).toMatchObject({ ok: false, error: 'target_not_found' });
+                expect(String(result!.note)).toContain('worked for the first test message but failed for another message');
+                return call('submit_repair', { ...overfitted, notes: 'overfitted' });
+            },
+            (messages) => {
+                expect(String(toolResults(messages)[1]!.problem)).toContain('worked for one message but failed for another');
+                return call('submit_repair', { ...general, notes: 'The subject is the h2 heading.' });
+            },
+        ]);
+        const outcome = await learner(model).relearn({ ...input('open_message'), route });
+        expect(outcome.ok && outcome.changed).toBe(true);
     });
 
     it('hands back an operation sharing a changed state that was already failing before the repair', async () => {

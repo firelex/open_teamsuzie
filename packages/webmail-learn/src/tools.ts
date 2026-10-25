@@ -32,7 +32,7 @@ export const LEARNER_TOOLS: ToolDefinition[] = [
     },
     {
         name: 'run_operation',
-        description: 'Run a complete candidate version of the task in test mode, from a clean inbox, exactly as the program would: it never presses the step marked "commits" and runs "test_end" instead, then checks the draft really closed. Returns success with what was read, or the exact failure with what was on the page. This changes the page (it clicks, types and discards), but sends nothing.',
+        description: 'Run a complete candidate version of the task in test mode, from a clean inbox, exactly as the program would: it never presses the step marked "commits" and runs "test_end" instead, then checks the draft really closed. Where the task works on a message, it is run for two different messages, since it must work for any message. Returns success with what was read, or the exact failure with what was on the page. This changes the page (it clicks, types and discards), but sends nothing.',
         parameters: { type: 'object', properties: { steps: STEPS, test_end: STEPS, states: STATES }, required: ['steps'] },
     },
     {
@@ -72,6 +72,8 @@ export class LearnerToolbox {
         private readonly route: Route,
         private readonly operation: OperationName,
         private readonly params: Params,
+        /** Parameters for a second, different message; run_operation runs with both. */
+        private readonly alternateParams: Params | null,
         private readonly checkResult: (operation: OperationName, result: OperationResult) => void,
     ) {}
 
@@ -149,8 +151,20 @@ export class LearnerToolbox {
         if (args.test_end !== undefined && !Array.isArray(args.test_end)) return { ok: false, error: '"test_end" must be an array' };
         const { route, problems } = this.candidate(args.steps as Step[], args.test_end as Step[] | undefined, args.states);
         if (problems.length > 0) return { ok: false, error: 'the steps break the rules', problems };
+        const first = await this.runWith(route, this.params);
+        if (first.ok !== true || this.alternateParams === null) return first;
+        const second = await this.runWith(route, this.alternateParams);
+        if (second.ok === true) return { ...first, also_worked_for_another_message: true };
+        return {
+            ...second,
+            ok: false,
+            note: `This worked for the first test message but failed for another message (${JSON.stringify(this.alternateParams)}). The task must work for any message: do not put a particular message's subject, sender or other text into targets.`,
+        };
+    }
+
+    private async runWith(route: Route, params: Params): Promise<Record<string, unknown>> {
         try {
-            const result = await this.executor.run(route, this.operation, this.params, 'test');
+            const result = await this.executor.run(route, this.operation, params, 'test');
             this.checkResult(this.operation, result);
             const extracted = JSON.stringify(result.extracted);
             return { ok: true, steps_run: result.steps.length, read: extracted.length > 3000 ? `${extracted.slice(0, 3000)}… (cut)` : result.extracted };

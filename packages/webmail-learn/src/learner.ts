@@ -52,6 +52,11 @@ export interface RelearnInput {
     outputs: string;
     /** Test parameters for each operation, used to test the repaired one and any operation sharing a changed state. */
     params: Partial<Record<OperationName, Params>>;
+    /**
+     * Parameters for a second, different message, where there is one. A repair must also pass with these, so one
+     * that only works for the message it was tested on (for example by targeting its subject) is rejected.
+     */
+    alternateParams: Partial<Record<OperationName, Params>>;
     /** Throws a RouteError when a result lacks what the operation must return. */
     checkResult: (operation: OperationName, result: OperationResult) => void;
 }
@@ -108,7 +113,7 @@ export class RouteLearner {
             capture: await capturePage(this.deps.executor.page, PROMPT_OUTLINE_CHARS),
         });
         const messages: ToolChatMessage[] = [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }];
-        const toolbox = new LearnerToolbox(this.deps.executor, input.route, operation, params, input.checkResult);
+        const toolbox = new LearnerToolbox(this.deps.executor, input.route, operation, params, input.alternateParams[operation] ?? null, input.checkResult);
         let toolCalls = 0;
         let submissions = 0;
         let idle = 0;
@@ -179,6 +184,13 @@ export class RouteLearner {
         }
         const failure = await this.testFailure(candidate, input.operation, params, input);
         if (failure !== null) return { accepted: false, problem: `the repaired task failed its test run: ${failure}` };
+        const alternate = input.alternateParams[input.operation];
+        if (alternate !== undefined) {
+            const otherFailure = await this.testFailure(candidate, input.operation, alternate, input);
+            if (otherFailure !== null) {
+                return { accepted: false, problem: `the repaired task worked for one message but failed for another (${JSON.stringify(alternate)}), so it depends on that one message, for example its subject or sender in a target: ${otherFailure}` };
+            }
+        }
         const dependents = await this.checkDependents(candidate, input, new Set(changedStates));
         if (dependents.broken !== null) return { accepted: false, problem: `the repair broke another task that uses a state it changed: ${dependents.broken}` };
         return { accepted: true, route: await this.finish(candidate, input.operation), notes, changedStates, untested: dependents.untested };
