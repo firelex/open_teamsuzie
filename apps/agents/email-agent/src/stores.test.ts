@@ -49,7 +49,7 @@ describe('config', () => {
 
 describe('SqliteApprovalStore', () => {
     it('creates, finds by job id, updates and lists', async () => {
-        const store = new SqliteApprovalStore(openAgentDb(':memory:'));
+        const store = new SqliteApprovalStore(openAgentDb(':memory:'), manualClock().now);
         const item = await store.create({ subject_id: 'ops-agent', action_type: 'email.send_job', payload: { to: 'a@b.com' }, metadata: { job_id: 'job-1' } });
         expect(item).toMatchObject({ status: 'pending', payload: { to: 'a@b.com' }, metadata: { job_id: 'job-1' } });
         expect((await store.findByJobId('job-1'))?.id).toBe(item.id);

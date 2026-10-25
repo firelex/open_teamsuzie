@@ -43,10 +43,10 @@ function toItem<T>(row: Row): ApprovalItem<T> {
  * job awaiting approval can be found by its id.
  */
 export class SqliteApprovalStore implements ApprovalStore {
-    constructor(private readonly db: DatabaseInstance) {}
+    constructor(private readonly db: DatabaseInstance, private readonly now: () => Date) {}
 
     async create<T = unknown>(input: ProposeInput<T>): Promise<ApprovalItem<T>> {
-        const now = new Date().toISOString();
+        const now = this.now().toISOString();
         const id = `apr-${randomUUID()}`;
         const jobId = input.metadata?.job_id;
         this.db.prepare(`
@@ -89,7 +89,7 @@ export class SqliteApprovalStore implements ApprovalStore {
             next.review === undefined ? null : JSON.stringify(next.review),
             next.dispatch === undefined ? null : JSON.stringify(next.dispatch),
             next.metadata === undefined ? null : JSON.stringify(next.metadata),
-            new Date().toISOString(),
+            this.now().toISOString(),
             id,
         );
         return (await this.get<T>(id))!;
