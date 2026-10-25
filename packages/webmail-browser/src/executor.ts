@@ -7,7 +7,7 @@ import type { Behaviour } from './behaviour.js';
 import type { DateContext } from './dates.js';
 import { NavigationError, NeedsLoginError, RecipientsDifferError, RouteError, UnreadableValueError, type RoutePhase } from './errors.js';
 import { applyPattern, emailsIn, normalizeField, readSource } from './extract.js';
-import { describeElements, describeTarget, inspectTarget, locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext, type TargetReport } from './locate.js';
+import { describeElements, describeMarkup, describeTarget, inspectTarget, locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext, type TargetReport } from './locate.js';
 
 export interface ExecutorOptions {
     page: Page;
@@ -462,7 +462,7 @@ export class RouteExecutor {
         }
         if (ctx.params['$draft.to'] === undefined) {
             if (shown.to.length === 0) {
-                throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, `no To recipient could be read from ${describeTarget(check.to)}`, ctx.phase, await describeElements(locatorIn(this.opts.page, check.to, ctx.params)));
+                throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, `no To recipient could be read from ${describeTarget(check.to)}`, ctx.phase, await this.recipientEvidence(check, ctx));
             }
             result.extracted.recipients = { to: shown.to.join(', '), cc: shown.cc.join(', '), bcc: shown.bcc.join(', ') };
             return;
@@ -476,11 +476,19 @@ export class RouteExecutor {
             else if (shown[kind].length === 0) unreadable.push(`no ${kind} address could be read from ${describeTarget(check[kind]!)}, though the draft has ${expected[kind].join(', ')}`);
         }
         if (unreadable.length > 0) {
-            const chips = check.to ? await describeElements(locatorIn(this.opts.page, check.to, ctx.params)) : [];
-            throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, unreadable.join('; '), ctx.phase, chips);
+            throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, unreadable.join('; '), ctx.phase, await this.recipientEvidence(check, ctx));
         }
         if (kinds.some((kind) => shown[kind].join(',') !== expected[kind].join(','))) {
             throw new RecipientsDifferError(ctx.operation, shown, expected);
         }
+    }
+
+    /** What the To field held when no address could be read in it: each matching element and the markup inside it. */
+    private async recipientEvidence(check: RecipientCheck, ctx: LocateContext): Promise<string[]> {
+        const fields = await resolveAll(check.to, ctx);
+        if (fields.length === 0) return [`nothing visible matches ${describeTarget(check.to)}`];
+        const evidence: string[] = [];
+        for (const field of fields.slice(0, 3)) evidence.push(...await describeElements(field, 1), ...(await describeMarkup(field, 1)).map((markup) => `markup inside:\n${markup}`));
+        return evidence;
     }
 }

@@ -69,7 +69,7 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
             return { result: { operation, outcome: 'passed' }, records };
         } catch (error) {
             if (error instanceof RouteError) {
-                return { result: { operation, outcome: 'failed', error: { code: error.code, message: error.message } }, records: null };
+                return { result: { operation, outcome: 'failed', error: { code: error.code, message: withEvidence(error) } }, records: null };
             }
             if (error instanceof UnreadableValueError) {
                 return { result: { operation, outcome: 'unreadable', error: { code: 'unreadable_value', message: error.message } }, records: null };
@@ -161,4 +161,10 @@ function paramsFor(operation: OperationName, first: ExtractedRecord | null, draf
         case 'list_inbox':
             return {};
     }
+}
+
+/** A route error's message followed by what the page showed, so a stored failure can be understood later. */
+function withEvidence(error: RouteError): string {
+    if (error.evidence.length === 0) return error.message;
+    return `${error.message}\nWhat the page showed:\n${error.evidence.join('\n')}`;
 }

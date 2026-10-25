@@ -93,6 +93,32 @@ export function describeElements(locator: Locator, max = MAX_EVIDENCE): Promise<
     }), max);
 }
 
+/**
+ * The markup inside each element (up to `max` elements), compact: tags with their attributes (not style or class)
+ * and text, one line per node, indented by depth. For evidence when the content of an element matters, such as a
+ * recipient field whose addresses could not be read.
+ */
+export function describeMarkup(locator: Locator, max = 3, maxChars = 2000): Promise<string[]> {
+    return locator.evaluateAll((elements, [limit, chars]) => elements.slice(0, limit).map((root) => {
+        const lines: string[] = [];
+        const walk = (node: Node, depth: number) => {
+            const pad = '  '.repeat(depth);
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = (node.textContent ?? '').replace(/\s+/g, ' ').trim();
+                if (text) lines.push(`${pad}${JSON.stringify(text)}`);
+                return;
+            }
+            if (!(node instanceof Element)) return;
+            const attrs = Array.from(node.attributes).filter((a) => a.name !== 'style' && a.name !== 'class').map((a) => `${a.name}="${a.value.slice(0, 80)}"`);
+            lines.push(`${pad}<${node.tagName.toLowerCase()}${attrs.length > 0 ? ` ${attrs.join(' ')}` : ''}>`);
+            for (const child of Array.from(node.childNodes)) walk(child, depth + 1);
+        };
+        walk(root, 0);
+        const text = lines.join('\n');
+        return text.length > chars ? `${text.slice(0, chars)}…` : text;
+    }), [max, maxChars] as const);
+}
+
 /** Words of a target's name or name pattern, to rank candidates by how close their text is. */
 function wantedWords(target: Target): string[] {
     const source = target.name ?? target.name_pattern ?? '';

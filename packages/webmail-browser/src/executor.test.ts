@@ -119,6 +119,15 @@ describe('RouteExecutor', () => {
         expect((await fixtureActivity(fixture.page)).sent.map((s) => s.to)).toEqual(['carol@example.com, dan@example.com']);
     });
 
+    it('shows the markup of the recipient field when no address can be read in it', async () => {
+        const recipients = route.operations.compose_send.steps[5]!;
+        if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
+        recipients.verify_recipients = { to: { role: 'textbox', name: 'Subject', within: 'compose_open' }, from: 'text' };
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
+        expect(error.code).toBe('recipients_mismatch');
+        expect(error.evidence.join('\n')).toContain('markup inside:\n<input');
+    });
+
     it('only reads the recipients when none were requested, as in a test of a reply', async () => {
         const result = await executor.run(route, 'reply', { $message_id: 'm1', '$draft.body': 'x' }, 'test');
         expect(result.extracted.recipients).toEqual({ to: 'alice@example.com', cc: '', bcc: '' });
