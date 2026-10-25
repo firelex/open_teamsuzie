@@ -22,6 +22,9 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
 - **Knowing when to relearn.** A route is checked again when a job fails on it, when the inbox layout's fingerprint
   changes (checked on every inbox poll), and by a canary every few hours. The canary and every relearning test run
   in test mode: drafts are filled and then discarded, Send is never pressed.
+- **Relearning speed.** Relearning's own test runs type about three times faster than the human pace of real
+  jobs and give up on a missing element after 3 s (6 s for a page state); one attempt typically takes under a
+  minute. `learner.attempts` sets how many attempts an action gets before it is marked broken.
 - **Relearning.** A failing action is rebuilt by your model (`@teamsuzie/webmail-learn`) on the live page: it
   tests targets, states and extracts with tools, runs candidates in test mode, and submits a repair, which must
   pass the no-send test (and not break other actions) before it is used. After 3 failed attempts the action is **broken**: its jobs fail at

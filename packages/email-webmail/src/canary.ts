@@ -13,8 +13,9 @@ export interface CanaryResult {
     reason?: string;
 }
 
-export const CANARY_SUBJECT = 'Route check (draft discarded automatically)';
-const CANARY_BODY = 'This draft was written by an automatic check and is discarded without being sent.';
+// Short, so test runs have little to type; "Route check" makes any draft a failed test leaves easy to find.
+export const CANARY_SUBJECT = 'Route check';
+const CANARY_BODY = 'Route check.';
 
 /**
  * Run operations in test mode against the live account: nothing is sent, every draft is discarded. Route errors are

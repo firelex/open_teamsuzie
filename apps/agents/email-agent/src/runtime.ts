@@ -25,6 +25,10 @@ export interface ChromeRuntimeDeps {
 const LOGIN_POLL_MS = 2000;
 /** A diagnostic capture keeps far more of the outline than a prompt does. */
 const DIAGNOSTIC_OUTLINE_CHARS = 400_000;
+/** Relearning's test runs: about three times the human pace, and quicker to give up on a missing element. */
+const LEARNING_TIME_SCALE = 0.3;
+const LEARNING_STEP_TIMEOUT_MS = 3000;
+const LEARNING_STATE_TIMEOUT_MS = 6000;
 
 /** The real browser side of one account: installed Chrome on the account's own profile. */
 export class ChromeRuntime implements HandlerRuntime {
@@ -32,12 +36,15 @@ export class ChromeRuntime implements HandlerRuntime {
     private executor: RouteExecutor | null = null;
     private webmail: WebmailEmailClient | null = null;
     private readonly behaviour: HumanBehaviour;
+    private readonly learningBehaviour: HumanBehaviour;
     // One limiter for the account's lifetime, so closing and reopening the browser does not reset its pace.
     private readonly limiter: VolumeLimiter;
     private readonly profileDir: string;
 
     constructor(private readonly deps: ChromeRuntimeDeps) {
-        this.behaviour = new HumanBehaviour({ rng: Math.random, timeScale: 1, selectAllModifier: process.platform === 'darwin' ? 'Meta' : 'Control' });
+        const selectAllModifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+        this.behaviour = new HumanBehaviour({ rng: Math.random, timeScale: 1, selectAllModifier });
+        this.learningBehaviour = new HumanBehaviour({ rng: Math.random, timeScale: LEARNING_TIME_SCALE, selectAllModifier });
         const volume = deps.config.volume;
         this.limiter = new VolumeLimiter({
             opensPerMinute: volume.opens_per_minute,
@@ -96,7 +103,7 @@ export class ChromeRuntime implements HandlerRuntime {
         }
         const learner = new RouteLearner({
             model: this.deps.model,
-            executor: this.executor!,
+            executor: this.learningExecutor(),
             maxSubmissions: this.deps.config.learner.max_submissions,
             maxToolCalls: this.deps.config.learner.max_tool_calls,
             log: (message) => this.deps.log(`[${this.deps.account.address}] ${message}`),
@@ -157,6 +164,23 @@ export class ChromeRuntime implements HandlerRuntime {
             pollMs: LOGIN_POLL_MS,
             locale: this.deps.config.locale,
             timezoneId: this.deps.config.timezone,
+        });
+    }
+
+    /**
+     * Relearning runs many test runs in a row, so it types faster and gives up on a missing element sooner than
+     * real jobs do. Real jobs keep the full human pace and the configured timeouts.
+     */
+    private learningExecutor(): RouteExecutor {
+        if (!this.session) throw new Error(`The browser for ${this.deps.account.address} is not open`);
+        const t = this.deps.config.timeouts;
+        return new RouteExecutor({
+            page: this.session.page,
+            behaviour: this.learningBehaviour,
+            stepTimeoutMs: Math.min(t.step_ms, LEARNING_STEP_TIMEOUT_MS),
+            stateTimeoutMs: Math.min(t.state_ms, LEARNING_STATE_TIMEOUT_MS),
+            navigationTimeoutMs: t.navigation_ms,
+            dates: { locale: this.deps.config.locale, timeZone: this.deps.config.timezone, now: this.deps.now },
         });
     }
 

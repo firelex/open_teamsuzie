@@ -103,7 +103,7 @@ describe('RouteLearner with tools', () => {
                 return call('run_operation', fixed);
             },
             (messages) => {
-                expect(toolResults(messages)[1]).toMatchObject({ ok: true });
+                expect(toolResults(messages)[1]).toMatchObject({ ok: true, next: expect.stringContaining('Call submit_repair now') });
                 return call('submit_repair', { ...fixed, notes: 'Compose is now called New message.' });
             },
         ]);

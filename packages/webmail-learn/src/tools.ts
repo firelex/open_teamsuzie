@@ -162,10 +162,12 @@ export class LearnerToolbox {
         if (args.test_end !== undefined && !Array.isArray(args.test_end)) return { ok: false, error: '"test_end" must be an array' };
         const { route, problems } = this.candidate(args.steps as Step[], args.test_end as Step[] | undefined, args.states);
         if (problems.length > 0) return { ok: false, error: 'the steps break the rules', problems };
+        const next = 'This version works. Call submit_repair now with exactly these steps, test_end and states.';
         const first = await this.runWith(route, this.params);
-        if (first.ok !== true || this.alternateParams === null) return first;
+        if (first.ok !== true) return first;
+        if (this.alternateParams === null) return { ...first, next };
         const second = await this.runWith(route, this.alternateParams);
-        if (second.ok === true) return { ...first, also_worked_for_another_message: true };
+        if (second.ok === true) return { ...first, also_worked_for_another_message: true, next };
         return {
             ...second,
             ok: false,
