@@ -1,5 +1,5 @@
 import {
-    capturePage, computeFingerprint, NavigationError, RouteError, UnreadableValueError,
+    capturePage, computeFingerprint, RouteError, UnreadableValueError,
     type OperationResult, type RouteExecutor,
 } from '@teamsuzie/webmail-browser';
 import {
@@ -76,7 +76,7 @@ export class RouteLearner {
         const problems: string[] = [];
 
         for (let round = 0; round <= this.deps.maxStepFixes; round++) {
-            await this.resetPage(candidate);
+            // Each run starts from a clean inbox (the executor discards open drafts and loads the inbox first).
             let failure: RouteError;
             try {
                 const result = await this.deps.executor.run(candidate, operation, params, 'test');
@@ -85,7 +85,7 @@ export class RouteLearner {
                 const dependents = await this.checkDependents(candidate, input, changedStates);
                 if (dependents.broken !== null) return { ok: false, reason: `the repair of ${operation} broke ${dependents.broken}` };
                 return {
-                    ok: true, changed: true, route: await this.finish(candidate), notes,
+                    ok: true, changed: true, route: await this.finish(candidate, operation), notes,
                     changedStates: [...changedStates], untested: dependents.untested,
                 };
             } catch (error) {
@@ -105,7 +105,7 @@ export class RouteLearner {
                 operation,
                 goal: input.goal,
                 outputs: input.outputs,
-                failure: { code: failure.code, phase: failure.phase, stepIndex: failure.stepIndex, message: failure.detail },
+                failure: { code: failure.code, phase: failure.phase, stepIndex: failure.stepIndex, message: failure.detail, evidence: failure.evidence },
                 capture: await capturePage(this.deps.executor.page),
                 previousProblems: problems,
             });
@@ -131,15 +131,6 @@ export class RouteLearner {
             });
         }
         throw new Error('unreachable');
-    }
-
-    private async resetPage(route: Route): Promise<void> {
-        try {
-            await this.deps.executor.page.goto(route.home_url, { waitUntil: 'domcontentloaded' });
-        } catch (error) {
-            throw new NavigationError(`Could not load ${route.home_url}: ${(error as Error).message}`);
-        }
-        this.deps.executor.checkSignedIn(route);
     }
 
     /** Test every other operation that uses a changed state: the first that fails, and those that could not be tested. */
@@ -168,7 +159,6 @@ export class RouteLearner {
 
     /** Why the operation fails in test mode with `route`, or null when it passes. */
     private async testFailure(route: Route, operation: OperationName, params: Params, input: RelearnInput): Promise<string | null> {
-        await this.resetPage(route);
         try {
             input.checkResult(operation, await this.deps.executor.run(route, operation, params, 'test'));
             return null;
@@ -178,8 +168,8 @@ export class RouteLearner {
         }
     }
 
-    private async finish(route: Route): Promise<Route> {
-        await this.resetPage(route);
+    private async finish(route: Route, operation: OperationName): Promise<Route> {
+        await this.deps.executor.startFromInbox(route, operation);
         return {
             ...route,
             route_version: nextRouteVersion(route.route_version, this.deps.now()),

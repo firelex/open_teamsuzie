@@ -31,6 +31,7 @@ beforeEach(async () => {
         routes: { current: () => route },
         limiter: new VolumeLimiter({ opensPerMinute: 100, opensPerHour: 1000, minSecondsBetweenSends: 0.001 }),
         behaviour,
+        now: () => new Date(),
     });
 });
 
@@ -66,6 +67,13 @@ describe('WebmailEmailClient', () => {
         expect(await client.confirmSent('Plan', 'carol@example.com')).toBe(true);
         expect(await client.confirmSent('Plan', 'someone@else.com')).toBe(false);
         expect(await client.confirmSent('Other', 'carol@example.com')).toBe(false);
+        // A Sent list that shows recipients only by name: the subject decides.
+        const step = route.operations.check_sent.steps[1]!;
+        if (!('extract' in step)) throw new Error('fixture changed');
+        step.extract.fields.to = { target: { css: 'td.from [data-email]' }, from: 'text', format: 'text', required: false };
+        await fixture.page.evaluate(() => { (window as unknown as { __sent: Array<{ to: string }> }).__sent[0]!.to = 'Carol Example'; });
+        expect(await client.confirmSent('Plan', 'carol@example.com')).toBe(true);
+        delete step.extract.fields.to;
         await client.reply({ messageId: 'm2', body: 'Yes.' });
         expect(await client.confirmSent('Lunch on Tuesday?', 'bob@example.org')).toBe(true);
     });
@@ -125,10 +133,11 @@ describe('runCanary', () => {
     it('reports a broken operation and skips those that depend on the inbox when it cannot be read', async () => {
         route.states.inbox_list = { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Primary' }] };
         const results = await runCanary(client, ['list_inbox', 'open_message', 'check_sent']);
+        // Every operation starts from the inbox, so a broken inbox state fails check_sent too.
         expect(results.map((r) => [r.operation, r.outcome])).toEqual([
             ['list_inbox', 'failed'],
             ['open_message', 'skipped'],
-            ['check_sent', 'passed'],
+            ['check_sent', 'failed'],
         ]);
         expect(results[0]!.error?.code).toBe('state_not_reached');
     });
@@ -148,6 +157,7 @@ describe('runCanary', () => {
                 routes: { current: () => route },
                 limiter: new VolumeLimiter({ opensPerMinute: 100, opensPerHour: 1000, minSecondsBetweenSends: 0.001 }),
                 behaviour,
+                now: () => new Date(),
             });
             const results = await runCanary(ownClient, ['list_inbox', 'check_sent']);
             expect(results[0]).toMatchObject({ operation: 'list_inbox', outcome: 'unreadable', error: { code: 'unreadable_value' } });

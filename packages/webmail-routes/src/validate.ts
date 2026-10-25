@@ -93,6 +93,7 @@ export function validateRoute(route: unknown): string[] {
     const states = isObject(route.states) ? route.states : null;
     if (!states) add('states must be an object');
     const stateNames = new Set(states ? Object.keys(states) : []);
+    if (states && !stateNames.has('inbox_list')) add('states.inbox_list is required: every operation starts from the inbox and waits for this state');
     const containerStates = new Set<string>();
     if (states) {
         for (const [name, state] of Object.entries(states)) {

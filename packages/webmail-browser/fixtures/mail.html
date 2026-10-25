@@ -25,7 +25,11 @@
   <a href="#inbox">Inbox</a>
   <a href="#sent">Sent</a>
 </nav>
-<div class="toolbar" role="toolbar" aria-label="Actions">
+<div role="tablist" aria-label="Ribbon" id="ribbon-tabs" class="hidden">
+  <button role="tab" id="tab-home" aria-selected="true">Home</button>
+  <button role="tab" id="tab-message" aria-selected="false">Message</button>
+</div>
+<div class="toolbar" role="toolbar" aria-label="Actions" id="home-panel">
   <button id="compose">__COMPOSE_LABEL__</button>
   <button aria-label="Refresh">⟳</button>
 </div>
@@ -89,6 +93,7 @@ function messageHtml(id) {
   const thread = messages.filter((m) => m.thread === msg.thread);
   return `<h2 class="subject">${esc(msg.subject)}</h2>` + thread.map((m) => `
     <div class="msg" data-message-id="${m.id}" role="listitem">
+      <h3 class="sender-name">${esc(m.fromName)}</h3>
       <span class="sender" data-email="${esc(m.from)}">${esc(m.fromName)}</span>
       <span class="to" title="to ${esc(m.to)}">to ${esc(m.to)}</span>
       ${m.cc ? `<span class="cc" title="cc ${esc(m.cc)}">cc ${esc(m.cc)}</span>` : ''}
@@ -161,12 +166,22 @@ document.getElementById('main').addEventListener('click', (e) => {
     document.getElementById('reply-box').remove();
   }
 });
+// The ribbon variant behaves like the new Outlook: while a draft is open the ribbon shows its Message tab, and
+// the Home tab's buttons (including Compose) are hidden until the draft is closed.
+function showRibbonTab(tab) {
+  if (VARIANT !== 'ribbon') return;
+  document.getElementById('tab-home').setAttribute('aria-selected', String(tab === 'home'));
+  document.getElementById('tab-message').setAttribute('aria-selected', String(tab === 'message'));
+  document.getElementById('home-panel').classList.toggle('hidden', tab !== 'home');
+}
+if (VARIANT === 'ribbon') document.getElementById('ribbon-tabs').classList.remove('hidden');
 document.getElementById('compose').addEventListener('click', () => {
   if (VARIANT === 'expire') {
     location.href = 'https://login.example.test/signin';
     return;
   }
   document.getElementById('dialog').classList.remove('hidden');
+  showRibbonTab('message');
   document.getElementById('to').focus();
 });
 document.getElementById('to').addEventListener('keydown', (e) => {
@@ -180,6 +195,7 @@ document.getElementById('to').addEventListener('keydown', (e) => {
   }
 });
 function closeDialog() {
+  showRibbonTab('home');
   document.getElementById('dialog').classList.add('hidden');
   document.getElementById('chips').innerHTML = '';
   document.getElementById('to').value = '';

@@ -11,6 +11,8 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
 - **Routes.** Where to click is data (`@teamsuzie/webmail-routes`): for each action — list the inbox, open a message,
   search, send, reply, … — a list of steps with accessibility targets. A fixed executor (`@teamsuzie/webmail-browser`)
   runs them strictly: a target that matches nothing or more than one thing is a failure, never a guess.
+- **Clean start.** Every action starts from the inbox: any draft or reply left open is discarded first, then the
+  inbox is loaded and must show. A failed test can no longer leave the page in a state that breaks the next action.
 - **Knowing when to relearn.** A route is checked again when a job fails on it, when the inbox layout's fingerprint
   changes (checked on every inbox poll), and by a canary every few hours. The canary and every relearning test run
   in test mode: drafts are filled and then discarded, Send is never pressed.
@@ -24,8 +26,9 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
   a reply was rejected, so the relearning model can be judged.
 - **Sends.** A send goes out at once only when a rule in `send_policy` allows it; otherwise it waits for your
   approval (notification, then `email-agent approve <id>` or the console). The recipients shown on the page must equal
-  the requested ones before Send is pressed. After a send action is relearned, the next send is confirmed in Sent;
-  if it is not there, sending stops and you are alerted.
+  the requested ones before Send is pressed. After a send action is relearned, the next send is confirmed in Sent
+  (by its subject, sent within the last 15 minutes when the list shows dates, and its recipients when the list shows
+  addresses rather than names); if it is not there, sending stops and you are alerted.
 - **Sign-in.** Once per account, and whenever the provider signs you out: a visible Chrome window opens on the
   account's own profile, you sign in (password, 2FA), it closes and the account carries on headless. The service
   never sees your password.

@@ -130,7 +130,7 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                         items: { role: 'option', css: '[data-convid]', each: true },
                         fields: {
                             id: { from: 'attr:data-convid', format: 'id', required: true },
-                            to: { target: { css: 'span[title*="@"]' }, from: 'attr:title', format: 'emails', required: true },
+                            to: { target: { css: 'span[title]' }, from: 'attr:title', format: 'text', required: false },
                             subject: { from: 'attr:aria-label', pattern: '^(?:[^,]+), ([^,]+),', format: 'nonempty', required: true },
                         },
                     },

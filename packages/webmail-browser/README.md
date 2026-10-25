@@ -19,6 +19,15 @@ const { extracted } = await executor.run(route, 'list_inbox', {}, 'live');
   present and well-formed (`extract_invalid`), and the recipients shown must equal the draft's before Send
   (`recipients_mismatch`). Each is a `RouteError` naming the operation and step. Landing on a sign-in host is a
   `NeedsLoginError`; a page that will not load is a `NavigationError` — neither is a route problem.
+- **Clean start.** Every `run` first discards any draft or reply left open (using the discard steps of the route's
+  sending operations), loads `home_url` and waits for the `inbox_list` state. A failure there is a `RouteError` in
+  phase `start`.
+- **Evidence.** A target that matches nothing reports the nearest candidates (same role, the css alone, without its
+  `has`); one that matches several reports each match. Each is one line: tag, describing attributes, text, and the
+  labelled regions it sits in. Field errors say which went wrong: no element, attribute absent, pattern did not
+  match (with the text), or not a valid value.
+- **Dates** are read in the account's locale and time zone (`dates` option); a date it cannot read is an
+  `UnreadableValueError`, not a route error.
 - **Test mode** (`run(..., 'test')`) stops before the step marked `commits` and runs `test_end` instead.
 - **Behaviour.** Real mouse and keyboard events only: curved mouse paths to a random point inside the target, key-by-key
   typing with varying delays, pauses between steps and for reading. `timeScale: 0` removes the delays (tests).

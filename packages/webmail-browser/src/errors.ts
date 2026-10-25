@@ -6,6 +6,12 @@ export type RouteErrorCode =
     | 'extract_invalid'
     | 'recipients_mismatch';
 
+/**
+ * Where in an operation a failure happened: its steps, its test_end steps, or `start`, the return to a clean inbox
+ * that comes before every operation.
+ */
+export type RoutePhase = 'steps' | 'test_end' | 'start';
+
 export class RouteError extends Error {
     override readonly name = 'RouteError';
     constructor(
@@ -14,7 +20,12 @@ export class RouteError extends Error {
         /** Index in the operation's steps (or test_end steps when `phase` is `test_end`); -1 when not tied to a step. */
         readonly stepIndex: number,
         readonly detail: string,
-        readonly phase: 'steps' | 'test_end' = 'steps',
+        readonly phase: RoutePhase = 'steps',
+        /**
+         * What was on the page: the elements a target matched when it matched too many, or the nearest candidates
+         * when it matched none. Each is a one-line description (tag, attributes, text, and the regions it is in).
+         */
+        readonly evidence: string[] = [],
     ) {
         super(`${operation} ${phase}[${stepIndex}]: ${code}: ${detail}`);
     }

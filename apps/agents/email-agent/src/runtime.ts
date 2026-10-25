@@ -64,6 +64,7 @@ export class ChromeRuntime implements HandlerRuntime {
             routes: { current: () => this.route() },
             limiter: this.limiter,
             behaviour: this.behaviour,
+            now: this.deps.now,
         });
     }
 

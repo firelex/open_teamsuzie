@@ -24,7 +24,11 @@ export interface WebmailClientDeps {
     routes: { current(): Route };
     limiter: VolumeLimiter;
     behaviour: Behaviour;
+    now: () => Date;
 }
+
+/** How recently a message must have been sent for `confirmSent` to count it, when the Sent list shows dates. */
+const CONFIRM_WINDOW_MS = 15 * 60_000;
 
 /** A request this client cannot carry out through the webmail page (HTML bodies, attachments, another sender). */
 export class WebmailUnsupportedError extends Error {
@@ -140,12 +144,20 @@ export class WebmailEmailClient implements EmailClient {
 
     /**
      * True when Sent shows a message whose subject contains `subject` (a reply's subject is "Re: " plus the
-     * original) and whose recipients include every address in `to`.
+     * original), sent in the last 15 minutes when the list shows dates, and, when the list shows recipients as
+     * addresses, addressed to every address in `to`. Recipients shown only as names cannot be checked against
+     * addresses, so then the subject and date decide.
      */
     async confirmSent(subject: string, to: string): Promise<boolean> {
         const expected = emailsIn(to);
         const sent = await this.list('check_sent', {});
-        return sent.some((r) => r.subject!.includes(subject) && expected.every((address) => emailsIn(r.to ?? '').includes(address)));
+        const now = this.deps.now().getTime();
+        return sent.some((r) => {
+            if (!r.subject!.includes(subject)) return false;
+            if (r.date !== undefined && r.date !== null && now - Date.parse(r.date) > CONFIRM_WINDOW_MS) return false;
+            const shownAddresses = emailsIn(r.to ?? '');
+            return shownAddresses.length === 0 || expected.every((address) => shownAddresses.includes(address));
+        });
     }
 
     /** Run one operation in test mode: nothing is sent, drafts are discarded. */

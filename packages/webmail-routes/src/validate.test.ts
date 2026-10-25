@@ -89,6 +89,10 @@ describe('validateRoute', () => {
         expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ click: { role: 'button', within: 'nowhere' } }]; }), /state "nowhere"/)).toBe(true);
     });
 
+    it('requires an inbox_list state', () => {
+        expect(anyMatches(errorsAfter((r) => { r.states.inbox = r.states.inbox_list!; delete (r.states as Record<string, unknown>).inbox_list; r.operations = JSON.parse(JSON.stringify(r.operations).replace(/"inbox_list"/g, '"inbox"')); }), /states\.inbox_list is required/)).toBe(true);
+    });
+
     it('requires a within state to have a container', () => {
         expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ click: { role: 'button', within: 'inbox_list' } }]; }), /no container/)).toBe(true);
     });

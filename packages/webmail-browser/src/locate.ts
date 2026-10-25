@@ -1,6 +1,6 @@
 import type { Locator, Page } from 'playwright-core';
 import { substitute, type PageState, type Params, type Target } from '@teamsuzie/webmail-routes';
-import { RouteError } from './errors.js';
+import { RouteError, type RoutePhase } from './errors.js';
 
 type Root = Page | Locator;
 type AriaRole = Parameters<Page['getByRole']>[0];
@@ -13,7 +13,7 @@ export interface LocateContext {
     /** Where the target appears, for error messages. */
     operation: string;
     stepIndex: number;
-    phase: 'steps' | 'test_end';
+    phase: RoutePhase;
 }
 
 const POLL_MS = 100;
@@ -45,11 +45,72 @@ async function rootFor(target: Target, ctx: LocateContext): Promise<Root> {
     if (target.within === undefined) return ctx.page;
     const state = ctx.states[target.within];
     if (!state?.container) throw new Error(`State "${target.within}" has no container`);
-    return resolveOne(state.container, ctx);
+    try {
+        return await resolveOne(state.container, ctx);
+    } catch (error) {
+        if (!(error instanceof RouteError)) throw error;
+        throw new RouteError(
+            error.code, ctx.operation, ctx.stepIndex,
+            `the target ${describeTarget(target)} is searched inside the container of state "${target.within}", but that container ${error.code === 'target_ambiguous' ? 'matches more than one element' : 'is not on the page'}: ${error.detail}`,
+            ctx.phase, error.evidence,
+        );
+    }
 }
 
-function describe(target: Target): string {
+export function describeTarget(target: Target): string {
     return JSON.stringify(target);
+}
+
+const MAX_EVIDENCE = 10;
+
+/**
+ * One line per element: its tag and describing attributes, its text, and the labelled regions it sits in, so a
+ * reader can tell elements with the same role apart.
+ */
+export function describeElements(locator: Locator, max = MAX_EVIDENCE): Promise<string[]> {
+    return locator.evaluateAll((elements, limit) => elements.slice(0, limit).map((el) => {
+        const keep = /^(role|aria-label|aria-level|title|name|type|class|href|placeholder|data-[\w-]+)$/;
+        const attrs: string[] = [];
+        for (const attr of Array.from(el.attributes)) {
+            if (!keep.test(attr.name)) continue;
+            const value = attr.name === 'class' ? attr.value.split(/\s+/).slice(0, 3).join(' ') : attr.value;
+            attrs.push(`${attr.name}="${value.length > 60 ? `${value.slice(0, 60)}…` : value}"`);
+        }
+        const text = ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim();
+        const regions: string[] = [];
+        for (let up = el.parentElement; up && regions.length < 3; up = up.parentElement) {
+            const role = up.getAttribute('role');
+            const label = up.getAttribute('aria-label');
+            if (role || label) regions.push(`${role ?? up.tagName.toLowerCase()}${label ? ` "${label.slice(0, 40)}"` : ''}`);
+        }
+        return `<${el.tagName.toLowerCase()}${attrs.length > 0 ? ` ${attrs.join(' ')}` : ''}>`
+            + (text ? ` text "${text.length > 80 ? `${text.slice(0, 80)}…` : text}"` : ' (no text)')
+            + (regions.length > 0 ? ` inside ${regions.join(' < ')}` : '');
+    }), max);
+}
+
+/** When a target matched nothing: the nearest things that are on the page, to show what is there instead. */
+async function candidatesFor(root: Root, target: Target, ctx: LocateContext): Promise<string[]> {
+    const evidence: string[] = [];
+    if (target.role !== undefined) {
+        const sameRole = root.getByRole(target.role as AriaRole).filter({ visible: true });
+        const lines = await describeElements(sameRole);
+        evidence.push(...(lines.length > 0 ? lines.map((l) => `visible ${target.role}: ${l}`) : [`no visible element has the role "${target.role}" here`]));
+    }
+    if (target.css !== undefined) {
+        const css = root.locator(substitute(target.css, ctx.params, 'css'));
+        const all = await css.count();
+        const visible = await css.filter({ visible: true }).count();
+        if (all > 0 && visible === 0) evidence.push(`${all} element(s) match the css "${target.css}" but none is visible`);
+        else if (all === 0) evidence.push(`nothing on the page matches the css "${target.css}"`);
+        else evidence.push(...(await describeElements(css.filter({ visible: true }))).map((l) => `matches the css alone: ${l}`));
+    }
+    if (target.has !== undefined) {
+        const without = locatorIn(root, { ...target, has: undefined }, ctx.params);
+        const lines = await describeElements(without);
+        if (lines.length > 0) evidence.push(...lines.map((l) => `matches without the "has" condition: ${l}`));
+    }
+    return evidence;
 }
 
 /** The one visible element `target` matches. Waits up to the timeout for it to appear. */
@@ -63,10 +124,10 @@ export async function resolveOne(target: Target, ctx: LocateContext): Promise<Lo
         count = await locator.count();
     }
     if (count === 0) {
-        throw new RouteError('target_not_found', ctx.operation, ctx.stepIndex, `no visible element matches ${describe(target)}`, ctx.phase);
+        throw new RouteError('target_not_found', ctx.operation, ctx.stepIndex, `no visible element matches ${describeTarget(target)}`, ctx.phase, await candidatesFor(root, target, ctx));
     }
     if (count > 1) {
-        throw new RouteError('target_ambiguous', ctx.operation, ctx.stepIndex, `${count} visible elements match ${describe(target)}`, ctx.phase);
+        throw new RouteError('target_ambiguous', ctx.operation, ctx.stepIndex, `${count} visible elements match ${describeTarget(target)}; the target must match exactly one (add "within", "has", a name or an attribute that tells them apart)`, ctx.phase, await describeElements(locator));
     }
     return locator;
 }

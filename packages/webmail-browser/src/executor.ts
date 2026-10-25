@@ -5,9 +5,9 @@ import {
 } from '@teamsuzie/webmail-routes';
 import type { Behaviour } from './behaviour.js';
 import type { DateContext } from './dates.js';
-import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError } from './errors.js';
+import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError, type RoutePhase } from './errors.js';
 import { applyPattern, emailsIn, normalizeField, readSource } from './extract.js';
-import { locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext } from './locate.js';
+import { describeElements, describeTarget, locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext } from './locate.js';
 
 export interface ExecutorOptions {
     page: Page;
@@ -23,7 +23,7 @@ export interface ExecutorOptions {
 }
 
 export interface StepRecord {
-    phase: 'steps' | 'test_end';
+    phase: RoutePhase;
     index: number;
     action: string;
     ms: number;
@@ -36,6 +36,15 @@ export interface OperationResult {
 }
 
 export type ExtractedRecord = Record<string, string | null>;
+
+/** Why a required field has no value, in words a reader can act on. */
+function fieldProblem(field: FieldSpec, found: boolean, raw: string | null, matched: string | null): string {
+    const shown = (text: string) => JSON.stringify(text.length > 160 ? `${text.slice(0, 160)}…` : text);
+    if (!found) return field.target ? `no element inside matches its target ${describeTarget(field.target)}` : 'the item itself could not be read';
+    if (raw === null) return `the element has no ${field.from.slice('attr:'.length)} attribute`;
+    if (field.pattern !== undefined && matched === null) return `the pattern ${JSON.stringify(field.pattern)} did not match the ${field.from === 'text' ? 'text' : field.from} ${shown(raw)}`;
+    return `${shown(matched ?? raw)} is not a valid ${field.format}`;
+}
 
 /** `live` runs every step. `test` stops before a commit step (Send) and runs `test_end` instead. */
 export type RunMode = 'live' | 'test';
@@ -50,14 +59,49 @@ export class RouteExecutor {
         return this.opts.page;
     }
 
+    /**
+     * Run one operation. Every operation starts from a clean inbox: any draft or reply left open is discarded with
+     * the route's own discard steps, then the inbox is loaded and must show (see `startFromInbox`).
+     */
     async run(route: Route, operation: OperationName, params: Params, mode: RunMode): Promise<OperationResult> {
         const op = route.operations[operation];
         const result: OperationResult = { extracted: {}, steps: [] };
+        await this.startFromInbox(route, operation);
         await this.runSteps(route, operation, op.steps, 'steps', params, mode, result);
         if (mode === 'test' && op.test_end) {
             await this.runSteps(route, operation, op.test_end, 'test_end', params, mode, result);
         }
         return result;
+    }
+
+    /**
+     * Get back to a clean inbox: discard every draft or reply that is open (any state named by the `within` of a
+     * commit operation's test_end steps that holds now), load `home_url`, and wait for the `inbox_list` state.
+     * Failures are route errors of `operation` in phase `start`.
+     */
+    async startFromInbox(route: Route, operation: OperationName): Promise<void> {
+        await this.discardOpenDrafts(route);
+        this.checkSignedIn(route);
+        await this.goto(route, route.home_url);
+        const ctx = this.ctx(route, operation, -1, 'start', {});
+        await this.waitForState(route, 'inbox_list', ctx);
+        this.checkSignedIn(route);
+    }
+
+    /** Discard open drafts and replies, using the discard steps (test_end) of the operations that send. */
+    private async discardOpenDrafts(route: Route): Promise<void> {
+        for (const [name, op] of Object.entries(route.operations) as Array<[OperationName, Route['operations'][OperationName]]>) {
+            if (!op.test_end || !op.steps.some((step) => 'click' in step && step.commits === true)) continue;
+            const draftStates = [...new Set(op.test_end.flatMap((step) => {
+                const target = 'click' in step ? step.click : null;
+                return target?.within ? [target.within] : [];
+            }))];
+            for (const state of draftStates) {
+                if (!(await this.stateHolds(route, state))) continue;
+                const result: OperationResult = { extracted: {}, steps: [] };
+                await this.runSteps(route, name, op.test_end, 'test_end', {}, 'test', result);
+            }
+        }
     }
 
     /** True when `state` holds on the page right now. */
@@ -78,7 +122,7 @@ export class RouteExecutor {
     }
 
     private async runSteps(
-        route: Route, operation: OperationName, steps: Step[], phase: 'steps' | 'test_end',
+        route: Route, operation: OperationName, steps: Step[], phase: RoutePhase,
         params: Params, mode: RunMode, result: OperationResult,
     ): Promise<void> {
         for (let index = 0; index < steps.length; index++) {
@@ -95,7 +139,7 @@ export class RouteExecutor {
         }
     }
 
-    private ctx(route: Route, operation: string, stepIndex: number, phase: 'steps' | 'test_end', params: Params): LocateContext {
+    private ctx(route: Route, operation: string, stepIndex: number, phase: RoutePhase, params: Params): LocateContext {
         return {
             page: this.opts.page,
             states: route.states,
@@ -157,7 +201,21 @@ export class RouteExecutor {
             if (Date.now() >= deadline) break;
             await new Promise((r) => setTimeout(r, STATE_POLL_MS));
         }
-        throw new RouteError('state_not_reached', ctx.operation, ctx.stepIndex, `state "${name}" did not hold within ${this.opts.stateTimeoutMs}ms (url ${this.opts.page.url()})`, ctx.phase);
+        const url = this.opts.page.url();
+        const reasons: string[] = [];
+        if (state.url_matches !== undefined && !new RegExp(state.url_matches).test(url)) reasons.push(`the url ${url} does not match ${state.url_matches}`);
+        const evidence: string[] = [];
+        for (const target of state.visible) {
+            const count = target.within === undefined ? await locatorIn(this.opts.page, target, ctx.params).count() : null;
+            if (count === 1) continue;
+            reasons.push(count === null ? `${describeTarget(target)} (inside another state's container) did not match exactly one element` : `${describeTarget(target)} matches ${count} visible elements, not exactly one`);
+            if (count !== null && count > 1) evidence.push(...await describeElements(locatorIn(this.opts.page, target, ctx.params)));
+            if (count === 0 && target.role !== undefined) {
+                evidence.push(...(await describeElements(this.opts.page.getByRole(target.role as Parameters<Page['getByRole']>[0]).filter({ visible: true }))).map((l) => `visible ${target.role}: ${l}`));
+            }
+        }
+        const when = ctx.phase === 'start' ? 'after loading the inbox at the start of the operation, ' : '';
+        throw new RouteError('state_not_reached', ctx.operation, ctx.stepIndex, `${when}state "${name}" did not hold within ${this.opts.stateTimeoutMs}ms: ${reasons.join('; ') || 'it held only briefly'} (url ${url})`, ctx.phase, evidence);
     }
 
     private async extract(spec: ExtractSpec, ctx: LocateContext): Promise<ExtractedRecord | ExtractedRecord[]> {
@@ -182,7 +240,8 @@ export class RouteExecutor {
                 throw new UnreadableValueError(ctx.operation, name, field.format, matched);
             }
             if (value === null && field.required) {
-                throw new RouteError('extract_invalid', ctx.operation, ctx.stepIndex, `required field "${name}"${where} is ${raw === null ? 'missing' : `not a valid ${field.format}: ${JSON.stringify(raw.slice(0, 120))}`}`, ctx.phase);
+                const evidence = item !== null ? await describeElements(item, 1) : element !== null ? await describeElements(element, 1) : [];
+                throw new RouteError('extract_invalid', ctx.operation, ctx.stepIndex, `required field "${name}"${where}: ${fieldProblem(field, element !== null, raw, matched)}`, ctx.phase, evidence.map((e) => (item !== null ? `the item: ${e}` : `the element: ${e}`)));
             }
             record[name] = value;
         }
@@ -197,12 +256,13 @@ export class RouteExecutor {
         if (item === null || field.target.within !== undefined) {
             if (field.required) return resolveOne(field.target, ctx);
             const all = await resolveAll(field.target, ctx);
-            if (all.length > 1) throw new RouteError('target_ambiguous', ctx.operation, ctx.stepIndex, `field "${name}" matches ${all.length} elements`, ctx.phase);
+            if (all.length > 1) throw new RouteError('target_ambiguous', ctx.operation, ctx.stepIndex, `field "${name}": its target ${describeTarget(field.target)} matches ${all.length} elements, not one`, ctx.phase, await describeElements(locatorIn(this.opts.page, field.target, ctx.params)));
             return all[0] ?? null;
         }
-        const matches = await locatorIn(item, field.target, ctx.params).all();
+        const inItem = locatorIn(item, field.target, ctx.params);
+        const matches = await inItem.all();
         if (matches.length > 1) {
-            throw new RouteError('extract_invalid', ctx.operation, ctx.stepIndex, `field "${name}"${where} matches ${matches.length} elements`, ctx.phase);
+            throw new RouteError('extract_invalid', ctx.operation, ctx.stepIndex, `field "${name}"${where}: its target ${describeTarget(field.target)} matches ${matches.length} elements inside the item, not one`, ctx.phase, await describeElements(inItem));
         }
         return matches[0] ?? null;
     }

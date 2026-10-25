@@ -137,7 +137,62 @@ describe('RouteExecutor', () => {
     it('fails with state_not_reached when the expected page state never holds', async () => {
         route.states.inbox_list = { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Primary' }] };
         const error = await routeError(executor.run(route, 'list_inbox', {}, 'live'));
-        expect(error).toMatchObject({ code: 'state_not_reached', stepIndex: 0 });
+        expect(error).toMatchObject({ code: 'state_not_reached', phase: 'start', stepIndex: -1 });
+        expect(error.detail).toContain('at the start of the operation');
+        expect(error.detail).toContain('{"role":"grid","name":"Primary"} matches 0 visible elements');
+        expect(error.evidence.some((e) => e.includes('aria-label="Inbox"'))).toBe(true);
+    });
+
+    it('starts every operation from a clean inbox, discarding a draft left open', async () => {
+        await fixture.page.getByRole('button', { name: 'Compose' }).click();
+        await fixture.page.getByRole('textbox', { name: 'Subject' }).fill('left over');
+        await executor.run(route, 'list_inbox', {}, 'live');
+        expect(await fixture.page.getByRole('dialog').isVisible()).toBe(false);
+        expect((await fixtureActivity(fixture.page)).discards).toBe(1);
+    });
+
+    it('can compose again after a draft was left open, even when the ribbon hides Compose meanwhile', async () => {
+        await serveFixture(fixture.context, 'ribbon');
+        await fixture.page.goto('about:blank');
+        await fixture.page.goto(FIXTURE_HOME);
+        await fixture.page.getByRole('button', { name: 'Compose' }).click();
+        expect(await fixture.page.getByRole('button', { name: 'Compose' }).isVisible()).toBe(false);
+        await executor.run(route, 'compose_send', draft, 'test');
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 2 });
+    });
+
+    it('describes every element an ambiguous target matched, with the region it is in', async () => {
+        route.operations.open_message.steps[1] = { extract: { fields: { subject: { target: { role: 'heading' }, from: 'text', format: 'nonempty', required: true } } }, as: 'message' };
+        const error = await routeError(executor.run(route, 'open_message', { $message_id: 'm1' }, 'live'));
+        expect(error.code).toBe('target_ambiguous');
+        expect(error.detail).toContain('must match exactly one');
+        expect(error.evidence).toEqual(expect.arrayContaining([
+            expect.stringMatching(/^<h2 class="subject"> text "Quarterly numbers"/),
+            expect.stringMatching(/^<h3 class="sender-name"> text "Alice Example" inside listitem/),
+        ]));
+    });
+
+    it('lists what is there when a target matches nothing', async () => {
+        route.operations.compose_send.steps[1] = { click: { role: 'button', name: 'Write' }, expect: 'compose_open' };
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
+        expect(error.evidence.some((e) => e.startsWith('visible button: <button id="compose"') || e.includes('text "Compose"'))).toBe(true);
+    });
+
+    it('says when a field pattern did not match, rather than calling the value invalid', async () => {
+        const list = route.operations.list_inbox.steps[1]!;
+        if (!('extract' in list)) throw new Error('fixture changed');
+        list.extract.fields.subject = { target: { css: 'td.subject' }, from: 'text', pattern: '^Re: (.+)$', format: 'nonempty', required: true };
+        const error = await routeError(executor.run(route, 'list_inbox', {}, 'live'));
+        expect(error.detail).toBe('required field "subject" in item 0: the pattern "^Re: (.+)$" did not match the text "Lunch on Tuesday?"');
+        expect(error.evidence[0]).toMatch(/^the item: <tr class="row" data-id="m2"/);
+    });
+
+    it('says when a field attribute is absent', async () => {
+        const list = route.operations.list_inbox.steps[1]!;
+        if (!('extract' in list)) throw new Error('fixture changed');
+        list.extract.fields.id = { from: 'attr:data-key', format: 'id', required: true };
+        const error = await routeError(executor.run(route, 'list_inbox', {}, 'live'));
+        expect(error.detail).toBe('required field "id" in item 0: the element has no data-key attribute');
     });
 
     it('fails with extract_invalid when a required field is missing', async () => {

@@ -8,9 +8,10 @@ import type { Route } from '@teamsuzie/webmail-routes';
  *
  * Variants: `standard`; `renamed` (the Compose button is called "New message"); `expire` (pressing Compose
  * signs the user out); `restyled` (the message lists are redesigned: options instead of table rows, new class
- * names and id attribute, and British dates shown as text).
+ * names and id attribute, and British dates shown as text); `ribbon` (like the new Outlook, the Compose button is
+ * hidden while a draft is open, because the ribbon switches to its Message tab).
  */
-export type FixtureVariant = 'standard' | 'renamed' | 'expire' | 'restyled';
+export type FixtureVariant = 'standard' | 'renamed' | 'expire' | 'restyled' | 'ribbon';
 
 export const FIXTURE_HOME = 'https://mail.example.test/#inbox';
 

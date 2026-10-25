@@ -8,7 +8,7 @@ export interface RepairRequest {
     goal: string;
     /** What the operation must return, in plain English. */
     outputs: string;
-    failure: { code: string; phase: string; stepIndex: number; message: string };
+    failure: { code: string; phase: string; stepIndex: number; message: string; evidence: string[] };
     capture: PageCapture;
     /** Problems with earlier replies in this attempt, oldest first. */
     previousProblems: string[];
@@ -38,13 +38,16 @@ const FAILURE_MEANINGS: Record<string, string> = {
 /** A self-contained, plain-English request to repair one operation of a webmail route. */
 export function buildRepairPrompt(req: RepairRequest): string {
     const { route, operation, failure, capture } = req;
-    const where = failure.stepIndex >= 0 ? `step ${failure.stepIndex} of its "${failure.phase}" list` : 'its result';
+    const where = failure.phase === 'start'
+        ? 'the start of the task (before its first step the program discards any open draft, loads the inbox and waits for the "inbox_list" state)'
+        : failure.stepIndex >= 0 ? `step ${failure.stepIndex} of its "${failure.phase}" list` : 'its result';
     const sections = [
         `You are helping a program use the ${route.provider === 'gmail' ? 'Gmail' : 'Outlook'} web page on behalf of its owner. The program never runs code from you. It follows a "route": a JSON list of simple steps (go to a page, click an element, type text, read values) for each task. The web page has changed, and one task no longer works. Your job is to write new steps for that task so they work on the page as it is now.`,
 
         `THE TASK: "${operation}"\n${req.goal}\n${req.outputs}`,
 
-        `WHAT WENT WRONG\nWhen the program ran this task, ${where} failed: ${FAILURE_MEANINGS[failure.code] ?? failure.code}.\nThe exact error was: ${failure.message}`,
+        `WHAT WENT WRONG\nWhen the program ran this task, ${where} failed: ${FAILURE_MEANINGS[failure.code] ?? failure.code}.\nThe exact error was: ${failure.message}`
+        + (failure.evidence.length > 0 ? `\nWhat the program found on the page for this (tag, attributes, text, and the labelled regions each element sits in):\n${failure.evidence.map((e) => `- ${e}`).join('\n')}` : ''),
 
         `HOW STEPS ARE WRITTEN\nEach step is one JSON object with exactly one action key. Each action allows only the keys listed for it; any other key makes the whole reply unusable.\n`
         + `- goto: keys "goto", "expect". {"goto": "home"} or {"goto": "<https URL>"} loads a page. "home" is ${route.home_url}. A URL must be on one of these hosts: ${route.domains.join(', ')}.\n`
@@ -76,7 +79,7 @@ export function buildRepairPrompt(req: RepairRequest): string {
 
         `VALUES\nText values and names may use only these placeholders, which the program fills in: ${PLACEHOLDERS.join(', ')}.`,
 
-        `PAGE STATES\nA state is {"url_matches": "<regular expression on the full URL>", "visible": [<targets that must each match exactly one visible element>], "container": <target>}. "container" is needed only when a target uses "within" that state. These are the states the task uses now:\n${JSON.stringify(referencedStates(route, operation), null, 1)}\nAll state names in the route: ${Object.keys(route.states).join(', ')}.`,
+        `PAGE STATES\nEvery task starts from the inbox: before its first step, the program discards any open draft, loads ${route.home_url} and waits for the "inbox_list" state, so the steps do not need to do that themselves. A state is {"url_matches": "<regular expression on the full URL>", "visible": [<targets that must each match exactly one visible element>], "container": <target>}. "container" is needed only when a target uses "within" that state. These are the states the task uses now:\n${JSON.stringify(referencedStates(route, operation), null, 1)}\nAll state names in the route: ${Object.keys(route.states).join(', ')}.`,
 
         `THE TASK'S CURRENT STEPS\n${JSON.stringify(route.operations[operation], null, 1)}`,
 

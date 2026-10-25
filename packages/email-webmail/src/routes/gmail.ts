@@ -130,7 +130,7 @@ export const GMAIL_SEED_ROUTE: Route = {
                         items: { css: 'div[role="main"] tr.zA', each: true },
                         fields: {
                             id: { target: { css: '[data-legacy-thread-id]' }, from: 'attr:data-legacy-thread-id', format: 'id', required: true },
-                            to: { target: { css: 'td span[email]' }, from: 'attr:email', format: 'emails', required: true },
+                            to: { target: { css: 'td span[email]' }, from: 'attr:email', format: 'emails', required: false },
                             subject: { target: { css: 'span.bog' }, from: 'text', format: 'nonempty', required: true },
                         },
                     },

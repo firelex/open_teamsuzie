@@ -32,7 +32,8 @@ export const OPERATION_GOALS: Record<OperationName, string> = {
         + 'unsent reply.',
     check_sent:
         'Go to the Sent folder and read the list of sent messages on the first page: for each, the message id the page '
-        + 'uses, the recipients\' email addresses and the subject.',
+        + 'uses and the subject, and, where the list shows them, the recipients (names or addresses, as shown) and the '
+        + 'date sent.',
 };
 
 /** What a returned value must look like, checked on the value itself whatever format the route declares. */
@@ -66,7 +67,8 @@ export const OPERATION_OUTPUTS: Record<OperationName, OperationOutput | null> = 
     search: { as: 'messages', list: true, required: ['id', 'from', 'subject', 'date'], optional: ['thread_id', 'snippet', 'unread'], formats: MESSAGE_ROW },
     compose_send: null,
     reply: null,
-    check_sent: { as: 'messages', list: true, required: ['id', 'to', 'subject'], optional: [], formats: { id: 'id', to: 'emails', subject: 'nonempty' } },
+    // Sent lists often show recipients' names, not addresses (Outlook does), so recipients are free text here.
+    check_sent: { as: 'messages', list: true, required: ['id', 'subject'], optional: ['to', 'date'], formats: { id: 'id', subject: 'nonempty', to: 'text', date: 'date' } },
 };
 
 const FORMAT_WORDS: Record<OutputFormat, string> = {
