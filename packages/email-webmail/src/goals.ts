@@ -21,12 +21,12 @@ export const OPERATION_GOALS: Record<OperationName, string> = {
         'Search the mailbox for the words given as $query using the webmail\'s own search box, then read the list of '
         + 'results the same way list_inbox reads the inbox.',
     compose_send:
-        'Start a new message, put each address from $draft.to in the To field (as separate recipients), put '
+        'Start a new message (by the webmail\'s keyboard shortcut for a new message where it has one), put each address from $draft.to in the To field (as separate recipients), put '
         + '$draft.subject in the Subject field and $draft.body in the message body, check that the recipients shown '
         + 'on the page are exactly the ones given, then press Send. The Send step must be marked as the commit step, '
         + 'and test_end must discard the unsent draft.',
     reply:
-        'Open the message whose id is given as $message_id, start a reply to it (Reply, not Reply all or Forward), put '
+        'Open the message whose id is given as $message_id, start a reply to it (Reply, not Reply all or Forward; by the webmail\'s keyboard shortcut for reply where it has one), put '
         + '$draft.body in the reply\'s message body, check that the recipients shown on the reply are exactly '
         + '$draft.to, then press Send. The Send step must be marked as the commit step, and test_end must discard the '
         + 'unsent reply.',

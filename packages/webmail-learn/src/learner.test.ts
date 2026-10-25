@@ -116,6 +116,8 @@ describe('RouteLearner with tools', () => {
         expect(outcome.notes).toEqual(['Compose is now called New message.']);
         expect(rounds.map((r) => r.calls.map((c) => c.name))).toEqual([['try_target'], ['run_operation'], ['submit_repair']]);
         expect(rounds[0]!.prompt).toContain('HOW TO WORK');
+        // The shortcut list was read before the model was asked anything.
+        expect(rounds[0]!.prompt).toContain('C: new message');
         expect(model.requests[0]![1]!.content).toContain('no visible element matches {"role":"button","name":"Compose"}');
         expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
     });
@@ -153,8 +155,10 @@ describe('RouteLearner with tools', () => {
             call('try_extract', { extract: { items: { css: 'tr.row', each: true }, fields: { id: { from: 'attr:data-id', format: 'id', required: true } } } }),
             { text: '', toolCalls: [{ id: 'bad', name: 'try_target', arguments: '{not json' }] },
             call('look_around', {}),
+            call('read_shortcut_help', {}),
             (messages) => {
-                const [closed, inbox, badPattern, ids, badJson, unknown] = toolResults(messages);
+                const [closed, inbox, badPattern, ids, badJson, unknown, shortcuts] = toolResults(messages);
+                expect(shortcuts).toMatchObject({ ok: true, shortcuts: expect.stringContaining('Ctrl+Enter or Cmd+Enter: send') });
                 expect(closed).toMatchObject({ ok: true, holds: false });
                 expect(JSON.stringify(closed!.why_not)).toContain('matches 0 visible elements');
                 expect(inbox).toMatchObject({ ok: true, holds: true });

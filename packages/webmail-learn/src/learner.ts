@@ -104,13 +104,18 @@ export class RouteLearner {
         }
         this.deps.log(`relearn ${operation}: ${failure.message}`);
 
+        // The page as the failure left it, then the account's own keyboard shortcuts (read first, so the model
+        // starts from the shortcuts and fills in the rest).
+        const capture = await capturePage(this.deps.executor.page, PROMPT_OUTLINE_CHARS);
+        const shortcuts = await this.readShortcuts(input.route, operation);
         const prompt = buildRepairPrompt({
             route: input.route,
             operation,
             goal: input.goal,
             outputs: input.outputs,
             failure: { code: failure.code, phase: failure.phase, stepIndex: failure.stepIndex, message: failure.detail, evidence: failure.evidence },
-            capture: await capturePage(this.deps.executor.page, PROMPT_OUTLINE_CHARS),
+            capture,
+            shortcuts,
         });
         const messages: ToolChatMessage[] = [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }];
         const toolbox = new LearnerToolbox(this.deps.executor, input.route, operation, params, input.alternateParams[operation] ?? null, input.checkResult);
@@ -164,6 +169,17 @@ export class RouteLearner {
             this.deps.record(round);
         }
         return { ok: false, reason: `${operation}: no repair accepted within ${this.deps.maxToolCalls} tool calls (${submissions} submitted): ${lastProblem}` };
+    }
+
+    /** The webmail's shortcut list for this account. A route problem reaching the inbox is reported, not thrown. */
+    private async readShortcuts(route: Route, operation: OperationName): Promise<{ text: string } | { unavailable: string }> {
+        try {
+            const text = await this.deps.executor.readShortcutHelp(route, operation);
+            return text === null ? { unavailable: 'pressing "?" on the inbox opened nothing; keyboard shortcuts may be turned off for this account' } : { text };
+        } catch (error) {
+            if (error instanceof RouteError) return { unavailable: `the inbox could not be reached first: ${error.detail}` };
+            throw error;
+        }
     }
 
     /** Check a submitted repair: rules, a test-mode run, and the other operations that use a state it changed. */

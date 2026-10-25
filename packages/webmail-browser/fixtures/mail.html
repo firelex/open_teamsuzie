@@ -202,6 +202,30 @@ function closeDialog() {
   document.getElementById('subject').value = '';
   document.getElementById('body').innerText = '';
 }
+// Keyboard shortcuts, like Gmail's: C opens a new message (outside text fields); Ctrl/Cmd+Enter sends it;
+// ? shows the list of shortcuts, Escape closes it.
+document.addEventListener('keydown', (e) => {
+  const inField = e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]');
+  if (!inField && e.key === '?') {
+    const help = document.createElement('div');
+    help.id = 'shortcut-help';
+    help.setAttribute('role', 'dialog');
+    help.setAttribute('aria-label', 'Keyboard shortcuts');
+    help.innerHTML = '<h2>Keyboard shortcuts</h2><ul><li>C: new message</li><li>Ctrl+Enter or Cmd+Enter: send</li><li>/: search</li><li>E: archive</li></ul>';
+    document.body.append(help);
+    e.preventDefault();
+  }
+  if (e.key === 'Escape') document.getElementById('shortcut-help')?.remove();
+  if (!inField && e.key === 'c' && !e.ctrlKey && !e.metaKey) {
+    document.getElementById('compose').click();
+    e.preventDefault();
+  }
+  const dialogOpen = !document.getElementById('dialog').classList.contains('hidden');
+  if (dialogOpen && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    document.getElementById('send').click();
+    e.preventDefault();
+  }
+});
 document.getElementById('send').addEventListener('click', () => {
   recordSend(chipsIn(document.getElementById('dialog')).join(', '), document.getElementById('subject').value, document.getElementById('body').innerText);
   closeDialog();

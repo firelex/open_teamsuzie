@@ -19,4 +19,8 @@ const route = assertValidRoute(JSON.parse(text)); // throws RouteValidationError
   which runs in its place in test mode.
 - The validator rejects unknown keys, keys such as `script` or `eval`, `goto` to a host outside `domains`, CSS that
   depends on generated numeric ids (`#116-group`), field patterns without exactly one capture group, and routes over 64KB.
+- Keys: a `press` (or `then_press`) may only use harmless keys: navigation keys, the new-message, reply and
+  search shortcuts (N, R, C, `/`, ControlOrMeta+N/R, ControlOrMeta+Shift+R). A key that sends (ControlOrMeta+Enter,
+  Alt+S) may only be pressed as its own step marked `commits`, so test mode never sends by keyboard. Keys that
+  archive, delete or mark mail (E, Delete, U, …) are rejected (`keyKind`).
 - `nextRouteVersion` gives `YYYY-MM-DD.N` versions. `minimalRoute()` is a small valid route for tests.

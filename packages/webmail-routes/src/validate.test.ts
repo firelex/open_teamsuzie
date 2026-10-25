@@ -126,6 +126,21 @@ describe('validateRoute', () => {
         expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ verify_recipients: { to: { css: '.chip' }, from: 'text' } }]; }), /each: true/)).toBe(true);
     });
 
+    it('allows only harmless keys, and a key that sends only as its own commit step', () => {
+        expect(validateRoute((() => { const r = minimalRoute(); r.operations.search.steps = [{ goto: 'home' }, { press: 'ControlOrMeta+N', expect: 'inbox_list' }]; return r; })())).toEqual([]);
+        expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ press: 'Delete' }]; }), /press "Delete" is not an allowed key/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ press: 'e' }]; }), /not an allowed key/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ press: 'Control+Enter' }]; }), /sends, so it must be marked "commits": true/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => { r.operations.search.steps = [{ press: 'Tab', commits: true }]; }), /only a key that sends/)).toBe(true);
+        expect(anyMatches(errorsAfter((r) => { r.operations.compose_send.steps[1] = { type: { role: 'combobox', name: 'To', within: 'compose_open' }, value: '$draft.to', then_press: 'Control+Enter' }; }), /then_press.*sends/)).toBe(true);
+        // A send shortcut marked as the commit step counts as the commit: test_end is then required.
+        const keyboardSend = minimalRoute();
+        keyboardSend.operations.compose_send.steps[4] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
+        expect(validateRoute(keyboardSend)).toEqual([]);
+        delete keyboardSend.operations.compose_send.test_end;
+        expect(anyMatches(validateRoute(keyboardSend), /test_end/)).toBe(true);
+    });
+
     it('requires test_end on an operation that commits, without a commit step in it', () => {
         expect(anyMatches(errorsAfter((r) => { delete r.operations.compose_send.test_end; }), /test_end/)).toBe(true);
         expect(anyMatches(errorsAfter((r) => { r.operations.compose_send.test_end = [{ click: { role: 'button', name: 'Send' }, commits: true }]; }), /test_end.*commit/)).toBe(true);

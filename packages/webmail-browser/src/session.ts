@@ -16,7 +16,9 @@ export interface Session {
     close(): Promise<void>;
 }
 
-const VIEWPORT = { width: 1440, height: 900 };
+// A common desktop size: wide enough that webmail toolbars show their buttons instead of folding them into
+// "More items" menus.
+const VIEWPORT = { width: 1920, height: 1080 };
 
 function launchOptions(opts: SessionOptions, headless: boolean, extraArgs: string[]) {
     return {

@@ -76,7 +76,7 @@ export type Step =
     | { click: Target; commits?: boolean; expect?: string }
     | { fill: Target; value: string; expect?: string }
     | { type: Target; value: string; each_address?: boolean; then_press?: string; expect?: string }
-    | { press: string; expect?: string }
+    | { press: string; commits?: boolean; expect?: string }
     | { scroll: Target | 'page' }
     | { wait_for: string }
     | { extract: ExtractSpec; as: string }

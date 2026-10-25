@@ -29,7 +29,7 @@ describe('launchSession', () => {
         expect(seen.webdriver).toBe(false);
         expect(seen.userAgent).not.toContain('Headless');
         expect(seen.timezone).toBe('Europe/London');
-        expect(seen.width).toBe(1440);
+        expect(seen.width).toBe(1920);
         const second = await session.context.newPage();
         await new Promise((r) => setTimeout(r, 200));
         expect(await second.evaluate(() => navigator.userAgent)).not.toContain('Headless');

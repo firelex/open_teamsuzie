@@ -11,6 +11,11 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
 - **Routes.** Where to click is data (`@teamsuzie/webmail-routes`): for each action — list the inbox, open a message,
   search, send, reply, … — a list of steps with accessibility targets. A fixed executor (`@teamsuzie/webmail-browser`)
   runs them strictly: a target that matches nothing or more than one thing is a failure, never a guess.
+- **Keyboard shortcuts first.** Relearning starts by reading the webmail's own shortcut list (the "?" panel) and
+  prefers its shortcuts for new message, reply, send and search, which do not depend on window size or menus. Only
+  harmless keys are allowed, and a sending key only as the step marked as the commit, so tests never send by
+  keyboard. Gmail's shortcuts are off by default (Settings > General > Keyboard shortcuts on); without them the
+  learner clicks. The browser window is 1920×1080 so toolbars show their buttons.
 - **Clean start.** Every action starts from the inbox: any draft or reply left open is discarded first, then the
   inbox is loaded and must show. A test-mode run also checks that its discard really closed the draft
   (`cleanup_failed` otherwise), so broken discard steps are caught on their first test, not by piling up drafts.

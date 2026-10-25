@@ -122,6 +122,30 @@ export class RouteExecutor {
         }
     }
 
+    /**
+     * The webmail's own list of keyboard shortcuts: from a clean inbox, press "?" (Outlook and Gmail open their
+     * shortcut reference with it), read the text of any dialog that opens, then press Escape and return to a clean
+     * inbox. Returns null when nothing opened.
+     */
+    async readShortcutHelp(route: Route, operation: OperationName): Promise<string | null> {
+        await this.startFromInbox(route, operation);
+        await this.opts.behaviour.press(this.opts.page, '?');
+        const deadline = Date.now() + this.opts.stepTimeoutMs;
+        let text: string | null = null;
+        while (Date.now() < deadline && text === null) {
+            text = await this.opts.page.evaluate(() => {
+                const dialogs = Array.from(document.querySelectorAll('[role="dialog"], [aria-modal="true"]'))
+                    .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
+                const found = dialogs.map((el) => ((el as HTMLElement).innerText ?? '').replace(/[ \t]+/g, ' ').trim()).filter((t) => t.length > 0);
+                return found.length > 0 ? found.join('\n---\n') : null;
+            });
+            if (text === null) await new Promise((r) => setTimeout(r, STATE_POLL_MS));
+        }
+        await this.opts.behaviour.press(this.opts.page, 'Escape');
+        await this.startFromInbox(route, operation);
+        return text;
+    }
+
     /** True when `state` holds on the page right now. */
     async stateHolds(route: Route, state: string, params: Params = {}): Promise<boolean> {
         const definition = route.states[state];
@@ -145,7 +169,8 @@ export class RouteExecutor {
     ): Promise<void> {
         for (let index = 0; index < steps.length; index++) {
             const step = steps[index]!;
-            if (mode === 'test' && phase === 'steps' && 'click' in step && step.commits === true) return;
+            // The commit step (Send, by click or by key) is never run in test mode.
+            if (mode === 'test' && phase === 'steps' && ('click' in step || 'press' in step) && step.commits === true) return;
             if (index > 0 || phase === 'test_end') await this.opts.behaviour.betweenSteps();
             this.checkSignedIn(route);
             const started = Date.now();

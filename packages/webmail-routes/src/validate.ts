@@ -1,3 +1,4 @@
+import { ALLOWED_KEYS_DESCRIPTION, keyKind } from './keys.js';
 import { findPlaceholders, isPlaceholder } from './placeholders.js';
 import {
     OPERATION_NAMES, PROVIDER_KEYS, STEP_ACTIONS,
@@ -28,7 +29,7 @@ const STEP_KEYS: Record<string, Set<string>> = {
     click: new Set(['click', 'commits', 'expect']),
     fill: new Set(['fill', 'value', 'expect']),
     type: new Set(['type', 'value', 'each_address', 'then_press', 'expect']),
-    press: new Set(['press', 'expect']),
+    press: new Set(['press', 'commits', 'expect']),
     scroll: new Set(['scroll']),
     wait_for: new Set(['wait_for']),
     extract: new Set(['extract', 'as']),
@@ -315,13 +316,26 @@ function checkStep(step: unknown, path: string, ctx: TargetContext, domains: str
             checkTarget(step[action], `${path}.${action}`, ctx, { allowWithin: true });
             if (typeof step.value !== 'string') add(`${path}.value must be a string`);
             else checkPlaceholders(step.value, `${path}.value`, add);
-            if (step.then_press !== undefined && !isNonEmptyString(step.then_press)) add(`${path}.then_press must be a key name`);
+            if (step.then_press !== undefined) {
+                if (!isNonEmptyString(step.then_press)) add(`${path}.then_press must be a key name`);
+                else if (keyKind(step.then_press) === 'send') add(`${path}.then_press "${step.then_press}" sends; a key that sends must be its own press step marked "commits": true`);
+                else if (keyKind(step.then_press) === 'forbidden') add(`${path}.then_press "${step.then_press}" is not an allowed key. Allowed: ${ALLOWED_KEYS_DESCRIPTION}`);
+            }
             if (step.each_address !== undefined && typeof step.each_address !== 'boolean') add(`${path}.each_address must be a boolean`);
             break;
         }
-        case 'press':
-            if (!isNonEmptyString(step.press)) add(`${path}.press must be a key name`);
-            break;
+        case 'press': {
+            if (!isNonEmptyString(step.press)) {
+                add(`${path}.press must be a key name`);
+                break;
+            }
+            if (step.commits !== undefined && typeof step.commits !== 'boolean') add(`${path}.commits must be a boolean`);
+            const kind = keyKind(step.press);
+            if (kind === 'forbidden') add(`${path}.press "${step.press}" is not an allowed key. Allowed: ${ALLOWED_KEYS_DESCRIPTION}`);
+            if (kind === 'send' && step.commits !== true) add(`${path}.press "${step.press}" sends, so it must be marked "commits": true`);
+            if (kind !== 'send' && step.commits === true) add(`${path}.press "${step.press}": only a key that sends may be marked "commits"`);
+            return kind === 'send' && step.commits === true;
+        }
         case 'scroll':
             if (step.scroll !== 'page') checkTarget(step.scroll, `${path}.scroll`, ctx, { allowWithin: true });
             break;

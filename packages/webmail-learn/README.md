@@ -15,10 +15,14 @@ const outcome = await learner.relearn({ route, operation: 'compose_send', goal, 
 One `relearn` call is one attempt. The operation is first run in test mode (nothing is sent; drafts are discarded).
 If it fails with a `RouteError`, the model gets a plain-English, self-contained brief (the goal and outputs, the
 failure with what was found on the page, the step, target and field rules, the current steps and states, and the
-page: URL, accessibility tree, unnamed elements and an attribute outline) and works with tools on the live page:
+page: URL, accessibility tree, unnamed elements and an attribute outline). Before the model is asked anything, the
+learner presses "?" on the inbox and puts the webmail's own keyboard shortcut list for this account at the top of
+the brief: the model maps the allowed shortcuts (new message, reply, send as the commit step, search) first and
+fills in the rest with targets. It then works with tools on the live page:
 
 | Tool | What it does |
 |---|---|
+| `read_shortcut_help` | Presses "?" on the inbox and returns the webmail's own shortcut list for this account |
 | `try_target` | How many visible elements a target matches, described; or the nearest candidates |
 | `check_state` | Whether a state (named, or proposed in full) holds now, and why not |
 | `try_extract` | The first records an extract reads, or the exact field error |

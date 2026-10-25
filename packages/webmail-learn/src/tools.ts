@@ -36,6 +36,11 @@ export const LEARNER_TOOLS: ToolDefinition[] = [
         parameters: { type: 'object', properties: { steps: STEPS, test_end: STEPS, states: STATES }, required: ['steps'] },
     },
     {
+        name: 'read_shortcut_help',
+        description: 'Open the webmail\'s own list of keyboard shortcuts for this account (by pressing "?" on the inbox), return its text, and close it again. Shortcuts depend on the account\'s settings, so read them here instead of guessing. Some listed shortcuts are destructive (for example archive or delete) and are not allowed in steps; only the allowed keys in the rules may be used.',
+        parameters: { type: 'object', properties: {} },
+    },
+    {
         name: 'submit_repair',
         description: 'Submit your final version of the task. The program checks it against the rules, runs it in test mode, and also re-tests other tasks that use any state you changed. If it is accepted the repair is finished; if not, you get the reason and can keep working. Submit only after run_operation has succeeded with the same steps and states.',
         parameters: {
@@ -91,6 +96,12 @@ export class LearnerToolbox {
             case 'check_state': return this.checkState(args);
             case 'try_extract': return this.tryExtract(args);
             case 'run_operation': return this.runOperation(args);
+            case 'read_shortcut_help': {
+                const help = await this.executor.readShortcutHelp(this.route, this.operation);
+                return help === null
+                    ? { ok: false, error: 'pressing "?" on the inbox opened nothing; this account may have keyboard shortcuts turned off' }
+                    : { ok: true, shortcuts: help.length > 6000 ? `${help.slice(0, 6000)}… (cut)` : help };
+            }
             default: return { ok: false, error: `there is no tool named "${call.name}"` };
         }
     }

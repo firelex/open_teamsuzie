@@ -1,5 +1,5 @@
 import type { PageCapture } from '@teamsuzie/webmail-browser';
-import { PLACEHOLDERS, type OperationName, type Route } from '@teamsuzie/webmail-routes';
+import { ALLOWED_KEYS_DESCRIPTION, PLACEHOLDERS, type OperationName, type Route } from '@teamsuzie/webmail-routes';
 
 export interface RepairRequest {
     route: Route;
@@ -10,11 +10,14 @@ export interface RepairRequest {
     outputs: string;
     failure: { code: string; phase: string; stepIndex: number; message: string; evidence: string[] };
     capture: PageCapture;
+    /** The webmail's own list of keyboard shortcuts for this account, or why it could not be read. */
+    shortcuts: { text: string } | { unavailable: string };
 }
 
 const MAX_ARIA_CHARS = 60_000;
 const MAX_UNNAMED_CHARS = 15_000;
 const MAX_OUTLINE_CHARS = 40_000;
+const MAX_SHORTCUT_CHARS = 6000;
 
 function truncate(text: string, max: number): string {
     return text.length <= max ? text : `${text.slice(0, max)}\n… (cut at ${max} characters)`;
@@ -45,6 +48,10 @@ export function buildRepairPrompt(req: RepairRequest): string {
 
         `THE TASK: "${operation}"\n${req.goal}\n${req.outputs}`,
 
+        'text' in req.shortcuts
+            ? `THIS ACCOUNT'S KEYBOARD SHORTCUTS\nThe program pressed "?" on the inbox, and the webmail listed these shortcuts for this account:\n${truncate(req.shortcuts.text, MAX_SHORTCUT_CHARS)}`
+            : `THIS ACCOUNT'S KEYBOARD SHORTCUTS\nThe list could not be read (${req.shortcuts.unavailable}), so use clicks unless a shortcut is proven with run_operation.`,
+
         `WHAT WENT WRONG\nWhen the program ran this task, ${where} failed: ${FAILURE_MEANINGS[failure.code] ?? failure.code}.\nThe exact error was: ${failure.message}`
         + (failure.evidence.length > 0 ? `\nWhat the program found on the page for this (tag, attributes, text, and the labelled regions each element sits in):\n${failure.evidence.map((e) => `- ${e}`).join('\n')}` : ''),
 
@@ -53,11 +60,12 @@ export function buildRepairPrompt(req: RepairRequest): string {
         + `- click: keys "click", "commits", "expect". {"click": <target>} clicks one element. "commits": true marks the click that actually sends.\n`
         + `- fill: keys "fill", "value", "expect". {"fill": <target>, "value": "<text>"} clears a field and types the text.\n`
         + `- type: keys "type", "value", "each_address", "then_press", "expect". Types into a field without clearing it. With "each_address": true, a comma-separated list of addresses is typed one at a time, pressing the "then_press" key after each (this is how recipient fields turn addresses into recipient chips).\n`
-        + `- press: keys "press", "expect". {"press": "Enter"} presses one key.\n`
+        + `- press: keys "press", "commits", "expect". {"press": "ControlOrMeta+N"} presses one key or shortcut. Allowed keys: ${ALLOWED_KEYS_DESCRIPTION}. A key that sends must be its own press step with "commits": true.\n`
         + `- scroll: key "scroll" only. {"scroll": "page"} or {"scroll": <target>}.\n`
         + `- wait_for: key "wait_for" only. {"wait_for": "<state name>"} waits until a named page state holds.\n`
         + `- extract: keys "extract", "as". {"extract": {"items": <target with "each": true>, "fields": {<field name>: <field>, ...}}, "as": "<name>"} reads values. With "items", one record is read from each matching element; without "items", one record is read from the page. The "extract" object allows only the keys "items" and "fields".\n`
         + `- verify_recipients: key "verify_recipients" only. {"verify_recipients": {"to": <target with "each": true>, "cc": <target with "each": true>, "bcc": <target with "each": true>, "from": "text" | "name" | "attr:<attribute>"}} reads the recipient chips the page shows (one element per address) and stops unless they are exactly the requested recipients. "cc" and "bcc" are optional.\n`
+        + `Prefer the webmail's own keyboard shortcuts over clicking through menus and toolbars wherever one exists (for example a shortcut that opens a new message or a reply): shortcuts do not depend on the window size, on overflow menus or on which ribbon tab is showing. This is the web version of the webmail, whose shortcuts can differ from the desktop app's and depend on the account's settings: call read_shortcut_help to see this account's list, then test a shortcut with run_operation and always give its step an "expect" state that proves it worked; if it does not work, click instead.\n`
         + `A task with a commit step must have a "test_end" list that undoes the task instead (for example, discards the draft); in test runs the program stops before the commit step and runs "test_end". "test_end" must not contain a commit step.`,
 
         `HOW FIELDS ARE WRITTEN (inside "extract")\nA field allows only these keys: "target", "from", "pattern", "format", "required".\n`
@@ -87,10 +95,11 @@ export function buildRepairPrompt(req: RepairRequest): string {
     ];
     sections.push(
         `HOW TO WORK\nYou have tools that work on the live page. Nothing you do with them sends anything.\n`
-        + `1. Look at the page above and the failure, and form an idea of what changed.\n`
-        + `2. Test before you write: use try_target to see exactly what a target matches (it lists the elements, or the nearest ones when nothing matches), check_state to test a state, and try_extract to see what fields read.\n`
-        + `3. Run your complete version of the task with run_operation. If it fails, read the error and what was found on the page, fix that part, and run it again.\n`
-        + `4. When run_operation succeeds, call submit_repair with exactly the same steps, test_end and states, and short notes.\n`
+        + `1. First use this account's keyboard shortcuts above: work out which allowed key opens a new message, which starts a reply, which sends and which goes to search, and use them for those steps (sending only as the step marked "commits"). Fill in everything else (fields, recipients, reading values) with targets.\n`
+        + `2. Look at the page above and the failure, and form an idea of what changed.\n`
+        + `3. Test before you write: use try_target to see exactly what a target matches (it lists the elements, or the nearest ones when nothing matches), check_state to test a state, and try_extract to see what fields read.\n`
+        + `4. Run your complete version of the task with run_operation. If it fails, read the error and what was found on the page, fix that part, and run it again.\n`
+        + `5. When run_operation succeeds, call submit_repair with exactly the same steps, test_end and states, and short notes.\n`
         + `Keep the steps that still work and change only what is needed. Each tool call costs time, so test what you are unsure about rather than everything. Always answer by calling a tool.`,
     );
     return sections.join('\n\n');

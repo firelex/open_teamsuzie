@@ -138,6 +138,22 @@ describe('RouteExecutor', () => {
         expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
     });
 
+    it('opens compose and sends with keyboard shortcuts, and never presses a sending key in test mode', async () => {
+        route.operations.compose_send.steps[1] = { press: 'c', expect: 'compose_open' };
+        route.operations.compose_send.steps[6] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
+        await executor.run(route, 'compose_send', draft, 'test');
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
+        await executor.run(route, 'compose_send', draft, 'live');
+        expect((await fixtureActivity(fixture.page)).sent).toEqual([{ to: 'carol@example.com, dan@example.com', subject: 'Hello there', body: 'Line one\nLine two' }]);
+    });
+
+    it('reads the webmail\'s own list of keyboard shortcuts and closes it again', async () => {
+        const help = await executor.readShortcutHelp(route, 'compose_send');
+        expect(help).toContain('C: new message');
+        expect(help).toContain('E: archive');
+        expect(await fixture.page.locator('#shortcut-help').count()).toBe(0);
+    });
+
     it('fails with target_not_found when the button is gone', async () => {
         route.operations.compose_send.steps[1] = { click: { role: 'button', name: 'Write' }, expect: 'compose_open' };
         const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
