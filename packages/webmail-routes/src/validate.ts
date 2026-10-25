@@ -350,7 +350,7 @@ function checkStep(step: unknown, path: string, ctx: TargetContext, domains: str
             }
             if (step.each_address !== undefined && typeof step.each_address !== 'boolean') add(`${path}.each_address must be a boolean`);
             if (action === 'type' && step.pick_suggestion !== undefined) {
-                checkTarget(step.pick_suggestion, `${path}.pick_suggestion`, ctx, { allowWithin: true });
+                checkTarget(step.pick_suggestion, `${path}.pick_suggestion`, ctx, { allowWithin: false });
                 if (step.each_address !== true) add(`${path}.pick_suggestion needs "each_address": true (a suggestion is picked for each address)`);
                 if (step.then_press !== undefined) add(`${path} has both then_press and pick_suggestion; use one way to turn an address into a recipient`);
             }

@@ -8,8 +8,8 @@ import type { Route } from '@teamsuzie/webmail-routes';
  * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step). Each recipient is
  * entered by picking Outlook's suggestion for the typed address: Enter pressed before the suggestions appear makes no
  * recipient, and the chip then shows only the contact's name, which the recipient check accepts for that address.
- * Discarding a draft (Esc, or the Discard button) may ask for confirmation, so tests discard with Esc and then OK
- * when the draft is still open. list_test_drafts and the search-results state are as relearned on that account. List subjects are read from a generated class name (TtcXM), which
+ * Tests discard a new message or reply with the draft's own Discard button (Esc may only close the suggestion list),
+ * then OK if Outlook asks for confirmation. list_test_drafts and the search-results state are as relearned on that account. List subjects are read from a generated class name (TtcXM), which
  * is likely to change with a future Outlook build; the failure checks then relearn it.
  */
 export const OUTLOOK_SEED_ROUTE: Route = {
@@ -453,7 +453,11 @@ export const OUTLOOK_SEED_ROUTE: Route = {
             ],
             "test_end": [
                 {
-                    "press": "Escape"
+                    "click": {
+                        "role": "button",
+                        "name": "Discard",
+                        "within": "compose_open"
+                    }
                 },
                 {
                     "click": {
@@ -507,7 +511,11 @@ export const OUTLOOK_SEED_ROUTE: Route = {
             ],
             "test_end": [
                 {
-                    "press": "Escape"
+                    "click": {
+                        "role": "button",
+                        "name": "Discard",
+                        "within": "compose_open"
+                    }
                 },
                 {
                     "click": {

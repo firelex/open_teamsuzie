@@ -312,9 +312,10 @@ export class RouteExecutor {
             const parts = step.each_address ? value.split(/[,;]/).map((p) => p.trim()).filter((p) => p.length > 0) : [value];
             if (step.at === 'start') await behaviour.caretToStart(page, await resolveOne(step.type, ctx));
             for (const part of parts) {
-                await behaviour.typeText(page, await resolveOne(step.type, ctx), part);
+                const field = await resolveOne(step.type, ctx);
+                await behaviour.typeText(page, field, part);
                 if (step.then_press !== undefined) await behaviour.press(page, step.then_press);
-                if (step.pick_suggestion !== undefined) await this.pickSuggestion(step.pick_suggestion, part, ctx);
+                if (step.pick_suggestion !== undefined) await this.pickSuggestion(field, step.pick_suggestion, part, ctx);
             }
         } else if ('press' in step) {
             await behaviour.press(page, step.press);
@@ -512,15 +513,28 @@ export class RouteExecutor {
     }
 
     /**
-     * After an address is typed: wait for the one element among `target`'s matches whose label or text contains the
-     * address (case does not matter), click it, and remember the name it shows with the address.
+     * After an address is typed into `field`: wait for the one suggestion whose label or text contains the address
+     * (case does not matter), click it, and remember the name it shows with the address. Suggestions are searched
+     * only inside the list the field itself names as its suggestion list (the standard aria-controls or aria-owns
+     * attribute of a field with suggestions), so other things on the page that mention the address (such as inbox
+     * rows) never count. `target` says which elements in that list are suggestions.
      */
-    private async pickSuggestion(target: Target, address: string, ctx: LocateContext): Promise<void> {
+    private async pickSuggestion(field: Locator, target: Target, address: string, ctx: LocateContext): Promise<void> {
         const wanted = address.toLowerCase();
         const deadline = Date.now() + this.opts.stepTimeoutMs;
         for (;;) {
+            const listIds = await field.evaluate((node) => {
+                // The field, or the element inside it that has focus, names its list.
+                const owners = [node, ...(node.contains(document.activeElement) && document.activeElement !== node ? [document.activeElement!] : [])];
+                return owners.flatMap((el) => `${el.getAttribute('aria-controls') ?? ''} ${el.getAttribute('aria-owns') ?? ''}`.split(/\s+/)).filter((id) => id.length > 0);
+            });
+            const candidates: Locator[] = [];
+            for (const id of new Set(listIds)) {
+                const list = this.opts.page.locator(`[id="${id.replace(/["\\]/g, (ch) => `\\${ch}`)}"]`);
+                if ((await list.count()) === 1) candidates.push(...await locatorIn(list, target, ctx.params).all());
+            }
             const matching: Array<{ el: Locator; label: string }> = [];
-            for (const el of await resolveAll(target, ctx)) {
+            for (const el of candidates) {
                 // Its accessible label, or else its text: whichever of the two mentions the address.
                 const sources = await el.evaluate((node) => [node.getAttribute('aria-label') ?? '', (node as HTMLElement).innerText ?? ''].map((t) => t.replace(/\s+/g, ' ').trim()));
                 const label = sources.find((text) => text.toLowerCase().includes(wanted));
@@ -535,9 +549,13 @@ export class RouteExecutor {
                 return;
             }
             if (Date.now() >= deadline) {
-                const shown = await resolveAll(target, ctx);
-                const evidence = shown.length > 0 ? await describeElements(locatorIn(this.opts.page, target, ctx.params)) : [`nothing visible matches ${describeTarget(target)}`];
-                throw new RouteError('target_not_found', ctx.operation, ctx.stepIndex, `no suggestion matching ${describeTarget(target)} that mentions ${address} appeared after typing it`, ctx.phase, evidence);
+                if (listIds.length === 0) {
+                    throw new RouteError('target_not_found', ctx.operation, ctx.stepIndex, `after typing ${address}, the field names no suggestion list (it has no aria-controls or aria-owns attribute), so no suggestion can be picked from it`, ctx.phase, await describeElements(field, 1));
+                }
+                const evidence = candidates.length > 0
+                    ? await Promise.all(candidates.slice(0, 10).map(async (el) => (await describeElements(el, 1))[0] ?? ''))
+                    : [`the field's suggestion list (id ${listIds.join(', ')}) has no visible element matching ${describeTarget(target)}`];
+                throw new RouteError('target_not_found', ctx.operation, ctx.stepIndex, `no suggestion matching ${describeTarget(target)} in the field's suggestion list mentions ${address}`, ctx.phase, evidence);
             }
             await new Promise((r) => setTimeout(r, STATE_POLL_MS));
         }

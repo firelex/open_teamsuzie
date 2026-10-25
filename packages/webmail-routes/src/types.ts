@@ -86,7 +86,8 @@ export type Step =
     | { fill: Target; value: string; expect?: string }
     /**
      * `pick_suggestion` (with `each_address`): after typing each address, wait for the one suggestion among these
-     * elements that mentions the address, and click it. Webmail only turns an address into a recipient when a
+     * elements, inside the list the field names in its aria-controls or aria-owns, that mentions the address, and
+     * click it. Webmail only turns an address into a recipient when a
      * suggestion is picked or a key is pressed after the suggestions appear; the chip it makes may show only a name.
      */
     | { type: Target; value: string; each_address?: boolean; then_press?: string; pick_suggestion?: Target; at?: 'start'; expect?: string }

@@ -132,6 +132,8 @@ describe('RouteExecutor', () => {
         // Like Outlook: suggestions appear a moment after typing, only picking one makes a chip, and the chip shows
         // the contact's name ("Carol Example"), or the address for someone with no name.
         await fixture.page.evaluate(() => { (window as unknown as { __suggestions: Record<string, string> }).__suggestions = { 'carol@example.com': 'Carol Example' }; });
+        // Something else on the page that mentions the address and has the same role, like an inbox row.
+        await fixture.page.evaluate(() => { document.body.insertAdjacentHTML('beforeend', '<div role="option">Note from carol@example.com</div>'); });
         const to = route.operations.compose_send.steps[2]!;
         if (!('type' in to)) throw new Error('fixture changed');
         delete to.then_press;
