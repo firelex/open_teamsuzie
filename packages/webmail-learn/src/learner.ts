@@ -75,6 +75,12 @@ export type LearnOutcome =
 
 type Acceptance = { accepted: true; route: Route; notes: string; changedStates: string[]; untested: OperationName[] } | { accepted: false; problem: string };
 
+/** The arguments of a run_operation call as a submission, with notes. */
+function withNotes(argumentsText: string, notes: string): string {
+    const args = JSON.parse(argumentsText) as Record<string, unknown>;
+    return JSON.stringify({ steps: args.steps, ...(args.test_end !== undefined ? { test_end: args.test_end } : {}), ...(args.states !== undefined ? { states: args.states } : {}), notes });
+}
+
 function clip(text: string, max: number): string {
     return text.length > max ? `${text.slice(0, max)}… (cut at ${max} characters)` : text;
 }
@@ -157,6 +163,22 @@ export class RouteLearner {
                     result = { accepted: false, problem: acceptance.problem, submissions_left: this.deps.maxSubmissions - submissions };
                 } else {
                     result = await toolbox.handle(call);
+                    // A passing test run of a clean candidate is checked and accepted at once, without waiting for
+                    // the model to submit it (models tend to keep exploring after a version already works).
+                    if (call.name === 'run_operation' && result.ok === true && this.isClean(call.arguments, input)) {
+                        submissions++;
+                        const acceptance = await this.accept(withNotes(call.arguments, 'Accepted automatically after a passing test run.'), input, params);
+                        if (acceptance.accepted) {
+                            round.calls.push({ name: call.name, arguments: call.arguments, result: 'passed and accepted' });
+                            this.deps.record(round);
+                            return {
+                                ok: true, changed: true, route: acceptance.route, notes: [acceptance.notes],
+                                changedStates: acceptance.changedStates, untested: acceptance.untested,
+                            };
+                        }
+                        lastProblem = acceptance.problem;
+                        result = { ...result, accepted: false, problem: acceptance.problem };
+                    }
                 }
                 const text = clip(JSON.stringify(result), MAX_TOOL_RESULT_CHARS);
                 round.calls.push({ name: call.name, arguments: call.arguments, result: text });
@@ -180,6 +202,22 @@ export class RouteLearner {
             if (error instanceof RouteError) return { unavailable: `the inbox could not be reached first: ${error.detail}` };
             throw error;
         }
+    }
+
+    /**
+     * A candidate is clean when it reads nothing the operation does not return: no extract steps other than the
+     * operation's own (models add extra reads while exploring). Only a clean candidate is accepted without a submit.
+     */
+    private isClean(argumentsText: string, input: RelearnInput): boolean {
+        let args: { steps?: unknown };
+        try {
+            args = JSON.parse(argumentsText) as { steps?: unknown };
+        } catch {
+            return false;
+        }
+        if (!Array.isArray(args.steps)) return false;
+        const allowed = new Set(input.route.operations[input.operation].steps.flatMap((step) => ('extract' in step ? [step.as] : [])));
+        return (args.steps as Array<Record<string, unknown>>).every((step) => !('extract' in step) || allowed.has(String(step.as)));
     }
 
     /** Check a submitted repair: rules, a test-mode run, and the other operations that use a state it changed. */

@@ -104,10 +104,6 @@ describe('RouteLearner with tools', () => {
                 expect(JSON.stringify(result!.nearest_on_page)).toContain('New message');
                 return call('run_operation', fixed);
             },
-            (messages) => {
-                expect(toolResults(messages)[1]).toMatchObject({ ok: true, next: expect.stringContaining('Call submit_repair now') });
-                return call('submit_repair', { ...fixed, notes: 'Compose is now called New message.' });
-            },
         ]);
         const outcome = await learner(model).relearn(input());
         expect(outcome.ok && outcome.changed).toBe(true);
@@ -115,13 +111,34 @@ describe('RouteLearner with tools', () => {
         expect(outcome.route.operations.compose_send.steps[1]).toEqual({ click: { role: 'button', name: 'New message' }, expect: 'compose_open' });
         expect(outcome.route).toMatchObject({ route_version: '2026-10-26.1', learned_by: 'learner:scripted' });
         expect(outcome.route.fingerprint).toBe(await computeFingerprint(fixture.page));
-        expect(outcome.notes).toEqual(['Compose is now called New message.']);
-        expect(rounds.map((r) => r.calls.map((c) => c.name))).toEqual([['try_target'], ['run_operation'], ['submit_repair']]);
+        // The passing run of a clean candidate was accepted at once; the scripted submit was never needed.
+        expect(outcome.notes).toEqual(['Accepted automatically after a passing test run.']);
+        expect(rounds.map((r) => r.calls.map((c) => c.name))).toEqual([['try_target'], ['run_operation']]);
         expect(rounds[0]!.prompt).toContain('HOW TO WORK');
         // The shortcut list was read before the model was asked anything.
         expect(rounds[0]!.prompt).toContain('C: new message');
         expect(model.requests[0]![1]!.content).toContain('no visible element matches {"role":"button","name":"Compose"}');
         expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
+    });
+
+    it('accepts a clean candidate as soon as its test run passes, without waiting for a submit', async () => {
+        const model = scriptedModel([call('run_operation', fixedCompose('New message'))]);
+        const outcome = await learner(model).relearn(input());
+        expect(outcome.ok && outcome.changed).toBe(true);
+        expect(rounds.flatMap((r) => r.calls.map((c) => c.result))).toEqual(['passed and accepted']);
+    });
+
+    it('does not accept a passing run that has extra exploratory reads', async () => {
+        const exploring = fixedCompose('New message');
+        exploring.steps.splice(2, 0, { extract: { fields: { peek: { target: { role: 'button', name: 'Refresh' }, from: 'name', format: 'text', required: false } } }, as: 'peek' });
+        const model = scriptedModel([
+            call('run_operation', exploring),
+            (messages) => {
+                expect(toolResults(messages)[0]).toMatchObject({ ok: true });
+                return call('submit_repair', { ...fixedCompose('New message'), notes: 'Renamed.' });
+            },
+        ]);
+        expect((await learner(model).relearn(input())).ok).toBe(true);
     });
 
     it('reports no change when the operation already works, without asking the model', async () => {

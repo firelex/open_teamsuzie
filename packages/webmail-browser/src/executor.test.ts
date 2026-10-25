@@ -100,6 +100,15 @@ describe('RouteExecutor', () => {
         expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
     });
 
+    it('reads adjacent recipient chips as separate addresses', async () => {
+        // The fixture renders chips with no space between them; read the whole To area at once.
+        const recipients = route.operations.compose_send.steps[5]!;
+        if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
+        recipients.verify_recipients = { to: { css: '#chips', each: true, within: 'compose_open' }, from: 'text' };
+        await executor.run(route, 'compose_send', draft, 'test');
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
+    });
+
     it('only reads the recipients when none were requested, as in a test of a reply', async () => {
         const result = await executor.run(route, 'reply', { $message_id: 'm1', '$draft.body': 'x' }, 'test');
         expect(result.extracted.recipients).toEqual({ to: 'alice@example.com', cc: '', bcc: '' });

@@ -1,7 +1,7 @@
 import type { Locator, Page } from 'playwright-core';
 import {
     stepAction, substitute,
-    type ExtractSpec, type FieldSpec, type Operation, type OperationName, type PageState, type Params, type RecipientCheck, type Route, type Step, type Target,
+    type ExtractSpec, type FieldSource, type FieldSpec, type Operation, type OperationName, type PageState, type Params, type RecipientCheck, type Route, type Step, type Target,
 } from '@teamsuzie/webmail-routes';
 import type { Behaviour } from './behaviour.js';
 import type { DateContext } from './dates.js';
@@ -56,6 +56,20 @@ function draftStatesOf(op: Operation): string[] {
 /** True when the operation has a commit step (Send, by click or by key). */
 function commits(op: Operation): boolean {
     return op.steps.some((step) => ('click' in step || 'press' in step) && step.commits === true);
+}
+
+/**
+ * A recipient field's text with each piece of text kept apart: adjacent chips often have no space between them,
+ * and reading them as one run would merge two addresses ("a@x.comb@y.com").
+ */
+async function readRecipientSource(el: Locator, from: FieldSource): Promise<string | null> {
+    if (from !== 'text') return readSource(el, from);
+    return el.evaluate((node) => {
+        const pieces: string[] = [];
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) pieces.push(text.textContent ?? '');
+        return pieces.join(' ');
+    });
 }
 
 /** Why a required field has no value, in words a reader can act on. */
@@ -394,7 +408,7 @@ export class RouteExecutor {
             const target = check[kind];
             if (target === undefined) continue;
             const found: string[] = [];
-            for (const chip of await resolveAll(target, ctx)) found.push(...emailsIn((await readSource(chip, check.from)) ?? ''));
+            for (const chip of await resolveAll(target, ctx)) found.push(...emailsIn((await readRecipientSource(chip, check.from)) ?? ''));
             shown[kind] = [...new Set(found)].sort();
         }
         if (ctx.params['$draft.to'] === undefined) {
