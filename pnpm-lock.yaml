@@ -18,6 +18,61 @@ importers:
         specifier: ^4.0.18
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@25.0.1(canvas@3.2.3))(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
 
+  apps/agents/email-agent:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@3.25.76)
+      '@teamsuzie/approvals':
+        specifier: workspace:*
+        version: link:../../../packages/approvals
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../../../packages/db-sqlite
+      '@teamsuzie/email':
+        specifier: workspace:*
+        version: link:../../../packages/email
+      '@teamsuzie/email-webmail':
+        specifier: workspace:*
+        version: link:../../../packages/email-webmail
+      '@teamsuzie/jobs':
+        specifier: workspace:*
+        version: link:../../../packages/jobs
+      '@teamsuzie/webmail-browser':
+        specifier: workspace:*
+        version: link:../../../packages/webmail-browser
+      '@teamsuzie/webmail-learn':
+        specifier: workspace:*
+        version: link:../../../packages/webmail-learn
+      '@teamsuzie/webmail-routes':
+        specifier: workspace:*
+        version: link:../../../packages/webmail-routes
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      playwright-core:
+        specifier: ^1.56.0
+        version: 1.64.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@25.0.1(canvas@3.2.3))(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
+
   apps/agents/pptx-agent:
     dependencies:
       dotenv:

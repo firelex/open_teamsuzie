@@ -1,0 +1,38 @@
+{
+  "name": "@teamsuzie/email-agent",
+  "version": "0.1.0",
+  "description": "Local service that gives agents a queue for reading, searching and sending the user's Gmail/Outlook mail through the webmail page, one browser-driving handler per account",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "email-agent": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts serve",
+    "start": "node dist/cli.js serve",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/approvals": "workspace:*",
+    "@teamsuzie/db-sqlite": "workspace:*",
+    "@teamsuzie/email": "workspace:*",
+    "@teamsuzie/email-webmail": "workspace:*",
+    "@teamsuzie/jobs": "workspace:*",
+    "@teamsuzie/webmail-browser": "workspace:*",
+    "@teamsuzie/webmail-learn": "workspace:*",
+    "@teamsuzie/webmail-routes": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.1.0",
+    "playwright-core": "^1.56.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
