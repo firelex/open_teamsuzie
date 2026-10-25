@@ -62,7 +62,12 @@ export function adminRouter(deps: AdminDeps): Router {
             res.status(400).json({ error: `Unknown operation ${operation}. Operations: ${OPERATION_NAMES.join(', ')}` });
             return;
         }
-        res.json({ operation, outcome: await handler.requestRelearn(operation as OperationName) });
+        // Relearning drives the browser for minutes; answer now and let the user watch status.
+        handler.requestRelearn(operation as OperationName).then(
+            (outcome) => deps.log(`[${req.params.account}] relearn of ${operation} requested from the CLI: ${outcome}`),
+            (error: unknown) => deps.log(`[${req.params.account}] relearn of ${operation} requested from the CLI failed: ${(error as Error).stack ?? String(error)}`),
+        );
+        res.status(202).json({ started: true, operation, message: `Relearning ${operation} has started. Run \`email-agent status\` to follow it.` });
     }));
 
     router.post('/canary/:account', route(async (req, res) => {

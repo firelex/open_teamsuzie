@@ -13,7 +13,7 @@ Commands:
   status                        Each account's state and the health of each mail action
   login <account>               Open a Chrome window to sign in to the account
   canary <account>              Check every mail action now without sending anything
-  relearn <account> <action>    Relearn one mail action now (e.g. compose_send)
+  relearn <account> <action>    Start relearning one mail action now (e.g. compose_send); follow it with status
   capture <account>             Save the account's page as it is now (tree, outline, screenshot) for diagnosis
   approvals                     Sends waiting for your approval
   approve <id>                  Approve and queue a send

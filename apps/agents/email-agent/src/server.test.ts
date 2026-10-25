@@ -130,6 +130,8 @@ describe('the service over HTTP', () => {
         expect(Object.keys(status[0].operations)).toEqual([...OPERATION_NAMES]);
         expect((await admin('POST', '/canary/me@firm.com')).body).toHaveLength(OPERATION_NAMES.length);
         expect((await admin('POST', '/relearn/me@firm.com/delete_everything')).status).toBe(400);
+        const relearn = await admin('POST', '/relearn/me@firm.com/search');
+        expect(relearn).toMatchObject({ status: 202, body: { started: true, operation: 'search' } });
         expect((await admin('POST', '/canary/someone@else.com')).status).toBe(404);
         expect((await admin('POST', '/capture/me@firm.com')).body).toEqual({ files: ['/tmp/capture.json'] });
     });

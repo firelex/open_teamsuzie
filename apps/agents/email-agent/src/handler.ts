@@ -94,7 +94,6 @@ export class AccountHandler {
     private loopDone: Promise<void> | null = null;
     private nextCheckInbox = 0;
     private nextCanary = 0;
-    private nextBrokenRetry = 0;
     /** When each unreadable-value alert was last raised, so the same one is not repeated on every job. */
     private readonly unreadableAlerted = new Map<string, number>();
     private readonly workerId: string;
@@ -204,13 +203,10 @@ export class AccountHandler {
             await this.withLoginHandling(() => this.canaryAll());
             return 'ran';
         }
-        if (now >= this.nextBrokenRetry) {
-            this.nextBrokenRetry = now + DAY;
-            const broken = OPERATION_NAMES.filter((op) => this.deps.health.get(this.address, op).state === 'broken');
-            if (broken.length > 0) {
-                for (const op of broken) await this.withLoginHandling(() => this.relearnOperation(op, 'daily retry of a broken operation'));
-                return 'ran';
-            }
+        const due = OPERATION_NAMES.filter((op) => this.retryDue(op, now));
+        if (due.length > 0) {
+            for (const op of due) await this.withLoginHandling(() => this.relearnOperation(op, 'daily retry of a broken operation'));
+            return 'ran';
         }
         const job = this.deps.queue.claimNext({ queue: accountQueue(this.address), workerId: this.workerId });
         if (!job) return 'idle';
@@ -351,7 +347,8 @@ export class AccountHandler {
             return true;
         }
         const message = `Send was pressed for ${this.address} after the ${operation} route changed, but the message to ${to} is not in Sent. Sending is stopped until it is relearned.`;
-        for (const op of SEND_OPERATIONS) this.deps.health.set(this.address, op, { state: 'broken', last_error: message });
+        // Counted as a relearn attempt now, so the daily retry comes a day later rather than at once.
+        for (const op of SEND_OPERATIONS) this.deps.health.set(this.address, op, { state: 'broken', last_error: message, last_relearn_at: this.deps.now().toISOString() });
         await this.deps.alerts.raise(this.address, 'send_unconfirmed', message);
         throw new JobFailure('send_unconfirmed', message);
     }
@@ -457,6 +454,13 @@ export class AccountHandler {
         return result;
     }
 
+    /** A broken operation is relearned again once a day: a day after its last relearn. */
+    private retryDue(operation: OperationName, now: number): boolean {
+        const health = this.deps.health.get(this.address, operation);
+        if (health.state !== 'broken') return false;
+        return health.last_relearn_at === null || now - Date.parse(health.last_relearn_at) >= DAY;
+    }
+
     /** Up to `learner.attempts` relearn attempts; healthy on success, broken (with an alert) when every attempt fails. */
     private async relearnOperation(operation: OperationName, why: string): Promise<'healthy' | 'broken'> {
         this.deps.health.set(this.address, operation, { state: 'relearning' });
@@ -502,6 +506,8 @@ export class AccountHandler {
                 }
                 continue;
             }
+            // A broken operation waits for its daily retry; the canary does not relearn it again in between.
+            if (this.deps.health.get(this.address, result.operation).state === 'broken' && !this.retryDue(result.operation, this.deps.now().getTime())) continue;
             this.deps.health.set(this.address, result.operation, { state: 'suspect', last_error: result.error!.message });
             await this.relearnOperation(result.operation, result.error!.message);
         }

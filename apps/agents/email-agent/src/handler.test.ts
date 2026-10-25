@@ -143,7 +143,7 @@ describe('AccountHandler', () => {
 
     it('fails jobs at once while the operation they need is broken', async () => {
         await bootAndSettle();
-        health.set(ADDRESS, 'open_message', { state: 'broken', last_error: 'gone' });
+        health.set(ADDRESS, 'open_message', { state: 'broken', last_error: 'gone', last_relearn_at: clock.now().toISOString() });
         expect(await runJob('reply', { message_id: 'm1', body: 'x', to: 'bob@other.org' })).toMatchObject({ status: 'failed', error: { code: 'route_broken' } });
         expect(runtime.calls).toEqual([]);
     });
@@ -335,16 +335,23 @@ describe('AccountHandler', () => {
         expect(health.get(ADDRESS, 'search')).toMatchObject({ state: 'healthy', last_error: null });
     });
 
-    it('retries broken operations daily when the canary cannot check them', async () => {
+    it('retries a broken operation a day after its last relearn, not straight away', async () => {
         await bootAndSettle();
-        health.set(ADDRESS, 'search', { state: 'broken', last_error: 'x' });
+        health.set(ADDRESS, 'search', { state: 'broken', last_error: 'x', last_relearn_at: clock.now().toISOString() });
         runtime.canaryResults = (only) => (only ?? [...OPERATION_NAMES]).map((operation) => (operation === 'search'
-            ? { operation, outcome: 'skipped', reason: 'the inbox is empty' }
+            ? { operation, outcome: 'failed', error: { code: 'target_not_found', message: 'still gone' } }
             : { operation, outcome: 'passed' }) as CanaryResult);
-        clock.advance(25 * 3_600_000);
-        runtime.relearnOutcomes = [relearned()];
+        // Within the day: neither the scheduler nor the canary relearns it again.
+        clock.advance(7 * 3_600_000);
         while ((await handler.tick()) === 'ran') { /* run scheduled work */ }
-        expect(runtime.calls).toEqual(['canary:all', 'relearn:search']);
+        expect(runtime.calls).toEqual(['canary:all']);
+        expect(health.get(ADDRESS, 'search').state).toBe('broken');
+        // A day after the last relearn it is tried again.
+        clock.advance(18 * 3_600_000);
+        runtime.relearnOutcomes = [relearned()];
+        runtime.calls = [];
+        while ((await handler.tick()) === 'ran') { /* run scheduled work */ }
+        expect(runtime.calls).toContain('relearn:search');
         expect(health.get(ADDRESS, 'search').state).toBe('healthy');
     });
 });
