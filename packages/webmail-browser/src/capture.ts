@@ -8,6 +8,11 @@ export interface PageCapture {
     /** Interactive elements with no accessible name, as their opening tags (no content). */
     unnamed: string[];
     /**
+     * Dialogs, modal layers and large parts of the page marked hidden from assistive technology, visible or not:
+     * what usually explains a page whose controls cannot be found.
+     */
+    layers: string[];
+    /**
      * A compact outline of the visible page as HTML-like lines: each element's tag and its describing attributes
      * (role, aria-label, title, name, type, class, data-*), with its own short text. Runs of similar siblings (list
      * rows) are cut to the first three. Shows what the accessibility tree leaves out, such as ids and addresses kept
@@ -34,7 +39,7 @@ export async function capturePage(page: Page, maxOutlineChars: number): Promise<
         aria = await page.locator('body').ariaSnapshot();
     }
     if (aria.length < MIN_ARIA_CHARS) {
-        aria = `${aria}\n(The page's accessibility tree was nearly empty when captured: the page was hiding its content from assistive technology. Use the page outline below.)`;
+        aria = `${aria}\n(The page's accessibility tree was nearly empty when captured: the page was hiding its content from assistive technology. Use the page outline below, which shows what is on screen; targets by role and name still find elements that are on screen.)`;
     }
     const unnamed = await page.evaluate((max) => {
         const selector = 'button, a[href], input, textarea, select, [role], [contenteditable="true"], [tabindex]';
@@ -55,7 +60,27 @@ export async function capturePage(page: Page, maxOutlineChars: number): Promise<
         return out;
     }, MAX_UNNAMED);
     const outline = await page.evaluate(outlineOf, maxOutlineChars);
-    return { url: page.url(), aria, unnamed, outline };
+    const layers = await page.evaluate(layersOf);
+    return { url: page.url(), aria, unnamed, layers, outline };
+}
+
+/** Runs in the page. See PageCapture.layers. */
+function layersOf(): string[] {
+    const out: string[] = [];
+    const describe = (el: Element, why: string) => {
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        const shown = rect.width > 2 && rect.height > 2 && style.display !== 'none' && style.visibility !== 'hidden';
+        const label = el.getAttribute('aria-label') ?? '';
+        const text = ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+        out.push(`${why}: <${el.tagName.toLowerCase()}${el.getAttribute('role') ? ` role="${el.getAttribute('role')}"` : ''}${label ? ` aria-label="${label.slice(0, 60)}"` : ''}> ${shown ? `shown at ${Math.round(rect.x)},${Math.round(rect.y)} size ${Math.round(rect.width)}x${Math.round(rect.height)}` : 'not shown'}${text ? `, text "${text}"` : ''}`);
+    };
+    for (const el of Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], [aria-modal="true"]'))) describe(el, 'dialog or modal layer');
+    for (const el of Array.from(document.querySelectorAll('[aria-hidden="true"]'))) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width * rect.height > 200 * 200 && !el.parentElement?.closest('[aria-hidden="true"]')) describe(el, 'shown but marked hidden from assistive technology');
+    }
+    return out.slice(0, 30);
 }
 
 /**
@@ -72,8 +97,8 @@ function outlineOf(maxChars: number): string {
     const lines: string[] = [];
     let length = 0;
     const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
+    // Visible on screen is what counts; content an app marks aria-hidden but still shows is kept (and marked).
     const visible = (el: Element) => {
-        if (el.getAttribute('aria-hidden') === 'true') return false;
         if (el.hasAttribute('data-tabster-dummy') || el.hasAttribute('data-focus-trap-dummy')) return false;
         const rect = el.getBoundingClientRect();
         if (rect.width <= 2 && rect.height <= 2) return false;
@@ -91,7 +116,7 @@ function outlineOf(maxChars: number): string {
                 if (classes.length > 0) attrs.push(`class="${classes.join(' ')}"`);
             } else if (name === 'id') {
                 if (!/\d{2,}/.test(attr.value) && attr.value.length <= 40) attrs.push(`id="${attr.value}"`);
-            } else if (/^(role|aria-label|aria-selected|aria-checked|aria-expanded|aria-level|title|name|type|placeholder|href|datetime|contenteditable)$/.test(name)
+            } else if (/^(role|aria-label|aria-selected|aria-checked|aria-expanded|aria-level|aria-hidden|aria-modal|title|name|type|placeholder|href|datetime|contenteditable)$/.test(name)
                 || (name.startsWith('data-') && !NOISY_DATA.test(name))) {
                 if (name === 'role' && (attr.value === 'none' || attr.value === 'presentation')) continue;
                 attrs.push(`${name}="${clip(attr.value, 80)}"`);
@@ -120,7 +145,8 @@ function outlineOf(maxChars: number): string {
             length += line.length + 1;
             childDepth = depth + 1;
         }
-        const children = Array.from(el.children);
+        // Runs of similar visible siblings (list rows) are cut to the first three.
+        const children = Array.from(el.children).filter((c) => !SKIP.has(c.tagName.toUpperCase()) && visible(c));
         let run = 0;
         for (let i = 0; i < children.length; i++) {
             run = i > 0 && signature(children[i]!) === signature(children[i - 1]!) ? run + 1 : 0;

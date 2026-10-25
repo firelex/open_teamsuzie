@@ -22,7 +22,10 @@ const POLL_MS = 100;
 export function locatorIn(root: Root, target: Target, params: Params): Locator {
     let locator: Locator;
     if (target.role !== undefined) {
-        const options: { name?: string | RegExp; exact?: boolean } = {};
+        // includeHidden: apps sometimes mark visible content as hidden from assistive technology (Outlook marks its
+        // whole app hidden while some layers are open). What counts is what is on screen, which the visible filter
+        // below checks.
+        const options: { name?: string | RegExp; exact?: boolean; includeHidden: boolean } = { includeHidden: true };
         if (target.name !== undefined) {
             options.name = substitute(target.name, params, 'none');
             options.exact = true;
@@ -102,7 +105,7 @@ async function candidatesFor(root: Root, target: Target, ctx: LocateContext): Pr
     const selectedTabs = await describeElements(ctx.page.locator('[role="tab"][aria-selected="true"]').filter({ visible: true }), 5);
     if (selectedTabs.length > 0) evidence.push(...selectedTabs.map((l) => `selected tab (the page is showing this tab's controls): ${l}`));
     if (target.role !== undefined) {
-        const sameRole = root.getByRole(target.role as AriaRole).filter({ visible: true });
+        const sameRole = root.getByRole(target.role as AriaRole, { includeHidden: true }).filter({ visible: true });
         const lines = await describeElements(sameRole, 200);
         // Closest names first: elements sharing words with the wanted name, then the rest in page order.
         const words = wantedWords(target);

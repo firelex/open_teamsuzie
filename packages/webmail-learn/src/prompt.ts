@@ -83,7 +83,7 @@ export function buildRepairPrompt(req: RepairRequest): string {
 
         `THE TASK'S CURRENT STEPS\n${JSON.stringify(route.operations[operation], null, 1)}`,
 
-        `THE PAGE NOW\nURL: ${capture.url}\nAccessibility tree (role "name", nested by indentation):\n${truncate(capture.aria, MAX_ARIA_CHARS)}\n\nInteractive elements with no accessible name (opening tags only):\n${truncate(capture.unnamed.join('\n'), MAX_UNNAMED_CHARS)}\n\nPage outline (elements with their attributes and own text; ids, addresses and dates are often in attributes such as data-*, title or datetime, so look here when the accessibility tree does not show them):\n${truncate(capture.outline, MAX_OUTLINE_CHARS)}`,
+        `THE PAGE NOW\nURL: ${capture.url}\nAccessibility tree (role "name", nested by indentation):\n${truncate(capture.aria, MAX_ARIA_CHARS)}\n\nInteractive elements with no accessible name (opening tags only):\n${truncate(capture.unnamed.join('\n'), MAX_UNNAMED_CHARS)}${capture.layers.length > 0 ? `\n\nDialogs, modal layers and parts of the page marked hidden from assistive technology:\n${capture.layers.join('\n')}` : ''}\n\nPage outline (elements with their attributes and own text; ids, addresses and dates are often in attributes such as data-*, title or datetime, so look here when the accessibility tree does not show them):\n${truncate(capture.outline, MAX_OUTLINE_CHARS)}`,
     ];
     sections.push(
         `HOW TO WORK\nYou have tools that work on the live page. Nothing you do with them sends anything.\n`

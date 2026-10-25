@@ -51,7 +51,7 @@ describe('buildRepairPrompt', () => {
             goal: 'Start a new message and send it.',
             outputs: 'This operation returns nothing.',
             failure: { code: 'target_not_found', phase: 'steps', stepIndex: 0, message: 'no visible element matches {"role":"button","name":"Compose"}', evidence: ['visible button: <button> text "New message" inside toolbar "Actions"'] },
-            capture: { url: 'https://mail.example.com/#inbox', aria: '- button "New message"', unnamed: ['<div tabindex="0">'], outline: '<div role="option" data-key="m1">' },
+            capture: { url: 'https://mail.example.com/#inbox', aria: '- button "New message"', unnamed: ['<div tabindex="0">'], layers: ['dialog or modal layer: <div role="dialog"> not shown'], outline: '<div role="option" data-key="m1">' },
         });
         expect(prompt).toContain('Start a new message and send it.');
         expect(prompt).toContain('step 0 of its "steps" list failed: no visible element on the page matched');
@@ -60,6 +60,7 @@ describe('buildRepairPrompt', () => {
         expect(prompt).toContain('<div tabindex="0">');
         expect(prompt).toContain('"compose_open"');
         expect(prompt).toContain('HOW TO WORK');
+        expect(prompt).toContain('dialog or modal layer: <div role="dialog"> not shown');
         expect(prompt).toContain('$draft.to');
         expect(prompt).toContain('mail.example.com');
         expect(prompt).not.toMatch(/undefined|\[object Object\]/);

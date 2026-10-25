@@ -191,6 +191,33 @@ describe('RouteExecutor', () => {
         expect(error.evidence[1]).toMatch(/^visible button: <button> text "Compose"/);
     });
 
+    it('works when the app marks the visible page hidden from assistive technology, as Outlook does', async () => {
+        await fixture.page.evaluate(() => {
+            // The whole app hidden from assistive technology behind an invisible modal layer, but still on screen.
+            for (const child of Array.from(document.body.children)) child.setAttribute('aria-hidden', 'true');
+            const layer = document.createElement('div');
+            layer.setAttribute('role', 'dialog');
+            layer.setAttribute('aria-modal', 'true');
+            layer.setAttribute('aria-label', 'Leftover callout');
+            layer.style.cssText = 'position:fixed;width:0;height:0;overflow:hidden';
+            document.body.append(layer);
+        });
+        const inspected = await executor.inspectTarget(route, { role: 'button', name: 'Compose' });
+        expect(inspected.matches).toBe(1);
+        // The run's clean start reloads the page, so check a live run on a page that stays hidden.
+        await fixture.page.addInitScript(() => {
+            new MutationObserver(() => document.querySelectorAll('body > :not([aria-modal])').forEach((c) => c.setAttribute('aria-hidden', 'true')))
+                .observe(document, { childList: true, subtree: true });
+        });
+        await executor.run(route, 'compose_send', draft, 'test');
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
+        const capture = await capturePage(fixture.page, 40_000);
+        expect(capture.aria).toContain('nearly empty');
+        expect(capture.outline).toMatch(/<button id="compose"> Compose/);
+        expect(capture.outline).toContain('aria-hidden="true"');
+        expect(capture.layers.some((l) => l.startsWith('shown but marked hidden from assistive technology'))).toBe(true);
+    });
+
     it('waits for the accessibility tree and leaves anonymous wrappers out of the outline', async () => {
         await fixture.page.evaluate(() => {
             const deep = document.createElement('div');
