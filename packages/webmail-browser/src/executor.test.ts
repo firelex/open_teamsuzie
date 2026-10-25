@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Route } from '@teamsuzie/webmail-routes';
 import { HumanBehaviour } from './behaviour.js';
-import { NeedsLoginError, RouteError, UnreadableValueError } from './errors.js';
+import { NeedsLoginError, RecipientsDifferError, RouteError, UnreadableValueError } from './errors.js';
 import { RouteExecutor } from './executor.js';
 import { resolveOne } from './locate.js';
 import { capturePage } from './capture.js';
@@ -92,12 +92,17 @@ describe('RouteExecutor', () => {
         expect(activity.sent).toEqual([{ to: 'carol@example.com, dan@example.com', subject: 'Hello there', body: 'Line one\nLine two' }]);
     });
 
-    it('stops before Send when the recipients shown differ from the draft', async () => {
+    it('stops before Send, and discards the draft, when the recipients shown differ from the draft', async () => {
         await setAutocomplete(fixture.page, 'carol@example.com', 'caroline@example.net');
-        const error = await routeError(executor.run(route, 'compose_send', draft, 'live'));
-        expect(error.code).toBe('recipients_mismatch');
-        expect(error.detail).toContain('caroline@example.net');
-        expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
+        const error = await executor.run(route, 'compose_send', draft, 'live').catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(RecipientsDifferError);
+        expect(error).toMatchObject({ shown: { to: ['caroline@example.net', 'dan@example.com'] }, expected: { to: ['carol@example.com', 'dan@example.com'] } });
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
+    });
+
+    it('only reads the recipients when none were requested, as in a test of a reply', async () => {
+        const result = await executor.run(route, 'reply', { $message_id: 'm1', '$draft.body': 'x' }, 'test');
+        expect(result.extracted.recipients).toEqual({ to: 'alice@example.com', cc: '', bcc: '' });
     });
 
     it('stops when the draft has cc recipients the route cannot see', async () => {

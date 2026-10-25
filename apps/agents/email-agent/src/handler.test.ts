@@ -351,6 +351,16 @@ describe('AccountHandler', () => {
         expect((await runJob('list_inbox', { limit: 5 })).status).toBe('queued');
     });
 
+    it('fails a reply the webmail would address elsewhere with recipients_differ, naming the address, without relearning', async () => {
+        await bootAndSettle();
+        const { RecipientsDifferError } = await import('@teamsuzie/webmail-browser');
+        runtime.clientImpl.reply = async () => { throw new RecipientsDifferError('reply', { to: ['replies@firm.com'], cc: [], bcc: [] }, { to: ['news@firm.com'], cc: [], bcc: [] }); };
+        const view = await runJob('reply', { message_id: 'm1', body: 'Thanks', to: 'news@firm.com' });
+        expect(view).toMatchObject({ status: 'failed', error: { code: 'recipients_differ', message: expect.stringContaining('submit the job again with to set to it') } });
+        expect(view.error!.message).toContain('replies@firm.com');
+        expect(runtime.calls).toEqual([]);
+    });
+
     it('fails a job with a request the page cannot carry out as invalid_request', async () => {
         await bootAndSettle();
         const { WebmailUnsupportedError } = await import('@teamsuzie/email-webmail');

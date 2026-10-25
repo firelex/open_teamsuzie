@@ -1,5 +1,5 @@
 import {
-    capturePage, computeFingerprint, RouteError, UnreadableValueError,
+    capturePage, computeFingerprint, RecipientsDifferError, RouteError, UnreadableValueError,
     type OperationResult, type RouteExecutor,
 } from '@teamsuzie/webmail-browser';
 import {
@@ -248,7 +248,7 @@ export class RouteLearner {
             if (error instanceof RouteError) {
                 return `${error.message}${error.evidence.length > 0 ? ` | found on the page: ${error.evidence.slice(0, 5).join(' | ')}` : ''}`;
             }
-            if (error instanceof UnreadableValueError) return error.message;
+            if (error instanceof UnreadableValueError || error instanceof RecipientsDifferError) return error.message;
             throw error;
         }
     }

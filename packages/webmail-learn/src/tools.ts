@@ -1,4 +1,4 @@
-import { RouteError, UnreadableValueError, type OperationResult, type RouteExecutor } from '@teamsuzie/webmail-browser';
+import { RecipientsDifferError, RouteError, UnreadableValueError, type OperationResult, type RouteExecutor } from '@teamsuzie/webmail-browser';
 import {
     validateRoute,
     type ExtractSpec, type OperationName, type PageState, type Params, type Route, type Step, type Target,
@@ -184,6 +184,7 @@ export class LearnerToolbox {
         } catch (error) {
             if (error instanceof RouteError) return routeErrorResult(error);
             if (error instanceof UnreadableValueError) return { ok: false, error: 'unreadable_value', detail: error.message };
+            if (error instanceof RecipientsDifferError) return { ok: false, error: 'recipients_differ', detail: error.message };
             throw error;
         }
     }

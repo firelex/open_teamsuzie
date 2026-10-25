@@ -18,7 +18,7 @@ const params: Partial<Record<OperationName, Params>> = {
     read_thread: { $thread_id: 't1' },
     search: { $query: 'lunch' },
     compose_send: { '$draft.to': 'me@example.com', '$draft.subject': 'Route check', '$draft.body': 'Discarded.' },
-    reply: { $message_id: 'm1', '$draft.to': 'alice@example.com', '$draft.body': 'Discarded.' },
+    reply: { $message_id: 'm1', '$draft.body': 'Discarded.' },
     check_sent: {},
     list_test_drafts: { $marker: 'Route check by email-agent: safe to discard.' },
     discard_draft: { $marker: 'Route check by email-agent: safe to discard.', $message_id: 'd1' },
@@ -69,7 +69,7 @@ const alternateParams: Partial<Record<OperationName, Params>> = {
     open_message: { $message_id: 'm2' },
     read_thread: { $thread_id: 't2' },
     search: { $query: 'quarterly' },
-    reply: { $message_id: 'm2', '$draft.to': 'bob@example.org', '$draft.body': 'Discarded.' },
+    reply: { $message_id: 'm2', '$draft.body': 'Discarded.' },
 };
 
 function input(operation: OperationName = 'compose_send') {

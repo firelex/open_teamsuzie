@@ -4,7 +4,7 @@ import type {
 } from '@teamsuzie/email';
 import { WebmailUnsupportedError, type CanaryResult } from '@teamsuzie/email-webmail';
 import type { JobQueue, JobRecord } from '@teamsuzie/jobs';
-import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError } from '@teamsuzie/webmail-browser';
+import { NavigationError, NeedsLoginError, RecipientsDifferError, RouteError, UnreadableValueError } from '@teamsuzie/webmail-browser';
 import type { LearnOutcome } from '@teamsuzie/webmail-learn';
 import { OPERATION_NAMES, type OperationName, type ProviderKey } from '@teamsuzie/webmail-routes';
 import type { AlertStore } from './alerts.js';
@@ -278,6 +278,9 @@ export class AccountHandler {
             }
         } else if (error instanceof WebmailUnsupportedError) {
             this.fail(job, new JobFailure('invalid_request', error.message));
+        } else if (error instanceof RecipientsDifferError) {
+            const addresses = error.shown.to.join(', ');
+            this.fail(job, new JobFailure('recipients_differ', `${error.message}. Nothing was sent and the draft was discarded. ${payload.kind === 'reply' ? 'For a reply this is usually the message\'s reply-to address. ' : ''}If ${addresses} is intended, submit the job again with to set to it; it is then checked against the send rules (or approval) for that address.`));
         } else if (error instanceof UnreadableValueError) {
             this.fail(job, new JobFailure('unreadable_value', error.message));
             await this.alertUnreadable(error.operation, error.message);

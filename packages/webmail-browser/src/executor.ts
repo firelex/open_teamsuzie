@@ -5,7 +5,7 @@ import {
 } from '@teamsuzie/webmail-routes';
 import type { Behaviour } from './behaviour.js';
 import type { DateContext } from './dates.js';
-import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError, type RoutePhase } from './errors.js';
+import { NavigationError, NeedsLoginError, RecipientsDifferError, RouteError, UnreadableValueError, type RoutePhase } from './errors.js';
 import { applyPattern, emailsIn, normalizeField, readSource } from './extract.js';
 import { describeElements, describeTarget, inspectTarget, locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext, type TargetReport } from './locate.js';
 
@@ -95,11 +95,12 @@ export class RouteExecutor {
             // run would otherwise add one to the Drafts folder). If the draft or reply is open, run test_end now:
             // it discards the operation's own draft, or, after a failed verify_text, closes what was opened
             // untouched (so the next clean start does not discard it either).
-            if (error instanceof RouteError && op.test_end && (await this.draftOpen(route, op))) {
+            if ((error instanceof RouteError || error instanceof RecipientsDifferError) && op.test_end && (await this.draftOpen(route, op))) {
                 try {
                     await this.runSteps(route, operation, op.test_end, 'test_end', params, 'test', { extracted: {}, steps: [] });
                 } catch (cleanup) {
                     if (!(cleanup instanceof RouteError)) throw cleanup;
+                    if (error instanceof RecipientsDifferError) throw cleanup;
                     throw new RouteError(error.code, error.operation, error.stepIndex, `${error.detail} (and closing the draft afterwards also failed: ${cleanup.message})`, error.phase, error.evidence);
                 }
             }
@@ -265,7 +266,7 @@ export class RouteExecutor {
                 throw new RouteError('verification_failed', ctx.operation, ctx.stepIndex, `${describeTarget(check.target)} shows ${JSON.stringify(text.length > 160 ? `${text.slice(0, 160)}…` : text)}, which does not contain ${JSON.stringify(wanted)}`, ctx.phase, await describeElements(element, 1));
             }
         } else if ('verify_recipients' in step) {
-            await this.verifyRecipients(step.verify_recipients, ctx);
+            await this.verifyRecipients(step.verify_recipients, ctx, result);
         } else {
             throw new Error(`Unknown step: ${JSON.stringify(step)}`);
         }
@@ -380,24 +381,43 @@ export class RouteExecutor {
         return matches[0] ?? null;
     }
 
-    private async verifyRecipients(check: RecipientCheck, ctx: LocateContext): Promise<void> {
-        const problems: string[] = [];
-        for (const kind of ['to', 'cc', 'bcc'] as const) {
-            const expected = [...new Set(emailsIn(ctx.params[`$draft.${kind}`] ?? ''))].sort();
+    /**
+     * Compare the recipients the page shows with the requested ones. Without requested recipients (no $draft.to,
+     * as in tests of a reply), only read them: they are returned under "recipients", and at least one To address
+     * must be readable. Unreadable recipients are a route problem; readable but different ones are a
+     * RecipientsDifferError (nothing is sent; the caller decides).
+     */
+    private async verifyRecipients(check: RecipientCheck, ctx: LocateContext, result: OperationResult): Promise<void> {
+        const kinds = ['to', 'cc', 'bcc'] as const;
+        const shown = { to: [] as string[], cc: [] as string[], bcc: [] as string[] };
+        for (const kind of kinds) {
             const target = check[kind];
-            if (target === undefined) {
-                if (expected.length > 0) problems.push(`${kind}: the route cannot read ${kind} recipients but the draft has ${expected.join(', ')}`);
-                continue;
-            }
-            const shown: string[] = [];
-            for (const chip of await resolveAll(target, ctx)) shown.push(...emailsIn((await readSource(chip, check.from)) ?? ''));
-            const unique = [...new Set(shown)].sort();
-            if (unique.join(',') !== expected.join(',')) {
-                problems.push(`${kind}: page shows [${unique.join(', ')}], draft has [${expected.join(', ')}]`);
-            }
+            if (target === undefined) continue;
+            const found: string[] = [];
+            for (const chip of await resolveAll(target, ctx)) found.push(...emailsIn((await readSource(chip, check.from)) ?? ''));
+            shown[kind] = [...new Set(found)].sort();
         }
-        if (problems.length > 0) {
-            throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, problems.join('; '), ctx.phase);
+        if (ctx.params['$draft.to'] === undefined) {
+            if (shown.to.length === 0) {
+                throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, `no To recipient could be read from ${describeTarget(check.to)}`, ctx.phase, await describeElements(locatorIn(this.opts.page, check.to, ctx.params)));
+            }
+            result.extracted.recipients = { to: shown.to.join(', '), cc: shown.cc.join(', '), bcc: shown.bcc.join(', ') };
+            return;
+        }
+        const expected = { to: [] as string[], cc: [] as string[], bcc: [] as string[] };
+        const unreadable: string[] = [];
+        for (const kind of kinds) {
+            expected[kind] = [...new Set(emailsIn(ctx.params[`$draft.${kind}`] ?? ''))].sort();
+            if (expected[kind].length === 0) continue;
+            if (check[kind] === undefined) unreadable.push(`the route cannot read ${kind} recipients but the draft has ${expected[kind].join(', ')}`);
+            else if (shown[kind].length === 0) unreadable.push(`no ${kind} address could be read from ${describeTarget(check[kind]!)}, though the draft has ${expected[kind].join(', ')}`);
+        }
+        if (unreadable.length > 0) {
+            const chips = check.to ? await describeElements(locatorIn(this.opts.page, check.to, ctx.params)) : [];
+            throw new RouteError('recipients_mismatch', ctx.operation, ctx.stepIndex, unreadable.join('; '), ctx.phase, chips);
+        }
+        if (kinds.some((kind) => shown[kind].join(',') !== expected[kind].join(','))) {
+            throw new RecipientsDifferError(ctx.operation, shown, expected);
         }
     }
 }

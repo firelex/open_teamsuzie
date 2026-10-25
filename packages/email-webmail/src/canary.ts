@@ -156,7 +156,8 @@ function paramsFor(operation: OperationName, first: ExtractedRecord | null, draf
         case 'search':
             return first ? { $query: first.subject!.split(/\s+/).slice(0, 3).join(' ') } : null;
         case 'reply':
-            return first ? { $message_id: first.id!, '$draft.to': first.from!, '$draft.body': CANARY_BODY } : null;
+            // No $draft.to: in a test the reply's recipients are only read (the webmail may use a reply-to address).
+            return first ? { $message_id: first.id!, '$draft.body': CANARY_BODY } : null;
         case 'list_inbox':
             return {};
     }

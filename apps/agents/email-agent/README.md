@@ -100,6 +100,7 @@ is now (accessibility tree, outline and screenshot, under `data_dir/captures/`) 
 | `needs_login` | The account must be signed in again; the job's deadline passed while waiting |
 | `account_mismatch` | The browser is signed in to a different account |
 | `approval_rejected` | You rejected the send |
+| `recipients_differ` | The webmail would have sent to other addresses than requested (a reply's reply-to address, or autocomplete picking another contact). Nothing was sent; the message names the addresses, and the agent can resubmit with `to` set to them |
 | `send_unconfirmed` | Send was pressed after the send action changed, but the message is not in Sent |
 | `job_timeout` | The job's deadline passed |
 | `invalid_request` | Unknown account or kind, bad parameters, or something the page cannot do (HTML, attachments) |

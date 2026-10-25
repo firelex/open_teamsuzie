@@ -84,7 +84,7 @@ describe('WebmailEmailClient', () => {
     });
 
     it('refuses a reply whose recipients differ from what the page shows, without sending', async () => {
-        await expect(client.reply({ messageId: 'm2', body: 'x', to: 'carol@example.com' })).rejects.toMatchObject({ code: 'recipients_mismatch' });
+        await expect(client.reply({ messageId: 'm2', body: 'x', to: 'carol@example.com' })).rejects.toMatchObject({ name: 'RecipientsDifferError', shown: { to: ['bob@example.org'] } });
         expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
     });
 
@@ -195,10 +195,10 @@ describe('buildTestParams', () => {
         expect(inboxError).toBeNull();
         expect(params.open_message).toEqual({ $message_id: 'm2' });
         expect(alternate.open_message).toEqual({ $message_id: 'm1' });
-        expect(alternate.reply).toMatchObject({ $message_id: 'm1', '$draft.to': 'alice@example.com' });
+        expect(alternate.reply).toMatchObject({ $message_id: 'm1' });
         expect(alternate.compose_send).toBeUndefined();
         expect(params.discard_draft).toEqual({ $marker: 'Route check by email-agent: safe to discard.', $message_id: 'd1' });
-        expect(params.reply).toMatchObject({ $message_id: 'm2', '$draft.to': 'bob@example.org' });
+        expect(params.reply).toEqual({ $message_id: 'm2', '$draft.body': 'Route check by email-agent: safe to discard.' });
         expect(params.compose_send).toMatchObject({ '$draft.to': 'me@example.com' });
     });
 

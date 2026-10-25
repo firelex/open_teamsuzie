@@ -58,3 +58,23 @@ export class UnreadableValueError extends Error {
         super(`${operation}: the ${field} field shows ${JSON.stringify(text)}, which is not a ${format} this service can read`);
     }
 }
+
+/**
+ * The page shows readable recipients that differ from the ones requested (for example, a reply addressed to the
+ * message's reply-to address, or autocomplete picking another contact). Nothing is sent. Not a route problem: the
+ * caller decides whether to use the recipients the page shows.
+ */
+export class RecipientsDifferError extends Error {
+    override readonly name = 'RecipientsDifferError';
+    constructor(
+        readonly operation: string,
+        /** What the page shows, per kind. */
+        readonly shown: { to: string[]; cc: string[]; bcc: string[] },
+        /** What was requested, per kind. */
+        readonly expected: { to: string[]; cc: string[]; bcc: string[] },
+    ) {
+        const describe = (r: { to: string[]; cc: string[]; bcc: string[] }) =>
+            (['to', 'cc', 'bcc'] as const).filter((k) => r[k].length > 0).map((k) => `${k}: ${r[k].join(', ')}`).join('; ') || 'nobody';
+        super(`${operation}: the page would send to ${describe(shown)}, not to ${describe(expected)}`);
+    }
+}
