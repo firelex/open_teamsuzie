@@ -1,0 +1,36 @@
+{
+  "name": "@teamsuzie/webmail-learn",
+  "version": "0.1.0",
+  "description": "Relearns a broken webmail route operation from the live page with a model, and accepts it only after it passes a no-send test",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/models": "workspace:*",
+    "@teamsuzie/webmail-browser": "workspace:*",
+    "@teamsuzie/webmail-routes": "workspace:*",
+    "playwright-core": "^1.56.0"
+  },
+  "devDependencies": {
+    "@teamsuzie/email-webmail": "workspace:*",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
