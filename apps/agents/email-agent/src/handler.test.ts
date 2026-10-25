@@ -291,6 +291,17 @@ describe('AccountHandler', () => {
         expect(runtime.sent).toEqual(['a@firm.com', 'a@firm.com']);
     });
 
+    it('records what a check-only canary finds, without relearning', async () => {
+        await bootAndSettle();
+        runtime.canaryResults = (only) => (only ?? [...OPERATION_NAMES]).map((operation) => (operation === 'reply'
+            ? { operation, outcome: 'failed', error: { code: 'recipients_mismatch', message: 'no To recipient could be read' } }
+            : { operation, outcome: 'passed' }) as CanaryResult);
+        await handler.requestCanary(false);
+        expect(runtime.calls).toEqual(['canary:all']);
+        expect(health.get(ADDRESS, 'reply')).toMatchObject({ state: 'suspect', last_error: 'no To recipient could be read' });
+        expect(health.get(ADDRESS, 'list_inbox').state).toBe('healthy');
+    });
+
     it('marks a relearned send operation as unconfirmed', async () => {
         await bootAndSettle();
         runtime.canaryResults = (only) => (only ?? [...OPERATION_NAMES]).map((operation) => (operation === 'reply'

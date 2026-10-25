@@ -153,8 +153,14 @@ export class AccountHandler {
         return this.exclusive(async () => {
             if (repair) return this.canaryAll();
             const results = await this.deps.runtime.canary();
+            // Record what the check found, so status matches it: passing actions healthy, failing ones suspect with
+            // their error (a broken one stays broken). Nothing is relearned.
             for (const result of results) {
+                const current = this.deps.health.get(this.address, result.operation).state;
                 if (result.outcome === 'passed') this.deps.health.set(this.address, result.operation, { state: 'healthy', last_error: null });
+                else if ((result.outcome === 'failed' || result.outcome === 'unreadable') && current !== 'broken') {
+                    this.deps.health.set(this.address, result.operation, { state: 'suspect', last_error: result.error!.message });
+                }
             }
             return results;
         });
