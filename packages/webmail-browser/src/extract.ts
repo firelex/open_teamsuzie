@@ -52,7 +52,8 @@ export function applyPattern(value: string | null, pattern: string | undefined):
 
 /**
  * The field's value in its normal form, or null when it does not satisfy its format. `emails` becomes a
- * comma-separated list of the addresses found; `flag` becomes `true`/`false`; `email` is lowercased.
+ * comma-separated list of the addresses found; `flag` becomes `true`/`false`; `email` is lowercased; `date` becomes
+ * an ISO timestamp.
  */
 export function normalizeField(value: string | null, spec: FieldSpec): string | null {
     if (spec.format === 'flag') return value !== null && value !== '' ? 'true' : 'false';
@@ -67,8 +68,11 @@ export function normalizeField(value: string | null, spec: FieldSpec): string | 
             const found = value.match(EMAIL);
             return found ? found.map((e) => e.toLowerCase()).join(', ') : null;
         }
-        case 'date':
-            return Number.isNaN(Date.parse(value.replace(/\bat\b/, ''))) ? null : value;
+        case 'date': {
+            // Dates are read in the machine's local time zone, which is the user's.
+            const ms = Date.parse(value.replace(/\bat\b/, ''));
+            return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+        }
         case 'nonempty':
             return value.length > 0 ? value : null;
         case 'id':

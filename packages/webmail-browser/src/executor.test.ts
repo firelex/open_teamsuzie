@@ -55,7 +55,7 @@ describe('RouteExecutor', () => {
         expect(messages.map((m) => m.id)).toEqual(['m2', 'm1']);
         expect(messages[1]).toMatchObject({ thread_id: 't1', from: 'alice@example.com', subject: 'Quarterly numbers', unread: 'true' });
         expect(messages[0]!.unread).toBe('false');
-        expect(messages[1]!.date).toBe('Fri, Oct 24, 2026, 9:15 AM');
+        expect(messages[1]!.date).toBe(new Date('Fri, Oct 24, 2026, 9:15 AM').toISOString());
         expect(result.steps.map((s) => s.action)).toEqual(['goto', 'extract']);
     });
 

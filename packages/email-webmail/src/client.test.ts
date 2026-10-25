@@ -1,0 +1,131 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { HumanBehaviour, RouteError, RouteExecutor, VolumeLimiter } from '@teamsuzie/webmail-browser';
+import {
+    fixtureActivity, fixtureRoute, openFixtureBrowser, serveFixture, FIXTURE_HOME, type FixtureBrowser,
+} from '@teamsuzie/webmail-browser/testing';
+import type { Route } from '@teamsuzie/webmail-routes';
+import { runCanary } from './canary.js';
+import { WebmailEmailClient, WebmailUnsupportedError } from './client.js';
+
+let fixture: FixtureBrowser;
+let route: Route;
+let client: WebmailEmailClient;
+
+beforeAll(async () => {
+    fixture = await openFixtureBrowser();
+});
+
+afterAll(async () => {
+    await fixture.close();
+});
+
+beforeEach(async () => {
+    route = fixtureRoute();
+    await serveFixture(fixture.context, 'standard');
+    await fixture.page.goto('about:blank');
+    await fixture.page.goto(FIXTURE_HOME);
+    const behaviour = new HumanBehaviour({ rng: Math.random, timeScale: 0, selectAllModifier: 'Meta' });
+    client = new WebmailEmailClient({
+        account: { address: 'me@example.com', provider: 'gmail' },
+        executor: new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 1500, stateTimeoutMs: 2000, navigationTimeoutMs: 10_000 }),
+        routes: { current: () => route },
+        limiter: new VolumeLimiter({ opensPerMinute: 100, opensPerHour: 1000, minSecondsBetweenSends: 0.001 }),
+        behaviour,
+    });
+});
+
+describe('WebmailEmailClient', () => {
+    it('reads the signed-in account', async () => {
+        expect(await client.readAccount()).toBe('me@example.com');
+    });
+
+    it('lists the inbox and searches', async () => {
+        const inbox = await client.listMessages();
+        expect(inbox.messages.map((m) => [m.id, m.threadId, m.from, m.unread])).toEqual([
+            ['m2', 't2', 'bob@example.org', false],
+            ['m1', 't1', 'alice@example.com', true],
+        ]);
+        expect(inbox.messages[1]!.date).toBe(new Date('Fri, Oct 24, 2026, 9:15 AM').toISOString());
+        const found = await client.listMessages({ search: 'quarterly', limit: 5 });
+        expect(found.messages.map((m) => m.id)).toEqual(['m0', 'm1']);
+    });
+
+    it('opens a message and a thread', async () => {
+        const message = await client.getMessage('m1');
+        expect(message).toMatchObject({ id: 'm1', subject: 'Quarterly numbers', from: 'alice@example.com', to: 'me@example.com', cc: 'dan@example.com' });
+        expect(message.bodyText).toContain('Revenue is up.');
+        const thread = await client.getThread('t1');
+        expect(thread.messageIds).toEqual(['m0', 'm1']);
+        expect(thread.participants).toEqual(['alice@example.com']);
+        expect(thread.lastMessageAt).toBe(message.date);
+    });
+
+    it('sends, and confirms the message is in Sent', async () => {
+        await client.send({ to: 'carol@example.com', subject: 'Plan', body: 'See you at 3.' });
+        expect((await fixtureActivity(fixture.page)).sent).toEqual([{ to: 'carol@example.com', subject: 'Plan', body: 'See you at 3.' }]);
+        expect(await client.confirmSent('Plan', 'carol@example.com')).toBe(true);
+        expect(await client.confirmSent('Plan', 'someone@else.com')).toBe(false);
+        expect(await client.confirmSent('Other', 'carol@example.com')).toBe(false);
+    });
+
+    it('replies to the original sender', async () => {
+        await client.reply({ messageId: 'm2', body: 'Tuesday works.' });
+        expect((await fixtureActivity(fixture.page)).sent).toEqual([{ to: 'bob@example.org', subject: 'Re: Lunch on Tuesday?', body: 'Tuesday works.' }]);
+    });
+
+    it('refuses a reply whose recipients differ from what the page shows, without sending', async () => {
+        await expect(client.reply({ messageId: 'm2', body: 'x', to: 'carol@example.com' })).rejects.toMatchObject({ code: 'recipients_mismatch' });
+        expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
+    });
+
+    it('refuses what it cannot do through the page', async () => {
+        await expect(client.send({ to: 'a@b.com', subject: 's', body: 'b', html: '<p>b</p>' })).rejects.toBeInstanceOf(WebmailUnsupportedError);
+        await expect(client.send({ to: 'a@b.com', subject: 's', body: 'b', attachments: [{ filename: 'f', contentType: 'text/plain', content: 'eA==' }] })).rejects.toBeInstanceOf(WebmailUnsupportedError);
+        await expect(client.send({ to: 'a@b.com', subject: 's', body: 'b', fromAccount: 'other@example.com' })).rejects.toBeInstanceOf(WebmailUnsupportedError);
+        await expect(client.reply({ messageId: 'm2', body: 'x', replyAll: true })).rejects.toBeInstanceOf(WebmailUnsupportedError);
+    });
+
+    it('treats a route that does not return a required output as a route error', async () => {
+        const step = route.operations.list_inbox.steps[1]!;
+        if (!('extract' in step)) throw new Error('fixture changed');
+        delete step.extract.fields.subject;
+        const error = await client.listMessages().catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(RouteError);
+        expect((error as RouteError).code).toBe('extract_invalid');
+    });
+});
+
+describe('runCanary', () => {
+    it('passes every operation on a matching route without sending anything', async () => {
+        const results = await runCanary(client);
+        expect(results.map((r) => [r.operation, r.outcome])).toEqual([
+            ['list_inbox', 'passed'],
+            ['read_account', 'passed'],
+            ['open_message', 'passed'],
+            ['read_thread', 'passed'],
+            ['search', 'passed'],
+            ['compose_send', 'passed'],
+            ['reply', 'passed'],
+            ['check_sent', 'passed'],
+        ]);
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 2 });
+    });
+
+    it('reports a broken operation and skips those that depend on the inbox when it cannot be read', async () => {
+        route.states.inbox_list = { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Primary' }] };
+        const results = await runCanary(client, ['list_inbox', 'open_message', 'check_sent']);
+        expect(results.map((r) => [r.operation, r.outcome])).toEqual([
+            ['list_inbox', 'failed'],
+            ['open_message', 'skipped'],
+            ['check_sent', 'passed'],
+        ]);
+        expect(results[0]!.error?.code).toBe('state_not_reached');
+    });
+
+    it('runs only the operations asked for', async () => {
+        await serveFixture(fixture.context, 'renamed');
+        await fixture.page.goto('about:blank');
+        const results = await runCanary(client, ['compose_send']);
+        expect(results).toEqual([expect.objectContaining({ operation: 'compose_send', outcome: 'failed', error: expect.objectContaining({ code: 'target_not_found' }) })]);
+    });
+});

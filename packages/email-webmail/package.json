@@ -1,0 +1,35 @@
+{
+  "name": "@teamsuzie/email-webmail",
+  "version": "0.1.0",
+  "description": "An EmailClient for one Gmail or Outlook account, driven through its web page by learned routes; seed routes and the route canary",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/email": "workspace:*",
+    "@teamsuzie/webmail-browser": "workspace:*",
+    "@teamsuzie/webmail-routes": "workspace:*",
+    "playwright-core": "^1.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
