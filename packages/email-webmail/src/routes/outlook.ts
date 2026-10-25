@@ -5,8 +5,8 @@ import type { Route } from '@teamsuzie/webmail-routes';
  *
  * Reading (read_account, list_inbox, open_message, read_thread, search) is what the relearning model learned on a
  * live en-GB Outlook account and verified there. Sending uses Outlook's default keyboard shortcuts: N opens a new
- * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step); in tests Esc discards a new message, and the Discard button a reply (Esc does
- * not close a reply).
+ * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step). Discarding a draft (Esc, or the Discard button) asks for confirmation, so
+ * tests discard with Esc and then OK. list_test_drafts and the search-results state are as relearned on that account.
  * The recipient check reads the To field's text. List subjects are read from a generated class name (TtcXM), which
  * is likely to change with a future Outlook build; the failure checks then relearn it.
  */
@@ -55,10 +55,14 @@ export const OUTLOOK_SEED_ROUTE: Route = {
         },
         "search_results": {
             "url_matches": "/mail/",
+            "container": {
+                "role": "complementary",
+                "name_pattern": "^Message list$"
+            },
             "visible": [
                 {
-                    "role": "listbox",
-                    "name_pattern": "message list"
+                    "role": "heading",
+                    "name_pattern": "^Results$"
                 }
             ]
         },
@@ -445,6 +449,12 @@ export const OUTLOOK_SEED_ROUTE: Route = {
             "test_end": [
                 {
                     "press": "Escape"
+                },
+                {
+                    "click": {
+                        "role": "button",
+                        "name": "OK"
+                    }
                 }
             ]
         },
@@ -492,10 +502,12 @@ export const OUTLOOK_SEED_ROUTE: Route = {
             ],
             "test_end": [
                 {
+                    "press": "Escape"
+                },
+                {
                     "click": {
                         "role": "button",
-                        "name": "Discard",
-                        "within": "compose_open"
+                        "name": "OK"
                     }
                 }
             ]
@@ -553,8 +565,10 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                         "name_pattern": "^Search"
                     },
                     "value": "$marker",
-                    "then_press": "Enter",
-                    "expect": "search_results"
+                    "then_press": "Enter"
+                },
+                {
+                    "wait_for": "search_results"
                 },
                 {
                     "extract": {
@@ -577,6 +591,14 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                         }
                     },
                     "as": "messages"
+                }
+            ],
+            "test_end": [
+                {
+                    "click": {
+                        "role": "button",
+                        "name": "Close search"
+                    }
                 }
             ]
         },
@@ -610,13 +632,25 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                         "name": "Discard",
                         "within": "compose_open"
                     },
-                    "commits": true,
+                    "commits": true
+                },
+                {
+                    "click": {
+                        "role": "button",
+                        "name": "OK"
+                    },
                     "expect": "drafts_list"
                 }
             ],
             "test_end": [
                 {
                     "press": "Escape"
+                },
+                {
+                    "click": {
+                        "role": "button",
+                        "name": "OK"
+                    }
                 }
             ]
         }
