@@ -73,6 +73,12 @@ export class NewMailStore {
         return { items, cursor: items.length > 0 ? items[items.length - 1]!.seq : opts.after };
     }
 
+    /** The subject of a message the service has seen, or null when it has not seen it. */
+    subjectOf(account: string, messageId: string): string | null {
+        const row = this.db.prepare<[string, string], { subject: string }>('SELECT subject FROM new_mail WHERE account = ? AND message_id = ?').get(account, messageId);
+        return row ? row.subject : null;
+    }
+
     /** The sender of a message the service has seen, or null when it has not seen it. */
     senderOf(account: string, messageId: string): string | null {
         const row = this.db.prepare<[string, string], { sender: string }>('SELECT sender FROM new_mail WHERE account = ? AND message_id = ?').get(account, messageId);
