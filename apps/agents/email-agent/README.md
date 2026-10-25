@@ -17,6 +17,11 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
 - **Relearning.** A failing action is rebuilt by your model (`@teamsuzie/webmail-learn`) from the live page, then
   must pass the no-send test before it is used. After 3 failed attempts the action is **broken**: its jobs fail at
   once with `route_broken`, you get an alert, and it is retried daily (or `email-agent relearn`).
+- **Dates.** Dates are read the way your webmail shows them, in `locale` (day/month order, month and day names,
+  "Yesterday") and `timezone`. A value the service cannot read is not a route problem: the job fails with
+  `unreadable_value` and you are alerted, without relearning.
+- **Learner transcripts.** Every prompt and model reply is kept in `data_dir/learner/<date>.jsonl`, with the reason
+  a reply was rejected, so the relearning model can be judged.
 - **Sends.** A send goes out at once only when a rule in `send_policy` allows it; otherwise it waits for your
   approval (notification, then `email-agent approve <id>` or the console). The recipients shown on the page must equal
   the requested ones before Send is pressed. After a send action is relearned, the next send is confirmed in Sent;
@@ -71,6 +76,7 @@ waits for approval.
 | Code | Meaning |
 |---|---|
 | `route_broken` | That mail action is broken and could not be relearned; you have been alerted |
+| `unreadable_value` | The page showed a value (such as a date) the service cannot read; relearning cannot fix this, you are alerted |
 | `needs_login` | The account must be signed in again; the job's deadline passed while waiting |
 | `account_mismatch` | The browser is signed in to a different account |
 | `approval_rejected` | You rejected the send |

@@ -51,7 +51,7 @@ describe('buildRepairPrompt', () => {
             goal: 'Start a new message and send it.',
             outputs: 'This operation returns nothing.',
             failure: { code: 'target_not_found', phase: 'steps', stepIndex: 0, message: 'no visible element matches {"role":"button","name":"Compose"}' },
-            capture: { url: 'https://mail.example.com/#inbox', aria: '- button "New message"', unnamed: ['<div tabindex="0">'] },
+            capture: { url: 'https://mail.example.com/#inbox', aria: '- button "New message"', unnamed: ['<div tabindex="0">'], outline: '<div role="option" data-key="m1">' },
             previousProblems: ['The reply was not valid JSON: Unexpected end'],
         });
         expect(prompt).toContain('Start a new message and send it.');

@@ -1,5 +1,6 @@
 import type { Locator } from 'playwright-core';
 import type { FieldSource, FieldSpec } from '@teamsuzie/webmail-routes';
+import { parseWebmailDate, type DateContext } from './dates.js';
 
 const EMAIL = /[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+/g;
 const ID = /^[\w:.#+=/-]{1,256}$/;
@@ -53,9 +54,9 @@ export function applyPattern(value: string | null, pattern: string | undefined):
 /**
  * The field's value in its normal form, or null when it does not satisfy its format. `emails` becomes a
  * comma-separated list of the addresses found; `flag` becomes `true`/`false`; `email` is lowercased; `date` becomes
- * an ISO timestamp.
+ * an ISO timestamp, read in the account's locale and time zone.
  */
-export function normalizeField(value: string | null, spec: FieldSpec): string | null {
+export function normalizeField(value: string | null, spec: FieldSpec, dates: DateContext): string | null {
     if (spec.format === 'flag') return value !== null && value !== '' ? 'true' : 'false';
     if (value === null) return null;
     switch (spec.format) {
@@ -68,11 +69,8 @@ export function normalizeField(value: string | null, spec: FieldSpec): string | 
             const found = value.match(EMAIL);
             return found ? found.map((e) => e.toLowerCase()).join(', ') : null;
         }
-        case 'date': {
-            // Dates are read in the machine's local time zone, which is the user's.
-            const ms = Date.parse(value.replace(/\bat\b/, ''));
-            return Number.isNaN(ms) ? null : new Date(ms).toISOString();
-        }
+        case 'date':
+            return parseWebmailDate(value, dates);
         case 'nonempty':
             return value.length > 0 ? value : null;
         case 'id':

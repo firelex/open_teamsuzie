@@ -72,7 +72,7 @@ export function createMcpServer(deps: McpDeps, agentId: string): McpServer {
     }, (args) => tool(() => deps.jobs.submit(agentId, args)));
 
     server.registerTool('get_job', {
-        description: 'The current state of one of your jobs: awaiting_approval, queued, running, done (with its result) or failed (with an error code and message). Error codes: route_broken (that mailbox action is broken and could not be relearned; the user has been told), needs_login (the user must sign in again), account_mismatch, approval_rejected, job_timeout, invalid_request, send_unconfirmed, internal_error.',
+        description: 'The current state of one of your jobs: awaiting_approval, queued, running, done (with its result) or failed (with an error code and message). Error codes: route_broken (that mailbox action is broken and could not be relearned; the user has been told), unreadable_value (the mailbox showed a value, such as a date, that the service cannot read; the user has been told), needs_login (the user must sign in again), account_mismatch, approval_rejected, job_timeout, invalid_request, send_unconfirmed, internal_error.',
         inputSchema: { job_id: z.string() },
     }, ({ job_id }) => tool(() => ownView(job_id)));
 

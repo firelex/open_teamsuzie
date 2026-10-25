@@ -1,5 +1,5 @@
 import {
-    capturePage, computeFingerprint, NavigationError, RouteError,
+    capturePage, computeFingerprint, NavigationError, RouteError, UnreadableValueError,
     type OperationResult, type RouteExecutor,
 } from '@teamsuzie/webmail-browser';
 import {
@@ -10,12 +10,27 @@ import type { RouteModel } from './model.js';
 import { applyRepair, parseRepair, RepairParseError } from './parse.js';
 import { buildRepairPrompt } from './prompt.js';
 
+/** One model round, recorded so the model's behaviour can be reviewed afterwards. */
+export interface LearnerRound {
+    at: string;
+    model: string;
+    operation: OperationName;
+    round: number;
+    failure: string;
+    prompt: string;
+    reply: string;
+    /** Why the reply could not be used, or null when it was tried. */
+    problem: string | null;
+}
+
 export interface LearnerDeps {
     model: RouteModel;
     executor: RouteExecutor;
     /** How many model replies one attempt may use. */
     maxStepFixes: number;
     log: (message: string) => void;
+    /** Receives every model round. */
+    record: (round: LearnerRound) => void;
     now: () => Date;
 }
 
@@ -33,7 +48,10 @@ export interface RelearnInput {
 export type LearnOutcome =
     | {
         ok: true; changed: true; route: Route; notes: string[]; changedStates: string[];
-        /** Operations that use a changed state but had no test parameters, so were not tested; canary them next. */
+        /**
+         * Operations to check next: ones that use a changed state but had no test parameters, and ones that fail
+         * with the repaired route but were already failing with the old one (the page changed for them too).
+         */
         untested: OperationName[];
     }
     | { ok: true; changed: false }
@@ -71,6 +89,9 @@ export class RouteLearner {
                     changedStates: [...changedStates], untested: dependents.untested,
                 };
             } catch (error) {
+                if (error instanceof UnreadableValueError) {
+                    return { ok: false, reason: `relearning cannot help: ${error.message}` };
+                }
                 if (!(error instanceof RouteError)) throw error;
                 failure = error;
             }
@@ -89,6 +110,7 @@ export class RouteLearner {
                 previousProblems: problems,
             });
             const reply = await this.deps.model.complete(prompt);
+            let problem: string | null = null;
             try {
                 const proposal = parseRepair(reply);
                 const next = applyRepair(candidate, operation, proposal);
@@ -99,9 +121,14 @@ export class RouteLearner {
                 candidate = next;
             } catch (error) {
                 if (!(error instanceof RepairParseError)) throw error;
-                problems.push(error.message);
+                problem = error.message;
+                problems.push(`${error.message}\nThe reply was:\n${reply.length > 2000 ? `${reply.slice(0, 2000)}… (cut)` : reply}`);
                 this.deps.log(`relearn ${operation}: unusable reply: ${error.message}`);
             }
+            this.deps.record({
+                at: this.deps.now().toISOString(), model: this.deps.model.id, operation, round: round + 1,
+                failure: failure.message, prompt, reply, problem,
+            });
         }
         throw new Error('unreachable');
     }
@@ -128,15 +155,27 @@ export class RouteLearner {
                 untested.push(other);
                 continue;
             }
-            await this.resetPage(route);
-            try {
-                input.checkResult(other, await this.deps.executor.run(route, other, params, 'test'));
-            } catch (error) {
-                if (error instanceof RouteError) return { broken: `${other} (${error.message})`, untested };
-                throw error;
-            }
+            const failure = await this.testFailure(route, other, params, input);
+            if (failure === null) continue;
+            // Blame the repair only when the old route still worked for this operation.
+            const before = await this.testFailure(input.route, other, params, input);
+            if (before === null) return { broken: `${other} (${failure})`, untested };
+            this.deps.log(`relearn ${input.operation}: ${other} was already failing before this repair; check it next`);
+            untested.push(other);
         }
         return { broken: null, untested };
+    }
+
+    /** Why the operation fails in test mode with `route`, or null when it passes. */
+    private async testFailure(route: Route, operation: OperationName, params: Params, input: RelearnInput): Promise<string | null> {
+        await this.resetPage(route);
+        try {
+            input.checkResult(operation, await this.deps.executor.run(route, operation, params, 'test'));
+            return null;
+        } catch (error) {
+            if (error instanceof RouteError || error instanceof UnreadableValueError) return error.message;
+            throw error;
+        }
     }
 
     private async finish(route: Route): Promise<Route> {

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Route } from '@teamsuzie/webmail-routes';
 import { HumanBehaviour } from './behaviour.js';
-import { NeedsLoginError, RouteError } from './errors.js';
+import { NeedsLoginError, RouteError, UnreadableValueError } from './errors.js';
 import { RouteExecutor } from './executor.js';
 import { resolveOne } from './locate.js';
 import {
@@ -28,7 +28,7 @@ async function routeError(promise: Promise<unknown>): Promise<RouteError> {
 
 beforeAll(async () => {
     fixture = await openFixtureBrowser();
-    executor = new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 1500, stateTimeoutMs: 2000, navigationTimeoutMs: 10_000 });
+    executor = new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 1500, stateTimeoutMs: 2000, navigationTimeoutMs: 10_000, dates: { locale: 'en-GB', timeZone: 'Europe/London', now: () => new Date() } });
 });
 
 afterAll(async () => {
@@ -55,7 +55,7 @@ describe('RouteExecutor', () => {
         expect(messages.map((m) => m.id)).toEqual(['m2', 'm1']);
         expect(messages[1]).toMatchObject({ thread_id: 't1', from: 'alice@example.com', subject: 'Quarterly numbers', unread: 'true' });
         expect(messages[0]!.unread).toBe('false');
-        expect(messages[1]!.date).toBe(new Date('Fri, Oct 24, 2026, 9:15 AM').toISOString());
+        expect(messages[1]!.date).toBe('2026-10-24T08:15:00.000Z');
         expect(result.steps.map((s) => s.action)).toEqual(['goto', 'extract']);
     });
 
@@ -147,6 +147,19 @@ describe('RouteExecutor', () => {
         const error = await routeError(executor.run(route, 'list_inbox', {}, 'live'));
         expect(error.code).toBe('extract_invalid');
         expect(error.detail).toContain('"subject"');
+    });
+
+    it('reads dates in the account locale', async () => {
+        await fixture.page.evaluate(() => document.querySelectorAll('td.date [title]').forEach((el) => el.setAttribute('title', 'Sun 25/10/2026 09:22')));
+        const result = await executor.run(route, 'list_inbox', {}, 'live');
+        expect((result.extracted.messages as Array<Record<string, string>>)[0]!.date).toBe('2026-10-25T09:22:00.000Z');
+    });
+
+    it('reports a date it cannot read as UnreadableValueError, not a route failure', async () => {
+        await fixture.page.evaluate(() => document.querySelectorAll('td.date [title]').forEach((el) => el.setAttribute('title', 'sometime last week')));
+        const error = await executor.run(route, 'list_inbox', {}, 'live').catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(UnreadableValueError);
+        expect(error).toMatchObject({ operation: 'list_inbox', field: 'date', text: 'sometime last week' });
     });
 
     it('reports a sign-out as NeedsLoginError, not a route failure', async () => {

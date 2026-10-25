@@ -1,11 +1,14 @@
-import { RouteError, type ExtractedRecord } from '@teamsuzie/webmail-browser';
+import { RouteError, UnreadableValueError, type ExtractedRecord } from '@teamsuzie/webmail-browser';
 import { OPERATION_NAMES, type OperationName, type Params } from '@teamsuzie/webmail-routes';
 import { checkOutput, type WebmailEmailClient } from './client.js';
 
 export interface CanaryResult {
     operation: OperationName;
-    /** passed; failed with a route error; or skipped because an operation it needs input from failed or the inbox is empty. */
-    outcome: 'passed' | 'failed' | 'skipped';
+    /**
+     * passed; failed with a route error; unreadable when the route worked but a value (such as a date) could not be
+     * read, which relearning cannot fix; or skipped because an operation it needs input from failed or the inbox is empty.
+     */
+    outcome: 'passed' | 'failed' | 'unreadable' | 'skipped';
     error?: { code: string; message: string };
     reason?: string;
 }
@@ -53,6 +56,9 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
             if (error instanceof RouteError) {
                 return { result: { operation, outcome: 'failed', error: { code: error.code, message: error.message } }, records: null };
             }
+            if (error instanceof UnreadableValueError) {
+                return { result: { operation, outcome: 'unreadable', error: { code: 'unreadable_value', message: error.message } }, records: null };
+            }
             throw error;
         }
     }
@@ -61,7 +67,7 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
 export interface TestParams {
     params: Partial<Record<OperationName, Params>>;
     /** Why the inbox could not be listed, when it could not; operations that need a message then have no parameters. */
-    inboxError: RouteError | null;
+    inboxError: RouteError | UnreadableValueError | null;
 }
 
 /**
@@ -70,13 +76,13 @@ export interface TestParams {
  */
 export async function buildTestParams(client: WebmailEmailClient): Promise<TestParams> {
     let first: ExtractedRecord | null = null;
-    let inboxError: RouteError | null = null;
+    let inboxError: RouteError | UnreadableValueError | null = null;
     try {
         const listing = await client.testOperation('list_inbox', {});
         checkOutput('list_inbox', listing);
         first = (listing.extracted.messages as ExtractedRecord[])[0] ?? null;
     } catch (error) {
-        if (!(error instanceof RouteError)) throw error;
+        if (!(error instanceof RouteError || error instanceof UnreadableValueError)) throw error;
         inboxError = error;
     }
     const params: Partial<Record<OperationName, Params>> = {};

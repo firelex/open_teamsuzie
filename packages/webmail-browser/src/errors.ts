@@ -29,3 +29,19 @@ export class NeedsLoginError extends Error {
 export class NavigationError extends Error {
     override readonly name = 'NavigationError';
 }
+
+/**
+ * The route found the right element, but its text is not a value this package can read (for example a date in a
+ * format the date reader does not know). Relearning cannot fix this: the steps are right, the reader is not.
+ */
+export class UnreadableValueError extends Error {
+    override readonly name = 'UnreadableValueError';
+    constructor(
+        readonly operation: string,
+        readonly field: string,
+        readonly format: string,
+        readonly text: string,
+    ) {
+        super(`${operation}: the ${field} field shows ${JSON.stringify(text)}, which is not a ${format} this service can read`);
+    }
+}

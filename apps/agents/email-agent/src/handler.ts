@@ -4,7 +4,7 @@ import type {
 } from '@teamsuzie/email';
 import { WebmailUnsupportedError, type CanaryResult } from '@teamsuzie/email-webmail';
 import type { JobQueue, JobRecord } from '@teamsuzie/jobs';
-import { NavigationError, NeedsLoginError, RouteError } from '@teamsuzie/webmail-browser';
+import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError } from '@teamsuzie/webmail-browser';
 import type { LearnOutcome } from '@teamsuzie/webmail-learn';
 import { OPERATION_NAMES, type OperationName, type ProviderKey } from '@teamsuzie/webmail-routes';
 import type { AlertStore } from './alerts.js';
@@ -93,6 +93,8 @@ export class AccountHandler {
     private nextCheckInbox = 0;
     private nextCanary = 0;
     private nextBrokenRetry = 0;
+    /** When each unreadable-value alert was last raised, so the same one is not repeated on every job. */
+    private readonly unreadableAlerted = new Map<string, number>();
     private readonly workerId: string;
 
     constructor(private readonly deps: HandlerDeps) {
@@ -230,11 +232,11 @@ export class AccountHandler {
             const result = await this.runWithRecovery(() => this.execute(payload));
             this.deps.queue.markSucceeded(job.id, result);
         } catch (error) {
-            this.handleJobError(job, payload, error);
+            await this.handleJobError(job, payload, error);
         }
     }
 
-    private handleJobError(job: JobRecord, payload: JobPayload, error: unknown): void {
+    private async handleJobError(job: JobRecord, payload: JobPayload, error: unknown): Promise<void> {
         if (error instanceof JobFailure) {
             this.fail(job, error);
         } else if (error instanceof LoginPending) {
@@ -248,6 +250,9 @@ export class AccountHandler {
             }
         } else if (error instanceof WebmailUnsupportedError) {
             this.fail(job, new JobFailure('invalid_request', error.message));
+        } else if (error instanceof UnreadableValueError) {
+            this.fail(job, new JobFailure('unreadable_value', error.message));
+            await this.alertUnreadable(error.operation, error.message);
         } else {
             this.log(`job ${job.id} hit an unexpected error: ${(error as Error).stack ?? String(error)}`);
             this.fail(job, new JobFailure('internal_error', (error as Error).message));
@@ -375,6 +380,7 @@ export class AccountHandler {
                     const outcome = await this.repair(operation, error.message);
                     if (outcome === 'broken') throw new JobFailure('route_broken', `The ${operation} operation is broken and could not be relearned: ${error.message}`);
                     if (outcome === 'untestable') throw new JobFailure(error.code, `${error.message} (the inbox is empty, so the operation could not be checked)`);
+                    if (outcome === 'unreadable') throw new JobFailure('unreadable_value', `${error.message} (checking the operation found a value the service cannot read)`);
                     continue;
                 }
                 if (error instanceof NeedsLoginError) {
@@ -404,7 +410,20 @@ export class AccountHandler {
      * An operation failed in real use: canary it (a passing canary means the failure was a one-off), and if the
      * canary fails too, relearn it.
      */
-    private async repair(operation: OperationName, error: string): Promise<'healthy' | 'broken' | 'untestable'> {
+    /**
+     * The route worked but a value could not be read: relearning cannot help, so tell the user, at most once a day
+     * for the same operation and message.
+     */
+    private async alertUnreadable(operation: string, message: string): Promise<void> {
+        const key = `${operation}\n${message}`;
+        const now = this.deps.now().getTime();
+        const last = this.unreadableAlerted.get(key);
+        if (last !== undefined && now - last < DAY) return;
+        this.unreadableAlerted.set(key, now);
+        await this.deps.alerts.raise(this.address, 'unreadable_value', `${message}. The steps are working; the service cannot read this value, so relearning will not help. This needs a code change.`);
+    }
+
+    private async repair(operation: OperationName, error: string): Promise<'healthy' | 'broken' | 'untestable' | 'unreadable'> {
         this.log(`${operation} failed: ${error}`);
         this.deps.health.set(this.address, operation, { state: 'suspect', last_error: error });
         let result = await this.canaryOne(operation);
@@ -413,6 +432,11 @@ export class AccountHandler {
             result = await this.canaryOne(operation);
         }
         if (result.outcome === 'skipped') return 'untestable';
+        if (result.outcome === 'unreadable') {
+            this.deps.health.set(this.address, operation, { state: 'healthy' });
+            await this.alertUnreadable(operation, result.error!.message);
+            return 'unreadable';
+        }
         if (result.outcome === 'passed') {
             this.deps.health.set(this.address, operation, { state: 'healthy' });
             return 'healthy';
@@ -461,6 +485,10 @@ export class AccountHandler {
     private async canaryAndRepair(only: OperationName[] | undefined): Promise<CanaryResult[]> {
         const results = await this.deps.runtime.canary(only);
         for (const result of results) {
+            if (result.outcome === 'unreadable') {
+                await this.alertUnreadable(result.operation, result.error!.message);
+                continue;
+            }
             if (result.outcome !== 'failed') {
                 if (result.outcome === 'passed' && this.deps.health.get(this.address, result.operation).state !== 'healthy') {
                     this.deps.health.set(this.address, result.operation, { state: 'healthy', last_error: null });

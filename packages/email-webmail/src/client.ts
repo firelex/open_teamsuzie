@@ -10,7 +10,7 @@ import {
     type Behaviour, type ExtractedRecord, type OperationResult, type RouteExecutor, type VolumeLimiter,
 } from '@teamsuzie/webmail-browser';
 import type { OperationName, Params, ProviderKey, Route } from '@teamsuzie/webmail-routes';
-import { OPERATION_OUTPUTS } from './goals.js';
+import { OPERATION_OUTPUTS, type OutputFormat } from './goals.js';
 
 export interface WebmailAccount {
     address: string;
@@ -209,5 +209,27 @@ export function checkOutput(operation: OperationName, result: OperationResult): 
         for (const field of output.required) {
             if (record[field] === undefined || record[field] === null) fail(`record ${i} of "${output.as}" has no "${field}"`);
         }
+        for (const field of [...output.required, ...output.optional]) {
+            const fieldValue = record[field];
+            if (fieldValue === undefined || fieldValue === null) continue;
+            const format = output.formats[field]!;
+            if (!matchesFormat(fieldValue, format)) fail(`"${field}" of record ${i} of "${output.as}" is ${JSON.stringify(fieldValue.slice(0, 120))}, which is not ${format === 'id' ? 'an id' : `a valid ${format}`}`);
+        }
     });
+}
+
+const OUTPUT_ID = /^[\w:.#+=/-]{1,256}$/;
+const OUTPUT_EMAIL = /^[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+$/;
+const OUTPUT_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+function matchesFormat(value: string, format: OutputFormat): boolean {
+    switch (format) {
+        case 'id': return OUTPUT_ID.test(value);
+        case 'email': return OUTPUT_EMAIL.test(value);
+        case 'emails': return value.split(', ').every((part) => OUTPUT_EMAIL.test(part));
+        case 'date': return OUTPUT_DATE.test(value);
+        case 'nonempty': return value.length > 0;
+        case 'text':
+        case 'flag': return true;
+    }
 }

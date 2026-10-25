@@ -1,3 +1,4 @@
+import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
     buildTestParams, checkOutput, describeOutput, runCanary, WebmailEmailClient, OPERATION_GOALS,
@@ -7,7 +8,7 @@ import {
     computeFingerprint, HumanBehaviour, launchSession, loginHandoff, NavigationError, RouteError, RouteExecutor,
     VolumeLimiter, type Session,
 } from '@teamsuzie/webmail-browser';
-import { RouteLearner, type LearnOutcome, type RouteModel } from '@teamsuzie/webmail-learn';
+import { RouteLearner, type LearnerRound, type LearnOutcome, type RouteModel } from '@teamsuzie/webmail-learn';
 import type { OperationName, ProviderKey, Route } from '@teamsuzie/webmail-routes';
 import type { AgentConfig } from './config.js';
 import type { HandlerRuntime } from './handler.js';
@@ -95,6 +96,7 @@ export class ChromeRuntime implements HandlerRuntime {
             executor: this.executor!,
             maxStepFixes: this.deps.config.learner.max_step_fixes,
             log: (message) => this.deps.log(`[${this.deps.account.address}] ${message}`),
+            record: (round) => this.recordRound(round),
             now: this.deps.now,
         });
         const outcome = await learner.relearn({
@@ -142,7 +144,17 @@ export class ChromeRuntime implements HandlerRuntime {
 
     private newExecutor(page: Session['page']): RouteExecutor {
         const t = this.deps.config.timeouts;
-        return new RouteExecutor({ page, behaviour: this.behaviour, stepTimeoutMs: t.step_ms, stateTimeoutMs: t.state_ms, navigationTimeoutMs: t.navigation_ms });
+        return new RouteExecutor({
+            page, behaviour: this.behaviour, stepTimeoutMs: t.step_ms, stateTimeoutMs: t.state_ms, navigationTimeoutMs: t.navigation_ms,
+            dates: { locale: this.deps.config.locale, timeZone: this.deps.config.timezone, now: this.deps.now },
+        });
+    }
+
+    /** Every model round goes to `<data_dir>/learner/<date>.jsonl`, so the model's replies can be reviewed. */
+    private recordRound(round: LearnerRound): void {
+        const dir = join(this.deps.config.data_dir, 'learner');
+        mkdirSync(dir, { recursive: true, mode: 0o700 });
+        appendFileSync(join(dir, `${round.at.slice(0, 10)}.jsonl`), `${JSON.stringify({ account: this.deps.account.address, ...round })}\n`);
     }
 
     private async waitForInbox(executor: RouteExecutor, route: Route): Promise<void> {

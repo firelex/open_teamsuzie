@@ -27,7 +27,7 @@ beforeEach(async () => {
     const behaviour = new HumanBehaviour({ rng: Math.random, timeScale: 0, selectAllModifier: 'Meta' });
     client = new WebmailEmailClient({
         account: { address: 'me@example.com', provider: 'gmail' },
-        executor: new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 1500, stateTimeoutMs: 2000, navigationTimeoutMs: 10_000 }),
+        executor: new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 1500, stateTimeoutMs: 2000, navigationTimeoutMs: 10_000, dates: { locale: 'en-GB', timeZone: 'Europe/London', now: () => new Date() } }),
         routes: { current: () => route },
         limiter: new VolumeLimiter({ opensPerMinute: 100, opensPerHour: 1000, minSecondsBetweenSends: 0.001 }),
         behaviour,
@@ -45,7 +45,7 @@ describe('WebmailEmailClient', () => {
             ['m2', 't2', 'bob@example.org', false],
             ['m1', 't1', 'alice@example.com', true],
         ]);
-        expect(inbox.messages[1]!.date).toBe(new Date('Fri, Oct 24, 2026, 9:15 AM').toISOString());
+        expect(inbox.messages[1]!.date).toBe('2026-10-24T08:15:00.000Z');
         const found = await client.listMessages({ search: 'quarterly', limit: 5 });
         expect(found.messages.map((m) => m.id)).toEqual(['m0', 'm1']);
     });
@@ -87,6 +87,15 @@ describe('WebmailEmailClient', () => {
         await expect(client.reply({ messageId: 'm2', body: 'x', replyAll: true })).rejects.toBeInstanceOf(WebmailUnsupportedError);
     });
 
+    it('rejects a route whose values do not have the form the output needs, whatever format it declares', async () => {
+        const step = route.operations.list_inbox.steps[1]!;
+        if (!('extract' in step)) throw new Error('fixture changed');
+        // A sender read as a display name, declared as free text to get past the field check.
+        step.extract.fields.from = { target: { css: 'td.from [data-email]' }, from: 'text', format: 'text', required: true };
+        const error = await client.listMessages().catch((e: unknown) => e);
+        expect(error).toMatchObject({ code: 'extract_invalid', detail: expect.stringContaining('"from" of record 0') });
+    });
+
     it('treats a route that does not return a required output as a route error', async () => {
         const step = route.operations.list_inbox.steps[1]!;
         if (!('extract' in step)) throw new Error('fixture changed');
@@ -122,6 +131,30 @@ describe('runCanary', () => {
             ['check_sent', 'passed'],
         ]);
         expect(results[0]!.error?.code).toBe('state_not_reached');
+    });
+
+    it('reports a date it cannot read as unreadable, not as a route failure', async () => {
+        const own = await openFixtureBrowser();
+        try {
+            // Every load of the page shows a date the reader cannot read.
+            await own.page.addInitScript(() => {
+                new MutationObserver(() => document.querySelectorAll('td.date [title]').forEach((el) => el.setAttribute('title', 'sometime')))
+                    .observe(document, { subtree: true, childList: true });
+            });
+            const behaviour = new HumanBehaviour({ rng: Math.random, timeScale: 0, selectAllModifier: 'Meta' });
+            const ownClient = new WebmailEmailClient({
+                account: { address: 'me@example.com', provider: 'gmail' },
+                executor: new RouteExecutor({ page: own.page, behaviour, stepTimeoutMs: 1500, stateTimeoutMs: 2000, navigationTimeoutMs: 10_000, dates: { locale: 'en-GB', timeZone: 'Europe/London', now: () => new Date() } }),
+                routes: { current: () => route },
+                limiter: new VolumeLimiter({ opensPerMinute: 100, opensPerHour: 1000, minSecondsBetweenSends: 0.001 }),
+                behaviour,
+            });
+            const results = await runCanary(ownClient, ['list_inbox', 'check_sent']);
+            expect(results[0]).toMatchObject({ operation: 'list_inbox', outcome: 'unreadable', error: { code: 'unreadable_value' } });
+            expect(results[1]!.outcome).toBe('passed');
+        } finally {
+            await own.close();
+        }
     });
 
     it('runs only the operations asked for', async () => {

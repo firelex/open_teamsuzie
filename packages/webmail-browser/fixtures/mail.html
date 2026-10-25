@@ -53,9 +53,9 @@ window.__discards = 0;
 window.__autocomplete = {};
 
 const messages = [
-  { id: 'm0', thread: 't1', from: 'alice@example.com', fromName: 'Alice Example', to: ME, subject: 'Quarterly numbers', date: 'Thu, Oct 23, 2026, 4:02 PM', body: 'Numbers coming tomorrow.', unread: false },
-  { id: 'm1', thread: 't1', from: 'alice@example.com', fromName: 'Alice Example', to: ME, cc: 'dan@example.com', subject: 'Quarterly numbers', date: 'Fri, Oct 24, 2026, 9:15 AM', body: 'Here are the quarterly numbers.\nRevenue is up.', unread: true },
-  { id: 'm2', thread: 't2', from: 'bob@example.org', fromName: 'Bob', to: ME, subject: 'Lunch on Tuesday?', date: 'Fri, Oct 24, 2026, 11:40 AM', body: 'Are you free for lunch on Tuesday?', unread: false },
+  { id: 'm0', thread: 't1', from: 'alice@example.com', fromName: 'Alice Example', to: ME, subject: 'Quarterly numbers', date: 'Thu, Oct 23, 2026, 4:02 PM', dateShort: 'Thu 23/10/2026 16:02', body: 'Numbers coming tomorrow.', unread: false },
+  { id: 'm1', thread: 't1', from: 'alice@example.com', fromName: 'Alice Example', to: ME, cc: 'dan@example.com', subject: 'Quarterly numbers', date: 'Fri, Oct 24, 2026, 9:15 AM', dateShort: 'Fri 24/10/2026 09:15', body: 'Here are the quarterly numbers.\nRevenue is up.', unread: true },
+  { id: 'm2', thread: 't2', from: 'bob@example.org', fromName: 'Bob', to: ME, subject: 'Lunch on Tuesday?', date: 'Fri, Oct 24, 2026, 11:40 AM', dateShort: 'Fri 24/10/2026 11:40', body: 'Are you free for lunch on Tuesday?', unread: false },
 ];
 
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
@@ -65,6 +65,16 @@ function latestPerThread(list) {
   return [...byThread.values()].reverse();
 }
 function rowsHtml(list, label) {
+  if (VARIANT === 'restyled') {
+    // A redesign: a list of options instead of a table, new class names, a different id attribute, the date as text.
+    return `<div role="listbox" aria-label="${label}" class="msg-list">` + list.map((m) => `
+      <div role="option" class="msg-item${m.unread ? ' is-unread' : ''}" data-key="${m.id}" data-conv="${m.thread}" aria-label="${m.unread ? 'Unread ' : ''}${esc(m.fromName || m.to)} ${esc(m.subject)}">
+        <span class="who" title="${esc(m.from)}">${esc(m.fromName || m.from)}</span>
+        <span class="topic">${esc(m.subject)}</span>
+        <span class="preview">${esc(m.body.slice(0, 40))}</span>
+        <time class="stamp">${esc(m.dateShort || m.date)}</time>
+      </div>`).join('') + '</div>';
+  }
   return `<table role="grid" aria-label="${label}"><tbody>` + list.map((m) => `
     <tr class="row${m.unread ? ' unread' : ''}" data-id="${m.id}" data-thread="${m.thread}" aria-label="${m.unread ? 'unread, ' : ''}${esc(m.fromName || m.to)}, ${esc(m.subject)}">
       <td class="from"><span data-email="${esc(m.from)}">${esc(m.fromName || m.from)}</span></td>
@@ -123,9 +133,9 @@ document.getElementById('search').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') location.hash = '#search/' + encodeURIComponent(e.target.value);
 });
 document.getElementById('main').addEventListener('click', (e) => {
-  const row = e.target.closest('tr.row');
+  const row = e.target.closest('tr.row, [role="option"]');
   if (row && !location.hash.startsWith('#sent')) {
-    location.hash = '#inbox/' + row.dataset.id;
+    location.hash = '#inbox/' + (row.dataset.id || row.dataset.key);
     return;
   }
   if (e.target.id === 'reply') {

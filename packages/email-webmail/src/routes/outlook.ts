@@ -101,7 +101,8 @@ export const OUTLOOK_SEED_ROUTE: Route = {
         compose_send: {
             steps: [
                 { goto: 'home', expect: 'inbox_list' },
-                { click: { role: 'button', name_pattern: '^New (mail|email|message)' }, expect: 'compose_open' },
+                // The whole name: the new Outlook's split button also has a "New mail options" arrow, which a prefix would match too.
+                { click: { role: 'button', name_pattern: '^New (mail|email|message)$' }, expect: 'compose_open' },
                 { type: { role: 'textbox', name: 'To', within: 'compose_open' }, value: '$draft.to', each_address: true, then_press: 'Enter' },
                 { fill: { role: 'textbox', name_pattern: '^(Add a subject|Subject)$', within: 'compose_open' }, value: '$draft.subject' },
                 { fill: { role: 'textbox', name_pattern: '^Message body', within: 'compose_open' }, value: '$draft.body' },

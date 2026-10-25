@@ -3,6 +3,7 @@ export * from './behaviour.js';
 export * from './limiter.js';
 export * from './locate.js';
 export * from './extract.js';
+export * from './dates.js';
 export * from './executor.js';
 export * from './capture.js';
 export * from './session.js';

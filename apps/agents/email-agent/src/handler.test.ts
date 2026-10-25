@@ -2,7 +2,7 @@ import { ApprovalQueue } from '@teamsuzie/approvals';
 import type { EmailMessage } from '@teamsuzie/email';
 import type { CanaryResult } from '@teamsuzie/email-webmail';
 import { JobQueue, SqliteJobStorage } from '@teamsuzie/jobs';
-import { NavigationError, NeedsLoginError, RouteError } from '@teamsuzie/webmail-browser';
+import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError } from '@teamsuzie/webmail-browser';
 import type { LearnOutcome } from '@teamsuzie/webmail-learn';
 import { minimalRoute, OPERATION_NAMES, type OperationName } from '@teamsuzie/webmail-routes';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -290,6 +290,26 @@ describe('AccountHandler', () => {
         expect(normal.status).toBe('queued');
         const urgent = await runJob('list_inbox', { limit: 5 }, { urgent: true });
         expect(urgent.status).toBe('done');
+    });
+
+    it('fails a job with a value it cannot read without relearning, and alerts once a day', async () => {
+        await bootAndSettle();
+        runtime.clientImpl.listMessages = async () => { throw new UnreadableValueError('list_inbox', 'date', 'date', 'sometime'); };
+        expect(await runJob('list_inbox', { limit: 5 })).toMatchObject({ status: 'failed', error: { code: 'unreadable_value' } });
+        expect(await runJob('list_inbox', { limit: 5 })).toMatchObject({ status: 'failed', error: { code: 'unreadable_value' } });
+        expect(runtime.calls).toEqual([]);
+        expect(alerts.map((a) => a.kind)).toEqual(['unreadable_value']);
+        expect(health.get(ADDRESS, 'list_inbox').state).toBe('healthy');
+    });
+
+    it('does not relearn when the canary finds a value it cannot read', async () => {
+        await bootAndSettle();
+        runtime.canaryResults = (only) => (only ?? [...OPERATION_NAMES]).map((operation) => (operation === 'list_inbox'
+            ? { operation, outcome: 'unreadable', error: { code: 'unreadable_value', message: 'the date field shows "sometime"' } }
+            : { operation, outcome: 'passed' }) as CanaryResult);
+        await handler.requestCanary();
+        expect(runtime.calls).toEqual(['canary:all']);
+        expect(alerts.map((a) => a.kind)).toEqual(['unreadable_value']);
     });
 
     it('puts a job back with a delay when the page will not load', async () => {

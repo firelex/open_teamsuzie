@@ -3,12 +3,13 @@ import { checkOutput, describeOutput, OPERATION_GOALS } from '@teamsuzie/email-w
 import { computeFingerprint, HumanBehaviour, RouteExecutor } from '@teamsuzie/webmail-browser';
 import { fixtureActivity, fixtureRoute, openFixtureBrowser, serveFixture, type FixtureBrowser } from '@teamsuzie/webmail-browser/testing';
 import type { OperationName, Params } from '@teamsuzie/webmail-routes';
-import { RouteLearner } from './learner.js';
+import { RouteLearner, type LearnerRound } from './learner.js';
 import type { RouteModel } from './model.js';
 
 let fixture: FixtureBrowser;
 let executor: RouteExecutor;
 const logs: string[] = [];
+const rounds: LearnerRound[] = [];
 
 const params: Partial<Record<OperationName, Params>> = {
     read_account: {},
@@ -43,7 +44,7 @@ function composeFix(composeName: string, extraStates: Record<string, unknown> = 
 }
 
 function learner(model: RouteModel, maxStepFixes = 3): RouteLearner {
-    return new RouteLearner({ model, executor, maxStepFixes, log: (m) => logs.push(m), now: () => new Date('2026-10-26T09:00:00Z') });
+    return new RouteLearner({ model, executor, maxStepFixes, log: (m) => logs.push(m), record: (r) => rounds.push(r), now: () => new Date('2026-10-26T09:00:00Z') });
 }
 
 function input(operation: OperationName = 'compose_send') {
@@ -60,7 +61,7 @@ function input(operation: OperationName = 'compose_send') {
 beforeAll(async () => {
     fixture = await openFixtureBrowser('renamed');
     const behaviour = new HumanBehaviour({ rng: Math.random, timeScale: 0, selectAllModifier: 'Meta' });
-    executor = new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 800, stateTimeoutMs: 1500, navigationTimeoutMs: 10_000 });
+    executor = new RouteExecutor({ page: fixture.page, behaviour, stepTimeoutMs: 800, stateTimeoutMs: 1500, navigationTimeoutMs: 10_000, dates: { locale: 'en-GB', timeZone: 'Europe/London', now: () => new Date() } });
 });
 
 afterAll(async () => {
@@ -69,6 +70,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
     logs.length = 0;
+    rounds.length = 0;
     await serveFixture(fixture.context, 'renamed');
     await fixture.page.goto('about:blank');
 });
@@ -83,6 +85,7 @@ describe('RouteLearner', () => {
         expect(outcome.route).toMatchObject({ route_version: '2026-10-26.1', learned_by: 'learner:scripted', learned_at: '2026-10-26T09:00:00.000Z' });
         expect(outcome.route.fingerprint).toBe(await computeFingerprint(fixture.page));
         expect(outcome.notes).toEqual(['The Compose button is now called "New message".']);
+        expect(rounds).toEqual([expect.objectContaining({ round: 1, problem: null, prompt: model.prompts[0] })]);
         expect(model.prompts).toHaveLength(1);
         expect(model.prompts[0]).toContain('button "New message"');
         expect(model.prompts[0]).toContain('step 1 of its "steps" list failed');
@@ -104,7 +107,13 @@ describe('RouteLearner', () => {
         const outcome = await learner(model, 2).relearn(input());
         expect(outcome).toEqual({ ok: false, reason: expect.stringContaining('still fails after 2 repairs') });
         expect(model.prompts[1]).toContain('1. The reply did not contain a JSON object.');
+        expect(model.prompts[1]).toContain('The reply was:\nClick the New message button.');
         expect(logs.some((l) => l.includes('generated numeric id'))).toBe(true);
+        expect(rounds.map((r) => [r.round, r.reply.slice(0, 5), r.problem?.slice(0, 30)])).toEqual([
+            [1, 'Click', 'The reply did not contain a JS'],
+            [2, '{"ste', 'The steps broke these rules: o'],
+        ]);
+        expect(rounds[0]).toMatchObject({ model: 'scripted', operation: 'compose_send', failure: expect.stringContaining('target_not_found') });
     });
 
     it('recovers after an unusable reply', async () => {
@@ -118,6 +127,15 @@ describe('RouteLearner', () => {
         const { read_account: _a, search: _s, ...partial } = params;
         const outcome = await learner(model).relearn({ ...input(), params: partial });
         expect(outcome.ok && outcome.changed && outcome.untested).toEqual(['read_account', 'search']);
+    });
+
+    it('hands back an operation sharing a changed state that was already failing before the repair', async () => {
+        const route = fixtureRoute();
+        route.operations.search.steps[1] = { type: { role: 'searchbox', name: 'Find mail' }, value: '$query', then_press: 'Enter', expect: 'search_results' };
+        const model = scriptedModel([composeFix('New message', { inbox_list: { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Inbox' }] } })]);
+        const outcome = await learner(model).relearn({ ...input(), route });
+        expect(outcome.ok && outcome.changed && outcome.untested).toEqual(['search']);
+        expect(logs.some((l) => l.includes('search was already failing before this repair'))).toBe(true);
     });
 
     it('rejects a repair that breaks another operation using a state it changed', async () => {

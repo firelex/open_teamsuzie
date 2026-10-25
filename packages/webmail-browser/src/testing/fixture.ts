@@ -7,9 +7,10 @@ import type { Route } from '@teamsuzie/webmail-routes';
  * no certificates). Its sign-in page is https://login.example.test/signin.
  *
  * Variants: `standard`; `renamed` (the Compose button is called "New message"); `expire` (pressing Compose
- * signs the user out).
+ * signs the user out); `restyled` (the message lists are redesigned: options instead of table rows, new class
+ * names and id attribute, and British dates shown as text).
  */
-export type FixtureVariant = 'standard' | 'renamed' | 'expire';
+export type FixtureVariant = 'standard' | 'renamed' | 'expire' | 'restyled';
 
 export const FIXTURE_HOME = 'https://mail.example.test/#inbox';
 

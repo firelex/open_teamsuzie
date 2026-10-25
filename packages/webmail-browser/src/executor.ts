@@ -4,7 +4,8 @@ import {
     type ExtractSpec, type FieldSpec, type OperationName, type Params, type RecipientCheck, type Route, type Step,
 } from '@teamsuzie/webmail-routes';
 import type { Behaviour } from './behaviour.js';
-import { NavigationError, NeedsLoginError, RouteError } from './errors.js';
+import type { DateContext } from './dates.js';
+import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError } from './errors.js';
 import { applyPattern, emailsIn, normalizeField, readSource } from './extract.js';
 import { locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext } from './locate.js';
 
@@ -17,6 +18,8 @@ export interface ExecutorOptions {
     stateTimeoutMs: number;
     /** How long a `goto` may take to load. */
     navigationTimeoutMs: number;
+    /** How the account's webmail writes dates. */
+    dates: DateContext;
 }
 
 export interface StepRecord {
@@ -172,7 +175,12 @@ export class RouteExecutor {
         for (const [name, field] of Object.entries(fields)) {
             const element = await this.fieldElement(item, name, field, ctx, where);
             const raw = element === null ? null : await readSource(element, field.from);
-            const value = normalizeField(applyPattern(raw, field.pattern), field);
+            const matched = applyPattern(raw, field.pattern);
+            const value = normalizeField(matched, field, this.opts.dates);
+            if (value === null && matched !== null && field.format === 'date') {
+                // The element and its text were found; only the date reader cannot read it.
+                throw new UnreadableValueError(ctx.operation, name, field.format, matched);
+            }
             if (value === null && field.required) {
                 throw new RouteError('extract_invalid', ctx.operation, ctx.stepIndex, `required field "${name}"${where} is ${raw === null ? 'missing' : `not a valid ${field.format}: ${JSON.stringify(raw.slice(0, 120))}`}`, ctx.phase);
             }
