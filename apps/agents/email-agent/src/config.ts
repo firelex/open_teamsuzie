@@ -39,6 +39,7 @@ const schema = z.object({
         max_step_fixes: z.number().int().min(1).max(20),
         attempts: z.number().int().min(1).max(10),
         max_tokens: positiveInt,
+        json_mode: z.boolean(),
     }).strict(),
     notifications: z.enum(['macos', 'none']),
     canary_interval_hours: positive,

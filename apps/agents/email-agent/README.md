@@ -1,0 +1,86 @@
+# email-agent
+
+A local service that lets agents read, search and send your own Gmail and Outlook mail by driving the webmail page in
+Google Chrome, the way you would. Agents never touch the browser: they submit jobs to a queue over MCP, and one
+handler per mailbox works through that mailbox's jobs one at a time, at a human pace.
+
+Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
+
+## How it works
+
+- **Routes.** Where to click is data (`@teamsuzie/webmail-routes`): for each action — list the inbox, open a message,
+  search, send, reply, … — a list of steps with accessibility targets. A fixed executor (`@teamsuzie/webmail-browser`)
+  runs them strictly: a target that matches nothing or more than one thing is a failure, never a guess.
+- **Knowing when to relearn.** A route is checked again when a job fails on it, when the inbox layout's fingerprint
+  changes (checked on every inbox poll), and by a canary every few hours. The canary and every relearning test run
+  in test mode: drafts are filled and then discarded, Send is never pressed.
+- **Relearning.** A failing action is rebuilt by your model (`@teamsuzie/webmail-learn`) from the live page, then
+  must pass the no-send test before it is used. After 3 failed attempts the action is **broken**: its jobs fail at
+  once with `route_broken`, you get an alert, and it is retried daily (or `email-agent relearn`).
+- **Sends.** A send goes out at once only when a rule in `send_policy` allows it; otherwise it waits for your
+  approval (notification, then `email-agent approve <id>` or the console). The recipients shown on the page must equal
+  the requested ones before Send is pressed. After a send action is relearned, the next send is confirmed in Sent;
+  if it is not there, sending stops and you are alerted.
+- **Sign-in.** Once per account, and whenever the provider signs you out: a visible Chrome window opens on the
+  account's own profile, you sign in (password, 2FA), it closes and the account carries on headless. The service
+  never sees your password.
+- **Looking human.** Your installed Chrome, no automation flags, real mouse paths and key-by-key typing, reading
+  pauses, per-account limits on how many messages are opened per minute/hour and how often it sends, and quiet hours
+  (only `urgent` jobs run). Automating webmail may breach Google's and Microsoft's terms; the realistic risk is a
+  sign-in challenge or a temporary lock.
+
+## Setup
+
+1. Google Chrome installed; Node 22+; `pnpm install` and `pnpm -r build` at the repo root.
+2. Copy `email-agent.config.example.json` somewhere private and fill it in:
+   - `admin_token` and each agent's `token`: long random strings (`openssl rand -hex 32`).
+   - `accounts`: your addresses and `gmail` / `outlook`.
+   - `learner`: your model's OpenAI-compatible endpoint (`base_url`, e.g. `http://spark-fa14:8888/v1`) and its model id
+     as `/v1/models` lists it. `api_key_env` names an environment variable holding its key, or `null`. `json_mode`
+     asks the runtime for JSON-only replies; set it to `false` for engines that reject `response_format`.
+   - `send_policy.rules`: which agents may send to whom without asking you. An allow rule must restrict recipients
+     (`all_recipients_in_domains` or `recipients_already_in_thread`); `max_per_hour` caps unapproved sends.
+3. `email-agent --config <path> serve`. For each account: `email-agent --config <path> login <address>` and sign in
+   in the window that opens. The first canary runs at start-up and relearns any action whose starting route no
+   longer matches your mailbox.
+
+Every config value is required; the service will not start with a missing or invalid one and says which.
+
+## Using it
+
+**From an agent (MCP).** The service speaks MCP over HTTP at `http://127.0.0.1:<port>/mcp`; each agent
+authenticates with its own token. In Claude Code:
+
+```bash
+claude mcp add --transport http email-agent http://127.0.0.1:4317/mcp --header "Authorization: Bearer <agent token>"
+```
+
+Tools: `submit_job`, `wait_job`, `get_job`, `list_jobs`, `cancel_job`, `list_accounts`, `account_status`,
+`list_alerts`, `list_new_mail`. Job kinds: `list_inbox`, `read_message`, `read_thread`, `search`, `send`, `reply`.
+
+**By hand (console).** Open `http://127.0.0.1:<port>/console` and enter the admin token: list and search the inbox,
+open messages, write and reply, approve or reject held sends, sign in, run the canary, see each action's health and
+the alerts. The console's mail actions go through the same MCP tools as the `console` agent, so every send it makes
+waits for approval.
+
+**CLI.** `status`, `login <account>`, `canary <account>`, `relearn <account> <action>`, `approvals`,
+`approve <id>`, `reject <id> [reason]`, `alerts`.
+
+## Job errors
+
+| Code | Meaning |
+|---|---|
+| `route_broken` | That mail action is broken and could not be relearned; you have been alerted |
+| `needs_login` | The account must be signed in again; the job's deadline passed while waiting |
+| `account_mismatch` | The browser is signed in to a different account |
+| `approval_rejected` | You rejected the send |
+| `send_unconfirmed` | Send was pressed after the send action changed, but the message is not in Sent |
+| `job_timeout` | The job's deadline passed |
+| `invalid_request` | Unknown account or kind, bad parameters, or something the page cannot do (HTML, attachments) |
+| `internal_error` | An unexpected error; the message says what |
+
+## Files
+
+`data_dir` holds `email-agent.db` (queue, approvals, action health, alerts, new mail), `routes/<provider>/current.json`
+plus every earlier version in `routes/<provider>/history/`, and `profiles/<address>/` (each account's Chrome
+profile, owner-only).

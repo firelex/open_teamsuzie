@@ -13,10 +13,12 @@ export interface OpenAiCompatibleModelOptions {
     model: string;
     apiKey?: string;
     maxTokens: number;
+    /** Ask the runtime for a JSON-only reply (`response_format`). Some engines refuse it; the prompt asks for JSON either way. */
+    jsonMode: boolean;
     fetchImpl?: typeof fetch;
 }
 
-/** A model served by an OpenAI-compatible runtime (vLLM, llama.cpp, LM Studio, Ollama…), asked for a JSON reply. */
+/** A model served by an OpenAI-compatible runtime (vLLM, llama.cpp, LM Studio, Ollama…). */
 export function openAiCompatibleRouteModel(opts: OpenAiCompatibleModelOptions): RouteModel {
     const baseUrl = opts.baseUrl.replace(/\/+$/, '');
     return {
@@ -28,7 +30,7 @@ export function openAiCompatibleRouteModel(opts: OpenAiCompatibleModelOptions): 
             messages: [{ role: 'user', content: prompt }],
             maxTokens: opts.maxTokens,
             fetchImpl: opts.fetchImpl ?? fetch,
-            json: true,
+            json: opts.jsonMode,
             signal,
         }),
     };

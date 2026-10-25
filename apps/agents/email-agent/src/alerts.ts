@@ -8,6 +8,7 @@ export type AlertKind =
     | 'needs_login'
     | 'account_mismatch'
     | 'send_unconfirmed'
+    | 'approval_needed'
     | 'handler_failed';
 
 export interface Alert {
@@ -35,6 +36,7 @@ const TITLES: Record<AlertKind, string> = {
     needs_login: 'Email agent: sign-in needed',
     account_mismatch: 'Email agent: wrong account signed in',
     send_unconfirmed: 'Email agent: a send could not be confirmed',
+    approval_needed: 'Email agent: a send needs your approval',
     handler_failed: 'Email agent: an account stopped',
 };
 

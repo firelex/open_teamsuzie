@@ -78,7 +78,7 @@ function makeHandler() {
     const queue = new JobQueue({ storage: SqliteJobStorage.open({ db }), now: () => clock.now().toISOString() });
     const approvalStore = new SqliteApprovalStore(db, clock.now);
     newMail = new NewMailStore(db, clock.now);
-    jobs = new JobService({ queue, approvals: new ApprovalQueue({ store: approvalStore }), approvalStore, config, newMail, now: clock.now });
+    jobs = new JobService({ queue, approvals: new ApprovalQueue({ store: approvalStore }), approvalStore, config, newMail, now: clock.now, approvalNeeded: async () => undefined });
     health = new HealthStore(db, clock.now);
     alerts = [];
     handler = new AccountHandler({

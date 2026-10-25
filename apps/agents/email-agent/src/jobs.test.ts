@@ -63,7 +63,7 @@ describe('JobService', () => {
         const approvalStore = new SqliteApprovalStore(db, clock.now);
         approvals = new ApprovalQueue({ store: approvalStore });
         newMail = new NewMailStore(db, clock.now);
-        service = new JobService({ queue, approvals, approvalStore, config: exampleConfig(), newMail, now: clock.now });
+        service = new JobService({ queue, approvals, approvalStore, config: exampleConfig(), newMail, now: clock.now, approvalNeeded: async () => undefined });
         approvals.registerDispatcher<JobPayload>({
             action_type: SEND_APPROVAL_ACTION,
             dispatch: async (item) => { service.enqueueApproved(item); return { success: true }; },

@@ -1,42 +1,94 @@
 {
   "data_dir": "~/Library/Application Support/teamsuzie-email-agent",
-  "listen": { "host": "127.0.0.1", "port": 4317 },
+  "listen": {
+    "host": "127.0.0.1",
+    "port": 4317
+  },
   "admin_token": "replace-with-a-long-random-admin-token",
   "agents": [
-    { "id": "ops-agent", "token": "replace-with-a-long-random-agent-token-1" },
-    { "id": "research-agent", "token": "replace-with-a-long-random-agent-token-2" }
+    {
+      "id": "ops-agent",
+      "token": "replace-with-a-long-random-agent-token-1"
+    },
+    {
+      "id": "research-agent",
+      "token": "replace-with-a-long-random-agent-token-2"
+    }
   ],
   "accounts": [
-    { "address": "me@firm.com", "provider": "outlook", "headed_offscreen": false },
-    { "address": "me@gmail.com", "provider": "gmail", "headed_offscreen": false }
+    {
+      "address": "me@firm.com",
+      "provider": "outlook",
+      "headed_offscreen": false
+    },
+    {
+      "address": "me@gmail.com",
+      "provider": "gmail",
+      "headed_offscreen": false
+    }
   ],
   "learner": {
-    "base_url": "http://gpu-box.local:8000/v1",
-    "model": "qwen3-72b-instruct",
+    "base_url": "http://spark-fa14:8888/v1",
+    "model": "qwen3.8-flash-next",
     "api_key_env": null,
     "max_step_fixes": 5,
     "attempts": 3,
-    "max_tokens": 8000
+    "max_tokens": 8000,
+    "json_mode": false
   },
   "notifications": "macos",
   "canary_interval_hours": 6,
-  "check_inbox_minutes": [5, 15],
+  "check_inbox_minutes": [
+    5,
+    15
+  ],
   "default_job_timeout_minutes": 30,
   "login_timeout_minutes": 10,
   "locale": "en-GB",
   "timezone": "Europe/London",
-  "timeouts": { "step_ms": 8000, "state_ms": 15000, "navigation_ms": 30000 },
+  "timeouts": {
+    "step_ms": 8000,
+    "state_ms": 15000,
+    "navigation_ms": 30000
+  },
   "volume": {
     "opens_per_minute": 6,
     "opens_per_hour": 120,
     "min_seconds_between_sends": 60,
-    "quiet_hours": { "start": "22:30", "end": "07:00" }
+    "quiet_hours": {
+      "start": "22:30",
+      "end": "07:00"
+    }
   },
   "send_policy": {
     "rules": [
-      { "allow": ["send", "reply"], "agents": ["ops-agent"], "all_recipients_in_domains": ["firm.com"] },
-      { "allow": ["reply"], "agents": ["*"], "recipients_already_in_thread": true },
-      { "max_per_hour": 20, "agents": ["*"] }
+      {
+        "allow": [
+          "send",
+          "reply"
+        ],
+        "agents": [
+          "ops-agent"
+        ],
+        "all_recipients_in_domains": [
+          "firm.com"
+        ]
+      },
+      {
+        "allow": [
+          "reply"
+        ],
+        "agents": [
+          "*"
+        ],
+        "recipients_already_in_thread": true
+      },
+      {
+        "max_per_hour": 20,
+        "agents": [
+          "*"
+        ]
+      }
     ]
   }
 }

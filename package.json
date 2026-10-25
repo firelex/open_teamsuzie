@@ -30,7 +30,8 @@
     "dev:starter-ops-console": "pnpm --filter @teamsuzie/starter-ops-console dev",
     "seed:starter-ops-console": "pnpm --filter @teamsuzie/starter-ops-console seed",
     "dev:admin": "pnpm --filter @teamsuzie/admin dev",
-    "dev:skill-catalog-host": "pnpm --filter @teamsuzie/skill-catalog-host dev"
+    "dev:skill-catalog-host": "pnpm --filter @teamsuzie/skill-catalog-host dev",
+    "dev:email-agent": "pnpm --filter @teamsuzie/email-agent dev"
   },
   "packageManager": "pnpm@9.0.0",
   "devDependencies": {

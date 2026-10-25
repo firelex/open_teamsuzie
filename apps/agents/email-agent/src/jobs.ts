@@ -88,6 +88,8 @@ export interface JobServiceDeps {
     config: AgentConfig;
     newMail: NewMailStore;
     now: () => Date;
+    /** Tell the user a send is waiting for their approval. */
+    approvalNeeded: (payload: JobPayload, approvalId: string, reason: string) => Promise<void>;
 }
 
 export function accountQueue(address: string): string {
@@ -152,12 +154,13 @@ export class JobService {
             this.enqueue(jobId, payload, { agent_id: agentId, approval: `policy:${decision.rule}` });
             return { job_id: jobId, status: 'queued' };
         }
-        await this.deps.approvals.propose<JobPayload>({
+        const item = await this.deps.approvals.propose<JobPayload>({
             subject_id: agentId,
             action_type: SEND_APPROVAL_ACTION,
             payload,
             metadata: { job_id: jobId, reason: decision.reason },
         });
+        await this.deps.approvalNeeded(payload, item.id, decision.reason);
         return { job_id: jobId, status: 'awaiting_approval', reason: decision.reason };
     }
 

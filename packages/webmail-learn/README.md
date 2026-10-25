@@ -6,7 +6,7 @@ Relearns one broken operation of a webmail route (`@teamsuzie/webmail-routes`) f
 import { openAiCompatibleRouteModel, RouteLearner } from '@teamsuzie/webmail-learn';
 
 const learner = new RouteLearner({
-    model: openAiCompatibleRouteModel({ baseUrl: 'http://gpu-box:8000/v1', model: 'qwen3-72b', maxTokens: 8000 }),
+    model: openAiCompatibleRouteModel({ baseUrl: 'http://gpu-box:8000/v1', model: 'qwen3-72b', maxTokens: 8000, jsonMode: true }),
     executor, maxStepFixes: 5, log: console.log, now: () => new Date(),
 });
 const outcome = await learner.relearn({ route, operation: 'compose_send', goal, outputs, params, checkResult });
@@ -25,5 +25,5 @@ when a repair passed, along with every other operation that uses a state it chan
 `maxStepFixes` model replies, or when the repair breaks another operation. Sign-outs and page-load failures are
 thrown.
 
-`openAiCompatibleRouteModel` talks to any OpenAI-compatible runtime through `@teamsuzie/models` and asks for a JSON
-reply. Prompts are text only (no screenshots).
+`openAiCompatibleRouteModel` talks to any OpenAI-compatible runtime through `@teamsuzie/models`; `jsonMode` adds
+`response_format: json_object` for runtimes that support it. Prompts are text only (no screenshots).
