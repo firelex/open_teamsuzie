@@ -65,6 +65,15 @@ describe('FileRouteStore', () => {
         expect(store.history('gmail')).toEqual(['2026-10-25.1', '2026-10-25.2', '2026-10-25.10']);
     });
 
+    it('resets the current route to the seed as a new version, keeping the old one in history', () => {
+        dir = mkdtempSync(join(tmpdir(), 'routes-'));
+        const store = new FileRouteStore(dir);
+        store.save({ ...SEED_ROUTES.outlook, route_version: '2026-10-25.6', learned_by: 'learner:flash' });
+        expect(store.resetToSeed(SEED_ROUTES.outlook, new Date('2026-10-25T19:00:00Z'))).toBe('2026-10-25.7');
+        expect(store.current('outlook')).toMatchObject({ route_version: '2026-10-25.7', learned_by: 'seed' });
+        expect(store.history('outlook')).toEqual(['2026-10-25.6', '2026-10-25.7']);
+    });
+
     it('refuses to save an invalid route', () => {
         dir = mkdtempSync(join(tmpdir(), 'routes-'));
         const store = new FileRouteStore(dir);

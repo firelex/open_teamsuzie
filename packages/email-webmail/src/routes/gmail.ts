@@ -26,6 +26,14 @@ export const GMAIL_SEED_ROUTE: Route = {
     login_domains: ['accounts.google.com'],
     home_url: 'https://mail.google.com/mail/u/0/#inbox',
     fingerprint: null,
+    // C, R and / work only when keyboard shortcuts are turned on in Gmail's settings.
+    known_shortcuts: {
+        'new message (if shortcuts are on)': 'C',
+        'reply (if shortcuts are on)': 'R',
+        'search (if shortcuts are on)': '/',
+        'send': 'ControlOrMeta+Enter',
+        'show the list of shortcuts': '?',
+    },
     states: {
         inbox_list: { url_matches: '#inbox$', visible: [{ role: 'main' }] },
         search_results: { url_matches: '#search/', visible: [{ role: 'main' }] },

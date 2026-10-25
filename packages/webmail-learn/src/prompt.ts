@@ -49,9 +49,11 @@ export function buildRepairPrompt(req: RepairRequest): string {
 
         `THE TASK: "${operation}"\n${req.goal}\n${req.outputs}`,
 
-        'text' in req.shortcuts
-            ? `THIS ACCOUNT'S KEYBOARD SHORTCUTS\nThe program pressed "?" on the inbox, and the webmail listed these shortcuts for this account:\n${truncate(req.shortcuts.text, MAX_SHORTCUT_CHARS)}`
-            : `THIS ACCOUNT'S KEYBOARD SHORTCUTS\nThe list could not be read (${req.shortcuts.unavailable}), so use clicks unless a shortcut is proven with run_operation.`,
+        `KEYBOARD SHORTCUTS\n`
+        + (route.known_shortcuts ? `This webmail's default shortcuts:\n${Object.entries(route.known_shortcuts).map(([action, key]) => `- ${action}: ${key}`).join('\n')}\n` : '')
+        + ('text' in req.shortcuts
+            ? `The program pressed "?" on the inbox, and the webmail listed these shortcuts for this account (where they differ from the defaults, this list is right):\n${truncate(req.shortcuts.text, MAX_SHORTCUT_CHARS)}`
+            : `This account's own list could not be read (${req.shortcuts.unavailable}). That does not mean shortcuts are off: the defaults above, and keys shown on buttons such as "Create a new email message. (N)", still apply. Prove a shortcut with run_operation before relying on it.`),
 
         `WHAT WENT WRONG\nWhen the program ran this task, ${where} failed: ${FAILURE_MEANINGS[failure.code] ?? failure.code}.\nThe exact error was: ${failure.message}`
         + (failure.evidence.length > 0 ? `\nWhat the program found on the page for this (tag, attributes, text, and the labelled regions each element sits in):\n${failure.evidence.map((e) => `- ${e}`).join('\n')}` : ''),

@@ -53,6 +53,18 @@ export class FileRouteStore {
         return missing;
     }
 
+    /**
+     * Replace the current route with `seed`, saved as the next version (the replaced route stays in history).
+     * Returns the new version.
+     */
+    resetToSeed(seed: Route, now: Date): string {
+        const path = this.currentPath(seed.provider);
+        const previous = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as Route).route_version : null;
+        const route: Route = { ...structuredClone(seed), route_version: nextRouteVersion(previous, now), learned_at: now.toISOString() };
+        this.save(route);
+        return route.route_version;
+    }
+
     /** Saved versions, oldest first. */
     history(provider: ProviderKey): string[] {
         const dir = join(this.dir, provider, 'history');

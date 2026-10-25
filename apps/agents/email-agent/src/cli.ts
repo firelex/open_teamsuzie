@@ -12,8 +12,10 @@ Commands:
   serve                         Start the service (MCP at /mcp, console at /console)
   status                        Each account's state and the health of each mail action
   login <account>               Open a Chrome window to sign in to the account
-  canary <account>              Check every mail action now without sending anything
+  canary <account> [--check-only]  Check every mail action now without sending anything; --check-only reports
+                                 results without relearning what fails (quick)
   relearn <account> <action>    Start relearning one mail action now (e.g. compose_send); follow it with status
+  reset-route <gmail|outlook>   Replace the learned route with the starting route (the old one stays in history)
   capture <account>             Save the account's page as it is now (tree, outline, screenshot) for diagnosis
   approvals                     Sends waiting for your approval
   approve <id>                  Approve and queue a send
@@ -91,12 +93,19 @@ async function main(): Promise<void> {
             return print(await admin(config, 'POST', `/login/${enc(account!)}`));
         }
         case 'canary': {
-            const [account] = need(rest, 1, 'canary <account>');
-            return print(await admin(config, 'POST', `/canary/${enc(account!)}`));
+            const [account] = need(rest, 1, 'canary <account> [--check-only]');
+            const checkOnly = rest.includes('--check-only');
+            const results = await admin(config, 'POST', `/canary/${enc(account!)}${checkOnly ? '?check_only=true' : ''}`) as Array<{ operation: string; outcome: string; error?: { message: string }; reason?: string }>;
+            for (const r of results) process.stdout.write(`${r.operation.padEnd(18)} ${r.outcome.padEnd(10)} ${r.error?.message ?? r.reason ?? ''}\n`);
+            return;
         }
         case 'relearn': {
             const [account, action] = need(rest, 2, 'relearn <account> <action>');
             return print(await admin(config, 'POST', `/relearn/${enc(account!)}/${enc(action!)}`));
+        }
+        case 'reset-route': {
+            const [provider] = need(rest, 1, 'reset-route <gmail|outlook>');
+            return print(await admin(config, 'POST', `/routes/${enc(provider!)}/reset`));
         }
         case 'capture': {
             const [account] = need(rest, 1, 'capture <account>');

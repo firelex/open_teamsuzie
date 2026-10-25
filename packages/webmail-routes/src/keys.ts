@@ -32,10 +32,12 @@ export function keyKind(key: string): KeyKind {
     if (NAVIGATION.has(main) && (modifiers.size === 0 || (main === 'tab' && only('shift')))) return 'safe';
     if (SINGLE_SHORTCUTS.has(main) && modifiers.size === 0) return 'safe';
     if (COMMAND_SHORTCUTS.has(main) && (only('command') || (main === 'r' && only('command', 'shift')))) return 'safe';
+    // Outlook's search box.
+    if (main === 'q' && only('alt')) return 'safe';
     return 'forbidden';
 }
 
 export const ALLOWED_KEYS_DESCRIPTION =
     'Enter, Tab, Shift+Tab, Escape, the arrow keys, Home, End, PageUp, PageDown; the single keys N, R, C and /; '
-    + 'ControlOrMeta+N, ControlOrMeta+R and ControlOrMeta+Shift+R (Control or Meta may be written instead of ControlOrMeta); '
+    + 'ControlOrMeta+N, ControlOrMeta+R and ControlOrMeta+Shift+R (Control or Meta may be written instead of ControlOrMeta); Alt+Q; '
     + 'and, only as the step marked "commits", a key that sends: ControlOrMeta+Enter or Alt+S';

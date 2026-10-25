@@ -84,7 +84,7 @@ export type Step =
     | { goto: string; expect?: string }
     | { click: Target; commits?: boolean; expect?: string }
     | { fill: Target; value: string; expect?: string }
-    | { type: Target; value: string; each_address?: boolean; then_press?: string; expect?: string }
+    | { type: Target; value: string; each_address?: boolean; then_press?: string; at?: 'start'; expect?: string }
     | { press: string; commits?: boolean; expect?: string }
     | { scroll: Target | 'page' }
     | { wait_for: string }
@@ -115,6 +115,11 @@ export interface Route {
     /** Hosts of the provider's sign-in pages. Landing on one means the account must sign in again. */
     login_domains: string[];
     home_url: string;
+    /**
+     * The provider's default keyboard shortcuts, by what they do (for example "new message": "N"), as a reference for
+     * relearning. The account's own list (its "?" panel) takes precedence; steps may still only press allowed keys.
+     */
+    known_shortcuts?: Record<string, string>;
     /** Hash of the inbox layout, set when the route is learned. */
     fingerprint: string | null;
     states: Record<string, PageState>;

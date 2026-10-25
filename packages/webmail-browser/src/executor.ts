@@ -1,7 +1,7 @@
 import type { Locator, Page } from 'playwright-core';
 import {
     stepAction, substitute,
-    type ExtractSpec, type FieldSpec, type OperationName, type PageState, type Params, type RecipientCheck, type Route, type Step, type Target,
+    type ExtractSpec, type FieldSpec, type Operation, type OperationName, type PageState, type Params, type RecipientCheck, type Route, type Step, type Target,
 } from '@teamsuzie/webmail-routes';
 import type { Behaviour } from './behaviour.js';
 import type { DateContext } from './dates.js';
@@ -37,9 +37,25 @@ export interface OperationResult {
 
 export type ExtractedRecord = Record<string, string | null>;
 
-/** The states a test_end works inside (its clicks' `within`): the open draft or reply it is meant to close. */
-function draftStatesOf(testEnd: Step[]): string[] {
-    return [...new Set(testEnd.flatMap((step) => ('click' in step && step.click.within ? [step.click.within] : [])))];
+/**
+ * The states that hold while an operation's draft or reply is open: those used (as `within`) by its commit step, its
+ * verify steps and its test_end. These only hold while a draft is open (unlike, say, "a message is open"), and they
+ * still identify the draft when Send and discard are keyboard shortcuts.
+ */
+function draftStatesOf(op: Operation): string[] {
+    const draftSteps: Step[] = [
+        ...op.steps.filter((step) => ('click' in step || 'press' in step) && step.commits === true),
+        ...op.steps.filter((step) => 'verify_recipients' in step || 'verify_text' in step),
+        ...(op.test_end ?? []),
+    ];
+    const states = new Set<string>();
+    for (const match of JSON.stringify(draftSteps).matchAll(/"within":"([^"]+)"/g)) states.add(match[1]!);
+    return [...states];
+}
+
+/** True when the operation has a commit step (Send, by click or by key). */
+function commits(op: Operation): boolean {
+    return op.steps.some((step) => ('click' in step || 'press' in step) && step.commits === true);
 }
 
 /** Why a required field has no value, in words a reader can act on. */
@@ -75,28 +91,41 @@ export class RouteExecutor {
         try {
             await this.runSteps(route, operation, op.steps, 'steps', params, mode, result);
         } catch (error) {
-            // A failed verify_text means the page holds something the operation must not act on (for example a
-            // draft without the service's marker). Close it with test_end without acting on it, so the next clean
-            // start does not discard it either.
-            if (error instanceof RouteError && error.code === 'verification_failed' && op.test_end) {
-                await this.runSteps(route, operation, op.test_end, 'test_end', params, 'test', { extracted: {}, steps: [] });
+            // A failed run must not leave its draft behind (webmail saves drafts as you type, so every failed test
+            // run would otherwise add one to the Drafts folder). If the draft or reply is open, run test_end now:
+            // it discards the operation's own draft, or, after a failed verify_text, closes what was opened
+            // untouched (so the next clean start does not discard it either).
+            if (error instanceof RouteError && op.test_end && (await this.draftOpen(route, op))) {
+                try {
+                    await this.runSteps(route, operation, op.test_end, 'test_end', params, 'test', { extracted: {}, steps: [] });
+                } catch (cleanup) {
+                    if (!(cleanup instanceof RouteError)) throw cleanup;
+                    throw new RouteError(error.code, error.operation, error.stepIndex, `${error.detail} (and closing the draft afterwards also failed: ${cleanup.message})`, error.phase, error.evidence);
+                }
             }
             throw error;
         }
         if (mode === 'test' && op.test_end) {
             await this.runSteps(route, operation, op.test_end, 'test_end', params, mode, result);
-            await this.checkClosed(route, operation, op.test_end);
+            await this.checkClosed(route, operation, op);
         }
         return result;
+    }
+
+    /** True when one of the operation's draft states holds now: its draft or reply is open. */
+    private async draftOpen(route: Route, op: Operation): Promise<boolean> {
+        for (const state of draftStatesOf(op)) if (await this.stateHolds(route, state)) return true;
+        return false;
     }
 
     /**
      * After test_end, the draft it was meant to close must be gone: every state its steps work `within` must stop
      * holding. Otherwise the discard did not work, and the next operation would start with a draft still open.
      */
-    private async checkClosed(route: Route, operation: OperationName, testEnd: Step[]): Promise<void> {
+    private async checkClosed(route: Route, operation: OperationName, op: Operation): Promise<void> {
+        const testEnd = op.test_end ?? [];
         const deadline = Date.now() + this.opts.stateTimeoutMs;
-        for (const state of draftStatesOf(testEnd)) {
+        for (const state of draftStatesOf(op)) {
             while (await this.stateHolds(route, state)) {
                 if (Date.now() >= deadline) {
                     throw new RouteError('cleanup_failed', operation, testEnd.length - 1, `after the test_end steps ran, state "${state}" still holds: the draft or reply was not closed, so the discard steps do not work`, 'test_end');
@@ -123,8 +152,8 @@ export class RouteExecutor {
     /** Discard open drafts and replies, using the discard steps (test_end) of the operations that send. */
     private async discardOpenDrafts(route: Route): Promise<void> {
         for (const [name, op] of Object.entries(route.operations) as Array<[OperationName, Route['operations'][OperationName]]>) {
-            if (!op.test_end || !op.steps.some((step) => 'click' in step && step.commits === true)) continue;
-            for (const state of draftStatesOf(op.test_end)) {
+            if (!op.test_end || !commits(op)) continue;
+            for (const state of draftStatesOf(op)) {
                 if (!(await this.stateHolds(route, state))) continue;
                 const result: OperationResult = { extracted: {}, steps: [] };
                 await this.runSteps(route, name, op.test_end, 'test_end', {}, 'test', result);
@@ -139,17 +168,16 @@ export class RouteExecutor {
      */
     async readShortcutHelp(route: Route, operation: OperationName): Promise<string | null> {
         await this.startFromInbox(route, operation);
+        // The help panel is whatever text appears after pressing "?" (it need not be marked as a dialog).
+        const pageLines = () => this.opts.page.evaluate(() => (document.body.innerText ?? '').split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).filter((l) => l.length > 0));
+        const before = new Set(await pageLines());
         await this.opts.behaviour.press(this.opts.page, '?');
         const deadline = Date.now() + this.opts.stepTimeoutMs;
         let text: string | null = null;
         while (Date.now() < deadline && text === null) {
-            text = await this.opts.page.evaluate(() => {
-                const dialogs = Array.from(document.querySelectorAll('[role="dialog"], [aria-modal="true"]'))
-                    .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
-                const found = dialogs.map((el) => ((el as HTMLElement).innerText ?? '').replace(/[ \t]+/g, ' ').trim()).filter((t) => t.length > 0);
-                return found.length > 0 ? found.join('\n---\n') : null;
-            });
-            if (text === null) await new Promise((r) => setTimeout(r, STATE_POLL_MS));
+            const appeared = (await pageLines()).filter((line) => !before.has(line));
+            if (appeared.length >= 3) text = appeared.join('\n');
+            else await new Promise((r) => setTimeout(r, STATE_POLL_MS));
         }
         await this.opts.behaviour.press(this.opts.page, 'Escape');
         await this.startFromInbox(route, operation);
@@ -215,6 +243,7 @@ export class RouteExecutor {
         } else if ('type' in step) {
             const value = substitute(step.value, ctx.params, 'none');
             const parts = step.each_address ? value.split(/[,;]/).map((p) => p.trim()).filter((p) => p.length > 0) : [value];
+            if (step.at === 'start') await behaviour.caretToStart(page, await resolveOne(step.type, ctx));
             for (const part of parts) {
                 await behaviour.typeText(page, await resolveOne(step.type, ctx), part);
                 if (step.then_press !== undefined) await behaviour.press(page, step.then_press);

@@ -28,7 +28,7 @@ const STEP_KEYS: Record<string, Set<string>> = {
     goto: new Set(['goto', 'expect']),
     click: new Set(['click', 'commits', 'expect']),
     fill: new Set(['fill', 'value', 'expect']),
-    type: new Set(['type', 'value', 'each_address', 'then_press', 'expect']),
+    type: new Set(['type', 'value', 'each_address', 'then_press', 'at', 'expect']),
     press: new Set(['press', 'commits', 'expect']),
     scroll: new Set(['scroll']),
     wait_for: new Set(['wait_for']),
@@ -85,6 +85,16 @@ export function validateRoute(route: unknown): string[] {
     if (!isNonEmptyString(route.learned_at) || Number.isNaN(Date.parse(route.learned_at))) add('learned_at must be an ISO date');
     if (route.fingerprint !== null && !isNonEmptyString(route.fingerprint)) add('fingerprint must be a string or null');
 
+    if (route.known_shortcuts !== undefined) {
+        if (!isObject(route.known_shortcuts)) add('known_shortcuts must be an object of action → key');
+        else {
+            const entries = Object.entries(route.known_shortcuts);
+            if (entries.length > 100) add('known_shortcuts may have at most 100 entries');
+            for (const [action, key] of entries) {
+                if (typeof key !== 'string' || key.length === 0 || key.length > 60) add(`known_shortcuts.${action} must be a key of 1..60 characters`);
+            }
+        }
+    }
     const domains = checkHostList(route.domains, 'domains', add);
     checkHostList(route.login_domains, 'login_domains', add);
 
@@ -339,6 +349,7 @@ function checkStep(step: unknown, path: string, ctx: TargetContext, domains: str
                 else if (keyKind(step.then_press) === 'forbidden') add(`${path}.then_press "${step.then_press}" is not an allowed key. Allowed: ${ALLOWED_KEYS_DESCRIPTION}`);
             }
             if (step.each_address !== undefined && typeof step.each_address !== 'boolean') add(`${path}.each_address must be a boolean`);
+            if (step.at !== undefined && (action !== 'type' || step.at !== 'start')) add(`${path}.at may only be "start", on a type step`);
             break;
         }
         case 'press': {

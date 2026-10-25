@@ -10,6 +10,8 @@ export interface AdminDeps {
     adminToken: string;
     handlers: Map<string, Pick<AccountHandler, 'state' | 'requestLogin' | 'requestRelearn' | 'requestCanary' | 'requestCapture'>>;
     approvals: ApprovalQueue;
+    /** Replace a provider's route with its starting route and mark its actions healthy; returns the new version. */
+    resetRoute: (provider: string) => string;
     alerts: AlertStore;
     log: (message: string) => void;
 }
@@ -73,13 +75,22 @@ export function adminRouter(deps: AdminDeps): Router {
     router.post('/canary/:account', route(async (req, res) => {
         const handler = handlerFor(req, res);
         if (!handler) return;
-        res.json(await handler.requestCanary());
+        res.json(await handler.requestCanary(req.query.check_only !== 'true'));
     }));
 
     router.post('/capture/:account', route(async (req, res) => {
         const handler = handlerFor(req, res);
         if (!handler) return;
         res.json({ files: await handler.requestCapture() });
+    }));
+
+    router.post('/routes/:provider/reset', route(async (req, res) => {
+        const provider = String(req.params.provider);
+        if (provider !== 'gmail' && provider !== 'outlook') {
+            res.status(400).json({ error: `Unknown provider ${provider}. Providers: gmail, outlook` });
+            return;
+        }
+        res.json({ provider, route_version: deps.resetRoute(provider) });
     }));
 
     router.get('/approvals', route(async (_req, res) => {

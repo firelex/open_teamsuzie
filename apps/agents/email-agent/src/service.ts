@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ApprovalQueue } from '@teamsuzie/approvals';
 import { FileRouteStore, SEED_ROUTES } from '@teamsuzie/email-webmail';
+import { OPERATION_NAMES } from '@teamsuzie/webmail-routes';
 import { JobQueue, SqliteJobStorage } from '@teamsuzie/jobs';
 import { openAiCompatibleRouteModel } from '@teamsuzie/webmail-learn';
 import express, { type Request, type Response } from 'express';
@@ -111,7 +112,17 @@ export async function startService(config: AgentConfig, options: ServiceOptions)
         await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
     });
-    app.use('/admin', adminRouter({ adminToken: config.admin_token, handlers, approvals, alerts, log }));
+    const resetRoute = (provider: string): string => {
+        const key = provider as keyof typeof SEED_ROUTES;
+        const version = routes.resetToSeed(SEED_ROUTES[key], now());
+        // The old health belonged to the old route: start fresh, and let use and the canary find what fails.
+        for (const account of config.accounts.filter((a) => a.provider === key)) {
+            for (const operation of OPERATION_NAMES) health.set(account.address, operation, { state: 'healthy', last_error: null, send_unconfirmed: false });
+        }
+        log(`[routes] ${provider} route reset to its starting route as ${version}`);
+        return version;
+    };
+    app.use('/admin', adminRouter({ adminToken: config.admin_token, handlers, approvals, alerts, log, resetRoute }));
     app.use('/console', consoleRouter({ config, mcpDeps }));
 
     const server = await new Promise<Server>((resolve, reject) => {

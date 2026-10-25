@@ -145,9 +145,19 @@ export class AccountHandler {
         return this.exclusive(() => this.relearnOperation(operation, 'requested from the command line'));
     }
 
-    /** Run the canary on every operation now, repairing what fails. */
-    requestCanary(): Promise<CanaryResult[]> {
-        return this.exclusive(() => this.canaryAll());
+    /**
+     * Run the canary on every operation now. With `repair`, operations that fail are relearned; without it, the
+     * results are only reported (and passing operations marked healthy), which is quick.
+     */
+    requestCanary(repair = true): Promise<CanaryResult[]> {
+        return this.exclusive(async () => {
+            if (repair) return this.canaryAll();
+            const results = await this.deps.runtime.canary();
+            for (const result of results) {
+                if (result.outcome === 'passed') this.deps.health.set(this.address, result.operation, { state: 'healthy', last_error: null });
+            }
+            return results;
+        });
     }
 
     /** Save the account's page as it is now, without changing it. */

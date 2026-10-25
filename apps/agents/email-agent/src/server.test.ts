@@ -130,11 +130,14 @@ describe('the service over HTTP', () => {
         expect(status[0]).toMatchObject({ account: 'me@firm.com', provider: 'outlook' });
         expect(Object.keys(status[0].operations)).toEqual([...OPERATION_NAMES]);
         expect((await admin('POST', '/canary/me@firm.com')).body).toHaveLength(OPERATION_NAMES.length);
+        expect((await admin('POST', '/canary/me@firm.com?check_only=true')).body).toHaveLength(OPERATION_NAMES.length);
         expect((await admin('POST', '/relearn/me@firm.com/delete_everything')).status).toBe(400);
         const relearn = await admin('POST', '/relearn/me@firm.com/search');
         expect(relearn).toMatchObject({ status: 202, body: { started: true, operation: 'search' } });
         expect((await admin('POST', '/canary/someone@else.com')).status).toBe(404);
         expect((await admin('POST', '/capture/me@firm.com')).body).toEqual({ files: ['/tmp/capture.json'] });
+        expect((await admin('POST', '/routes/outlook/reset')).body).toMatchObject({ provider: 'outlook', route_version: expect.stringMatching(/^\d{4}-\d{2}-\d{2}\.\d+$/) });
+        expect((await admin('POST', '/routes/yahoo/reset')).status).toBe(400);
     });
 
     it('serves the console page, whose tool calls act as the console agent and need the admin token', async () => {

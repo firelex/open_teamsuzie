@@ -26,6 +26,12 @@ describe('validateRoute', () => {
         expect(anyMatches(errorsAfter((r) => { (r as { schema_version: number }).schema_version = 2; }), /schema_version/)).toBe(true);
     });
 
+    it('accepts a map of known shortcuts and rejects a malformed one', () => {
+        expect(validateRoute({ ...minimalRoute(), known_shortcuts: { 'new message': 'N', 'send': 'ControlOrMeta+Enter' } })).toEqual([]);
+        expect(anyMatches(validateRoute({ ...minimalRoute(), known_shortcuts: { send: '' } }), /known_shortcuts\.send/)).toBe(true);
+        expect(anyMatches(validateRoute({ ...minimalRoute(), known_shortcuts: ['N'] }), /known_shortcuts must be an object/)).toBe(true);
+    });
+
     it('requires a known provider', () => {
         expect(anyMatches(errorsAfter((r) => { (r as { provider: string }).provider = 'yahoo'; }), /provider/)).toBe(true);
     });

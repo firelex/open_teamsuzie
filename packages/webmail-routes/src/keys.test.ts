@@ -3,7 +3,7 @@ import { keyKind } from './keys.js';
 
 describe('keyKind', () => {
     it('accepts navigation keys and the new-message, reply and search shortcuts', () => {
-        for (const key of ['Enter', 'Tab', 'Shift+Tab', 'Escape', 'ArrowDown', 'Home', 'PageDown', 'n', 'N', 'r', 'c', '/', 'Control+N', 'Meta+n', 'ControlOrMeta+R', 'Control+Shift+R']) {
+        for (const key of ['Enter', 'Tab', 'Shift+Tab', 'Escape', 'ArrowDown', 'Home', 'PageDown', 'n', 'N', 'r', 'c', '/', 'Control+N', 'Meta+n', 'ControlOrMeta+R', 'Control+Shift+R', 'Alt+Q']) {
             expect(keyKind(key), key).toBe('safe');
         }
     });

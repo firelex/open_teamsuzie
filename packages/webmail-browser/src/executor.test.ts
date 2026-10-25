@@ -147,6 +147,40 @@ describe('RouteExecutor', () => {
         expect((await fixtureActivity(fixture.page)).sent).toEqual([{ to: 'carol@example.com, dan@example.com', subject: 'Hello there', body: 'Line one\nLine two' }]);
     });
 
+    it('discards a draft left open and checks the discard, also when Send and discard are keyboard shortcuts', async () => {
+        route.operations.compose_send.steps[6] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
+        // With Send as a key press, the draft is still recognised through the recipient check's state.
+        await fixture.page.getByRole('button', { name: 'Compose' }).click();
+        await executor.run(route, 'list_inbox', {}, 'live');
+        expect(await fixture.page.getByRole('dialog', { name: 'New Message' }).isVisible()).toBe(false);
+        // A test_end that leaves the draft open is caught, though no step clicks inside the draft.
+        route.operations.compose_send.test_end = [{ press: 'Tab' }];
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
+        expect(error).toMatchObject({ code: 'cleanup_failed' });
+    });
+
+    it('puts the caret at the very start of a field, so typing keeps what is there', async () => {
+        await fixture.page.getByRole('button', { name: 'Compose' }).click();
+        const body = fixture.page.getByRole('textbox', { name: 'Message Body' });
+        await body.evaluate((el) => { el.innerText = 'line two\n-- Signature'; });
+        await behaviour.caretToStart(fixture.page, body);
+        await behaviour.typeText(fixture.page, body, 'Hello. ');
+        expect(await body.innerText()).toBe('Hello. line two\n-- Signature');
+    });
+
+    it('types the exact text even when it slips onto neighbouring keys', async () => {
+        const clumsy = new HumanBehaviour({ rng: () => 0, timeScale: 0, selectAllModifier: 'Meta' }); // a typo on every letter
+        const search = fixture.page.getByRole('searchbox', { name: 'Search mail' });
+        await clumsy.typeText(fixture.page, search, 'quarterly numbers');
+        expect(await search.inputValue()).toBe('quarterly numbers');
+    });
+
+    it('does not treat an open message as an open draft', async () => {
+        await executor.run(route, 'open_message', { $message_id: 'm1' }, 'live');
+        await executor.run(route, 'list_inbox', {}, 'live');
+        expect((await fixtureActivity(fixture.page)).discards).toBe(0);
+    });
+
     it('reads the webmail\'s own list of keyboard shortcuts and closes it again', async () => {
         const help = await executor.readShortcutHelp(route, 'compose_send');
         expect(help).toContain('C: new message');
@@ -170,6 +204,14 @@ describe('RouteExecutor', () => {
         // It was closed, not left open: the next operation's clean start must not discard it.
         await executor.run(route, 'list_inbox', {}, 'live');
         expect((await fixtureActivity(fixture.page)).drafts).toEqual(['d2', 'd3']);
+    });
+
+    it('discards its draft straight away when a run fails after the draft was opened', async () => {
+        route.operations.compose_send.steps[3] = { fill: { role: 'textbox', name: 'Topic', within: 'compose_open' }, value: '$draft.subject' };
+        const error = await routeError(executor.run(route, 'compose_send', draft, 'live'));
+        expect(error.code).toBe('target_not_found');
+        expect(await fixture.page.getByRole('dialog', { name: 'New Message' }).isVisible()).toBe(false);
+        expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
     });
 
     it('fails with target_not_found when the button is gone', async () => {

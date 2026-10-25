@@ -9,6 +9,8 @@ export interface Behaviour {
     typeText(page: Page, el: Locator, text: string): Promise<void>;
     clearAndType(page: Page, el: Locator, text: string): Promise<void>;
     press(page: Page, key: string): Promise<void>;
+    /** Focus a text field and put the caret at its very start. */
+    caretToStart(page: Page, el: Locator): Promise<void>;
     scroll(page: Page, el: Locator | null): Promise<void>;
     betweenSteps(): Promise<void>;
     /** A pause for reading a message of `chars` characters. */
@@ -25,6 +27,15 @@ export interface HumanBehaviourOptions {
 }
 
 interface Point { x: number; y: number }
+
+/** About one letter in fifty starts with a slip onto a neighbouring key, corrected straight away. */
+const TYPO_RATE = 0.02;
+/** Letters next to each letter on a QWERTY keyboard. */
+const NEIGHBOURS: Record<string, string> = {
+    q: 'wa', w: 'qes', e: 'wrd', r: 'etf', t: 'ryg', y: 'tuh', u: 'yij', i: 'uok', o: 'ipl', p: 'ol',
+    a: 'qsz', s: 'adw', d: 'sfe', f: 'dgr', g: 'fht', h: 'gjy', j: 'hku', k: 'jli', l: 'ko',
+    z: 'asx', x: 'zcs', c: 'xvd', v: 'cbf', b: 'vng', n: 'bmh', m: 'nj',
+};
 
 export class HumanBehaviour implements Behaviour {
     private readonly lastMouse = new WeakMap<Page, Point>();
@@ -48,11 +59,20 @@ export class HumanBehaviour implements Behaviour {
 
     async typeText(page: Page, el: Locator, text: string): Promise<void> {
         if (!(await isFocused(el))) await this.click(page, el);
+        // A fast typist: irregular gaps between keys, the odd pause, and now and then a wrong neighbouring letter
+        // that is corrected at once. The text that ends up in the field is always exactly `text`.
         for (const ch of text) {
+            const neighbour = NEIGHBOURS[ch.toLowerCase()];
+            if (neighbour && this.opts.rng() < TYPO_RATE) {
+                await page.keyboard.type(neighbour[Math.floor(this.opts.rng() * neighbour.length)]!);
+                await this.sleep(this.between(120, 320));
+                await page.keyboard.press('Backspace');
+                await this.sleep(this.between(60, 160));
+            }
             if (ch === '\n') await page.keyboard.press('Enter');
             else await page.keyboard.type(ch);
-            await this.sleep(this.between(40, 160));
-            if (this.opts.rng() < 0.04) await this.sleep(this.between(300, 900));
+            await this.sleep(this.between(30, 110));
+            if (this.opts.rng() < 0.03) await this.sleep(this.between(200, 600));
         }
     }
 
@@ -63,6 +83,12 @@ export class HumanBehaviour implements Behaviour {
         await page.keyboard.press('Backspace');
         await this.sleep(this.between(80, 200));
         await this.typeText(page, el, text);
+    }
+
+    async caretToStart(page: Page, el: Locator): Promise<void> {
+        if (!(await isFocused(el))) await this.click(page, el);
+        // Cmd+Up on macOS, Ctrl+Home elsewhere: the start of the whole field, not just the current line.
+        await this.press(page, this.opts.selectAllModifier === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
     }
 
     async press(page: Page, key: string): Promise<void> {

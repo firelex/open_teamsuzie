@@ -61,7 +61,8 @@ describe('buildRepairPrompt', () => {
         expect(prompt).toContain('<div tabindex="0">');
         expect(prompt).toContain('"compose_open"');
         expect(prompt).toContain('HOW TO WORK');
-        expect(prompt).toContain("THIS ACCOUNT'S KEYBOARD SHORTCUTS");
+        expect(prompt).toContain('KEYBOARD SHORTCUTS');
+        expect(prompt).toContain('this list is right');
         expect(prompt).toContain('N: new message');
         expect(prompt.indexOf('KEYBOARD SHORTCUTS')).toBeLessThan(prompt.indexOf('WHAT WENT WRONG'));
         expect(prompt).toContain('dialog or modal layer: <div role="dialog"> not shown');
