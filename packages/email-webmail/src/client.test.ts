@@ -4,7 +4,7 @@ import {
     fixtureActivity, fixtureRoute, openFixtureBrowser, serveFixture, FIXTURE_HOME, type FixtureBrowser,
 } from '@teamsuzie/webmail-browser/testing';
 import type { Route } from '@teamsuzie/webmail-routes';
-import { runCanary } from './canary.js';
+import { buildTestParams, runCanary } from './canary.js';
 import { WebmailEmailClient, WebmailUnsupportedError } from './client.js';
 
 let fixture: FixtureBrowser;
@@ -66,6 +66,8 @@ describe('WebmailEmailClient', () => {
         expect(await client.confirmSent('Plan', 'carol@example.com')).toBe(true);
         expect(await client.confirmSent('Plan', 'someone@else.com')).toBe(false);
         expect(await client.confirmSent('Other', 'carol@example.com')).toBe(false);
+        await client.reply({ messageId: 'm2', body: 'Yes.' });
+        expect(await client.confirmSent('Lunch on Tuesday?', 'bob@example.org')).toBe(true);
     });
 
     it('replies to the original sender', async () => {
@@ -127,5 +129,22 @@ describe('runCanary', () => {
         await fixture.page.goto('about:blank');
         const results = await runCanary(client, ['compose_send']);
         expect(results).toEqual([expect.objectContaining({ operation: 'compose_send', outcome: 'failed', error: expect.objectContaining({ code: 'target_not_found' }) })]);
+    });
+});
+
+describe('buildTestParams', () => {
+    it('takes parameters from the first inbox message', async () => {
+        const { params, inboxError } = await buildTestParams(client);
+        expect(inboxError).toBeNull();
+        expect(params.open_message).toEqual({ $message_id: 'm2' });
+        expect(params.reply).toMatchObject({ $message_id: 'm2', '$draft.to': 'bob@example.org' });
+        expect(params.compose_send).toMatchObject({ '$draft.to': 'me@example.com' });
+    });
+
+    it('leaves out operations that need a message when the inbox cannot be listed, and says why', async () => {
+        route.states.inbox_list = { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Primary' }] };
+        const { params, inboxError } = await buildTestParams(client);
+        expect(inboxError?.code).toBe('state_not_reached');
+        expect(Object.keys(params).sort()).toEqual(['check_sent', 'compose_send', 'list_inbox', 'read_account']);
     });
 });

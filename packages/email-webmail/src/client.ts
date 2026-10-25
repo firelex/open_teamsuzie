@@ -138,11 +138,14 @@ export class WebmailEmailClient implements EmailClient {
         return (await this.one('read_account', {})).address!;
     }
 
-    /** True when a message with this subject to these recipients is in Sent. */
+    /**
+     * True when Sent shows a message whose subject contains `subject` (a reply's subject is "Re: " plus the
+     * original) and whose recipients include every address in `to`.
+     */
     async confirmSent(subject: string, to: string): Promise<boolean> {
         const expected = emailsIn(to);
         const sent = await this.list('check_sent', {});
-        return sent.some((r) => r.subject === subject && expected.every((address) => emailsIn(r.to ?? '').includes(address)));
+        return sent.some((r) => r.subject!.includes(subject) && expected.every((address) => emailsIn(r.to ?? '').includes(address)));
     }
 
     /** Run one operation in test mode: nothing is sent, drafts are discarded. */

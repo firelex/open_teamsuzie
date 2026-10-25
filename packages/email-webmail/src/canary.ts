@@ -58,6 +58,35 @@ export async function runCanary(client: WebmailEmailClient, only?: OperationName
     }
 }
 
+export interface TestParams {
+    params: Partial<Record<OperationName, Params>>;
+    /** Why the inbox could not be listed, when it could not; operations that need a message then have no parameters. */
+    inboxError: RouteError | null;
+}
+
+/**
+ * Test parameters for every operation, taken from the live inbox (read only). When the inbox cannot be listed, or
+ * is empty, operations that need a message are left out.
+ */
+export async function buildTestParams(client: WebmailEmailClient): Promise<TestParams> {
+    let first: ExtractedRecord | null = null;
+    let inboxError: RouteError | null = null;
+    try {
+        const listing = await client.testOperation('list_inbox', {});
+        checkOutput('list_inbox', listing);
+        first = (listing.extracted.messages as ExtractedRecord[])[0] ?? null;
+    } catch (error) {
+        if (!(error instanceof RouteError)) throw error;
+        inboxError = error;
+    }
+    const params: Partial<Record<OperationName, Params>> = {};
+    for (const operation of OPERATION_NAMES) {
+        const p = paramsFor(operation, first, client.account.address);
+        if (p !== null) params[operation] = p;
+    }
+    return { params, inboxError };
+}
+
 function paramsFor(operation: OperationName, first: ExtractedRecord | null, account: string): Params | null {
     switch (operation) {
         case 'read_account':

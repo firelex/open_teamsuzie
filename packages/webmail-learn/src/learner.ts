@@ -31,7 +31,11 @@ export interface RelearnInput {
 }
 
 export type LearnOutcome =
-    | { ok: true; changed: true; route: Route; notes: string[]; changedStates: string[] }
+    | {
+        ok: true; changed: true; route: Route; notes: string[]; changedStates: string[];
+        /** Operations that use a changed state but had no test parameters, so were not tested; canary them next. */
+        untested: OperationName[];
+    }
     | { ok: true; changed: false }
     | { ok: false; reason: string };
 
@@ -60,9 +64,12 @@ export class RouteLearner {
                 const result = await this.deps.executor.run(candidate, operation, params, 'test');
                 input.checkResult(operation, result);
                 if (round === 0) return { ok: true, changed: false };
-                const broken = await this.checkDependents(candidate, input, changedStates);
-                if (broken !== null) return { ok: false, reason: `the repair of ${operation} broke ${broken}` };
-                return { ok: true, changed: true, route: await this.finish(candidate), notes, changedStates: [...changedStates] };
+                const dependents = await this.checkDependents(candidate, input, changedStates);
+                if (dependents.broken !== null) return { ok: false, reason: `the repair of ${operation} broke ${dependents.broken}` };
+                return {
+                    ok: true, changed: true, route: await this.finish(candidate), notes,
+                    changedStates: [...changedStates], untested: dependents.untested,
+                };
             } catch (error) {
                 if (!(error instanceof RouteError)) throw error;
                 failure = error;
@@ -108,24 +115,28 @@ export class RouteLearner {
         this.deps.executor.checkSignedIn(route);
     }
 
-    /** The first other operation that uses a changed state and now fails in test mode, or null. */
-    private async checkDependents(route: Route, input: RelearnInput, changedStates: Set<string>): Promise<string | null> {
-        if (changedStates.size === 0) return null;
+    /** Test every other operation that uses a changed state: the first that fails, and those that could not be tested. */
+    private async checkDependents(route: Route, input: RelearnInput, changedStates: Set<string>): Promise<{ broken: string | null; untested: OperationName[] }> {
+        const untested: OperationName[] = [];
         for (const other of OPERATION_NAMES) {
-            if (other === input.operation) continue;
+            if (other === input.operation || changedStates.size === 0) continue;
             const text = JSON.stringify(route.operations[other]);
             if (![...changedStates].some((state) => text.includes(`"${state}"`))) continue;
             const params = input.params[other];
-            if (params === undefined) throw new Error(`No test parameters for ${other}, which uses a changed state`);
+            if (params === undefined) {
+                this.deps.log(`relearn ${input.operation}: ${other} uses a changed state but has no test parameters; not tested`);
+                untested.push(other);
+                continue;
+            }
             await this.resetPage(route);
             try {
                 input.checkResult(other, await this.deps.executor.run(route, other, params, 'test'));
             } catch (error) {
-                if (error instanceof RouteError) return `${other} (${error.message})`;
+                if (error instanceof RouteError) return { broken: `${other} (${error.message})`, untested };
                 throw error;
             }
         }
-        return null;
+        return { broken: null, untested };
     }
 
     private async finish(route: Route): Promise<Route> {

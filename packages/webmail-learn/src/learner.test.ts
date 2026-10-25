@@ -113,6 +113,13 @@ describe('RouteLearner', () => {
         expect(outcome.ok && outcome.changed).toBe(true);
     });
 
+    it('reports operations sharing a changed state that it could not test', async () => {
+        const model = scriptedModel([composeFix('New message', { inbox_list: { url_matches: '#inbox$', visible: [{ role: 'grid', name: 'Inbox' }] } })]);
+        const { read_account: _a, search: _s, ...partial } = params;
+        const outcome = await learner(model).relearn({ ...input(), params: partial });
+        expect(outcome.ok && outcome.changed && outcome.untested).toEqual(['read_account', 'search']);
+    });
+
     it('rejects a repair that breaks another operation using a state it changed', async () => {
         const brokenReplyState = { reply_open: { visible: [{ role: 'region', name: 'Answer' }], container: { role: 'region', name: 'Answer' } } };
         const model = scriptedModel([composeFix('New message', brokenReplyState)]);

@@ -4,4 +4,4 @@ export { GMAIL_SEED_ROUTE } from './routes/gmail.js';
 export { OUTLOOK_SEED_ROUTE } from './routes/outlook.js';
 export { FileRouteStore } from './route-store.js';
 export { WebmailEmailClient, WebmailUnsupportedError, checkOutput, type WebmailAccount, type WebmailClientDeps } from './client.js';
-export { runCanary, CANARY_SUBJECT, type CanaryResult } from './canary.js';
+export { runCanary, buildTestParams, CANARY_SUBJECT, type CanaryResult, type TestParams } from './canary.js';
