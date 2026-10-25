@@ -10,8 +10,6 @@ export interface RepairRequest {
     outputs: string;
     failure: { code: string; phase: string; stepIndex: number; message: string; evidence: string[] };
     capture: PageCapture;
-    /** Problems with earlier replies in this attempt, oldest first. */
-    previousProblems: string[];
 }
 
 const MAX_ARIA_CHARS = 60_000;
@@ -86,13 +84,13 @@ export function buildRepairPrompt(req: RepairRequest): string {
 
         `THE PAGE NOW\nURL: ${capture.url}\nAccessibility tree (role "name", nested by indentation):\n${truncate(capture.aria, MAX_ARIA_CHARS)}\n\nInteractive elements with no accessible name (opening tags only):\n${truncate(capture.unnamed.join('\n'), MAX_UNNAMED_CHARS)}\n\nPage outline (elements with their attributes and own text; ids, addresses and dates are often in attributes such as data-*, title or datetime, so look here when the accessibility tree does not show them):\n${truncate(capture.outline, MAX_OUTLINE_CHARS)}`,
     ];
-    if (req.previousProblems.length > 0) {
-        sections.push(`YOUR EARLIER REPLIES DID NOT WORK\n${req.previousProblems.map((p, i) => `${i + 1}. ${p}`).join('\n')}\nDo not repeat these mistakes.`);
-    }
     sections.push(
-        `YOUR REPLY\nReply with one JSON object and nothing else:\n`
-        + `{"steps": [ ...every step of the task, from the start... ], "test_end": [ ...only if the task has a commit step... ], "states": { "<state name>": <state>, ... only states you add or change ... }, "notes": "<one or two sentences: what changed on the page and what you changed>"}\n`
-        + `Keep the steps that still work. Change only what is needed. Do not include anything that is not in the formats above.`,
+        `HOW TO WORK\nYou have tools that work on the live page. Nothing you do with them sends anything.\n`
+        + `1. Look at the page above and the failure, and form an idea of what changed.\n`
+        + `2. Test before you write: use try_target to see exactly what a target matches (it lists the elements, or the nearest ones when nothing matches), check_state to test a state, and try_extract to see what fields read.\n`
+        + `3. Run your complete version of the task with run_operation. If it fails, read the error and what was found on the page, fix that part, and run it again.\n`
+        + `4. When run_operation succeeds, call submit_repair with exactly the same steps, test_end and states, and short notes.\n`
+        + `Keep the steps that still work and change only what is needed. Each tool call costs time, so test what you are unsure about rather than everything. Always answer by calling a tool.`,
     );
     return sections.join('\n\n');
 }

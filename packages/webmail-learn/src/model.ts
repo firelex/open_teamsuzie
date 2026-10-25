@@ -1,10 +1,18 @@
-import { chatOnce } from '@teamsuzie/models';
+import { chatWithTools, type ToolCall, type ToolChatMessage, type ToolDefinition } from '@teamsuzie/models';
 
-/** The model that proposes route repairs. `complete` returns its whole reply as text. */
+export type { ToolCall, ToolChatMessage, ToolDefinition };
+
+/** One model turn: what it wrote and the tools it asked to call. */
+export interface ModelTurn {
+    text: string;
+    toolCalls: ToolCall[];
+}
+
+/** The model that repairs routes. It must support tool calls. */
 export interface RouteModel {
     /** Recorded on learned routes as `learner:<id>`. */
     id: string;
-    complete(prompt: string, signal?: AbortSignal): Promise<string>;
+    chat(messages: ToolChatMessage[], tools: ToolDefinition[], signal?: AbortSignal): Promise<ModelTurn>;
 }
 
 export interface OpenAiCompatibleModelOptions {
@@ -13,25 +21,26 @@ export interface OpenAiCompatibleModelOptions {
     model: string;
     apiKey?: string;
     maxTokens: number;
-    /** Ask the runtime for a JSON-only reply (`response_format`). Some engines refuse it; the prompt asks for JSON either way. */
-    jsonMode: boolean;
     fetchImpl?: typeof fetch;
 }
 
-/** A model served by an OpenAI-compatible runtime (vLLM, llama.cpp, LM Studio, Ollama…). */
+/** A tool-calling model served by an OpenAI-compatible runtime (vLLM, llama.cpp, LM Studio, Ollama…). */
 export function openAiCompatibleRouteModel(opts: OpenAiCompatibleModelOptions): RouteModel {
     const baseUrl = opts.baseUrl.replace(/\/+$/, '');
     return {
         id: opts.model,
-        complete: (prompt, signal) => chatOnce({
-            config: { id: 'openai-compatible', format: 'openai', baseUrl },
-            apiKey: opts.apiKey,
-            model: opts.model,
-            messages: [{ role: 'user', content: prompt }],
-            maxTokens: opts.maxTokens,
-            fetchImpl: opts.fetchImpl ?? fetch,
-            json: opts.jsonMode,
-            signal,
-        }),
+        chat: async (messages, tools, signal) => {
+            const turn = await chatWithTools({
+                config: { id: 'openai-compatible', format: 'openai', baseUrl },
+                apiKey: opts.apiKey,
+                model: opts.model,
+                messages,
+                tools,
+                maxTokens: opts.maxTokens,
+                fetchImpl: opts.fetchImpl ?? fetch,
+                signal,
+            });
+            return { text: turn.text, toolCalls: turn.toolCalls };
+        },
     };
 }

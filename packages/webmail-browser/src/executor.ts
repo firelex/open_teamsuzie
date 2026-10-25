@@ -1,13 +1,13 @@
 import type { Locator, Page } from 'playwright-core';
 import {
     stepAction, substitute,
-    type ExtractSpec, type FieldSpec, type OperationName, type Params, type RecipientCheck, type Route, type Step,
+    type ExtractSpec, type FieldSpec, type OperationName, type PageState, type Params, type RecipientCheck, type Route, type Step, type Target,
 } from '@teamsuzie/webmail-routes';
 import type { Behaviour } from './behaviour.js';
 import type { DateContext } from './dates.js';
 import { NavigationError, NeedsLoginError, RouteError, UnreadableValueError, type RoutePhase } from './errors.js';
 import { applyPattern, emailsIn, normalizeField, readSource } from './extract.js';
-import { describeElements, describeTarget, locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext } from './locate.js';
+import { describeElements, describeTarget, inspectTarget, locatorIn, resolveAll, resolveOne, stateHoldsNow, type LocateContext, type TargetReport } from './locate.js';
 
 export interface ExecutorOptions {
     page: Page;
@@ -219,21 +219,44 @@ export class RouteExecutor {
             if (Date.now() >= deadline) break;
             await new Promise((r) => setTimeout(r, STATE_POLL_MS));
         }
+        const report = await this.stateReport(state, ctx);
+        const url = this.opts.page.url();
+        const reasons = report.reasons;
+        const evidence = report.evidence;
+        const when = ctx.phase === 'start' ? 'after loading the inbox at the start of the operation, ' : '';
+        throw new RouteError('state_not_reached', ctx.operation, ctx.stepIndex, `${when}state "${name}" did not hold within ${this.opts.stateTimeoutMs}ms: ${reasons.join('; ') || 'it held only briefly'} (url ${url})`, ctx.phase, evidence);
+    }
+
+    /** Whether a state holds right now, and if not, which of its parts fail and what is on the page instead. */
+    private async stateReport(state: PageState, ctx: LocateContext): Promise<{ holds: boolean; reasons: string[]; evidence: string[] }> {
         const url = this.opts.page.url();
         const reasons: string[] = [];
         if (state.url_matches !== undefined && !new RegExp(state.url_matches).test(url)) reasons.push(`the url ${url} does not match ${state.url_matches}`);
         const evidence: string[] = [];
         for (const target of state.visible) {
-            const count = target.within === undefined ? await locatorIn(this.opts.page, target, ctx.params).count() : null;
-            if (count === 1) continue;
-            reasons.push(count === null ? `${describeTarget(target)} (inside another state's container) did not match exactly one element` : `${describeTarget(target)} matches ${count} visible elements, not exactly one`);
-            if (count !== null && count > 1) evidence.push(...await describeElements(locatorIn(this.opts.page, target, ctx.params)));
-            if (count === 0 && target.role !== undefined) {
-                evidence.push(...(await describeElements(this.opts.page.getByRole(target.role as Parameters<Page['getByRole']>[0]).filter({ visible: true }))).map((l) => `visible ${target.role}: ${l}`));
-            }
+            const report = await inspectTarget(target, ctx);
+            if (report.matches === 1 && report.problem === undefined) continue;
+            reasons.push(report.problem ?? `${describeTarget(target)} matches ${report.matches} visible elements, not exactly one`);
+            evidence.push(...report.elements);
         }
-        const when = ctx.phase === 'start' ? 'after loading the inbox at the start of the operation, ' : '';
-        throw new RouteError('state_not_reached', ctx.operation, ctx.stepIndex, `${when}state "${name}" did not hold within ${this.opts.stateTimeoutMs}ms: ${reasons.join('; ') || 'it held only briefly'} (url ${url})`, ctx.phase, evidence);
+        return { holds: reasons.length === 0, reasons, evidence };
+    }
+
+    /** Check a state, named in the route or given in full, without waiting. For testing a state before using it. */
+    async inspectState(route: Route, state: string | PageState, params: Params = {}): Promise<{ holds: boolean; reasons: string[]; evidence: string[] }> {
+        const definition = typeof state === 'string' ? route.states[state] : state;
+        if (!definition) throw new Error(`Route has no state "${String(state)}"`);
+        return this.stateReport(definition, this.ctx(route, 'inspect', -1, 'steps', params));
+    }
+
+    /** What a target matches right now, without waiting. */
+    inspectTarget(route: Route, target: Target, params: Params = {}): Promise<TargetReport> {
+        return inspectTarget(target, this.ctx(route, 'inspect', -1, 'steps', params));
+    }
+
+    /** Run one extract step on the page as it is now. Route errors are thrown as in a real run. */
+    tryExtract(route: Route, spec: ExtractSpec, params: Params = {}): Promise<ExtractedRecord | ExtractedRecord[]> {
+        return this.extract(spec, this.ctx(route, 'inspect', -1, 'steps', params));
     }
 
     private async extract(spec: ExtractSpec, ctx: LocateContext): Promise<ExtractedRecord | ExtractedRecord[]> {

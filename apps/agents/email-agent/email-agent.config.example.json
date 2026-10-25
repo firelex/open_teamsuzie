@@ -31,10 +31,10 @@
     "base_url": "http://spark-fa14:8888/v1",
     "model": "qwen3.8-flash-next",
     "api_key_env": null,
-    "max_step_fixes": 5,
+    "max_submissions": 3,
+    "max_tool_calls": 30,
     "attempts": 3,
-    "max_tokens": 8000,
-    "json_mode": false
+    "max_tokens": 8000
   },
   "notifications": "macos",
   "canary_interval_hours": 6,

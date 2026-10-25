@@ -6,24 +6,29 @@ Relearns one broken operation of a webmail route (`@teamsuzie/webmail-routes`) f
 import { openAiCompatibleRouteModel, RouteLearner } from '@teamsuzie/webmail-learn';
 
 const learner = new RouteLearner({
-    model: openAiCompatibleRouteModel({ baseUrl: 'http://gpu-box:8000/v1', model: 'qwen3-72b', maxTokens: 8000, jsonMode: true }),
-    executor, maxStepFixes: 5, log: console.log, now: () => new Date(),
+    model: openAiCompatibleRouteModel({ baseUrl: 'http://gpu-box:8000/v1', model: 'qwen3-72b', maxTokens: 8000 }),
+    executor, maxSubmissions: 3, maxToolCalls: 30, log: console.log, record: saveRound, now: () => new Date(),
 });
 const outcome = await learner.relearn({ route, operation: 'compose_send', goal, outputs, params, checkResult });
 ```
 
-One `relearn` call is one attempt. Each round runs the operation in test mode (nothing is sent; drafts are
-discarded). When it fails with a `RouteError`, the page is captured (URL, accessibility snapshot, unnamed
-interactive elements) and the model gets a plain-English, self-contained prompt: the operation's goal and outputs,
-the failure, the step and target rules, the current steps and states, the page, and why its earlier replies were
-unusable. Its JSON reply replaces the operation's steps and adds or changes states; it must pass
-`validateRoute` before it is tried.
+One `relearn` call is one attempt. The operation is first run in test mode (nothing is sent; drafts are discarded).
+If it fails with a `RouteError`, the model gets a plain-English, self-contained brief (the goal and outputs, the
+failure with what was found on the page, the step, target and field rules, the current steps and states, and the
+page: URL, accessibility tree, unnamed elements and an attribute outline) and works with tools on the live page:
+
+| Tool | What it does |
+|---|---|
+| `try_target` | How many visible elements a target matches, described; or the nearest candidates |
+| `check_state` | Whether a state (named, or proposed in full) holds now, and why not |
+| `try_extract` | The first records an extract reads, or the exact field error |
+| `run_operation` | A full test-mode run of a candidate from a clean inbox (never commits; checks the discard closed the draft) |
+| `submit_repair` | The final answer: checked against the rules, a test-mode run, and the other operations sharing a changed state |
 
 The outcome is `{ ok: true, changed: false }` when the operation already works; `{ ok: true, changed: true, route }`
-when a repair passed, along with every other operation that uses a state it changed (the route gets a new
-`route_version`, `learned_by: learner:<model>` and a fresh layout fingerprint); or `{ ok: false, reason }` after
-`maxStepFixes` model replies, or when the repair breaks another operation. Sign-outs and page-load failures are
+for an accepted repair (new `route_version`, `learned_by: learner:<model>`, fresh layout fingerprint, and `untested`
+operations to check next); or `{ ok: false, reason }` when the tool-call or submission budget runs out or the model
+stops calling tools. Every model turn and tool call is passed to `record`. Sign-outs and page-load failures are
 thrown.
 
-`openAiCompatibleRouteModel` talks to any OpenAI-compatible runtime through `@teamsuzie/models`; `jsonMode` adds
-`response_format: json_object` for runtimes that support it. Prompts are text only (no screenshots).
+`openAiCompatibleRouteModel` talks to any OpenAI-compatible runtime with tool calls, through `@teamsuzie/models`.

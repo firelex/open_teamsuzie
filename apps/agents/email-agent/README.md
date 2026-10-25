@@ -17,8 +17,9 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
 - **Knowing when to relearn.** A route is checked again when a job fails on it, when the inbox layout's fingerprint
   changes (checked on every inbox poll), and by a canary every few hours. The canary and every relearning test run
   in test mode: drafts are filled and then discarded, Send is never pressed.
-- **Relearning.** A failing action is rebuilt by your model (`@teamsuzie/webmail-learn`) from the live page, then
-  must pass the no-send test before it is used. After 3 failed attempts the action is **broken**: its jobs fail at
+- **Relearning.** A failing action is rebuilt by your model (`@teamsuzie/webmail-learn`) on the live page: it
+  tests targets, states and extracts with tools, runs candidates in test mode, and submits a repair, which must
+  pass the no-send test (and not break other actions) before it is used. After 3 failed attempts the action is **broken**: its jobs fail at
   once with `route_broken`, you get an alert, and it is retried daily (or `email-agent relearn`).
 - **Dates.** Dates are read the way your webmail shows them, in `locale` (day/month order, month and day names,
   "Yesterday") and `timezone`. A value the service cannot read is not a route problem: the job fails with
@@ -45,8 +46,9 @@ Design: `docs/superpowers/specs/2026-10-25-webmail-email-agent-design.md`.
    - `admin_token` and each agent's `token`: long random strings (`openssl rand -hex 32`).
    - `accounts`: your addresses and `gmail` / `outlook`.
    - `learner`: your model's OpenAI-compatible endpoint (`base_url`, e.g. `http://spark-fa14:8888/v1`) and its model id
-     as `/v1/models` lists it. `api_key_env` names an environment variable holding its key, or `null`. `json_mode`
-     asks the runtime for JSON-only replies; set it to `false` for engines that reject `response_format`.
+     as `/v1/models` lists it; the model must support tool calls. `api_key_env` names an environment variable holding
+     its key, or `null`. Each relearn attempt may make up to `max_tool_calls` tool calls and `max_submissions`
+     submissions; `attempts` is how many attempts before an action is marked broken.
    - `send_policy.rules`: which agents may send to whom without asking you. An allow rule must restrict recipients
      (`all_recipients_in_domains` or `recipients_already_in_thread`); `max_per_hour` caps unapproved sends.
 3. `email-agent --config <path> serve`. For each account: `email-agent --config <path> login <address>` and sign in

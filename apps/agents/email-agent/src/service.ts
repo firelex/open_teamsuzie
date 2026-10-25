@@ -66,7 +66,7 @@ export async function startService(config: AgentConfig, options: ServiceOptions)
     const routes = new FileRouteStore(join(config.data_dir, 'routes'));
     for (const account of config.accounts) routes.seed(SEED_ROUTES[account.provider]);
     const apiKey = config.learner.api_key_env === null ? undefined : process.env[config.learner.api_key_env];
-    const model = openAiCompatibleRouteModel({ baseUrl: config.learner.base_url, model: config.learner.model, apiKey, maxTokens: config.learner.max_tokens, jsonMode: config.learner.json_mode });
+    const model = openAiCompatibleRouteModel({ baseUrl: config.learner.base_url, model: config.learner.model, apiKey, maxTokens: config.learner.max_tokens });
 
     const handlers = new Map<string, AccountHandler>();
     for (const account of config.accounts) {

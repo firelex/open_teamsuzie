@@ -97,7 +97,8 @@ export class ChromeRuntime implements HandlerRuntime {
         const learner = new RouteLearner({
             model: this.deps.model,
             executor: this.executor!,
-            maxStepFixes: this.deps.config.learner.max_step_fixes,
+            maxSubmissions: this.deps.config.learner.max_submissions,
+            maxToolCalls: this.deps.config.learner.max_tool_calls,
             log: (message) => this.deps.log(`[${this.deps.account.address}] ${message}`),
             record: (round) => this.recordRound(round),
             now: this.deps.now,

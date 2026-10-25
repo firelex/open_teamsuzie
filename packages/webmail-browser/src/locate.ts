@@ -147,6 +147,29 @@ export async function resolveOne(target: Target, ctx: LocateContext): Promise<Lo
     return locator;
 }
 
+export interface TargetReport {
+    /** How many visible elements match. */
+    matches: number;
+    /** One line per match (up to ten), or, when nothing matched, the nearest candidates. */
+    elements: string[];
+    /** Set when the target could not be searched at all (for example its `within` container is missing). */
+    problem?: string;
+}
+
+/** What `target` matches on the page right now, without waiting: for testing a target before using it. */
+export async function inspectTarget(target: Target, ctx: LocateContext): Promise<TargetReport> {
+    let root: Root;
+    try {
+        root = await rootFor(target, { ...ctx, timeoutMs: 0 });
+    } catch (error) {
+        if (error instanceof RouteError) return { matches: 0, elements: error.evidence, problem: error.detail };
+        throw error;
+    }
+    const locator = locatorIn(root, target, ctx.params);
+    const matches = await locator.count();
+    return { matches, elements: matches > 0 ? await describeElements(locator) : await candidatesFor(root, target, ctx) };
+}
+
 /** Every visible element `target` matches right now (possibly none). */
 export async function resolveAll(target: Target, ctx: LocateContext): Promise<Locator[]> {
     const root = await rootFor(target, ctx);
