@@ -115,9 +115,13 @@ export async function startService(config: AgentConfig, options: ServiceOptions)
     const resetRoute = (provider: string): string => {
         const key = provider as keyof typeof SEED_ROUTES;
         const version = routes.resetToSeed(SEED_ROUTES[key], now());
-        // The old health belonged to the old route: start fresh, and let use and the canary find what fails.
+        // The old health belonged to the old route: start fresh, and let use and the canary find what fails. The
+        // starting route's sending has not been proven by a real send on this account, so the next send of each kind
+        // is checked in Sent, as after a relearn.
         for (const account of config.accounts.filter((a) => a.provider === key)) {
-            for (const operation of OPERATION_NAMES) health.set(account.address, operation, { state: 'healthy', last_error: null, send_unconfirmed: false });
+            for (const operation of OPERATION_NAMES) {
+                health.set(account.address, operation, { state: 'healthy', last_error: null, send_unconfirmed: operation === 'compose_send' || operation === 'reply' });
+            }
         }
         log(`[routes] ${provider} route reset to its starting route as ${version}`);
         return version;

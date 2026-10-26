@@ -148,7 +148,8 @@ function paramsFor(operation: OperationName, first: ExtractedRecord | null, draf
         case 'check_sent':
             return {};
         case 'compose_send':
-            return { '$draft.to': account, '$draft.subject': CANARY_SUBJECT, '$draft.body': CANARY_BODY };
+            // The account is also in Cc, so every test also proves the steps that enter and check Cc recipients.
+            return { '$draft.to': account, '$draft.cc': account, '$draft.subject': CANARY_SUBJECT, '$draft.body': CANARY_BODY };
         case 'open_message':
             return first ? { $message_id: first.id! } : null;
         case 'read_thread':

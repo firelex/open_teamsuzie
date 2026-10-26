@@ -8,6 +8,8 @@ import type { Route } from '@teamsuzie/webmail-routes';
  * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step). Each recipient is
  * entered by picking Outlook's suggestion for the typed address: Enter pressed before the suggestions appear makes no
  * recipient, and the chip then shows only the contact's name, which the recipient check accepts for that address.
+ * Cc recipients go into the Cc field the same way (only when the message has any); Bcc is not set up, so a message
+ * with Bcc stops at the recipient check before sending.
  * Tests discard a new message or reply with the draft's own Discard button (Esc may only close the suggestion list),
  * then OK if Outlook asks for confirmation. list_test_drafts and the search-results state are as relearned on that account. List subjects are read from a generated class name (TtcXM), which
  * is likely to change with a future Outlook build; the failure checks then relearn it.
@@ -419,6 +421,19 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                     }
                 },
                 {
+                    "type": {
+                        "css": "div[aria-label=\"Cc\"]",
+                        "within": "compose_open"
+                    },
+                    "value": "$draft.cc",
+                    "each_address": true,
+                    "pick_suggestion": {
+                        "role": "option",
+                        "each": true
+                    },
+                    "only_if": "$draft.cc"
+                },
+                {
                     "fill": {
                         "role": "textbox",
                         "name_pattern": "^(Add a subject|Subject)$",
@@ -439,6 +454,11 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                     "verify_recipients": {
                         "to": {
                             "css": "div[aria-label=\"To\"]",
+                            "each": true,
+                            "within": "compose_open"
+                        },
+                        "cc": {
+                            "css": "div[aria-label=\"Cc\"]",
                             "each": true,
                             "within": "compose_open"
                         },

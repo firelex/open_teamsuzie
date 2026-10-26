@@ -42,6 +42,10 @@
     <span id="chips"></span>
     <input type="text" role="combobox" aria-label="To recipients" id="to" aria-controls="suggestions">
   </div>
+  <div>
+    <span id="cc-chips"></span>
+    <input type="text" role="combobox" aria-label="Cc recipients" id="cc">
+  </div>
   <div><input type="text" aria-label="Subject" id="subject"></div>
   <div contenteditable="true" role="textbox" aria-label="Message Body" id="body"></div>
   <button id="send">Send</button>
@@ -256,11 +260,21 @@ document.getElementById('to').addEventListener('keydown', (e) => {
     if (e.key !== 'Tab') e.preventDefault();
   }
 });
+document.getElementById('cc').addEventListener('keydown', (e) => {
+  const value = e.target.value.trim();
+  if ((e.key === 'Tab' || e.key === 'Enter' || e.key === ',') && value && e.isTrusted) {
+    addChip(document.getElementById('cc-chips'), value);
+    e.target.value = '';
+    if (e.key !== 'Tab') e.preventDefault();
+  }
+});
 function closeDialog() {
   showRibbonTab('home');
   document.getElementById('dialog').classList.add('hidden');
   document.getElementById('chips').innerHTML = '';
+  document.getElementById('cc-chips').innerHTML = '';
   document.getElementById('to').value = '';
+  document.getElementById('cc').value = '';
   document.getElementById('subject').value = '';
   document.getElementById('body').innerText = '';
 }
@@ -297,7 +311,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 document.getElementById('send').addEventListener('click', () => {
-  recordSend(chipsIn(document.getElementById('dialog')).join(', '), document.getElementById('subject').value, document.getElementById('body').innerText);
+  recordSend(chipsIn(document.getElementById('chips')).join(', '), document.getElementById('subject').value, document.getElementById('body').innerText);
+  window.__sent[window.__sent.length - 1].cc = chipsIn(document.getElementById('cc-chips')).join(', ');
   closeDialog();
 });
 document.getElementById('discard').addEventListener('click', () => {

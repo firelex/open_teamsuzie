@@ -80,7 +80,11 @@ export interface TextCheck {
     contains: string;
 }
 
-export type Step =
+/**
+ * `only_if` (any step but a commit step): run the step only when the job has a non-empty value for this placeholder,
+ * for example "$draft.cc" for the steps that enter Cc recipients.
+ */
+export type Step = { only_if?: string } & (
     | { goto: string; expect?: string }
     | { click: Target; commits?: boolean; expect?: string }
     | { fill: Target; value: string; expect?: string }
@@ -96,7 +100,8 @@ export type Step =
     | { wait_for: string }
     | { extract: ExtractSpec; as: string }
     | { verify_recipients: RecipientCheck }
-    | { verify_text: TextCheck };
+    | { verify_text: TextCheck }
+);
 
 export const STEP_ACTIONS = ['goto', 'click', 'fill', 'type', 'press', 'scroll', 'wait_for', 'extract', 'verify_recipients', 'verify_text'] as const;
 

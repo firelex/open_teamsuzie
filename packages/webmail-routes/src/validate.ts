@@ -319,7 +319,11 @@ function checkStep(step: unknown, path: string, ctx: TargetContext, domains: str
         return false;
     }
     const action = actions[0]!;
-    for (const key of Object.keys(step)) if (!STEP_KEYS[action]!.has(key)) add(`${path} has unknown key "${key}"`);
+    for (const key of Object.keys(step)) if (key !== 'only_if' && !STEP_KEYS[action]!.has(key)) add(`${path} has unknown key "${key}"`);
+    if (step.only_if !== undefined) {
+        if (typeof step.only_if !== 'string' || !isPlaceholder(step.only_if)) add(`${path}.only_if must be one of the placeholders, such as "$draft.cc"`);
+        if (step.commits === true) add(`${path} is a commit step and cannot have only_if`);
+    }
     if (step.expect !== undefined) checkStateRef(step.expect, `${path}.expect`, ctx);
 
     switch (action) {

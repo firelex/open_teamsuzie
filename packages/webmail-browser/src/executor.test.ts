@@ -102,7 +102,7 @@ describe('RouteExecutor', () => {
 
     it('reads adjacent recipient chips as separate addresses', async () => {
         // The fixture renders chips with no space between them; read the whole To area at once.
-        const recipients = route.operations.compose_send.steps[5]!;
+        const recipients = route.operations.compose_send.steps[6]!;
         if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
         recipients.verify_recipients = { to: { css: '#chips', each: true, within: 'compose_open' }, from: 'text' };
         await executor.run(route, 'compose_send', draft, 'test');
@@ -112,7 +112,7 @@ describe('RouteExecutor', () => {
     it('reads addresses a chip keeps only in an attribute, waiting for the chips to be drawn', async () => {
         // The chips show names ("Carol") a moment after each address is entered; the address is in the tooltip.
         await fixture.page.evaluate(() => { (window as unknown as { __namedChips: boolean }).__namedChips = true; });
-        const recipients = route.operations.compose_send.steps[5]!;
+        const recipients = route.operations.compose_send.steps[6]!;
         if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
         recipients.verify_recipients = { to: { css: '#chips', each: true, within: 'compose_open' }, from: 'text' };
         await executor.run(route, 'compose_send', draft, 'live');
@@ -120,7 +120,7 @@ describe('RouteExecutor', () => {
     });
 
     it('shows the markup of the recipient field when no address can be read in it', async () => {
-        const recipients = route.operations.compose_send.steps[5]!;
+        const recipients = route.operations.compose_send.steps[6]!;
         if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
         recipients.verify_recipients = { to: { role: 'textbox', name: 'Subject', within: 'compose_open' }, from: 'text' };
         const error = await routeError(executor.run(route, 'compose_send', draft, 'test'));
@@ -138,7 +138,7 @@ describe('RouteExecutor', () => {
         if (!('type' in to)) throw new Error('fixture changed');
         delete to.then_press;
         to.pick_suggestion = { role: 'option', each: true };
-        const recipients = route.operations.compose_send.steps[5]!;
+        const recipients = route.operations.compose_send.steps[6]!;
         if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
         recipients.verify_recipients = { to: { css: '#chips', each: true, within: 'compose_open' }, from: 'text' };
         await executor.run(route, 'compose_send', draft, 'live');
@@ -157,12 +157,30 @@ describe('RouteExecutor', () => {
         expect((await fixtureActivity(fixture.page)).sendClicks).toBe(0);
     });
 
+    it('runs an only_if step only when the job has a value for its placeholder', async () => {
+        // A Cc step whose field does not exist: skipped without Cc, and fails loudly with Cc.
+        route.operations.compose_send.steps.splice(3, 0, { type: { css: '#no-cc-field', within: 'compose_open' }, value: '$draft.cc', each_address: true, then_press: 'Tab', only_if: '$draft.cc' });
+        await executor.run(route, 'compose_send', draft, 'test');
+        await executor.run(route, 'compose_send', { ...draft, '$draft.cc': '  ' }, 'test');
+        const error = await routeError(executor.run(route, 'compose_send', { ...draft, '$draft.cc': 'erin@example.com' }, 'test'));
+        expect(error).toMatchObject({ code: 'target_not_found', stepIndex: 3 });
+    });
+
+    it('enters and checks Cc recipients when the message has them', async () => {
+        await executor.run(route, 'compose_send', { ...draft, '$draft.cc': 'erin@example.com' }, 'live');
+        const sent = await fixture.page.evaluate(() => (window as unknown as { __sent: Array<{ to: string; cc: string }> }).__sent);
+        expect(sent.map((m) => [m.to, m.cc])).toEqual([['carol@example.com, dan@example.com', 'erin@example.com']]);
+    });
+
     it('only reads the recipients when none were requested, as in a test of a reply', async () => {
         const result = await executor.run(route, 'reply', { $message_id: 'm1', '$draft.body': 'x' }, 'test');
         expect(result.extracted.recipients).toEqual({ to: 'alice@example.com', cc: '', bcc: '' });
     });
 
     it('stops when the draft has cc recipients the route cannot see', async () => {
+        const recipients = route.operations.compose_send.steps[6]!;
+        if (!('verify_recipients' in recipients)) throw new Error('fixture changed');
+        delete recipients.verify_recipients.cc;
         const error = await routeError(executor.run(route, 'compose_send', { ...draft, '$draft.cc': 'eve@example.com' }, 'test'));
         expect(error.code).toBe('recipients_mismatch');
     });
@@ -224,7 +242,7 @@ describe('RouteExecutor', () => {
 
     it('opens compose and sends with keyboard shortcuts, and never presses a sending key in test mode', async () => {
         route.operations.compose_send.steps[1] = { press: 'c', expect: 'compose_open' };
-        route.operations.compose_send.steps[6] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
+        route.operations.compose_send.steps[7] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
         await executor.run(route, 'compose_send', draft, 'test');
         expect(await fixtureActivity(fixture.page)).toMatchObject({ sendClicks: 0, discards: 1 });
         await executor.run(route, 'compose_send', draft, 'live');
@@ -232,7 +250,7 @@ describe('RouteExecutor', () => {
     });
 
     it('discards a draft left open and checks the discard, also when Send and discard are keyboard shortcuts', async () => {
-        route.operations.compose_send.steps[6] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
+        route.operations.compose_send.steps[7] = { press: 'ControlOrMeta+Enter', commits: true, expect: 'inbox_list' };
         // With Send as a key press, the draft is still recognised through the recipient check's state.
         await fixture.page.getByRole('button', { name: 'Compose' }).click();
         await executor.run(route, 'list_inbox', {}, 'live');
@@ -291,7 +309,7 @@ describe('RouteExecutor', () => {
     });
 
     it('discards its draft straight away when a run fails after the draft was opened', async () => {
-        route.operations.compose_send.steps[3] = { fill: { role: 'textbox', name: 'Topic', within: 'compose_open' }, value: '$draft.subject' };
+        route.operations.compose_send.steps[4] = { fill: { role: 'textbox', name: 'Topic', within: 'compose_open' }, value: '$draft.subject' };
         const error = await routeError(executor.run(route, 'compose_send', draft, 'live'));
         expect(error.code).toBe('target_not_found');
         expect(await fixture.page.getByRole('dialog', { name: 'New Message' }).isVisible()).toBe(false);

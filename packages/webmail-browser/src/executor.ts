@@ -272,6 +272,8 @@ export class RouteExecutor {
             const step = steps[index]!;
             // The commit step (Send, by click or by key) is never run in test mode.
             if (mode === 'test' && phase === 'steps' && ('click' in step || 'press' in step) && step.commits === true) return;
+            // A step for an optional part of the job (such as Cc recipients) runs only when the job has that part.
+            if (step.only_if !== undefined && !params[step.only_if as keyof Params]?.trim()) continue;
             if (index > 0 || phase === 'test_end') await this.opts.behaviour.betweenSteps();
             this.checkSignedIn(route);
             const started = Date.now();
