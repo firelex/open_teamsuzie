@@ -13,7 +13,10 @@ export const OPERATION_GOALS: Record<OperationName, string> = {
         + 'page uses for it, the sender\'s email address, the subject and the date. Do not open any message.',
     open_message:
         'Open the message whose id is given as $message_id (the same id list_inbox reads), and read its subject, the '
-        + 'sender\'s email address, the date, the recipients if shown, and the full body text of that message.',
+        + 'sender\'s email address, the date, the recipients if shown, and the full body text of that message. The opened '
+        + 'message may show a known sender only by name; the message\'s own row in the message list (which stays on the '
+        + 'page) often keeps the address, for example in a title attribute, so read the address from there when the '
+        + 'opened message does not show it.',
     read_thread:
         'Open the conversation whose id is given as $thread_id and read every message in it: for each, the id the page '
         + 'uses for that message, the sender\'s email address, the date and, where the message is expanded, its body text.',

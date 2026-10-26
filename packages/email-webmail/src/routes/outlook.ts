@@ -8,6 +8,8 @@ import type { Route } from '@teamsuzie/webmail-routes';
  * message and R a reply, both inside the reading pane; Cmd/Ctrl+Enter sends (the commit step). Each recipient is
  * entered by picking Outlook's suggestion for the typed address: Enter pressed before the suggestions appear makes no
  * recipient, and the chip then shows only the contact's name, which the recipient check accepts for that address.
+ * open_message reads the sender's address from the message's row in the list, which keeps it in a tooltip: the
+ * reading pane shows a known contact's name only.
  * Cc recipients go into the Cc field the same way (only when the message has any); Bcc is not set up, so a message
  * with Bcc stops at the recipient check before sending.
  * Tests discard a new message or reply with the draft's own Discard button (Esc may only close the suggestion list),
@@ -233,14 +235,13 @@ export const OUTLOOK_SEED_ROUTE: Route = {
                                 "required": true
                             },
                             "from": {
-                                "target": {
-                                    "within": "message_open",
-                                    "css": "[id$=\"_FROM\"]"
-                                },
-                                "from": "text",
-                                "format": "email",
-                                "required": true
+                            "target": {
+                                "css": "[data-convid=\"$message_id\"] span[title*=\"@\"]"
                             },
+                            "from": "attr:title",
+                            "format": "email",
+                            "required": true
+                        },
                             "date": {
                                 "target": {
                                     "within": "message_open",
