@@ -18,4 +18,7 @@ export interface SharedAuthConfig {
         cookie_name: string;
     };
     default_user_id: string;
+    /** Whether anyone may create an account with POST /register. When false, accounts are created by an admin
+     *  (apps/platform/auth: `pnpm create-user`). */
+    allow_registration: boolean;
 }

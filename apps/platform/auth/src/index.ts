@@ -29,6 +29,7 @@ const sharedAuthConfig: SharedAuthConfig = {
     cookie: config.cookie,
     csrf: config.csrf,
     default_user_id: config.default_user_id,
+    allow_registration: process.env.AUTH_ALLOW_REGISTRATION === 'true',
 };
 
 // Middleware

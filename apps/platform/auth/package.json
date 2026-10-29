@@ -9,7 +9,8 @@
     "dev": "tsx watch src/bootstrap.ts",
     "build": "tsc && cp -r src/oidc/views dist/oidc/views",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create-user": "tsx src/create-user.ts"
   },
   "dependencies": {
     "@teamsuzie/shared-auth": "workspace:*",

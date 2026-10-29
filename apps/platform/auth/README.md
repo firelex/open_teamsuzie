@@ -26,6 +26,17 @@ DELETE /tokens/:id           (revoke a bearer token)
 
 `POST /login` and `POST /register` support `issue_bearer_token: true` in the JSON body for app/mobile clients. When that flag is present, the auth service bypasses the browser-oriented CSRF check and returns a one-time `access_token` in the response.
 
+## Accounts
+
+Registration is closed unless `AUTH_ALLOW_REGISTRATION=true`: `POST /register` then answers 403. An admin creates
+accounts on the machine that runs the service, from this folder:
+
+```
+pnpm create-user anna@example.com "Anna Smith"          # add "admin" for an admin
+```
+
+The password is asked for and not shown (at least 12 characters).
+
 ## Configuration
 
 See `.env.example` at the repo root. Critical variables:

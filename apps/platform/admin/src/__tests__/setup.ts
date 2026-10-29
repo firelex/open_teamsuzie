@@ -81,6 +81,7 @@ function buildTestConfig(): { config: typeof ProductionConfig; sharedAuthConfig:
       cookie_name: 'TEST-CSRF-TOKEN',
     },
     default_user_id: '00000000-0000-0000-0000-000000000000',
+    allow_registration: false,
   };
 
   return { config, sharedAuthConfig };

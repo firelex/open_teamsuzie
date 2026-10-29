@@ -51,4 +51,6 @@ export const sharedAuthConfig: SharedAuthConfig = {
     cookie_name: process.env.CSRF_COOKIE_NAME || 'DEV-CSRF-TOKEN',
   },
   default_user_id: process.env.DEFAULT_USER_ID || '00000000-0000-0000-0000-000000000000',
+  // A starter to try things out locally: anyone may sign up.
+  allow_registration: true,
 };
