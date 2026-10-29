@@ -7,7 +7,7 @@ import cors from 'cors';
 import config from './config/index.js';
 import {
     SequelizeService, SessionService, CsrfMiddleware,
-    User, Organization, OrganizationMember, Agent, AgentProfile, UserAccessToken,
+    User, Organization, OrganizationMember, OrgDomain, Agent, AgentProfile, UserAccessToken,
     createAuthRouter,
     createRequestId,
     UserService,
@@ -46,7 +46,7 @@ type ModelWithAssociate = ModelCtor & { associate: (models: unknown) => void };
 const migrationsPath = path.join(__dirname, 'migrations/sequelize');
 const sequelizeService = new SequelizeService(
     sharedAuthConfig,
-    [User, Organization, OrganizationMember, AgentProfile, Agent, UserAccessToken] as ModelWithAssociate[],
+    [User, Organization, OrganizationMember, OrgDomain, AgentProfile, Agent, UserAccessToken] as ModelWithAssociate[],
     migrationsPath
 );
 await sequelizeService.init(true);
