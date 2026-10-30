@@ -16,6 +16,7 @@ import {
 import type { ModelCtor } from 'sequelize-typescript';
 import { buildOidcProvider } from './oidc/Provider.js';
 import { buildInteractionsRouter } from './oidc/interactions.js';
+import { loadClientRegistry } from './oidc/clients.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,7 +34,16 @@ const sharedAuthConfig: SharedAuthConfig = {
 
 // Middleware
 app.use(createRequestId());
-app.use(helmet());
+// The sign-in form's POST ends in a redirect to the client's callback, and browsers apply form-action to every hop,
+// so helmet's default form-action 'self' blocks the return to the client. Allow the registered redirect origins too.
+const clientRedirectOrigins = [...new Set(
+    loadClientRegistry(process.env).flatMap(c => c.redirect_uris).map(u => new URL(u).origin)
+)];
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: { formAction: ["'self'", ...clientRedirectOrigins] },
+    },
+}));
 app.use(cors({
     origin: config.cors_origins,
     credentials: true,
