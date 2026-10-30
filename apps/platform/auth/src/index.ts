@@ -15,6 +15,7 @@ import {
 } from '@teamsuzie/shared-auth';
 import type { ModelCtor } from 'sequelize-typescript';
 import { buildOidcProvider } from './oidc/Provider.js';
+import { loadClientRegistry } from './oidc/clients.js';
 import { buildInteractionsRouter } from './oidc/interactions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -34,7 +35,11 @@ const sharedAuthConfig: SharedAuthConfig = {
 
 // Middleware
 app.use(createRequestId());
-app.use(helmet());
+// The sign-in form posts here, and the answer redirects on to the app that asked (a registered client's redirect URI).
+// Browsers apply form-action to those redirects too, so helmet's default ('self') would block every sign-in: the
+// registered clients' origins are allowed as well.
+const clientOrigins = [...new Set(loadClientRegistry(process.env).flatMap((c) => c.redirect_uris.map((u) => new URL(u).origin)))];
+app.use(helmet({ contentSecurityPolicy: { directives: { formAction: ["'self'", ...clientOrigins] } } }));
 app.use(cors({
     origin: config.cors_origins,
     credentials: true,

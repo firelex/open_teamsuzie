@@ -72,6 +72,15 @@ const database = new SequelizeService(
 );
 // Connect directly so a database that cannot be reached stops the command with its own error.
 await database.getSequelize().authenticate();
-const user = await new UserService(sharedAuthConfig).create(email, password, name, role === 'admin' ? 'admin' : 'user');
+let user;
+try {
+    user = await new UserService(sharedAuthConfig).create(email, password, name, role === 'admin' ? 'admin' : 'user');
+} catch (e) {
+    // The user service's own refusals (an email already taken) carry code 400: said plainly; anything else is raised.
+    if ((e as { code?: number }).code !== 400) throw e;
+    console.error(`Not created: ${(e as Error).message}.`);
+    await database.getSequelize().close();
+    process.exit(1);
+}
 console.log(`Created ${user.email} (${user.name}), id ${user.id}${role === 'admin' ? ', an admin' : ''}.`);
 await database.getSequelize().close();
