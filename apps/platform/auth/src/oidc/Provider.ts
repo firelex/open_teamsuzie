@@ -108,7 +108,7 @@ export async function buildOidcProvider(opts: BuildProviderOptions): Promise<Pro
       };
     },
     cookies: {
-      keys: [env.OIDC_COOKIE_SECRET ?? 'dev-cookie-secret-rotate-me'],
+      keys: oidcCookieKeys(env),
     },
     interactions: {
       url: (_ctx, interaction) => `/oauth/interaction/${interaction.uid}`,
@@ -153,6 +153,19 @@ export async function buildOidcProvider(opts: BuildProviderOptions): Promise<Pro
   };
 
   return new Provider(opts.issuer, config);
+}
+
+/**
+ * Keys that sign the provider's own cookies (sign-in interaction and session). The development fallback is public, so
+ * in production OIDC_COOKIE_SECRET must be set, as COOKIE_SECRET must.
+ */
+export function oidcCookieKeys(env: NodeJS.ProcessEnv | Record<string, string | undefined>): string[] {
+  const secret = env.OIDC_COOKIE_SECRET?.trim();
+  if (secret) return [secret];
+  if (env.NODE_ENV === 'production') {
+    throw new Error('OIDC_COOKIE_SECRET environment variable is required in production');
+  }
+  return ['dev-cookie-secret-rotate-me'];
 }
 
 function formatErrorDetails(out: object): string {
