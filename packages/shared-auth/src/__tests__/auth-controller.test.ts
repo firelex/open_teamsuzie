@@ -118,3 +118,78 @@ describe('register', () => {
         expect(users.create).not.toHaveBeenCalled();
     });
 });
+
+describe('GET /users', () => {
+    it('answers 401 without a session or token, and lists nothing', async () => {
+        const { controller, users } = makeController();
+        const out = await call(controller.listUsers, fakeReq());
+        expect(out.statusCode).toBe(401);
+        expect(users.findAll).not.toHaveBeenCalled();
+    });
+
+    it('answers 401 for a bearer token that does not verify', async () => {
+        const { controller, users } = makeController();
+        const out = await call(controller.listUsers, fakeReq({ bearer: 'tsu_forged' }));
+        expect(out.statusCode).toBe(401);
+        expect(users.findAll).not.toHaveBeenCalled();
+    });
+
+    it('answers 403 for a signed-in user who is not an admin', async () => {
+        const { controller, users } = makeController();
+        const out = await call(controller.listUsers, fakeReq({ userId: ALICE.id }));
+        expect(out.statusCode).toBe(403);
+        expect(users.findAll).not.toHaveBeenCalled();
+    });
+
+    it('answers 401 for a session whose user no longer exists', async () => {
+        const { controller } = makeController();
+        const out = await call(controller.listUsers, fakeReq({ userId: 'u-deleted' }));
+        expect(out.statusCode).toBe(401);
+    });
+
+    it('lists users for an admin, by session or by bearer token', async () => {
+        const { controller } = makeController();
+        const bySession = await call(controller.listUsers, fakeReq({ userId: ADMIN.id }));
+        expect(bySession.statusCode).toBe(200);
+        expect(bySession.body).toEqual({ users: expect.arrayContaining([expect.objectContaining({ id: ALICE.id })]) });
+
+        const byToken = await call(controller.listUsers, fakeReq({ bearer: 'tsu_admin_token' }));
+        expect(byToken.statusCode).toBe(200);
+    });
+});
+
+describe('GET /users/by-email/:email', () => {
+    const lookup = (email: string, who: { userId?: string; bearer?: string } = {}) =>
+        fakeReq({ ...who, params: { email } });
+
+    it('answers 401 without a session or token, whether or not the address exists', async () => {
+        const { controller, users } = makeController();
+        expect((await call(controller.lookupByEmail, lookup(BOB.email))).statusCode).toBe(401);
+        expect((await call(controller.lookupByEmail, lookup('nobody@example.com'))).statusCode).toBe(401);
+        expect(users.findByEmail).not.toHaveBeenCalled();
+    });
+
+    it("answers 403 for another user's address, whether or not it exists", async () => {
+        const { controller, users } = makeController();
+        expect((await call(controller.lookupByEmail, lookup(BOB.email, { userId: ALICE.id }))).statusCode).toBe(403);
+        expect((await call(controller.lookupByEmail, lookup('nobody@example.com', { userId: ALICE.id }))).statusCode).toBe(403);
+        expect(users.findByEmail).not.toHaveBeenCalled();
+    });
+
+    it('lets a user look up their own record', async () => {
+        const { controller } = makeController();
+        const out = await call(controller.lookupByEmail, lookup(ALICE.email, { userId: ALICE.id }));
+        expect(out.statusCode).toBe(200);
+        expect(out.body).toEqual({ user: ALICE });
+    });
+
+    it('lets an admin look up anyone, and says 404 for an unknown address', async () => {
+        const { controller } = makeController();
+        const found = await call(controller.lookupByEmail, lookup(BOB.email, { userId: ADMIN.id }));
+        expect(found.statusCode).toBe(200);
+        expect(found.body).toEqual({ user: BOB });
+
+        const missing = await call(controller.lookupByEmail, lookup('nobody@example.com', { bearer: 'tsu_admin_token' }));
+        expect(missing.statusCode).toBe(404);
+    });
+});
