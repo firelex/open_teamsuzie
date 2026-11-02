@@ -105,6 +105,8 @@
     }
     button.primary:hover { opacity: 0.9; }
     button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .note { color: var(--muted); font-size: 0.8125rem; text-align: center; margin: 1.25rem 0 0; }
+    .note:empty { display: none; }
   </style>
 </head>
 <body>
@@ -141,6 +143,7 @@
           </div>
           <button type="submit" class="primary">Sign in</button>
         </form>
+        <p class="note">{{note}}</p>
       </div>
     </main>
   </div>

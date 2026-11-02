@@ -30,6 +30,7 @@ const sharedAuthConfig: SharedAuthConfig = {
     cookie: config.cookie,
     csrf: config.csrf,
     default_user_id: config.default_user_id,
+    registration: config.registration,
 };
 
 // Middleware
@@ -76,7 +77,7 @@ const provider = await buildOidcProvider({
     sequelize: sequelizeService.getSequelize() as unknown as import('sequelize').Sequelize,
 });
 provider.proxy = true;
-app.use(buildInteractionsRouter(provider, verifyUserPassword));
+app.use(buildInteractionsRouter(provider, verifyUserPassword, { registration: config.registration.mode }));
 
 const csrfMiddleware = new CsrfMiddleware(sharedAuthConfig);
 
@@ -91,6 +92,8 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.get('/config', (_req, res) => {
     res.json({
         csrf_cookie_name: config.csrf.cookie_name,
+        // Lets a client hide or show its sign-up form. The domain list itself is not published.
+        registration: config.registration.mode,
     });
 });
 

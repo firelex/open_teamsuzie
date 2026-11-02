@@ -1,3 +1,5 @@
+import { parseRegistrationPolicy, type RegistrationPolicy } from '@teamsuzie/shared-auth';
+
 export interface AuthConfig {
     port: number;
     node_env: string;
@@ -8,6 +10,8 @@ export interface AuthConfig {
     default_user_id: string;
     cors_origins: string[];
     oidc: { issuer: string; jwkPath: string };
+    /** AUTH_REGISTRATION / AUTH_REGISTRATION_DOMAINS: closed unless set. */
+    registration: RegistrationPolicy;
 }
 
 const config: AuthConfig = {
@@ -38,6 +42,7 @@ const config: AuthConfig = {
         issuer: process.env.OIDC_ISSUER_URL ?? `http://localhost:${process.env.PORT ?? 3005}`,
         jwkPath: process.env.OIDC_SIGNING_KEY_PATH ?? './data/oidc/keys.json',
     },
+    registration: parseRegistrationPolicy(process.env),
 };
 
 export default config;
