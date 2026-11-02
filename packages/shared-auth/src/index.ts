@@ -63,5 +63,14 @@ export { default as AuthController } from './controllers/auth.js';
 // Routes
 export { createAuthRouter } from './routes/auth.js';
 
+// Registration policy
+export {
+    parseRegistrationPolicy,
+    checkRegistration,
+    type RegistrationMode,
+    type RegistrationPolicy,
+    type RegistrationDecision,
+} from './utils/registration.js';
+
 // Types
 export type { SharedAuthConfig } from './types.js';

@@ -5,6 +5,7 @@ import { OrgDomain } from '../models/org-domain.js';
 import { User } from '../models/user.js';
 import UserService from '../services/user.js';
 import type { SharedAuthConfig } from '../types.js';
+import { checkRegistration, type RegistrationPolicy } from '../utils/registration.js';
 
 const PUBLIC_EMAIL_DOMAINS = new Set([
     'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com',
@@ -16,9 +17,11 @@ const PUBLIC_EMAIL_DOMAINS = new Set([
 export default class AuthController {
 
     private userService: UserService;
+    private registration: RegistrationPolicy | undefined;
 
     constructor(config: SharedAuthConfig) {
         this.userService = new UserService(config);
+        this.registration = config.registration;
     }
 
     private extractBearerToken(req: Request): string | null {
@@ -314,7 +317,14 @@ export default class AuthController {
         try {
             const { email, password, name } = req.body;
 
-            if (!email || !password || !name) {
+            const decision = checkRegistration(this.registration, typeof email === 'string' ? email : '');
+            if (!decision.allowed) {
+                res.status(403).json({ message: decision.message });
+                return;
+            }
+
+            if (!email || !password || !name
+                || typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string') {
                 res.status(400).json({ message: 'Email, password, and name are required' });
                 return;
             }
