@@ -4,6 +4,7 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type Provider from 'oidc-provider';
 import { buildInteractionsRouter, type InteractionsOptions, type VerifyPassword } from './interactions.js';
+import { AttemptLimiter } from '../security/attempt-limiter.js';
 
 // A stand-in for oidc-provider: every interaction is a login prompt, and finishing one redirects.
 function fakeProvider() {
@@ -80,5 +81,37 @@ describe('sign-in page', () => {
     const ok = await postLogin(base, 'abc', 'alice@example.com', 'correct-password');
     expect(ok.status).toBe(303);
     expect(provider.interactionFinished).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('sign-in attempt limit', () => {
+  it('refuses with 429 after too many wrong passwords for an account, without checking the password', async () => {
+    const verify = vi.fn(verifyAlice);
+    const limiter = new AttemptLimiter({ windowMs: 60_000, maxPerIp: 100, maxPerAccount: 3 });
+    const { base, provider } = await start(verify, { limiter });
+    for (let i = 0; i < 3; i++) expect((await postLogin(base, 'abc', 'alice@example.com', 'wrong')).status).toBe(401);
+
+    const refused = await postLogin(base, 'abc', 'alice@example.com', 'correct-password');
+    expect(refused.status).toBe(429);
+    expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(await refused.text()).toContain('Too many sign-in attempts');
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(provider.interactionFinished).not.toHaveBeenCalled();
+  });
+
+  it('refuses with 429 after too many attempts from one address, across accounts', async () => {
+    const limiter = new AttemptLimiter({ windowMs: 60_000, maxPerIp: 2, maxPerAccount: 100 });
+    const { base } = await start(verifyAlice, { limiter });
+    expect((await postLogin(base, 'abc', 'x@example.com', 'wrong')).status).toBe(401);
+    expect((await postLogin(base, 'abc', 'y@example.com', 'wrong')).status).toBe(401);
+    expect((await postLogin(base, 'abc', 'z@example.com', 'wrong')).status).toBe(429);
+  });
+
+  it('does not count successful sign-ins', async () => {
+    const limiter = new AttemptLimiter({ windowMs: 60_000, maxPerIp: 2, maxPerAccount: 2 });
+    const { base } = await start(verifyAlice, { limiter });
+    for (let i = 0; i < 5; i++) {
+      expect((await postLogin(base, 'abc', 'alice@example.com', 'correct-password')).status).toBe(303);
+    }
   });
 });

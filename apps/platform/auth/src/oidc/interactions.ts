@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Provider from 'oidc-provider';
 import type { RegistrationMode } from '@teamsuzie/shared-auth';
+import { clientAddress, type AttemptLimiter } from '../security/attempt-limiter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOGIN_HTML = readFileSync(join(__dirname, 'views/login.html'), 'utf8');
@@ -29,6 +30,8 @@ export type VerifyPassword = (email: string, password: string) => Promise<{ id: 
 export interface InteractionsOptions {
   /** Shown on the sign-in page: with 'closed' (the default) it says that an administrator creates accounts. */
   registration?: RegistrationMode;
+  /** Counts sign-in attempts per client address and per email; a successful sign-in is given back. */
+  limiter?: AttemptLimiter;
 }
 
 const CLOSED_NOTE = 'Accounts are created by an administrator. Ask yours if you need one.';
@@ -84,7 +87,17 @@ export function buildInteractionsRouter(
 
   r.post('/oauth/interaction/:uid/login', async (req: Request, res: Response) => {
     const { email, password } = req.body ?? {};
+    const attempt = options.limiter?.attempt(clientAddress(req), typeof email === 'string' ? email : undefined);
+    if (attempt && !attempt.allowed) {
+      res.setHeader('Retry-After', String(attempt.retryAfterSeconds));
+      res.status(429).type('html').send(renderLogin(
+        String(req.params.uid),
+        `Too many sign-in attempts. Try again in ${attempt.retryAfterSeconds} seconds.`,
+      ));
+      return;
+    }
     const account = await verifyPassword(String(email ?? ''), String(password ?? ''));
+    if (account && attempt?.allowed) attempt.release();
     if (!account) {
       res.status(401).type('html').send(renderLogin(String(req.params.uid), 'Invalid email or password'));
       return;

@@ -12,6 +12,28 @@ export interface AuthConfig {
     oidc: { issuer: string; jwkPath: string };
     /** AUTH_REGISTRATION / AUTH_REGISTRATION_DOMAINS: closed unless set. */
     registration: RegistrationPolicy;
+    /** Limits on sign-in and on registration attempts, each counted per client address and per email. */
+    rate_limit: { window_ms: number; max_per_ip: number; max_per_account: number };
+    /** Express 'trust proxy': set it behind a reverse proxy so the client address is the real one, not the proxy's. */
+    trust_proxy: boolean | number | string | undefined;
+}
+
+function positiveInt(name: string, fallback: number): number {
+    const raw = process.env[name];
+    if (raw === undefined || raw.trim() === '') return fallback;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be a positive whole number (got '${raw}')`);
+    return value;
+}
+
+/** AUTH_TRUST_PROXY: 'true' / 'false', a hop count, or addresses / subnets as Express accepts them. */
+function trustProxy(raw: string | undefined): boolean | number | string | undefined {
+    const value = raw?.trim();
+    if (!value) return undefined;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (/^\d+$/.test(value)) return Number(value);
+    return value;
 }
 
 const config: AuthConfig = {
@@ -43,6 +65,12 @@ const config: AuthConfig = {
         jwkPath: process.env.OIDC_SIGNING_KEY_PATH ?? './data/oidc/keys.json',
     },
     registration: parseRegistrationPolicy(process.env),
+    rate_limit: {
+        window_ms: positiveInt('AUTH_RATE_LIMIT_WINDOW_MS', 60_000),
+        max_per_ip: positiveInt('AUTH_RATE_LIMIT_MAX_PER_IP', 10),
+        max_per_account: positiveInt('AUTH_RATE_LIMIT_MAX_PER_ACCOUNT', 10),
+    },
+    trust_proxy: trustProxy(process.env.AUTH_TRUST_PROXY),
 };
 
 export default config;
