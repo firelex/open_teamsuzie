@@ -2886,6 +2886,31 @@ importers:
         specifier: ^4.0.18
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@25.0.1(canvas@3.2.3))(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
 
+  packages/web-research:
+    dependencies:
+      '@teamsuzie/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
+      turndown:
+        specifier: ^7.2.4
+        version: 7.2.4
+      undici:
+        specifier: ^7.10.0
+        version: 7.30.2
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      '@types/turndown':
+        specifier: ^5.0.6
+        version: 5.0.6
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@25.0.1(canvas@3.2.3))(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
+
   packages/work-runs:
     devDependencies:
       '@types/node':
@@ -8353,6 +8378,10 @@ packages:
 
   undici-types@7.19.2:
     resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
+
+  undici@7.30.2:
+    resolution: {integrity: sha512-mLyPQnHwUxaM/rideoK/+KL8DaAJLRl4aBCfmX444aCSLnIaomqPLtNRe2jdCYcsk5wZzXrDIQC8ZeYNRAYyIA==}
+    engines: {node: '>=20.18.1'}
 
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
@@ -14892,6 +14921,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici-types@7.19.2: {}
+
+  undici@7.30.2: {}
 
   unified@11.0.5:
     dependencies:
