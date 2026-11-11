@@ -64,9 +64,10 @@ describe('UserMemoryStore', () => {
     expect(await env.store.read('alice@example.com')).toBe('# Fresh start\n');
   });
 
-  it('resolvePath returns the slugified path without writing', async () => {
+  it('resolvePath returns the slug-and-hash path without writing', async () => {
     const fp = env.store.resolvePath('Alice@Example.com');
-    expect(fp).toBe(path.join(env.memoryDir, 'alice-example-com.md'));
+    expect(path.dirname(fp)).toBe(env.memoryDir);
+    expect(path.basename(fp)).toMatch(/^alice-example-com-[0-9a-f]{12}\.md$/);
     expect(await env.store.read('Alice@Example.com')).toBe(''); // not created
   });
 });
