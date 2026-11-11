@@ -102,3 +102,33 @@ export function verifyApiKey(providedKey: string, storedHash: string): boolean {
 export function generateSecureToken(length: number = 32): string {
   return crypto.randomBytes(length).toString('hex');
 }
+
+/**
+ * Ed25519 signing for tamper-evident exports. Keys are PEM strings:
+ * PKCS#8 for the private key, SPKI for the public key. A signature is
+ * base64 over the exact bytes signed.
+ */
+export function generateSigningKeyPair(): { privateKeyPem: string; publicKeyPem: string } {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+  return {
+    privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  };
+}
+
+/** Public key (SPKI PEM) of an Ed25519 private key. Throws on a bad key. */
+export function signingPublicKey(privateKeyPem: string): string {
+  const key = crypto.createPrivateKey(privateKeyPem);
+  if (key.asymmetricKeyType !== 'ed25519') {
+    throw new Error(`signing key must be Ed25519 (got ${key.asymmetricKeyType})`);
+  }
+  return crypto.createPublicKey(key).export({ type: 'spki', format: 'pem' }).toString();
+}
+
+export function signBytes(data: Buffer | string, privateKeyPem: string): string {
+  return crypto.sign(null, Buffer.from(data), crypto.createPrivateKey(privateKeyPem)).toString('base64');
+}
+
+export function verifySignature(data: Buffer | string, signatureB64: string, publicKeyPem: string): boolean {
+  return crypto.verify(null, Buffer.from(data), crypto.createPublicKey(publicKeyPem), Buffer.from(signatureB64, 'base64'));
+}
