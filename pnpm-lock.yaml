@@ -2553,6 +2553,9 @@ importers:
 
   packages/playbook:
     dependencies:
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../db-sqlite
       '@teamsuzie/document-conversion':
         specifier: workspace:*
         version: link:../document-conversion
