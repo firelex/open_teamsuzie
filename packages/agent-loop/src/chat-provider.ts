@@ -180,6 +180,11 @@ export async function* runChatTurn(opts: RunChatTurnOptions): AsyncGenerator<Cha
     : [...opts.messages];
   const openaiTools = toOpenAITools(tools);
   const maxIterations = opts.maxIterations ?? 6;
+  // Identical calls (same tool, same arguments) seen this turn. Smaller
+  // models sometimes loop on one call until the iteration cap; the third
+  // identical call is answered with a nudge instead of being run again.
+  const seenCalls = new Map<string, number>();
+  const MAX_IDENTICAL_CALLS = 2;
 
   for (let iter = 0; iter < maxIterations; iter++) {
     const reader = await streamChatCompletion(agent, messages, openaiTools, fetchImpl, signal);
@@ -212,18 +217,30 @@ export async function* runChatTurn(opts: RunChatTurnOptions): AsyncGenerator<Cha
 
     for (const call of pendingCalls) {
       let parsedArgs: unknown = {};
+      let argsError: string | null = null;
       try {
         parsedArgs = call.arguments ? JSON.parse(call.arguments) : {};
-      } catch {
-        parsedArgs = {};
+      } catch (err) {
+        // Never run a tool on arguments it did not get: tell the model.
+        argsError = `Your arguments for ${call.name} were not valid JSON (${err instanceof Error ? err.message : 'parse error'}). Send the call again with a valid JSON object.`;
       }
 
       yield { type: 'tool_call', id: call.id, name: call.name, args: parsedArgs };
 
       const tool = tools.find((t) => t.name === call.name);
       let resultPayload: unknown;
+      const callKey = `${call.name}\u0000${call.arguments ?? ''}`;
+      const timesSeen = (seenCalls.get(callKey) ?? 0) + 1;
+      seenCalls.set(callKey, timesSeen);
 
-      if (!tool) {
+      if (argsError) {
+        yield { type: 'tool_error', id: call.id, name: call.name, error: argsError };
+        resultPayload = { error: argsError };
+      } else if (timesSeen > MAX_IDENTICAL_CALLS) {
+        const errorMessage = `You have already called ${call.name} with exactly these arguments ${MAX_IDENTICAL_CALLS} times in this turn; the results are in the messages above. Use them, call a different tool, or answer the user.`;
+        yield { type: 'tool_error', id: call.id, name: call.name, error: errorMessage };
+        resultPayload = { error: errorMessage };
+      } else if (!tool) {
         const errorMessage = `Unknown tool: ${call.name}`;
         yield { type: 'tool_error', id: call.id, name: call.name, error: errorMessage };
         resultPayload = { error: errorMessage };
