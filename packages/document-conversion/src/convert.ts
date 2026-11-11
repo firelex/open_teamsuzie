@@ -1,4 +1,5 @@
 import { convertDocxToMarkdown, isDocxMimeType } from '@teamsuzie/markdown-document';
+import { convertPdfToMarkdown } from './pdf-native.js';
 import { convertPptxToMarkdown } from './pptx-native.js';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -23,7 +24,7 @@ export interface ConvertOptions {
 export interface ConvertResult {
   markdown: string;
   /** Backend used — useful for telemetry and debugging. */
-  backend: 'mammoth' | 'markitdown-agent' | 'pptx-native';
+  backend: 'mammoth' | 'markitdown-agent' | 'pptx-native' | 'pdf-native';
   /** Mammoth's conversion warnings, when present. */
   warnings?: Array<{ type: string; message: string }>;
 }
@@ -49,6 +50,12 @@ export async function convertToMarkdown(
     // to the caller verbatim so a malformed deck doesn't silently re-route.
     const { markdown } = convertPptxToMarkdown(bytes);
     return { markdown, backend: 'pptx-native' };
+  }
+  if (options.mime === 'application/pdf' || options.filename.toLowerCase().endsWith('.pdf')) {
+    // Native path: in-process text extraction, page-marked. A PDF without
+    // a text layer throws PdfHasNoTextError instead of yielding nothing.
+    const { markdown } = await convertPdfToMarkdown(bytes);
+    return { markdown, backend: 'pdf-native' };
   }
   return convertViaMarkitdownAgent(bytes, options);
 }

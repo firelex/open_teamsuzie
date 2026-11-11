@@ -12,14 +12,14 @@ function fakeStore(name: string, bytes: Buffer, mime: string): ConvertFileStore 
 describe('buildConvertToMarkdownTool', () => {
   it('returns markdown + source metadata on success', async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ filename: 'a.pdf', markdown: '# Hello' }), {
+      new Response(JSON.stringify({ filename: 'a.xlsx', markdown: '# Hello' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
     ) as unknown as typeof fetch;
 
     const tool = buildConvertToMarkdownTool({
-      fileStore: fakeStore('a.pdf', Buffer.from('binary'), 'application/pdf'),
+      fileStore: fakeStore('a.xlsx', Buffer.from('binary'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
       markitdownBaseUrl: 'http://md.test',
       fetchImpl,
     });
@@ -32,15 +32,15 @@ describe('buildConvertToMarkdownTool', () => {
 
     expect(result).toMatchObject({
       markdown: '# Hello',
-      source_filename: 'a.pdf',
-      mime_type: 'application/pdf',
+      source_filename: 'a.xlsx',
+      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
   it('errors when sessionId is missing from ctx', async () => {
     const tool = buildConvertToMarkdownTool({
-      fileStore: fakeStore('a.pdf', Buffer.from('x'), 'application/pdf'),
+      fileStore: fakeStore('a.xlsx', Buffer.from('x'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
       markitdownBaseUrl: 'http://md.test',
     });
     const result = await tool.execute(

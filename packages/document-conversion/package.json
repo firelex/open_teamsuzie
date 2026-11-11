@@ -1,7 +1,7 @@
 {
   "name": "@teamsuzie/document-conversion",
   "version": "0.1.0",
-  "description": "Facade over mammoth (DOCX→md) and markitdown-agent (everything else→md, md→DOCX/PDF)",
+  "description": "Facade over mammoth (DOCX\u2192md) and markitdown-agent (everything else\u2192md, md\u2192DOCX/PDF)",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +12,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -23,7 +25,8 @@
     "@teamsuzie/agent-loop": "workspace:*",
     "@teamsuzie/markdown-document": "workspace:*",
     "@teamsuzie/pdf": "workspace:*",
-    "adm-zip": "^0.5.17"
+    "adm-zip": "^0.5.17",
+    "pdfjs-dist": "4.8.69"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

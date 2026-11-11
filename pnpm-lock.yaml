@@ -1965,6 +1965,9 @@ importers:
       adm-zip:
         specifier: ^0.5.17
         version: 0.5.17
+      pdfjs-dist:
+        specifier: 4.8.69
+        version: 4.8.69
     devDependencies:
       '@types/adm-zip':
         specifier: ^0.5.8

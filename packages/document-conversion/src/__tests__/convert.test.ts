@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { convertToMarkdown } from '../convert.js';
 
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const PDF = 'application/pdf';
+// PDFs convert natively now; XLSX still goes through markitdown-agent.
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 describe('convertToMarkdown', () => {
   const baseUrl = 'http://localhost:3013';
@@ -19,12 +20,12 @@ describe('convertToMarkdown', () => {
     expect(typeof result.markdown).toBe('string');
   });
 
-  it('routes PDF through markitdown-agent /convert', async () => {
+  it('routes XLSX through markitdown-agent /convert', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ filename: 'x.pdf', markdown: '# Hello' }), { status: 200 })
+      new Response(JSON.stringify({ filename: 'x.xlsx', markdown: '# Hello' }), { status: 200 })
     );
     const bytes = new Uint8Array([1, 2, 3]);
-    const result = await convertToMarkdown(bytes, { mime: PDF, filename: 'x.pdf', markitdownAgentBaseUrl: baseUrl });
+    const result = await convertToMarkdown(bytes, { mime: XLSX, filename: 'x.xlsx', markitdownAgentBaseUrl: baseUrl });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const calledUrl = fetchSpy.mock.calls[0][0] as string;
     expect(calledUrl).toBe('http://localhost:3013/convert');
@@ -34,7 +35,7 @@ describe('convertToMarkdown', () => {
   it('handles markitdown-agent errors with a clear thrown error', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('boom', { status: 500 }));
     await expect(
-      convertToMarkdown(new Uint8Array([1]), { mime: PDF, filename: 'x.pdf', markitdownAgentBaseUrl: baseUrl })
+      convertToMarkdown(new Uint8Array([1]), { mime: XLSX, filename: 'x.xlsx', markitdownAgentBaseUrl: baseUrl })
     ).rejects.toThrow(/markitdown-agent.*500/);
   });
 

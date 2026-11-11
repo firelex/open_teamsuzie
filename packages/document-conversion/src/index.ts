@@ -18,3 +18,5 @@ export type { BuildGenerateOutputOptions, ReferenceLookupStoreLike } from './out
 
 // PACKAGE_VERSION retained for compatibility; remove in 0.2.
 export const PACKAGE_VERSION = '0.1.0';
+export { convertPdfToMarkdown, PdfHasNoTextError } from './pdf-native.js';
+export type { PdfNativeResult } from './pdf-native.js';
