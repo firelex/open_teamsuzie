@@ -24,6 +24,14 @@ export interface MembersStoreOptions {
     db: DatabaseInstance;
     idFactory?: () => string;
     now?: () => number;
+    /**
+     * Screening hook (e.g. ethical walls / information barriers): return a
+     * reason when `userId` must be kept out of `subject`, else null. A denied
+     * user gets no role from `getRole` / `canAccess`, the subject drops out of
+     * their `listSubjectsFor`, and `addMember` refuses them (error code
+     * 'member_denied'), whatever member rows exist.
+     */
+    deny?: (subject: SubjectRef, userId: string) => string | null;
 }
 
 /**
@@ -36,7 +44,10 @@ export class MembersStore {
     private readonly newId: () => string;
     private readonly clock: () => number;
 
+    private readonly deny?: (subject: SubjectRef, userId: string) => string | null;
+
     constructor(opts: MembersStoreOptions) {
+        this.deny = opts.deny;
         this.db = opts.db;
         this.newId = opts.idFactory ?? (() => randomUUID());
         this.clock = opts.now ?? (() => Date.now());
@@ -49,6 +60,10 @@ export class MembersStore {
      * stable across upserts.
      */
     addMember(input: AddMemberInput): Member {
+        const denied = this.deny?.({ type: input.subjectType, id: input.subjectId }, input.userId);
+        if (denied) {
+            throw Object.assign(new Error(denied), { code: 'member_denied' });
+        }
         if (!ROLES.includes(input.role)) {
             throw new Error(
                 `invalid role: ${input.role} (expected one of: ${ROLES.join(', ')})`,
@@ -146,7 +161,8 @@ export class MembersStore {
              ORDER BY granted_at DESC`,
         )
             .all(userId, subjectType)
-            .map(rowToMember);
+            .map(rowToMember)
+            .filter((m) => !this.deny?.({ type: m.subjectType, id: m.subjectId }, userId));
     }
 
     /**
@@ -154,6 +170,7 @@ export class MembersStore {
      * owner lookup. Returns null if the user has no member row.
      */
     getRole(subject: SubjectRef, userId: string): Role | null {
+        if (this.deny?.(subject, userId)) return null;
         const row = this.findByKey(subject.type, subject.id, userId);
         return row ? (row.role as Role) : null;
     }

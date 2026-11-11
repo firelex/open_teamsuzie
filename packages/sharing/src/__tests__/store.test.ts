@@ -320,3 +320,22 @@ describe('canAccess', () => {
         ).toBeNull();
     });
 });
+
+describe('deny (screening)', () => {
+    it('removes access, hides the subject and refuses new grants for a screened user', () => {
+        const screened = new Set(['m1|bob']);
+        const db = openDb({ path: ':memory:', migrations: SHARING_MIGRATIONS });
+        const store = new MembersStore({
+            db,
+            deny: (s, u) => (screened.has(`${s.id}|${u}`) ? 'ethical wall: conflict on Acme' : null),
+        });
+        store.addMember({ subjectType: 'matter', subjectId: 'm2', userId: 'bob', role: 'editor' });
+        screened.delete('m1|bob');
+        store.addMember({ subjectType: 'matter', subjectId: 'm1', userId: 'bob', role: 'editor' });
+        screened.add('m1|bob');
+        expect(store.getRole({ type: 'matter', id: 'm1' }, 'bob')).toBeNull();
+        expect(store.getRole({ type: 'matter', id: 'm2' }, 'bob')).toBe('editor');
+        expect(store.listSubjectsFor('bob', 'matter').map((m) => m.subjectId)).toEqual(['m2']);
+        expect(() => store.addMember({ subjectType: 'matter', subjectId: 'm1', userId: 'bob', role: 'viewer' })).toThrow(/ethical wall/);
+    });
+});
