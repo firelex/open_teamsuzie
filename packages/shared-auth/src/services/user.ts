@@ -168,7 +168,7 @@ export default class UserService {
     delete = async (userId: string): Promise<boolean> => {
         const user = await User.findByPk(userId);
         if (!user) return false;
-        const agents = await Agent.count({ where: { user_id: userId } });
+        const agents = User.sequelize?.models[Agent.name] ? await Agent.count({ where: { user_id: userId } }) : 0;
         if (agents > 0) {
             throw Object.assign(
                 new Error(`User owns ${agents} agent(s); reassign or delete them before deleting the user`),
@@ -177,13 +177,22 @@ export default class UserService {
         }
         const sequelize = User.sequelize;
         if (!sequelize) throw new Error('User model is not initialised');
+        // Apps register only the models they use; a model that is not
+        // registered has no table here, so there is nothing to delete in it.
+        const registered = (model: { name: string }) => Boolean(sequelize.models[model.name]);
         await sequelize.transaction(async (transaction) => {
-            await UserAccessToken.destroy({ where: { user_id: userId }, transaction });
-            await OAuthAccount.destroy({ where: { owner_type: 'user', owner_id: userId }, transaction });
-            await Notification.destroy({ where: { user_id: userId }, transaction });
-            await OrganizationMember.destroy({ where: { user_id: userId }, transaction });
-            await PendingMembership.destroy({ where: { user_id: userId }, transaction });
-            await UserDevice.destroy({ where: { user_id: userId }, transaction });
+            if (registered(UserAccessToken)) await UserAccessToken.destroy({ where: { user_id: userId }, transaction });
+            if (registered(OAuthAccount)) {
+                await OAuthAccount.destroy({ where: { owner_type: 'user', owner_id: userId }, transaction });
+            }
+            if (registered(Notification)) await Notification.destroy({ where: { user_id: userId }, transaction });
+            if (registered(OrganizationMember)) {
+                await OrganizationMember.destroy({ where: { user_id: userId }, transaction });
+            }
+            if (registered(PendingMembership)) {
+                await PendingMembership.destroy({ where: { user_id: userId }, transaction });
+            }
+            if (registered(UserDevice)) await UserDevice.destroy({ where: { user_id: userId }, transaction });
             await user.destroy({ transaction });
         });
         return true;
