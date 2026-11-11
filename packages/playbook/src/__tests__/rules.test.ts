@@ -91,8 +91,15 @@ describe('PlaybookStore', () => {
     expect(s.get(pb.id, 'bob')).toBeNull();
     expect(s.list('alice')[0]!.ruleCount).toBe(2);
 
-    const updated = s.update(pb.id, 'alice', { name: 'NDA v2', rules: [{ title: 'B', standard: 'b' }, { title: 'A', standard: 'a' }] })!;
+    const [ruleA, ruleB] = pb.rules;
+    const updated = s.update(pb.id, 'alice', {
+      name: 'NDA v2',
+      rules: [{ id: ruleB!.id, title: 'B', standard: 'b' }, { id: 'foreign-id', title: 'A', standard: 'a' }],
+    })!;
     expect(updated.rules.map((r) => r.title)).toEqual(['B', 'A']);
+    expect(updated.rules[0]!.id).toBe(ruleB!.id);
+    expect(updated.rules[1]!.id).not.toBe('foreign-id');
+    expect(updated.rules[1]!.id).not.toBe(ruleA!.id);
     expect(s.update(pb.id, 'bob', { name: 'x', rules: [] })).toBeNull();
     expect(() => s.create('alice', { name: 'Bad', rules: [{ title: 'No standard', standard: ' ' }] })).toThrow(/standard/);
 
@@ -116,5 +123,7 @@ describe('PlaybookStore', () => {
     expect(s.failInterruptedRuns()).toBe(1);
     expect(s.getRun(stuck.id)!.status).toBe('failed');
     expect(s.listRuns('m1').length).toBe(2);
+    expect(s.deleteRun(stuck.id)).toBe(true);
+    expect(s.listRuns('m1').length).toBe(1);
   });
 });

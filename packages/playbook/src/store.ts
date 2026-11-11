@@ -82,7 +82,8 @@ export interface PlaybookRun {
   documentName: string;
   status: PlaybookRunStatus;
   findings: RuleFinding[] | null;
-  /** File id of the tracked-changes DOCX produced from the findings' edits. */
+  /** Host's id for the tracked-changes document produced from the
+   *  findings' edits (suzielaw: the matter document id). */
   redlineDocId: string | null;
   error: string | null;
   createdAt: number;
@@ -207,8 +208,9 @@ export class PlaybookStore {
         this.db,
         `UPDATE playbooks SET name = ?, description = ?, contract_type = ?, updated_at = ? WHERE id = ?`,
       ).run(input.name.trim(), input.description?.trim() ?? '', input.contractType?.trim() ?? '', this.now(), id);
+      const keep = new Set(this.get(id, ownerId)!.rules.map((r) => r.id));
       prepareCached<[string]>(this.db, `DELETE FROM playbook_rules WHERE playbook_id = ?`).run(id);
-      this.writeRules(id, input.rules);
+      this.writeRules(id, input.rules, keep);
     })();
     return this.get(id, ownerId);
   }
@@ -277,6 +279,10 @@ export class PlaybookStore {
     ).run(this.now()).changes;
   }
 
+  deleteRun(id: string): boolean {
+    return prepareCached<[string]>(this.db, `DELETE FROM playbook_runs WHERE id = ?`).run(id).changes > 0;
+  }
+
   getRun(id: string): PlaybookRun | null {
     const row = prepareCached<[string], RunRow>(this.db, `SELECT * FROM playbook_runs WHERE id = ?`).get(id);
     return row ? this.toRun(row) : null;
@@ -291,7 +297,10 @@ export class PlaybookStore {
       .map((r) => this.toRun(r));
   }
 
-  private writeRules(playbookId: string, rules: RulePlaybookInput['rules']): void {
+  /** `keepIds`: ids of this playbook's existing rules; a rule that names
+   *  one keeps it (so findings of past runs still point at it), any other
+   *  id is ignored and a new one is assigned. */
+  private writeRules(playbookId: string, rules: RulePlaybookInput['rules'], keepIds = new Set<string>()): void {
     const insert = prepareCached<
       [string, string, number, string, string, string | null, string | null, string | null, string | null]
     >(
@@ -302,7 +311,7 @@ export class PlaybookStore {
     );
     rules.forEach((r, i) => {
       insert.run(
-        randomUUID(),
+        r.id && keepIds.has(r.id) ? r.id : randomUUID(),
         playbookId,
         i,
         r.title.trim(),
