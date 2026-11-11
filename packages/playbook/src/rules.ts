@@ -47,6 +47,9 @@ export interface SuggestedEdit {
   context_before: string;
   context_after: string;
   reason?: string;
+  /** Set by the host after applying the edit to the document: 'applied',
+   *  or why it could not be (e.g. 'not_found', 'ambiguous'). */
+  applyStatus?: string;
 }
 
 export interface RuleFinding {
