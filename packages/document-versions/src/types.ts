@@ -10,7 +10,8 @@ export type VersionSource =
     | 'proposal'
     | 'accept'
     | 'reject'
-    | 'generated';
+    | 'generated'
+    | 'restore';
 
 export const VERSION_SOURCES: readonly VersionSource[] = [
     'upload',
@@ -18,6 +19,7 @@ export const VERSION_SOURCES: readonly VersionSource[] = [
     'accept',
     'reject',
     'generated',
+    'restore',
 ] as const;
 
 export interface DocumentVersion {

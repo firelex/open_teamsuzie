@@ -127,6 +127,29 @@ export class DocumentVersionsStore {
             .map(rowToVersion);
     }
 
+    /** Versions whose bytes live in `storageId`, oldest first. */
+    findByStorageId(storageId: string): DocumentVersion[] {
+        return prepareCached<[string], VersionRow>(
+            this.db,
+            `SELECT * FROM document_versions WHERE storage_id = ? ORDER BY created_at ASC, id ASC`,
+        )
+            .all(storageId)
+            .map(rowToVersion);
+    }
+
+    /**
+     * Point every version stored in `from` at `to` instead. For hosts that
+     * are about to overwrite a file some versions still reference: copy
+     * the bytes to `to` first, relocate, then overwrite. Returns the number
+     * of versions moved.
+     */
+    relocateStorage(from: string, to: string): number {
+        return prepareCached<[string, string]>(
+            this.db,
+            `UPDATE document_versions SET storage_id = ? WHERE storage_id = ?`,
+        ).run(to, from).changes;
+    }
+
     getHead(externalDocId: string): DocumentVersion | null {
         const headRow = prepareCached<[string], HeadRow>(
             this.db,

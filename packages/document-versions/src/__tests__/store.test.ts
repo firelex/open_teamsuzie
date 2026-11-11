@@ -379,3 +379,18 @@ describe('deleteAllForDocument', () => {
         expect(store.getHead('B')?.id).toBe(b1.id);
     });
 });
+
+describe('storage lookups and restore source', () => {
+    it('finds versions by storage id, relocates them, and accepts restore versions', () => {
+        const db = openDb({ path: ':memory:', migrations: DOCUMENT_VERSIONS_MIGRATIONS });
+        const store = new DocumentVersionsStore({ db });
+        const up = store.addVersion({ externalDocId: 'doc', source: 'upload', storageId: 'file-1' });
+        const prop = store.addVersion({ externalDocId: 'doc', parentId: up.id, source: 'proposal', storageId: 'file-2' });
+        expect(store.findByStorageId('file-1').map((v) => v.id)).toEqual([up.id]);
+        expect(store.relocateStorage('file-1', 'snap-1')).toBe(1);
+        expect(store.getVersion(up.id)!.storageId).toBe('snap-1');
+        expect(store.findByStorageId('file-1')).toEqual([]);
+        const restored = store.addVersion({ externalDocId: 'doc', parentId: prop.id, source: 'restore', storageId: 'snap-3' });
+        expect(store.getHead('doc')!.id).toBe(restored.id);
+    });
+});
