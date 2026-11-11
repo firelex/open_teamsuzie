@@ -5,6 +5,7 @@ import { OrgDomain } from '../models/org-domain.js';
 import { User } from '../models/user.js';
 import UserService from '../services/user.js';
 import type { SharedAuthConfig } from '../types.js';
+import { checkRegistration, type RegistrationPolicy } from '../utils/registration.js';
 
 const PUBLIC_EMAIL_DOMAINS = new Set([
     'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com',
@@ -16,9 +17,11 @@ const PUBLIC_EMAIL_DOMAINS = new Set([
 export default class AuthController {
 
     private userService: UserService;
+    private registration: RegistrationPolicy | undefined;
 
     constructor(config: SharedAuthConfig) {
         this.userService = new UserService(config);
+        this.registration = config.registration;
     }
 
     private extractBearerToken(req: Request): string | null {
@@ -314,7 +317,14 @@ export default class AuthController {
         try {
             const { email, password, name } = req.body;
 
-            if (!email || !password || !name) {
+            const decision = checkRegistration(this.registration, typeof email === 'string' ? email : '');
+            if (!decision.allowed) {
+                res.status(403).json({ message: decision.message });
+                return;
+            }
+
+            if (!email || !password || !name
+                || typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string') {
                 res.status(400).json({ message: 'Email, password, and name are required' });
                 return;
             }
@@ -427,6 +437,28 @@ export default class AuthController {
         }
     }
 
+    /**
+     * The signed-in caller, or null after answering 401 (not signed in) or 403 (signed in, but `allowed` says no).
+     * Admin is decided from the stored user record, not the session copy, so a demoted admin loses access at once.
+     */
+    private async requireCaller(
+        req: Request,
+        res: Response,
+        allowed: (user: { id: string; email: string; role: string }) => boolean,
+    ): Promise<{ id: string; email: string; role: string } | null> {
+        const auth = await this.getAuthenticatedUser(req);
+        if (!auth) {
+            res.status(401).json({ message: 'Not authenticated' });
+            return null;
+        }
+        if (!allowed(auth.user)) {
+            res.status(403).json({ message: 'Forbidden' });
+            return null;
+        }
+        return auth.user;
+    }
+
+    /** GET /users/by-email/:email - an admin, or the user looking up their own address. */
     lookupByEmail = async (req: Request, res: Response): Promise<void> => {
         try {
             const email = req.params.email as string;
@@ -434,6 +466,11 @@ export default class AuthController {
                 res.status(400).json({ message: 'Email parameter is required' });
                 return;
             }
+            // Checked before the lookup, so the answer never reveals whether someone else's address has an account.
+            const caller = await this.requireCaller(req, res, (u) =>
+                u.role === 'admin' || u.email.toLowerCase() === email.toLowerCase());
+            if (!caller) return;
+
             const user = await this.userService.findByEmail(email);
             if (!user) {
                 res.status(404).json({ message: 'User not found' });
@@ -445,8 +482,12 @@ export default class AuthController {
         }
     }
 
-    listUsers = async (_req: Request, res: Response): Promise<void> => {
+    /** GET /users - admins only. */
+    listUsers = async (req: Request, res: Response): Promise<void> => {
         try {
+            const caller = await this.requireCaller(req, res, (u) => u.role === 'admin');
+            if (!caller) return;
+
             const result = await this.userService.findAll();
             res.status(200).json(result);
         } catch (e: any) {

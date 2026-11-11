@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Provider from 'oidc-provider';
+import type { RegistrationMode } from '@teamsuzie/shared-auth';
+import { clientAddress, type AttemptLimiter } from '../security/attempt-limiter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOGIN_HTML = readFileSync(join(__dirname, 'views/login.html'), 'utf8');
@@ -25,15 +27,33 @@ const EXPIRED_HTML = `
 
 export type VerifyPassword = (email: string, password: string) => Promise<{ id: string } | null>;
 
-export function buildInteractionsRouter(provider: Provider, verifyPassword: VerifyPassword): Router {
+export interface InteractionsOptions {
+  /** Shown on the sign-in page: with 'closed' (the default) it says that an administrator creates accounts. */
+  registration?: RegistrationMode;
+  /** Counts sign-in attempts per client address and per email; a successful sign-in is given back. */
+  limiter?: AttemptLimiter;
+}
+
+const CLOSED_NOTE = 'Accounts are created by an administrator. Ask yours if you need one.';
+
+export function buildInteractionsRouter(
+  provider: Provider,
+  verifyPassword: VerifyPassword,
+  options: InteractionsOptions = {},
+): Router {
   const r = Router();
+  const note = (options.registration ?? 'closed') === 'closed' ? CLOSED_NOTE : '';
+  const renderLogin = (uid: string, error = '') => LOGIN_HTML
+    .replaceAll('{{uid}}', escapeHtml(uid))
+    .replace('{{error}}', escapeHtml(error))
+    .replace('{{note}}', escapeHtml(note));
 
   r.get('/oauth/interaction/:uid', async (req: Request, res: Response) => {
     const details = await getInteractionDetails(provider, req, res);
     if (!details) return;
     const { prompt } = details;
     if (prompt.name === 'login') {
-      res.type('html').send(LOGIN_HTML.replaceAll('{{uid}}', details.uid).replace('{{error}}', ''));
+      res.type('html').send(renderLogin(details.uid));
       return;
     }
     if (prompt.name === 'consent') {
@@ -67,11 +87,19 @@ export function buildInteractionsRouter(provider: Provider, verifyPassword: Veri
 
   r.post('/oauth/interaction/:uid/login', async (req: Request, res: Response) => {
     const { email, password } = req.body ?? {};
+    const attempt = options.limiter?.attempt(clientAddress(req), typeof email === 'string' ? email : undefined);
+    if (attempt && !attempt.allowed) {
+      res.setHeader('Retry-After', String(attempt.retryAfterSeconds));
+      res.status(429).type('html').send(renderLogin(
+        String(req.params.uid),
+        `Too many sign-in attempts. Try again in ${attempt.retryAfterSeconds} seconds.`,
+      ));
+      return;
+    }
     const account = await verifyPassword(String(email ?? ''), String(password ?? ''));
+    if (account && attempt?.allowed) attempt.release();
     if (!account) {
-      res.status(401).type('html').send(
-        LOGIN_HTML.replaceAll('{{uid}}', String(req.params.uid)).replace('{{error}}', 'Invalid email or password'),
-      );
+      res.status(401).type('html').send(renderLogin(String(req.params.uid), 'Invalid email or password'));
       return;
     }
     await provider.interactionFinished(
@@ -112,4 +140,14 @@ function renderExpiredInteraction(res: Response): void {
   if (!res.headersSent) {
     res.status(400).type('html').send(EXPIRED_HTML);
   }
+}
+
+function escapeHtml(input: string): string {
+  return input.replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[ch]!);
 }

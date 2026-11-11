@@ -8,6 +8,9 @@ Multi-tenant auth models, session service, and middleware for Team Suzie.
 - **Services:** `SequelizeService` (db connection), `SessionService` (cookie-based sessions), `ApiKeyService` (agent bearer auth).
 - **Middleware:** session auth, CSRF, API key auth, role guards.
 - **Factory:** `createAuthRouter()` — mount-point for the auth routes used by `apps/platform/auth`.
+  `POST /register` follows `SharedAuthConfig.registration` (`parseRegistrationPolicy(process.env)` reads
+  `AUTH_REGISTRATION` / `AUTH_REGISTRATION_DOMAINS`); unset means closed. `GET /users` needs an admin and
+  `GET /users/by-email/:email` an admin or the caller's own address.
 
 ## What's explicitly *not* here
 

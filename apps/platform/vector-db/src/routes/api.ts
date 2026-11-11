@@ -1,6 +1,7 @@
 import express, { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { createVectorStore } from '../services/storeFactory.js';
+import { chunkContent } from '../services/chunk.js';
 import EmbeddingService from '../services/embedding.js';
 import type { EmbeddingInput, UsageContext } from '../services/embedding.js';
 import type { Scope, ScopeRef } from '@teamsuzie/types';
@@ -609,21 +610,5 @@ router.get('/v1/stats', async (_req: Request, res: Response) => {
         res.status(500).json({ success: false, error: 'Stats failed' });
     }
 });
-
-// Simple content chunking function
-function chunkContent(content: string, chunkSize: number, overlap: number): string[] {
-    const chunks: string[] = [];
-    const words = content.split(/\s+/);
-
-    let start = 0;
-    while (start < words.length) {
-        const end = Math.min(start + chunkSize, words.length);
-        chunks.push(words.slice(start, end).join(' '));
-        start = end - overlap;
-        if (start >= words.length) break;
-    }
-
-    return chunks;
-}
 
 export default router;

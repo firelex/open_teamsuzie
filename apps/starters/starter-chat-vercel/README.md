@@ -40,7 +40,7 @@ Each cold start re-fetches the skill catalog and re-connects MCP servers. Latenc
 
 - **App Router + streaming.** `/api/chat` returns a `ReadableStream` that streams `chunk` / `tool_call` / `tool_result` / `tool_error` / `done` events as the model + tool-use loop runs.
 - **All three extension surfaces** from the local starter:
-  - **Typed tools** — `vector_search`, `propose_action`, `http_request` (in `lib/tools/`).
+  - **Typed tools** — `vector_search`, `propose_action`, `http_request` (in `lib/config.ts`).
   - **Skills bridge** — HTTP catalog only, rendered into the system prompt at first request.
   - **MCP client** — Streamable HTTP servers, configured inline via `MCP_CONFIG_JSON` env var.
 - **Approvals review endpoints** at `GET /api/approvals` and `POST /api/approvals/:id/review` (memory-only — see limitation #1).
