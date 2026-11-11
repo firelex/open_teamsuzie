@@ -1,0 +1,29 @@
+{
+  "name": "@teamsuzie/sensitive-data",
+  "version": "0.1.0",
+  "description": "Detects personal data and privilege markers in text bound for an external model, and redacts or blocks it at the model request (a fetch wrapper for OpenAI-compatible APIs).",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
