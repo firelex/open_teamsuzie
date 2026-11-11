@@ -39,4 +39,17 @@ export const ACTIVITY_MIGRATIONS: Migration[] = [
                 ON activity_entries(org_id, actor_id, at DESC);
         `,
     },
+    {
+        // Hash chain per org: each entry carries its position and the hash
+        // of the one before, so edits, insertions and deletions show up in
+        // ActivityStore.verify. Rows written before this have NULLs until
+        // sealUnchained() chains them.
+        name: '20261111_activity_hash_chain',
+        up: `
+            ALTER TABLE activity_entries ADD COLUMN seq INTEGER;
+            ALTER TABLE activity_entries ADD COLUMN prev_hash TEXT;
+            ALTER TABLE activity_entries ADD COLUMN hash TEXT;
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_chain ON activity_entries(org_id, seq);
+        `,
+    },
 ];

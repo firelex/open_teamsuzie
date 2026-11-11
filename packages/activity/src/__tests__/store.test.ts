@@ -44,6 +44,9 @@ describe('migrations', () => {
                 'body',
                 'metadata',
                 'at',
+                'seq',
+                'prev_hash',
+                'hash',
             ].sort(),
         );
     });

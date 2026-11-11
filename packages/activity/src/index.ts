@@ -1,6 +1,6 @@
 export { ACTIVITY_MIGRATIONS } from './migrations.js';
-export { ActivityStore } from './store.js';
-export type { ActivityStoreOptions } from './store.js';
+export { ActivityStore, GENESIS_HASH } from './store.js';
+export type { ActivityStoreOptions, ChainVerification } from './store.js';
 export type {
     ActivityEntry,
     Actor,
