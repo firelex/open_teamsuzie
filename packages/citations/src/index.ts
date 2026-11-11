@@ -16,7 +16,7 @@ export type {
     PreparedDocument,
     PrepareDocumentOptions,
 } from './document.js';
-export { validateCitation, validateCitations } from './validator.js';
+export { stripEnumerationLabels, stripMarkdownMarkup, validateCitation, validateCitations, verifyCitations } from './validator.js';
 export type { CitationValidation } from './validator.js';
 export { normalize, normalizeWithMap } from './normalize.js';
 export type { NormalizedWithMap } from './normalize.js';
@@ -32,6 +32,7 @@ export {
 } from './remark-plugin.js';
 export type {
     Citation,
+    CitationVerification,
     CitationWarning,
     CitationWarningKind,
     DocHandle,

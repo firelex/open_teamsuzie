@@ -3,6 +3,7 @@ import { prepareDocumentFromPages } from '../document.js';
 import {
     validateCitation,
     validateCitations,
+    verifyCitations,
 } from '../validator.js';
 import type { Citation } from '../types.js';
 
@@ -183,5 +184,42 @@ describe('validateCitations — batch', () => {
             'ok',
             'unknown_doc',
         ]);
+    });
+});
+
+describe('verifyCitations', () => {
+    const source = '## 4. Termination\n\nEither party may terminate this Agreement on **thirty (30) days’** written notice.\n\n| Term | Value |\n| --- | --- |\n| Cap | $1,000,000 |';
+
+    it('marks found, missing and unavailable quotes', () => {
+        const out = verifyCitations(
+            [
+                { id: 1, doc: 'nda', quote: 'Either party may terminate this Agreement on thirty (30) days\' written notice' },
+                { id: 2, doc: 'nda', quote: 'Either party may terminate at will' },
+                { id: 3, doc: 'other', quote: 'anything' },
+                { id: 4, doc: 'nda', quote: 'Cap $1,000,000' },
+            ],
+            { nda: source },
+        );
+        expect(out.map((c) => c.verification)).toEqual(['verified', 'not_found', 'unchecked', 'verified']);
+    });
+
+    it('ignores clause labels a converter turned into list numbering', () => {
+        // Real case: Word's "(b)" became list number "5." after conversion.
+        const converted = '5.  The provisions shall be (a) of no further force if such Investor ceases to be a Limited Partner and\n5.  suspended if and for so long as the General Partner designates any Investor as a Defaulting Partner.';
+        const out = verifyCitations(
+            [
+                { id: 1, doc: 'sl', quote: 'of no further force if such Investor ceases to be a Limited Partner and (b) suspended if and for so long as' },
+                { id: 2, doc: 'sl', quote: 'and (b) terminated if and for so long as' },
+            ],
+            { sl: converted },
+        );
+        expect(out.map((c) => c.verification)).toEqual(['verified', 'not_found']);
+    });
+
+    it('treats an empty quote as not found and leaves inputs untouched', () => {
+        const input = [{ id: 1, doc: 'nda', quote: '  ' }];
+        const out = verifyCitations(input, new Map([['nda', source]]));
+        expect(out[0]!.verification).toBe('not_found');
+        expect(input[0]).not.toHaveProperty('verification');
     });
 });

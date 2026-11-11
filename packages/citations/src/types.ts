@@ -11,7 +11,16 @@ export type Citation = {
      * citation chip's tooltip; never load-bearing.
      */
     locator?: string;
+    /**
+     * Set by `verifyCitations` after the response is complete:
+     * `verified` when the quote was found in the cited document's text,
+     * `not_found` when it was not, `unchecked` when the document's text
+     * was not available to check against.
+     */
+    verification?: CitationVerification;
 };
+
+export type CitationVerification = 'verified' | 'not_found' | 'unchecked';
 
 export type CitationWarningKind =
     | 'duplicate_block'

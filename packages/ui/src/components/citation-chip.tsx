@@ -51,6 +51,9 @@ export function CitationChip({
 
   const docName = docLabel ?? citation.doc
   const ariaLocator = citation.locator ? ` — ${citation.locator}` : ""
+  // Set by verifyCitations once the answer is complete. A quote that could
+  // not be found in its source is flagged rather than shown as authoritative.
+  const notFound = citation.verification === "not_found"
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -58,11 +61,13 @@ export function CitationChip({
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={`Citation [${id}] — ${docName}${ariaLocator}`}
+            aria-label={`Citation [${id}] — ${docName}${ariaLocator}${notFound ? " — quote not found in source" : ""}`}
             onClick={handleClick}
             className={cn(
               baseClass,
-              "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40",
+              notFound
+                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/50 hover:bg-amber-500/25 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/60"
+                : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40",
               className,
             )}
           >
@@ -78,6 +83,11 @@ export function CitationChip({
             <div className="text-xs italic leading-snug">
               &ldquo;{citation.quote}&rdquo;
             </div>
+            {notFound ? (
+              <div className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                This quote was not found in the document. Check the source before relying on it.
+              </div>
+            ) : null}
           </div>
         </TooltipContent>
       </Tooltip>
