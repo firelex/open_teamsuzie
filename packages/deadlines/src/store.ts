@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { prepareCached, type DatabaseInstance, type Migration } from '@teamsuzie/db-sqlite';
 
+/** A deadline that cannot be accepted as given (bad date, time, title or reminders). */
+export class DeadlineInputError extends Error {
+    readonly code = 'invalid_deadline';
+}
+
 export interface SubjectRef {
     type: string;
     id: string;
@@ -118,19 +123,19 @@ const toDeadline = (r: Row): Deadline => ({
 
 /** Throws unless `date` is a real calendar date written YYYY-MM-DD. */
 export function checkDate(date: string): void {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`"${date}" is not a date written YYYY-MM-DD`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new DeadlineInputError(`"${date}" is not a date written YYYY-MM-DD`);
     const d = new Date(`${date}T00:00:00Z`);
-    if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) throw new Error(`${date} is not a real date`);
+    if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) throw new DeadlineInputError(`${date} is not a real date`);
 }
 
 function checkTime(time: string | null | undefined): void {
     if (time == null) return;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error(`"${time}" is not a time written HH:MM`);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new DeadlineInputError(`"${time}" is not a time written HH:MM`);
 }
 
 function checkRemind(days: number[]): number[] {
     if (!Array.isArray(days) || !days.every((d) => Number.isInteger(d) && d >= 0 && d <= 365)) {
-        throw new Error('reminder days must be whole numbers from 0 to 365');
+        throw new DeadlineInputError('reminder days must be whole numbers from 0 to 365');
     }
     return [...new Set(days)].sort((a, b) => b - a);
 }
@@ -162,10 +167,10 @@ export class DeadlineStore {
 
     create(input: CreateDeadlineInput): Deadline {
         const title = input.title.trim();
-        if (!title) throw new Error('a deadline needs a title');
+        if (!title) throw new DeadlineInputError('a deadline needs a title');
         checkDate(input.date);
         checkTime(input.time);
-        if (!input.kind.trim()) throw new Error('a deadline needs a kind');
+        if (!input.kind.trim()) throw new DeadlineInputError('a deadline needs a kind');
         const id = this.newId();
         const now = this.clock();
         prepareCached(
@@ -234,7 +239,7 @@ export class DeadlineStore {
         const current = this.get(id);
         if (!current) throw new Error(`No deadline with id ${id}.`);
         const next = { ...current, ...patch };
-        if (!next.title.trim()) throw new Error('a deadline needs a title');
+        if (!next.title.trim()) throw new DeadlineInputError('a deadline needs a title');
         checkDate(next.date);
         checkTime(next.time);
         prepareCached(
@@ -245,7 +250,7 @@ export class DeadlineStore {
     }
 
     setStatus(id: string, status: DeadlineStatus, by: string): Deadline {
-        if (!['open', 'done', 'dismissed'].includes(status)) throw new Error("status must be 'open', 'done' or 'dismissed'");
+        if (!['open', 'done', 'dismissed'].includes(status)) throw new DeadlineInputError("status must be 'open', 'done' or 'dismissed'");
         const changed = prepareCached(
             this.db,
             `UPDATE deadlines SET status = ?, completed_by = ?, updated_at = ? WHERE id = ?`,

@@ -1,4 +1,4 @@
-export { DEADLINES_MIGRATIONS, DeadlineStore, addDays, checkDate, toIcs } from './store.js';
+export { DEADLINES_MIGRATIONS, DeadlineInputError, DeadlineStore, addDays, checkDate, toIcs } from './store.js';
 export type {
     CreateDeadlineInput,
     Deadline,
