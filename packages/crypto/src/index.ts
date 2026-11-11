@@ -132,3 +132,86 @@ export function signBytes(data: Buffer | string, privateKeyPem: string): string 
 export function verifySignature(data: Buffer | string, signatureB64: string, publicKeyPem: string): boolean {
   return crypto.verify(null, Buffer.from(data), crypto.createPublicKey(publicKeyPem), Buffer.from(signatureB64, 'base64'));
 }
+
+// ---------------------------------------------------------------------------
+// TOTP (RFC 6238) for authenticator-app two-factor sign-in: HMAC-SHA1,
+// 30-second steps, 6 digits, the defaults every authenticator app uses.
+
+const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+export function base32Encode(bytes: Buffer): string {
+  let bits = 0;
+  let value = 0;
+  let out = '';
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += BASE32[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += BASE32[(value << (5 - bits)) & 31];
+  return out;
+}
+
+export function base32Decode(text: string): Buffer {
+  const clean = text.toUpperCase().replace(/[\s=]/g, '');
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+  for (const ch of clean) {
+    const idx = BASE32.indexOf(ch);
+    if (idx === -1) throw new Error(`invalid base32 character "${ch}"`);
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(out);
+}
+
+/** A new random TOTP secret (160 bits), base32-encoded. */
+export function generateTotpSecret(): string {
+  return base32Encode(crypto.randomBytes(20));
+}
+
+/** The 6-digit code for one 30-second step counter. */
+export function totpCodeAt(secretBase32: string, counter: number): string {
+  const msg = Buffer.alloc(8);
+  msg.writeBigUInt64BE(BigInt(counter));
+  const hmac = crypto.createHmac('sha1', base32Decode(secretBase32)).update(msg).digest();
+  const offset = hmac[hmac.length - 1]! & 0x0f;
+  const bin = ((hmac[offset]! & 0x7f) << 24) | (hmac[offset + 1]! << 16) | (hmac[offset + 2]! << 8) | hmac[offset + 3]!;
+  return String(bin % 1_000_000).padStart(6, '0');
+}
+
+export function totpCounter(nowMs: number = Date.now()): number {
+  return Math.floor(nowMs / 30_000);
+}
+
+/**
+ * Check a code against the current step and one step either side (clock
+ * drift). Returns the matching step counter, or null. Callers should
+ * reject a counter at or below the last one accepted, so a code cannot be
+ * used twice.
+ */
+export function verifyTotp(secretBase32: string, code: string, nowMs: number = Date.now()): number | null {
+  const given = code.replace(/\s/g, '');
+  if (!/^\d{6}$/.test(given)) return null;
+  const now = totpCounter(nowMs);
+  for (const counter of [now - 1, now, now + 1]) {
+    const expected = totpCodeAt(secretBase32, counter);
+    if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(given))) return counter;
+  }
+  return null;
+}
+
+/** otpauth:// URI that authenticator apps read from a QR code. */
+export function totpUri(opts: { secret: string; account: string; issuer: string }): string {
+  const label = encodeURIComponent(`${opts.issuer}:${opts.account}`);
+  const params = new URLSearchParams({ secret: opts.secret, issuer: opts.issuer, algorithm: 'SHA1', digits: '6', period: '30' });
+  return `otpauth://totp/${label}?${params.toString()}`;
+}
