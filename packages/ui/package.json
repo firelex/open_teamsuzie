@@ -63,7 +63,7 @@
     "docx-preview": "^0.3.6",
     "lucide-react": "^0.554.0",
     "mermaid": "^11.15.0",
-    "pdfjs-dist": "^4.10.38",
+    "pdfjs-dist": "4.8.69",
     "react-markdown": "^10.1.0",
     "react-pdf": "^9.2.1",
     "remark-gfm": "^4.0.1",

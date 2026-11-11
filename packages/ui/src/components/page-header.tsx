@@ -67,7 +67,9 @@ function PageHeaderActions({
   return (
     <div
       data-slot="page-header-actions"
-      className={cn("flex items-center gap-2", className)}
+      // Wrap rather than overflow when the page is narrowed (e.g. a side
+      // panel is open next to it).
+      className={cn("flex min-w-0 flex-wrap items-center justify-end gap-2", className)}
       {...props}
     />
   )
