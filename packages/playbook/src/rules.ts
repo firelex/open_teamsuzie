@@ -90,8 +90,13 @@ Decide which one describes the contract:
 - "meets_standard": the contract already gives the firm its preferred position.
 - "acceptable_fallback": the contract does not meet the standard but matches the fallback.
 - "unacceptable": the contract takes a position the firm rejects, or one worse than the fallback.
-- "missing": the contract does not address the issue at all, and the firm needs it addressed.
+- "missing": the STANDARD requires the contract to contain something (a clause, a right, a protection) and the
+  contract does not address it at all.
 - "not_applicable": the issue does not arise for this kind of contract.
+
+Some standards say what the contract must NOT contain (for example "no most-favoured-nation right" or "no
+uncapped indemnity"). When such a contract is silent on the issue, it already gives the firm its preferred
+position: that is "meets_standard", never "missing".
 
 Then answer with a single JSON object, no prose and no code fences:
 {
