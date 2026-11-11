@@ -1,6 +1,12 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/user.js';
 import { UserAccessToken } from '../models/user-access-token.js';
+import { OAuthAccount } from '../models/oauth-account.js';
+import { Notification } from '../models/notification.js';
+import { OrganizationMember } from '../models/organization-member.js';
+import { PendingMembership } from '../models/pending-membership.js';
+import { UserDevice } from '../models/user-device.js';
+import { Agent } from '../models/agent.js';
 import type { SharedAuthConfig } from '../types.js';
 import { generateApiKey, verifyApiKey } from '../utils/encryption.js';
 
@@ -151,6 +157,37 @@ export default class UserService {
         await token.save();
         return true;
     }
+
+    /**
+     * Permanently delete a user and the rows that only make sense with them:
+     * access tokens, linked OAuth accounts, notifications, organisation
+     * memberships, pending memberships and devices. Refuses (throws) when the
+     * user still owns agents, which must be reassigned or deleted first.
+     * Runs in one transaction. Returns false when no such user exists.
+     */
+    delete = async (userId: string): Promise<boolean> => {
+        const user = await User.findByPk(userId);
+        if (!user) return false;
+        const agents = await Agent.count({ where: { user_id: userId } });
+        if (agents > 0) {
+            throw Object.assign(
+                new Error(`User owns ${agents} agent(s); reassign or delete them before deleting the user`),
+                { code: 409 },
+            );
+        }
+        const sequelize = User.sequelize;
+        if (!sequelize) throw new Error('User model is not initialised');
+        await sequelize.transaction(async (transaction) => {
+            await UserAccessToken.destroy({ where: { user_id: userId }, transaction });
+            await OAuthAccount.destroy({ where: { owner_type: 'user', owner_id: userId }, transaction });
+            await Notification.destroy({ where: { user_id: userId }, transaction });
+            await OrganizationMember.destroy({ where: { user_id: userId }, transaction });
+            await PendingMembership.destroy({ where: { user_id: userId }, transaction });
+            await UserDevice.destroy({ where: { user_id: userId }, transaction });
+            await user.destroy({ transaction });
+        });
+        return true;
+    };
 
     findById = async (id: string): Promise<User | null> => {
         return User.findByPk(id);
