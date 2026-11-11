@@ -181,7 +181,9 @@ export function findingProblem(rule: PlaybookRule, finding: RuleFinding): string
   if (finding.status === 'acceptable_fallback' && !rule.fallback?.trim()) {
     return 'you answered "acceptable_fallback" but this rule has no FALLBACK position; choose between "meets_standard" and "unacceptable" (or "missing" / "not_applicable")';
   }
-  if ((finding.status === 'meets_standard' || finding.status === 'acceptable_fallback' || finding.status === 'unacceptable') && !finding.excerpt.trim()) {
+  // A standard can be met by silence (e.g. "no MFN right"), so only the
+  // verdicts that rest on contract wording need an excerpt.
+  if ((finding.status === 'acceptable_fallback' || finding.status === 'unacceptable') && !finding.excerpt.trim()) {
     return `you answered "${finding.status}" but gave no excerpt; quote the contract text your verdict rests on, word for word`;
   }
   return null;

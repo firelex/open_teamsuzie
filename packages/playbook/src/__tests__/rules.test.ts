@@ -76,7 +76,7 @@ describe('finding validation', () => {
   });
 
   it('fails the run when the corrected answer is still invalid', async () => {
-    const llm = async () => JSON.stringify({ status: 'meets_standard', excerpt: '', explanation: 'x', edits: [] });
+    const llm = async () => JSON.stringify({ status: 'unacceptable', excerpt: '', explanation: 'x', edits: [] });
     await expect(reviewAgainstRules({ rules: [noFallback], contractText: 'c', llm })).rejects.toThrow(/still invalid/);
   });
 });
