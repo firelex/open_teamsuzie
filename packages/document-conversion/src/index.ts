@@ -1,4 +1,4 @@
-export { convertToMarkdown, convertFileToMarkdown } from './convert.js';
+export { convertToMarkdown, convertFileToMarkdown, isPlainText } from './convert.js';
 export type { ConvertOptions, ConvertResult, ConvertFileRecord } from './convert.js';
 
 export { convertPptxToMarkdown } from './pptx-native.js';

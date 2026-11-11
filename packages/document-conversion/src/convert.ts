@@ -24,7 +24,7 @@ export interface ConvertOptions {
 export interface ConvertResult {
   markdown: string;
   /** Backend used — useful for telemetry and debugging. */
-  backend: 'mammoth' | 'markitdown-agent' | 'pptx-native' | 'pdf-native';
+  backend: 'mammoth' | 'markitdown-agent' | 'pptx-native' | 'pdf-native' | 'text-native';
   /** Mammoth's conversion warnings, when present. */
   warnings?: Array<{ type: string; message: string }>;
 }
@@ -57,7 +57,23 @@ export async function convertToMarkdown(
     const { markdown } = await convertPdfToMarkdown(bytes);
     return { markdown, backend: 'pdf-native' };
   }
+  if (isPlainText(options.mime, options.filename)) {
+    // Text is already text: decode it, refusing bytes that are not UTF-8
+    // rather than turning them into replacement characters.
+    let markdown: string;
+    try {
+      markdown = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+      throw new Error(`${options.filename} is not valid UTF-8 text; save it as UTF-8 and upload it again.`);
+    }
+    return { markdown: markdown.replace(/^\uFEFF/, ''), backend: 'text-native' };
+  }
   return convertViaMarkitdownAgent(bytes, options);
+}
+
+/** Plain text and Markdown, by MIME type or extension. */
+export function isPlainText(mime: string | undefined, filename: string): boolean {
+  return mime === 'text/plain' || mime === 'text/markdown' || /\.(txt|md|markdown)$/i.test(filename);
 }
 
 async function convertViaMarkitdownAgent(
@@ -102,9 +118,10 @@ export async function convertFileToMarkdown(
     isDocxMimeType(record.mimeType) || record.name.toLowerCase().endsWith('.docx');
   const isPptx =
     record.mimeType === PPTX_MIME || record.name.toLowerCase().endsWith('.pptx');
-  if (!opts.markitdownAgentBaseUrl && !isDocx && !isPptx) {
+  const isPdf = record.mimeType === 'application/pdf' || record.name.toLowerCase().endsWith('.pdf');
+  if (!opts.markitdownAgentBaseUrl && !isDocx && !isPptx && !isPdf && !isPlainText(record.mimeType, record.name)) {
     throw new Error(
-      `Cannot convert ${record.mimeType || record.name}: markitdown-agent is not configured. Only DOCX and PPTX are supported in standalone mode.`,
+      `Cannot convert ${record.mimeType || record.name}: markitdown-agent is not configured. Only DOCX, PPTX, PDF and plain text are supported in standalone mode.`,
     );
   }
   const { markdown } = await convertToMarkdown(record.bytes, {

@@ -89,3 +89,23 @@ describe('convertToMarkdown – pptx', () => {
     })).rejects.toThrow();
   });
 });
+
+describe('plain text', () => {
+  it('decodes .txt and .md without the markitdown agent, and refuses bytes that are not UTF-8', async () => {
+    const { convertToMarkdown } = await import('../convert.js');
+    const fetchImpl = (() => {
+      throw new Error('markitdown must not be called');
+    }) as unknown as typeof fetch;
+    const txt = await convertToMarkdown(Buffer.from('﻿Order: Defence by 2 December 2026'), {
+      mime: 'text/plain',
+      filename: 'order.txt',
+      markitdownAgentBaseUrl: '',
+      fetchImpl,
+    });
+    expect(txt).toEqual({ markdown: 'Order: Defence by 2 December 2026', backend: 'text-native' });
+    expect((await convertToMarkdown(Buffer.from('# Notes'), { mime: '', filename: 'n.md', markitdownAgentBaseUrl: '' })).markdown).toBe('# Notes');
+    await expect(
+      convertToMarkdown(Buffer.from([0xff, 0xfe, 0x41]), { mime: 'text/plain', filename: 'bad.txt', markitdownAgentBaseUrl: '' }),
+    ).rejects.toThrow(/not valid UTF-8/);
+  });
+});
