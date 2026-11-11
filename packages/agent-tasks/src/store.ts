@@ -230,7 +230,7 @@ export class AgentTaskStore {
 
     /**
      * Claim the oldest queued task for a run: it becomes `running` and the
-     * timeline records the prompt the agent is about to be given.
+     * timeline records the start of the run.
      */
     claimNext(): AgentTask | null {
         const tx = this.db.transaction((): AgentTask | null => {
@@ -246,7 +246,9 @@ export class AgentTaskStore {
                    blocker = NULL, error = NULL, updated_at = ? WHERE id = ? AND status = 'queued'`,
             ).run(now, now, row.id);
             const task = this.mustGet(row.id);
-            this.addEvent(task.id, 'run_started', AGENT_ACTOR, task.nextPrompt, { run: task.runCount });
+            // The exact message the agent gets is the host's to frame; it
+            // belongs in the conversation, not here.
+            this.addEvent(task.id, 'run_started', AGENT_ACTOR, '', { run: task.runCount });
             return task;
         });
         return tx();
