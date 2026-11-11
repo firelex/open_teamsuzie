@@ -21,6 +21,17 @@ export interface CsrfMiddlewareOptions {
    * routes here if needed (e.g. webhooks signed out-of-band).
    */
   skipPaths?: string[];
+  /**
+   * Where the token lives. 'session' (default): in the session, mirrored
+   * to the cookie (synchronizer token; right for cookie-session).
+   * 'cookie': only in the SameSite=Strict cookie, checked against the
+   * header (double-submit). Use 'cookie' with a server-side session store
+   * (express-session + Redis): there, writing the token into the session
+   * makes any request that arrives with a just-replaced session id (e.g.
+   * a poll in flight during sign-in, which regenerates the session) create
+   * and send a fresh empty session, overwriting the signed-in cookie.
+   */
+  storage?: 'session' | 'cookie';
 }
 
 interface CsrfSession {
@@ -46,6 +57,25 @@ export function createCsrfMiddleware(opts: CsrfMiddlewareOptions = {}): RequestH
   const cookieName = opts.cookieName ?? 'csrf-token';
   const secure = opts.secure ?? process.env.NODE_ENV === 'production';
   const skipPaths = new Set(opts.skipPaths ?? []);
+
+  if (opts.storage === 'cookie') {
+    return function csrfDoubleSubmit(req: Request, res: Response, next: NextFunction): void {
+      const cookies = parseCookies(req.headers.cookie);
+      let token = cookies[cookieName];
+      if (!token || !/^[0-9a-f]{64}$/.test(token)) {
+        token = randomBytes(32).toString('hex');
+        res.cookie(cookieName, token, { httpOnly: false, sameSite: 'strict', secure, path: '/' });
+      }
+      if (UNSAFE_METHODS.has(req.method) && !skipPaths.has(req.path)) {
+        const header = String(req.headers[HEADER_NAME] ?? '');
+        if (!safeEqual(header, token)) {
+          res.status(403).json({ error: 'csrf_token_mismatch' });
+          return;
+        }
+      }
+      next();
+    };
+  }
 
   return function csrf(req: Request, res: Response, next: NextFunction): void {
     const session = (req as unknown as { session?: CsrfSession | null }).session;
@@ -75,6 +105,17 @@ export function createCsrfMiddleware(opts: CsrfMiddlewareOptions = {}): RequestH
 
     next();
   };
+}
+
+function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of (header ?? '').split(';')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim();
+    if (!(key in out)) out[key] = decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return out;
 }
 
 function safeEqual(a: string, b: string): boolean {
