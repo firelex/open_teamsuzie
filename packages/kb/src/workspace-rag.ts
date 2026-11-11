@@ -222,6 +222,28 @@ export class WorkspaceRag {
     }
 
     /**
+     * Like `searchInWorkspace`, but each hit names the workspace file it came
+     * from (the host's file id), for search results that link back to a
+     * document. Hits whose file mapping is gone are dropped.
+     */
+    async searchWorkspaceFiles(
+        workspaceId: string,
+        query: string,
+        topK = 10,
+    ): Promise<Array<KbSearchHit & { fileId: string }>> {
+        const hits = await this.searchInWorkspace(workspaceId, query, topK);
+        const out: Array<KbSearchHit & { fileId: string }> = [];
+        for (const hit of hits) {
+            const row = prepareCached<[string, string], IndexRow>(
+                this.db,
+                `SELECT * FROM workspace_doc_index WHERE workspace_id = ? AND kb_doc_id = ?`,
+            ).get(workspaceId, hit.document.id);
+            if (row) out.push({ ...hit, fileId: row.file_id });
+        }
+        return out;
+    }
+
+    /**
      * Top-K chunks scoped to a single workspace document (cell runner path).
      * Hybrid retrieval — keyword matches catch literal phrases like
      * "governing law" that pure embeddings can rank under unrelated
