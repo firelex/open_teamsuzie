@@ -1990,6 +1990,19 @@ importers:
         specifier: ^5.7.3
         version: 5.8.3
 
+  packages/deadlines:
+    dependencies:
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../db-sqlite
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+
   packages/document-conversion:
     dependencies:
       '@teamsuzie/agent-loop':
