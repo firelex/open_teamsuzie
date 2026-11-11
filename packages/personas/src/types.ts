@@ -95,6 +95,12 @@ export interface ApplyPersonaInput<T extends { name: string }> {
   tools: T[];
   /** The selected persona. `null`/`undefined` falls back to defaults. */
   persona?: Persona | null;
+  /** How the persona's prompt combines with `defaultSystemPrompt`.
+   *  `'replace'` (default): the persona prompt replaces the default.
+   *  `'layer'`: the persona prompt is appended after the default, so the
+   *  persona only adds focus on top of the app's shared instructions (tool
+   *  guidance, citation rules) instead of having to repeat them. */
+  personaPromptMode?: 'replace' | 'layer';
 }
 
 export interface ApplyPersonaResult<T extends { name: string }> {
@@ -111,15 +117,19 @@ export interface ApplyPersonaResult<T extends { name: string }> {
  * server's defaults and the (optional) selected persona.
  *
  * Precedence:
- *  - Persona's system prompt **replaces** the default Counsel prompt.
+ *  - Persona's system prompt **replaces** the default Counsel prompt, or is
+ *    appended after it when `personaPromptMode` is `'layer'`.
  *  - Skills are **always appended** to whatever the base ends up being.
  *  - Tools are filtered by the persona's allow/block lists; no persona = pass-through.
  */
 export function applyPersona<T extends { name: string }>(
   input: ApplyPersonaInput<T>,
 ): ApplyPersonaResult<T> {
-  const base = input.persona?.systemPrompt ?? input.defaultSystemPrompt ?? '';
-  const combined = [base, input.skillSystemPrompt ?? ''].filter(Boolean).join('\n\n');
+  const parts =
+    input.persona && input.personaPromptMode === 'layer'
+      ? [input.defaultSystemPrompt ?? '', input.persona.systemPrompt]
+      : [input.persona?.systemPrompt ?? input.defaultSystemPrompt ?? ''];
+  const combined = [...parts, input.skillSystemPrompt ?? ''].filter(Boolean).join('\n\n');
   const result: ApplyPersonaResult<T> = {
     systemPrompt: combined || undefined,
     tools: filterToolsForPersona(input.tools, input.persona),

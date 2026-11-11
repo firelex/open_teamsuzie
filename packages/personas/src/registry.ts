@@ -1,6 +1,6 @@
 import { loadPersonasFromDir } from './file-source.js';
 import { PersonaStore } from './db-source.js';
-import { prepareCached, type DatabaseInstance } from '@teamsuzie/db-sqlite';
+import { jsonColumn, prepareCached, type DatabaseInstance } from '@teamsuzie/db-sqlite';
 import type { Persona, PersonaCreateInput, PersonaUpdateInput } from './types.js';
 
 export interface PersonaRegistryOptions {
@@ -137,6 +137,55 @@ export class PersonaRegistry {
     });
     tx();
     return { seeded: true, count };
+  }
+
+  /**
+   * Bring every owner's never-edited seeded copies in line with the current
+   * built-ins. Seeding copies built-ins once, so without this a fix to a
+   * PERSONA.md never reaches users who were seeded earlier.
+   *
+   * A row counts as a seeded copy when it was created no later than its
+   * owner's seed marker (seeding writes the rows, then the marker, in one
+   * transaction) and its name matches a built-in. It counts as never edited
+   * when `updated_at = created_at`. Edited copies and user-created personas
+   * are left alone. Timestamps are not changed, so a refreshed copy keeps
+   * tracking the built-in on later boots.
+   *
+   * Returns the number of rows changed. Call once at boot.
+   */
+  refreshUneditedSeeds(): number {
+    if (!this.seedDb) return 0;
+    const update = prepareCached<
+      [string, string | null, string | null, string | null, string | null, string, string]
+    >(
+      this.seedDb,
+      `UPDATE personas
+          SET description = ?, avatar = ?, model = ?,
+              allowed_tools = ?, blocked_tools = ?, system_prompt = ?
+        WHERE name = ?
+          AND updated_at = created_at
+          AND created_at <= (SELECT seeded_at FROM personas_seeded s
+                              WHERE s.owner_id = personas.owner_id)`,
+    );
+    let changed = 0;
+    const tx = this.seedDb.transaction(() => {
+      for (const builtin of this.builtins) {
+        const allowedTools = builtin.allowedTools?.filter((t) => t !== '*');
+        changed += update.run(
+          builtin.description,
+          builtin.avatar ?? null,
+          builtin.model ?? null,
+          allowedTools && allowedTools.length > 0 ? jsonColumn.serialize(allowedTools) : null,
+          builtin.blockedTools && builtin.blockedTools.length > 0
+            ? jsonColumn.serialize(builtin.blockedTools)
+            : null,
+          builtin.systemPrompt,
+          builtin.name,
+        ).changes;
+      }
+    });
+    tx();
+    return changed;
   }
 
   /**
