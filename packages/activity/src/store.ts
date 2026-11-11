@@ -161,6 +161,31 @@ export class ActivityStore {
         return rows.map(rowToEntry);
     }
 
+    /** Entries one actor performed in an org, newest first. */
+    listByActor(opts: ListByOrgOptions & { actorId: string }): ActivityEntry[] {
+        const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
+        const where: string[] = ['org_id = ?', 'actor_id = ?'];
+        const params: unknown[] = [opts.orgId, opts.actorId];
+        if (opts.before !== undefined) {
+            where.push('at < ?');
+            params.push(opts.before);
+        }
+        if (opts.kinds && opts.kinds.length > 0) {
+            where.push(`kind IN (${opts.kinds.map(() => '?').join(', ')})`);
+            for (const k of opts.kinds) params.push(k);
+        }
+        params.push(limit);
+        return prepareCached<unknown[], ActivityRow>(
+            this.db,
+            `SELECT * FROM activity_entries
+             WHERE ${where.join(' AND ')}
+             ORDER BY at DESC, ROWID DESC
+             LIMIT ?`,
+        )
+            .all(...params)
+            .map(rowToEntry);
+    }
+
     countBySubject(orgId: string, subject: SubjectRef): number {
         const row = prepareCached<[string, string, string], { c: number }>(
             this.db,

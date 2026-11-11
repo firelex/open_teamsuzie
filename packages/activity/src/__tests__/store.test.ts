@@ -231,3 +231,13 @@ describe('removeForSubject', () => {
         ).toBe(1);
     });
 });
+
+describe('listByActor', () => {
+    it("returns one actor's entries in an org, newest first", () => {
+        store.append({ orgId: 'o', subject: { type: 'matter', id: 'm' }, kind: 'a', summary: 'alice 1', actor: { id: 'alice', type: 'user' } });
+        store.append({ orgId: 'o', subject: { type: 'matter', id: 'm' }, kind: 'b', summary: 'bob 1', actor: { id: 'bob', type: 'user' } });
+        store.append({ orgId: 'o', subject: { type: 'matter', id: 'm' }, kind: 'a', summary: 'alice 2', actor: { id: 'alice', type: 'user' } });
+        store.append({ orgId: 'other', subject: { type: 'matter', id: 'm' }, kind: 'a', summary: 'alice elsewhere', actor: { id: 'alice', type: 'user' } });
+        expect(store.listByActor({ orgId: 'o', actorId: 'alice' }).map((e) => e.summary)).toEqual(['alice 2', 'alice 1']);
+    });
+});

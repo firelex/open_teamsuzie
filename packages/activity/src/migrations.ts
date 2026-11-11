@@ -32,4 +32,11 @@ export const ACTIVITY_MIGRATIONS: Migration[] = [
                 ON activity_entries(org_id, kind, at DESC);
         `,
     },
+    {
+        name: '20261111_activity_actor_index',
+        up: `
+            CREATE INDEX IF NOT EXISTS idx_activity_actor_time
+                ON activity_entries(org_id, actor_id, at DESC);
+        `,
+    },
 ];
