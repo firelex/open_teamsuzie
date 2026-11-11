@@ -88,7 +88,8 @@ preferred position (STANDARD), a position it can accept (FALLBACK, optional), an
 
 Decide which one describes the contract:
 - "meets_standard": the contract already gives the firm its preferred position.
-- "acceptable_fallback": the contract does not meet the standard but matches the fallback.
+- "acceptable_fallback": the contract does not meet the standard but matches the FALLBACK. Only possible when the
+  rule gives a FALLBACK; without one, a position short of the standard is "unacceptable".
 - "unacceptable": the contract takes a position the firm rejects, or one worse than the fallback.
 - "missing": the STANDARD requires the contract to contain something (a clause, a right, a protection) and the
   contract does not address it at all.
@@ -175,6 +176,17 @@ export function parseFinding(rule: PlaybookRule, raw: string): RuleFinding {
   };
 }
 
+/** Why a finding cannot be right for its rule, or null when it can. */
+export function findingProblem(rule: PlaybookRule, finding: RuleFinding): string | null {
+  if (finding.status === 'acceptable_fallback' && !rule.fallback?.trim()) {
+    return 'you answered "acceptable_fallback" but this rule has no FALLBACK position; choose between "meets_standard" and "unacceptable" (or "missing" / "not_applicable")';
+  }
+  if ((finding.status === 'meets_standard' || finding.status === 'acceptable_fallback' || finding.status === 'unacceptable') && !finding.excerpt.trim()) {
+    return `you answered "${finding.status}" but gave no excerpt; quote the contract text your verdict rests on, word for word`;
+  }
+  return null;
+}
+
 /**
  * Check a contract against each rule (one model call per rule, a few at a
  * time) and return the findings in rule order. Rules that meet the
@@ -202,7 +214,17 @@ export async function reviewAgainstRules(opts: ReviewOptions): Promise<RuleFindi
         '=== END ===',
         'Return the JSON object now.',
       ].join('\n\n');
-      const finding = parseFinding(rule, await llm(prompt));
+      let finding = parseFinding(rule, await llm(prompt));
+      const problem = findingProblem(rule, finding);
+      if (problem) {
+        // One correction round; a second invalid answer fails the run.
+        finding = parseFinding(
+          rule,
+          await llm(`${prompt}\n\nYour previous answer was not valid: ${problem}. Answer again with the corrected JSON object.`),
+        );
+        const again = findingProblem(rule, finding);
+        if (again) throw new Error(`rule "${rule.title}": the model's answer is still invalid after a correction (${again})`);
+      }
       const wantsEdits =
         finding.status === 'unacceptable' ||
         finding.status === 'missing' ||

@@ -6,6 +6,7 @@ export {
   reviewAgainstRules,
   draftRulesFromGuide,
   parseFinding,
+  findingProblem,
   extractJsonObject,
   RULE_STATUSES,
 } from './rules.js';

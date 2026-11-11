@@ -57,6 +57,30 @@ describe('reviewAgainstRules', () => {
   });
 });
 
+describe('finding validation', () => {
+  const noFallback: PlaybookRule = { id: 'r9', title: 'Termination', standard: 'Rights end on transfer.' };
+
+  it('asks once more when the status cannot apply to the rule, and accepts the correction', async () => {
+    const prompts: string[] = [];
+    const llm = async (p: string) => {
+      prompts.push(p);
+      return JSON.stringify(
+        prompts.length === 1
+          ? { status: 'acceptable_fallback', excerpt: 'suspended', explanation: 'x', edits: [] }
+          : { status: 'unacceptable', excerpt: 'suspended', explanation: 'x', edits: [edit] },
+      );
+    };
+    const [f] = await reviewAgainstRules({ rules: [noFallback], contractText: 'c', llm });
+    expect(f!.status).toBe('unacceptable');
+    expect(prompts[1]).toContain('this rule has no FALLBACK');
+  });
+
+  it('fails the run when the corrected answer is still invalid', async () => {
+    const llm = async () => JSON.stringify({ status: 'meets_standard', excerpt: '', explanation: 'x', edits: [] });
+    await expect(reviewAgainstRules({ rules: [noFallback], contractText: 'c', llm })).rejects.toThrow(/still invalid/);
+  });
+});
+
 describe('draftRulesFromGuide', () => {
   it('keeps rules with a title and standard and normalises empty fields to null', async () => {
     const llm = async () =>
