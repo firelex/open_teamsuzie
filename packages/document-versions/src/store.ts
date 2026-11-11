@@ -121,7 +121,7 @@ export class DocumentVersionsStore {
             this.db,
             `SELECT * FROM document_versions
              WHERE external_doc_id = ?
-             ORDER BY created_at ASC, id ASC`,
+             ORDER BY created_at ASC, rowid ASC`,
         )
             .all(externalDocId)
             .map(rowToVersion);
@@ -131,7 +131,7 @@ export class DocumentVersionsStore {
     findByStorageId(storageId: string): DocumentVersion[] {
         return prepareCached<[string], VersionRow>(
             this.db,
-            `SELECT * FROM document_versions WHERE storage_id = ? ORDER BY created_at ASC, id ASC`,
+            `SELECT * FROM document_versions WHERE storage_id = ? ORDER BY created_at ASC, rowid ASC`,
         )
             .all(storageId)
             .map(rowToVersion);
@@ -218,7 +218,7 @@ export class DocumentVersionsStore {
              WHERE external_doc_id = (
                  SELECT external_doc_id FROM document_versions WHERE id = ?
              )
-             ORDER BY created_at ASC`,
+             ORDER BY created_at ASC, rowid ASC`,
         )
             .all(versionId)
             .map(rowToVersion);
