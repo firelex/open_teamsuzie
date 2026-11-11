@@ -1,5 +1,5 @@
 export { ROUTINES_MIGRATIONS } from './migrations.js';
-export { RoutineStore, nextOccurrence } from './store.js';
+export { RoutineInputError, RoutineStore, nextOccurrence } from './store.js';
 export type { RoutineStoreOptions } from './store.js';
 export { RoutineScheduler } from './scheduler.js';
 export type { FireResult, RoutineSchedulerOptions } from './scheduler.js';

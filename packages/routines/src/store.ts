@@ -13,6 +13,11 @@ import type {
     RoutineTrigger,
 } from './types.js';
 
+/** A routine that cannot be accepted as given (bad schedule, time zone, name or policy). */
+export class RoutineInputError extends Error {
+    readonly code = 'invalid_routine';
+}
+
 export interface RoutineStoreOptions {
     db: DatabaseInstance;
     idFactory?: () => string;
@@ -96,21 +101,21 @@ function toRun(r: RunRow): RoutineRun {
 export function nextOccurrence(schedule: string, timezone: string, after: number): number {
     const fields = schedule.trim().split(/\s+/);
     if (fields.length !== 5) {
-        throw new Error(`The schedule "${schedule}" must have five parts: minute hour day-of-month month day-of-week.`);
+        throw new RoutineInputError(`The schedule "${schedule}" must have five parts: minute hour day-of-month month day-of-week.`);
     }
     try {
         new Intl.DateTimeFormat('en-GB', { timeZone: timezone });
     } catch {
-        throw new Error(`Unknown time zone: ${timezone}`);
+        throw new RoutineInputError(`Unknown time zone: ${timezone}`);
     }
     let cron: Cron;
     try {
         cron = new Cron(schedule.trim(), { timezone, paused: true });
     } catch (err) {
-        throw new Error(`The schedule "${schedule}" is not valid: ${err instanceof Error ? err.message : String(err)}`);
+        throw new RoutineInputError(`The schedule "${schedule}" is not valid: ${err instanceof Error ? err.message : String(err)}`);
     }
     const next = cron.nextRun(new Date(after));
-    if (!next) throw new Error(`The schedule "${schedule}" never falls due.`);
+    if (!next) throw new RoutineInputError(`The schedule "${schedule}" never falls due.`);
     return next.getTime();
 }
 
@@ -130,7 +135,7 @@ export class RoutineStore<TPayload = Record<string, unknown>> {
 
     create(input: CreateRoutineInput<TPayload>): Routine<TPayload> {
         const name = input.name.trim();
-        if (!name) throw new Error('name is required');
+        if (!name) throw new RoutineInputError('name is required');
         const overlap = input.overlap ?? 'skip';
         const catchUp = input.catchUp ?? 'skip';
         this.checkPolicies(overlap, catchUp);
@@ -192,7 +197,7 @@ export class RoutineStore<TPayload = Record<string, unknown>> {
     update(id: string, patch: RoutinePatch<TPayload>): Routine<TPayload> {
         const current = this.mustGet(id);
         const next: Routine<TPayload> = { ...current, ...patch };
-        if (!next.name.trim()) throw new Error('name is required');
+        if (!next.name.trim()) throw new RoutineInputError('name is required');
         this.checkPolicies(next.overlap, next.catchUp);
         const nextRunAt = next.enabled ? nextOccurrence(next.schedule, next.timezone, this.clock()) : null;
         prepareCached(
@@ -309,7 +314,7 @@ export class RoutineStore<TPayload = Record<string, unknown>> {
     }
 
     private checkPolicies(overlap: OverlapPolicy, catchUp: CatchUpPolicy): void {
-        if (!OVERLAPS.includes(overlap)) throw new Error(`overlap must be one of: ${OVERLAPS.join(', ')}`);
-        if (!CATCH_UPS.includes(catchUp)) throw new Error(`catchUp must be one of: ${CATCH_UPS.join(', ')}`);
+        if (!OVERLAPS.includes(overlap)) throw new RoutineInputError(`overlap must be one of: ${OVERLAPS.join(', ')}`);
+        if (!CATCH_UPS.includes(catchUp)) throw new RoutineInputError(`catchUp must be one of: ${CATCH_UPS.join(', ')}`);
     }
 }
