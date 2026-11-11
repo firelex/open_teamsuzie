@@ -30,7 +30,13 @@ export async function convertDocxToMarkdown(
   options: ConvertDocxOptions = {},
 ): Promise<ConvertDocxResult> {
   const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-  const { value: html, messages } = await mammoth.convertToHtml({ buffer });
+  // Images would otherwise be inlined as base64 data URIs, which bloat the
+  // text and pollute search indexes and model context. Keep only their alt
+  // text (rendered as a placeholder below).
+  const { value: html, messages } = await mammoth.convertToHtml(
+    { buffer },
+    { convertImage: mammoth.images.imgElement(async (image) => ({ src: '', alt: (image as { altText?: string }).altText ?? '' })) },
+  );
 
   const turndown = new TurndownService({
     headingStyle: 'atx',
@@ -40,6 +46,13 @@ export async function convertDocxToMarkdown(
     ...options.turndown,
   });
   turndown.use(turndownPluginGfm.strikethrough);
+  turndown.addRule('imagePlaceholder', {
+    filter: 'img',
+    replacement: (_content, node) => {
+      const alt = ((node as { getAttribute?: (n: string) => string | null }).getAttribute?.('alt') ?? '').trim();
+      return alt ? `[Image: ${alt}]` : '[Image]';
+    },
+  });
   installCustomTableRules(turndown);
 
   return {
