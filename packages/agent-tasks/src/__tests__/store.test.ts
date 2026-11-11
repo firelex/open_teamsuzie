@@ -98,6 +98,7 @@ describe('AgentTaskStore', () => {
         store.cancel(a.id, 'partner@firm.test', 'Not needed');
         expect(store.list({ subjectId: 'm1' }).map((t) => t.status)).toEqual(['cancelled']);
         expect(store.list({ ownerId: 'OTHER@firm.test', status: ['queued'] })).toHaveLength(1);
+        expect(store.list({ createdBy: 'Associate@firm.test' })).toHaveLength(2);
         expect(() => store.list({ status: 'bogus' as never })).toThrow(/unknown task status/);
         expect(store.deleteFor('matter', 'm1')).toBe(1);
         expect(store.events(a.id)).toEqual([]);

@@ -106,6 +106,7 @@ export interface ListTasksFilter {
     subjectType?: string;
     subjectId?: string;
     ownerId?: string;
+    createdBy?: string;
     status?: TaskStatus | TaskStatus[];
     limit?: number;
 }

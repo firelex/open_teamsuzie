@@ -190,6 +190,10 @@ export class AgentTaskStore {
             where.push('lower(owner_id) = lower(?)');
             params.push(filter.ownerId);
         }
+        if (filter.createdBy) {
+            where.push('lower(created_by) = lower(?)');
+            params.push(filter.createdBy);
+        }
         if (filter.status) {
             const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
             for (const s of statuses) {
