@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 /**
@@ -47,8 +48,12 @@ export function slugifyUserId(raw: string): string {
 export class UserMemoryStore {
   constructor(private opts: UserMemoryStoreOptions) {}
 
+  /** `<slug>-<hash>.md`: the slug keeps files readable, the hash of the
+   *  exact (trimmed, lower-cased) id keeps ids that slugify alike, such as
+   *  `a.b@x.com` and `a-b@x.com`, in separate files. */
   private pathFor(userId: string): string {
-    return path.join(this.opts.memoryDir, `${slugifyUserId(userId)}.md`);
+    const hash = createHash('sha256').update(userId.trim().toLowerCase()).digest('hex').slice(0, 12);
+    return path.join(this.opts.memoryDir, `${slugifyUserId(userId)}-${hash}.md`);
   }
 
   async read(userId: string): Promise<string> {

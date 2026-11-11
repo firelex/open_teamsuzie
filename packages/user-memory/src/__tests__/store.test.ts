@@ -70,3 +70,13 @@ describe('UserMemoryStore', () => {
     expect(await env.store.read('Alice@Example.com')).toBe(''); // not created
   });
 });
+
+describe('UserMemoryStore file separation', () => {
+  it('keeps ids that slugify alike in separate files', async () => {
+    const memoryDir = mkdtempSync(path.join(tmpdir(), 'user-memory-sep-'));
+    const store = new UserMemoryStore({ memoryDir });
+    await store.append('john.smith@firm.com', 'prefers English law');
+    expect(await store.read('john-smith@firm.com')).toBe('');
+    expect(await store.read('John.Smith@firm.com')).toContain('prefers English law');
+  });
+});
