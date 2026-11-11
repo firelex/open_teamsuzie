@@ -8,6 +8,7 @@ export {
   type HostedDemoAuthProvider,
   type TokenBudgetSummary,
   type TokenUsageInput,
+  type MeteredUsage,
 } from './token-budget.js';
 
 export {

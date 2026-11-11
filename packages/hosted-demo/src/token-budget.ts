@@ -187,6 +187,16 @@ export class TokenBudgetStore {
   }
 }
 
+/** One metered call's usage, as reported to `onUsage`. */
+export interface MeteredUsage {
+  source: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  /** True when the provider omitted usage and `fallbackTokens` was charged instead. */
+  estimated: boolean;
+}
+
 export function createTokenMeteredFetch(opts: {
   budget: TokenBudgetStore;
   ownerEmail: string;
@@ -194,6 +204,8 @@ export function createTokenMeteredFetch(opts: {
   model: string;
   enabled: boolean;
   fallbackTokens: number;
+  /** Called after each call's usage is recorded, e.g. to charge it to a matter. */
+  onUsage?: (usage: MeteredUsage) => void;
 }): typeof fetch {
   if (!opts.enabled) return fetch;
   return async (input, init) => {
@@ -236,6 +248,7 @@ async function meterResponse(
     source: string;
     model: string;
     fallbackTokens: number;
+    onUsage?: (usage: MeteredUsage) => void;
   },
 ): Promise<void> {
   if (!response.ok) return;
@@ -254,6 +267,7 @@ async function meterResponse(
         inputTokens: usage.input,
         outputTokens: usage.output,
       });
+      opts.onUsage?.({ source: opts.source, model: opts.model, inputTokens: usage.input, outputTokens: usage.output, estimated: false });
     } else if (opts.fallbackTokens > 0) {
       opts.budget.recordUsage({
         ownerEmail: opts.ownerEmail,
@@ -263,6 +277,7 @@ async function meterResponse(
         outputTokens: 0,
         metadata: { reason: 'provider omitted usage' },
       });
+      opts.onUsage?.({ source: opts.source, model: opts.model, inputTokens: opts.fallbackTokens, outputTokens: 0, estimated: true });
     }
   } catch (err) {
     console.warn('[hosted-demo] usage metering failed:', err instanceof Error ? err.message : err);
