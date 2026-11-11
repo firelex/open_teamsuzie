@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { tmpdir } from 'node:os';
 import { openDb, type DatabaseInstance } from '@teamsuzie/db-sqlite';
 
 import { DOCUMENT_VERSIONS_MIGRATIONS } from '../migrations.js';
@@ -392,5 +393,23 @@ describe('storage lookups and restore source', () => {
         expect(store.findByStorageId('file-1')).toEqual([]);
         const restored = store.addVersion({ externalDocId: 'doc', parentId: prop.id, source: 'restore', storageId: 'snap-3' });
         expect(store.getHead('doc')!.id).toBe(restored.id);
+    });
+});
+
+describe('restore-source migration on existing data', () => {
+    it('rebuilds the table without breaking heads or parent links', () => {
+        const before = DOCUMENT_VERSIONS_MIGRATIONS.filter((m) => m.name !== '20261111_document_versions_add_restore_source');
+        const path = `${tmpdir()}/dv-mig-${Date.now()}.db`;
+        const db1 = openDb({ path, migrations: before });
+        const s1 = new DocumentVersionsStore({ db: db1 });
+        const up = s1.addVersion({ externalDocId: 'doc', source: 'upload', storageId: 'f1' });
+        s1.addVersion({ externalDocId: 'doc', parentId: up.id, source: 'proposal', storageId: 'f2' });
+        db1.close();
+        const db2 = openDb({ path, migrations: DOCUMENT_VERSIONS_MIGRATIONS });
+        const s2 = new DocumentVersionsStore({ db: db2 });
+        expect(s2.listVersions('doc').map((v) => v.source)).toEqual(['upload', 'proposal']);
+        expect(s2.getHead('doc')!.source).toBe('proposal');
+        s2.addVersion({ externalDocId: 'doc', parentId: s2.getHead('doc')!.id, source: 'restore', storageId: 'f1' });
+        db2.close();
     });
 });

@@ -13,6 +13,16 @@ export interface Migration {
   name: string;
   /** SQL to execute. May contain multiple statements separated by semicolons. */
   up: string;
+  /**
+   * Run with foreign keys switched off, for migrations that rebuild a table
+   * other tables reference (SQLite cannot alter a CHECK or column in
+   * place). The runner switches `foreign_keys` off before the transaction
+   * (it cannot change inside one), runs `PRAGMA foreign_key_check` before
+   * committing and rolls back if any reference is broken, then switches
+   * foreign keys back on. This is SQLite's documented table-rebuild
+   * procedure.
+   */
+  rebuildsTables?: boolean;
 }
 
 export interface OpenDbOptions {
@@ -59,11 +69,26 @@ function runMigrations(db: DatabaseInstance, migrations: Migration[]): void {
 
   for (const migration of migrations) {
     if (isApplied.get(migration.name)) continue;
-    const tx = db.transaction(() => {
-      db.exec(migration.up);
-      recordApplied.run(migration.name, Date.now());
-    });
-    tx();
+    const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+    if (migration.rebuildsTables && fkWasOn) db.pragma('foreign_keys = OFF');
+    try {
+      const tx = db.transaction(() => {
+        db.exec(migration.up);
+        if (migration.rebuildsTables) {
+          const broken = db.pragma('foreign_key_check') as Array<{ table: string; parent: string }>;
+          if (broken.length > 0) {
+            const first = broken[0]!;
+            throw new Error(
+              `migration ${migration.name} left ${broken.length} broken foreign key reference(s), e.g. ${first.table} -> ${first.parent}`,
+            );
+          }
+        }
+        recordApplied.run(migration.name, Date.now());
+      });
+      tx();
+    } finally {
+      if (migration.rebuildsTables && fkWasOn) db.pragma('foreign_keys = ON');
+    }
   }
 }
 

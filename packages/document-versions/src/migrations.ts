@@ -54,6 +54,7 @@ export const DOCUMENT_VERSIONS_MIGRATIONS: Migration[] = [
         // "document_versions" by name across the rename, so the FK works
         // again as soon as we recreate the table under the original name.
         name: '20260504_document_versions_add_generated_source',
+        rebuildsTables: true,
         up: `
             PRAGMA legacy_alter_table = 1;
 
@@ -91,6 +92,10 @@ export const DOCUMENT_VERSIONS_MIGRATIONS: Migration[] = [
         // content as the new head). Same rebuild pattern as above, plus an
         // index for looking versions up by the file they are stored in.
         name: '20261111_document_versions_add_restore_source',
+        // Dropping the old table would trip document_heads' and parent_id's
+        // references, so the runner switches foreign keys off around this
+        // migration and checks them all before committing.
+        rebuildsTables: true,
         up: `
             PRAGMA legacy_alter_table = 1;
 
