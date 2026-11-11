@@ -1,1 +1,1 @@
-export { convertDocxBufferToPdf, isLibreOfficeAvailable } from './docx-to-pdf.js';
+export { convertDocxBufferToPdf, convertWithLibreOffice, isLibreOfficeAvailable } from './docx-to-pdf.js';
