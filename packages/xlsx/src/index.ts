@@ -5,3 +5,5 @@ export { walkCells, resolveNamedRange } from "./walk.js";
 export { diffWorkbooks } from "./diff.js";
 export type { SerializeOptions } from "./serialize.js";
 export { serializeForLLM } from "./serialize.js";
+export { buildWorkbook } from "./build.js";
+export type { BuildWorkbookSpec, BuildSheet, BuildColumn, BuildCellValue, ColumnFormat } from "./build.js";
