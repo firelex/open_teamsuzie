@@ -294,6 +294,16 @@ export class ActivityStore {
         return rows.map(rowToEntry);
     }
 
+    /** Everyone who did something in an org between two times (ms), e.g. to find whose day to summarise. */
+    actorsBetween(orgId: string, from: number, to: number): string[] {
+        return prepareCached<[string, number, number], { actor_id: string }>(
+            this.db,
+            `SELECT DISTINCT actor_id FROM activity_entries WHERE org_id = ? AND at >= ? AND at < ? AND actor_id IS NOT NULL ORDER BY actor_id`,
+        )
+            .all(orgId, from, to)
+            .map((r) => r.actor_id);
+    }
+
     /** Entries one actor performed in an org, newest first. */
     listByActor(opts: ListByOrgOptions & { actorId: string }): ActivityEntry[] {
         const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_LIMIT), MAX_LIMIT);

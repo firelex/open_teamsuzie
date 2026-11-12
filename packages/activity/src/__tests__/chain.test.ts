@@ -69,3 +69,13 @@ describe('activity hash chain', () => {
         expect(store.verify('o1')).toMatchObject({ ok: true, checked: 2, unchained: 0 });
     });
 });
+
+describe('actorsBetween', () => {
+    it('lists who acted in a period', () => {
+        const { store } = setup();
+        store.append({ orgId: 'o1', subject: { type: 'matter', id: 'm' }, actor: { id: 'b@x', type: 'user' }, kind: 'k', summary: 's', at: 10 });
+        store.append({ orgId: 'o1', subject: { type: 'matter', id: 'm' }, actor: { id: 'a@x', type: 'user' }, kind: 'k', summary: 's', at: 20 });
+        store.append({ orgId: 'o1', subject: { type: 'matter', id: 'm' }, actor: { id: 'c@x', type: 'user' }, kind: 'k', summary: 's', at: 30 });
+        expect(store.actorsBetween('o1', 10, 30)).toEqual(['a@x', 'b@x']);
+    });
+});
