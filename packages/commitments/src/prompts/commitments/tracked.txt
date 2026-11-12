@@ -1,0 +1,4 @@
+Already tracked, open (each with who it is with):
+{tracked}
+Do not list a commitment that is the same undertaking as one of these, even when it is worded differently or promised to someone else (sending "CVs to DKP" and "bios of the team to Louis at DKP" are one undertaking). List only what is new.
+

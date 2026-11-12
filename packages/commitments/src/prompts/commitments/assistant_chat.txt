@@ -1,0 +1,10 @@
+Below is the new part of a conversation between {user} (the user) and {assistant}, the user's digital assistant. Today is {today}. Find commitments the user states in their own messages (the lines starting with "User:"):
+- "assistant_owes": something the user asks {assistant} to do later or keep track of ("remind me to...", "follow up with ... next week") that is not done in this conversation;
+- "you_owe": something the user says they promised or need to do for someone.
+Not: tasks {assistant} did in the conversation, questions, or anything {assistant} said. One plain sentence each. "due" is a date (YYYY-MM-DD) only when the user gives or clearly implies one, otherwise null. "evidence" is the user's exact words, copied from one of their messages. Usually there are none; an empty list is a good answer.
+[[include commitments/naming]]
+[[include commitments/tracked]]Answer with only a JSON object and no other text:
+{{"commitments": [{{"direction": "assistant_owes" or "you_owe", "text": "...", "counterparty": "name or null", "due": "YYYY-MM-DD" or null, "evidence": "the user's exact words"}}]}}
+
+The conversation:
+{transcript}

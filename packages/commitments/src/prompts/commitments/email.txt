@@ -1,0 +1,15 @@
+Below is an email {direction_words}. {user} is the user. Today is {today}; the email is dated {date}.
+
+Find the commitments in it: concrete things someone undertakes to do, with or without a date.
+{kinds}A commitment is a promise to do something in the future ("I will send the contract by Friday", "we will confirm next week"). Not a commitment: something already done ("I just circulated an invite", "attached is the report"); a request, question, proposal or suggestion ("could we set aside 15 minutes?", "would you be open to a call?"); a wish or a pleasantry ("let me know if you need anything"); sales or marketing outreach; automated notifications.
+- "text": one plain sentence naming who does what for whom.
+- "due": YYYY-MM-DD only when given or clearly implied, calculated from the email's date; otherwise null.
+- "evidence": the exact words from the email containing the undertaking.
+Usually there are no commitments; an empty list is a good answer.
+[[include commitments/naming]]
+{open_part}[[include commitments/tracked]]Answer with only a JSON object and no other text:
+{{"commitments": [{{"direction": {directions}, "text": "...", "counterparty": "name or email address", "due": "YYYY-MM-DD" or null, "evidence": "exact words"}}], "fulfils": [ids of open commitments this email shows are done]}}
+
+<email>
+{email}
+</email>

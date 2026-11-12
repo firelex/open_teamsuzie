@@ -1936,6 +1936,19 @@ importers:
         specifier: ^11.0.5
         version: 11.0.5
 
+  packages/commitments:
+    dependencies:
+      '@teamsuzie/db-sqlite':
+        specifier: workspace:*
+        version: link:../db-sqlite
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.8.3
+
   packages/config-client:
     dependencies:
       '@teamsuzie/types':

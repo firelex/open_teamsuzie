@@ -1,0 +1,1 @@
+The user has followed up {count} time{plural} already: refer to it plainly in a few words (for example "following up on my earlier note"), without apologising.

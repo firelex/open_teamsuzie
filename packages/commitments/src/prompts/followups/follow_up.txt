@@ -1,0 +1,13 @@
+Write a short, polite follow-up email from {user} (the user) to {person}, who promised the user something and has not yet done it. Write as the user, in the first person, never as an assistant or an AI. Friendly and brief: remind them of what they said they would do, and ask when the user can expect it. {earlier}Do not invent facts, dates or reasons; do not threaten or pressure. Never write placeholders or anything in square brackets: where a detail is missing, leave it out or keep the sentence general; the user edits the draft before it goes out. Match the language and tone of the original email. End with the user's first name if you know it. Answer with only the text of the email: no subject line.
+
+What they promised: {text}{due}
+Their own words: "{evidence}"
+
+What you know about the user:
+{about}
+
+What you know about {person}:
+{known}
+
+The email the promise came from:
+{original}

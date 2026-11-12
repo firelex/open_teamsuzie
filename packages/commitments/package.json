@@ -1,0 +1,31 @@
+{
+  "name": "@teamsuzie/commitments",
+  "version": "0.1.0",
+  "description": "Commitments found in email and chats (promises made to and by the user), each kept only when its quoted evidence is really in the source; open ones closed when done; follow-up timing and drafts. Ported from Jeff Desk.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && rm -rf dist/prompts && cp -R src/prompts dist/prompts",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

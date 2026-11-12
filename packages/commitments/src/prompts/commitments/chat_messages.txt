@@ -1,0 +1,14 @@
+Below are the latest messages of a {label} chat between {user} (the user) and {person}. Today is {today}. Each message is labelled with who wrote it. The messages after the line ---- NEW ---- are new; the ones before it are only there for context. Find the commitments made in the NEW messages:
+- "owed_to_you": someone in the chat other than the user undertakes to do something for the user (for example "yes, can do this afternoon" when the user asked them to review something: name what they will do, using the earlier messages to say what it is);
+- "you_owe": the user undertakes to do something for someone in the chat, even something small and soon ("will send it in 10 minutes" is a commitment to send it).
+[[include commitments/obligation]]Exclude requests, questions, completed actions, pleasantries and commitments made only in earlier messages.
+- "text": one plain sentence naming who does what (the person by the name their messages are labelled with).
+- "due": YYYY-MM-DD only when given or clearly implied ("this afternoon" is today); otherwise null.
+- "evidence": the exact words of one NEW message.
+Usually there are no commitments; an empty list is a good answer.
+[[include commitments/naming]]
+{open_part}[[include commitments/tracked]]Answer with only a JSON object and no other text:
+{{"commitments": [{{"direction": "owed_to_you" or "you_owe", "text": "...", "due": "YYYY-MM-DD" or null, "evidence": "exact words"}}], "fulfils": [ids of open commitments the NEW messages show are done]}}
+
+The chat, oldest first:
+{chat}

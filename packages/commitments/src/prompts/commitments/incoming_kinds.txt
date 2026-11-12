@@ -1,0 +1,2 @@
+- "owed_to_you": the sender (or someone they speak for) undertakes to do something for the user.
+[[include commitments/obligation]]

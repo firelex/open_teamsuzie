@@ -1,0 +1,4 @@
+These commitments are open with {person}, each saying who owes it. List in "fulfils" the ids of those the NEW messages show are done by the one who owes it, and only those: the user writing "sent by email" completes what the user owed (sending a document), but never what {person} owes (reviewing it, say).
+{open}
+
+

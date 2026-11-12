@@ -1,0 +1,2 @@
+In each "text", call {user} "{first}" (never "the user", "I", "you", or their full name or company).
+

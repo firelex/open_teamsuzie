@@ -1,0 +1,3 @@
+- "you_owe": the user undertakes to do something for the recipients or others.
+- "owed_to_you": the email confirms that a recipient has agreed to do something for the user.
+[[include commitments/obligation]]
