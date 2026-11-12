@@ -130,4 +130,46 @@ export const DOCUMENT_VERSIONS_MIGRATIONS: Migration[] = [
             PRAGMA legacy_alter_table = 0;
         `,
     },
+    {
+        // Add 'edit' (a version saved from a document editor, e.g. a
+        // word processor embedded in the host). Same rebuild pattern.
+        name: '20261112_document_versions_add_edit_source',
+        // Dropping the old table would trip document_heads' and parent_id's
+        // references, so the runner switches foreign keys off around this
+        // migration and checks them all before committing.
+        rebuildsTables: true,
+        up: `
+            PRAGMA legacy_alter_table = 1;
+
+            CREATE TABLE document_versions_new (
+                id              TEXT PRIMARY KEY,
+                external_doc_id TEXT NOT NULL,
+                parent_id       TEXT REFERENCES document_versions(id),
+                source          TEXT NOT NULL CHECK (source IN ('upload', 'proposal', 'accept', 'reject', 'generated', 'restore', 'edit')),
+                storage_id      TEXT NOT NULL,
+                byte_size       INTEGER,
+                content_hash    TEXT,
+                notes           TEXT,
+                created_at      INTEGER NOT NULL
+            );
+
+            INSERT INTO document_versions_new
+                (id, external_doc_id, parent_id, source, storage_id, byte_size, content_hash, notes, created_at)
+            SELECT
+                id, external_doc_id, parent_id, source, storage_id, byte_size, content_hash, notes, created_at
+            FROM document_versions;
+
+            DROP TABLE document_versions;
+            ALTER TABLE document_versions_new RENAME TO document_versions;
+
+            CREATE INDEX IF NOT EXISTS idx_document_versions_doc
+                ON document_versions(external_doc_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_document_versions_parent
+                ON document_versions(parent_id);
+            CREATE INDEX IF NOT EXISTS idx_document_versions_storage
+                ON document_versions(storage_id);
+
+            PRAGMA legacy_alter_table = 0;
+        `,
+    },
 ];
