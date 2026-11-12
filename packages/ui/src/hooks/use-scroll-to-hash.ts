@@ -11,9 +11,10 @@ const USER_INPUT = ["wheel", "touchstart", "keydown", "mousedown"] as const
  * after data loads, needs this hook. Pass the router's current hash (e.g.
  * `useLocation().hash`) so following another `#section` link scrolls again.
  *
- * Panels above the section often finish loading afterwards and push it
- * down, so for a moment the hook scrolls again whenever the section moves.
- * It stops as soon as the person scrolls, clicks or types.
+ * Panels often finish loading afterwards: those above push the section
+ * down, and until those below load the page may be too short to bring it
+ * to the top. So for a moment the hook keeps scrolling it into place. It
+ * stops as soon as the person scrolls, clicks or types.
  *
  * A fragment that names no element on the page is ignored, as browsers do.
  */
@@ -23,14 +24,8 @@ export function useScrollToHash(hash: string, ready: boolean): void {
     const id = decodeURIComponent(hash.slice(1))
     const until = performance.now() + SETTLE_MS
     let frame = 0
-    let lastTop: number | null = null
     const tick = () => {
-      const el = document.getElementById(id)
-      if (el) {
-        const top = el.getBoundingClientRect().top
-        if (lastTop === null || Math.abs(top - lastTop) > 1) el.scrollIntoView({ block: "start" })
-        lastTop = el.getBoundingClientRect().top
-      }
+      document.getElementById(id)?.scrollIntoView({ block: "start" })
       if (performance.now() < until) frame = requestAnimationFrame(tick)
     }
     const stop = () => cancelAnimationFrame(frame)
