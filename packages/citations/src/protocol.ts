@@ -73,3 +73,15 @@ export function citationProtocolFragment(opts: ProtocolFragmentOptions): string 
         handleList,
     ].join('\n');
 }
+
+/**
+ * The page a citation's locator names ("p. 4", "page 12"), for opening a
+ * PDF at the right place; undefined when the locator names no page.
+ */
+export function pageHintFromLocator(locator: string | undefined): number | undefined {
+  if (!locator) return undefined;
+  const m = locator.match(/\bp\.?\s*(\d+)\b/i) ?? locator.match(/\bpage\s+(\d+)\b/i);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}

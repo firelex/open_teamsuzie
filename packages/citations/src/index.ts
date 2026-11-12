@@ -5,6 +5,7 @@ export {
     SENTINEL_CLOSE,
     MARKER_REGEX,
     SENTINEL_BLOCK_REGEX,
+    pageHintFromLocator,
 } from './protocol.js';
 export type { ProtocolDoc, ProtocolFragmentOptions } from './protocol.js';
 export {
