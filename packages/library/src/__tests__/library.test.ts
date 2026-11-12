@@ -23,7 +23,7 @@ describe('LibraryStore', () => {
         expect(edited.body).toBe('v2 notes');
         expect(s.approvedContent(item.id)!.body).toBe('v1 notes');
 
-        expect(() => s.approve(item.id, 'partner@firm.com', 1)).toThrow(/changed to version 2/);
+        expect(() => s.approve(item.id, 'partner@firm.com', 1)).toThrow(/now at version 2, not the version 1/);
         s.approve(item.id, 'partner@firm.com', 2);
         expect(s.approvedContent(item.id)!.body).toBe('v2 notes');
         expect(s.versions(item.id).map((v) => v.note)).toEqual(['Updated for the 2026 Act', 'Created']);

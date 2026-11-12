@@ -408,7 +408,7 @@ export class LibraryStore {
         const item = this.requireItem(id);
         if (item.status === 'retired') throw new LibraryInputError('conflict', `"${item.title}" is retired`);
         if (item.version !== expectVersion) {
-            throw new LibraryInputError('conflict', `"${item.title}" changed to version ${item.version} after you looked at version ${expectVersion}; check it again`);
+            throw new LibraryInputError('conflict', `"${item.title}" is now at version ${item.version}, not the version ${expectVersion} you reviewed; check it again before approving`);
         }
         const now = this.clock();
         prepareCached(
