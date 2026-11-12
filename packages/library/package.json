@@ -1,0 +1,31 @@
+{
+  "name": "@teamsuzie/library",
+  "version": "0.1.0",
+  "description": "A knowledge library in spaces (e.g. one per practice group): items of host-defined kinds with draft, approved and retired status, a version history where readers keep the approved version while a new draft waits, owners and review-by dates.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
