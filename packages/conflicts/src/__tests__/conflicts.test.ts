@@ -92,3 +92,15 @@ describe('party contacts', () => {
         expect(reg.partiesForAddress('anna@widget.com')).toEqual([]);
     });
 });
+
+describe('pending checks', () => {
+    it('lists undecided checks, optionally for one person', () => {
+        const reg = setup();
+        const a = reg.check([{ name: 'Acme', role: 'client' }], 'jane@firm.test');
+        reg.check([{ name: 'Widget', role: 'client' }], 'tom@firm.test');
+        expect(reg.pendingChecks().length).toBe(2);
+        expect(reg.pendingChecks('JANE@firm.test').map((c) => c.id)).toEqual([a.id]);
+        reg.decide(a.id, 'clear', 'jane@firm.test', '');
+        expect(reg.pendingChecks('jane@firm.test')).toEqual([]);
+    });
+});

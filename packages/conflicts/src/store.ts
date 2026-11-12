@@ -408,6 +408,17 @@ export class PartyRegister {
         ).run(subject.type, subject.id, id);
     }
 
+    /** Checks not yet decided, oldest first; only those one person ran when `requestedBy` is given. */
+    pendingChecks(requestedBy?: string): ConflictCheck[] {
+        return (
+            this.db
+                .prepare(
+                    `SELECT * FROM conflict_checks WHERE decision = 'pending'${requestedBy ? ' AND lower(requested_by) = lower(?)' : ''} ORDER BY requested_at`,
+                )
+                .all(...(requestedBy ? [requestedBy] : [])) as CheckRow[]
+        ).map(toCheck);
+    }
+
     checksFor(subject: SubjectRef): ConflictCheck[] {
         return prepareCached<[string, string], CheckRow>(
             this.db,
