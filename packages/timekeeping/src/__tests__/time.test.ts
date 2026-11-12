@@ -95,3 +95,22 @@ describe('timers', () => {
         expect(() => store.stopTimer('jane@firm.test')).toThrow(/No timer/);
     });
 });
+
+describe('proposed entries', () => {
+    it('count nowhere until confirmed, can be edited or deleted, and keep their basis', () => {
+        const { store } = setup();
+        store.setRate({ level: 'person', levelId: 'jane@firm.test', hourlyMinor: 30000, setBy: 'admin' });
+        const p = store.record(entry({ rawMinutes: 45, source: 'assistant', proposed: { basis: ['Meeting: Call with Widget, 45 minutes'] } }));
+        expect(p).toMatchObject({ status: 'proposed', minutes: 48, basis: ['Meeting: Call with Widget, 45 minutes'] });
+        expect(store.wip()).toEqual([]);
+        expect(() => store.markBilled([p.id], 'inv1')).toThrow(/not unbilled/);
+        expect(() => store.writeOff(p.id, 'x')).toThrow(/confirmed or deleted/);
+        expect(store.update(p.id, { rawMinutes: 30, narrative: 'Call with Widget on the side letter' })).toMatchObject({ status: 'proposed', minutes: 30 });
+        expect(store.confirm(p.id)).toMatchObject({ status: 'unbilled', amountMinor: 15000 });
+        expect(() => store.confirm(p.id)).toThrow(/Only a proposed entry/);
+        expect(store.wip()[0]!.entries).toBe(1);
+        const q = store.record(entry({ source: 'assistant', proposed: { basis: [] } }));
+        store.delete(q.id);
+        expect(store.get(q.id)).toBeNull();
+    });
+});

@@ -52,10 +52,53 @@ export const TIMEKEEPING_MIGRATIONS: Migration[] = [
             );
         `,
     },
+    {
+        // 'proposed': drafted by an assistant from the person's activity, not yet confirmed by them.
+        name: '20261112_time_entries_proposed',
+        rebuildsTables: true,
+        up: `
+            CREATE TABLE time_entries_new (
+                id            TEXT PRIMARY KEY,
+                matter_id     TEXT NOT NULL,
+                client_id     TEXT,
+                person_id     TEXT NOT NULL,
+                date          TEXT NOT NULL,
+                raw_minutes   INTEGER NOT NULL CHECK (raw_minutes > 0),
+                minutes       INTEGER NOT NULL CHECK (minutes > 0),
+                narrative     TEXT NOT NULL,
+                billable      INTEGER NOT NULL,
+                task_code     TEXT,
+                activity_code TEXT,
+                rate_minor    INTEGER NOT NULL,
+                rate_source   TEXT NOT NULL,
+                amount_minor  INTEGER NOT NULL,
+                currency      TEXT NOT NULL,
+                status        TEXT NOT NULL CHECK (status IN ('proposed', 'unbilled', 'billed', 'written_off')),
+                invoice_id    TEXT,
+                write_off_reason TEXT,
+                source        TEXT NOT NULL,
+                created_by    TEXT NOT NULL,
+                created_at    INTEGER NOT NULL,
+                updated_at    INTEGER NOT NULL,
+                basis         TEXT
+            );
+            INSERT INTO time_entries_new (id, matter_id, client_id, person_id, date, raw_minutes, minutes, narrative, billable, task_code,
+              activity_code, rate_minor, rate_source, amount_minor, currency, status, invoice_id, write_off_reason, source, created_by,
+              created_at, updated_at)
+              SELECT id, matter_id, client_id, person_id, date, raw_minutes, minutes, narrative, billable, task_code, activity_code,
+                rate_minor, rate_source, amount_minor, currency, status, invoice_id, write_off_reason, source, created_by, created_at, updated_at
+              FROM time_entries;
+            DROP TABLE time_entries;
+            ALTER TABLE time_entries_new RENAME TO time_entries;
+            CREATE INDEX IF NOT EXISTS idx_time_entries_matter ON time_entries(matter_id, status, date);
+            CREATE INDEX IF NOT EXISTS idx_time_entries_person ON time_entries(person_id, date);
+        `,
+    },
 ];
 
 export type RateLevel = 'person' | 'client' | 'matter';
-export type EntryStatus = 'unbilled' | 'billed' | 'written_off';
+/** proposed: drafted from activity, waiting for the person to confirm; it counts nowhere until then. */
+export type EntryStatus = 'proposed' | 'unbilled' | 'billed' | 'written_off';
 
 export interface Rate {
     id: string;
@@ -95,6 +138,8 @@ export interface TimeEntry {
     invoiceId: string | null;
     writeOffReason: string | null;
     source: string;
+    /** For proposed entries: what the proposal was based on (shown to the person). */
+    basis: string[] | null;
     createdBy: string;
     createdAt: number;
     updatedAt: number;
@@ -114,6 +159,8 @@ export interface RecordInput {
     /** How the entry was made, e.g. 'manual', 'timer', 'suggested'. */
     source: string;
     createdBy: string;
+    /** Record it as proposed (not counted until `confirm`), with what it was based on. */
+    proposed?: { basis: string[] };
 }
 
 export type EntryPatch = Partial<Pick<RecordInput, 'date' | 'rawMinutes' | 'narrative' | 'billable' | 'taskCode' | 'activityCode'>>;
@@ -153,6 +200,7 @@ interface EntryRow {
     created_by: string;
     created_at: number;
     updated_at: number;
+    basis: string | null;
 }
 
 const toEntry = (r: EntryRow): TimeEntry => ({
@@ -175,6 +223,7 @@ const toEntry = (r: EntryRow): TimeEntry => ({
     invoiceId: r.invoice_id,
     writeOffReason: r.write_off_reason,
     source: r.source,
+    basis: r.basis ? (JSON.parse(r.basis) as string[]) : null,
     createdBy: r.created_by,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -341,8 +390,8 @@ export class TimeStore {
         prepareCached(
             this.db,
             `INSERT INTO time_entries (id, matter_id, client_id, person_id, date, raw_minutes, minutes, narrative, billable, task_code,
-               activity_code, rate_minor, rate_source, amount_minor, currency, status, source, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unbilled', ?, ?, ?, ?)`,
+               activity_code, rate_minor, rate_source, amount_minor, currency, status, source, created_by, created_at, updated_at, basis)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
             id,
             input.matterId,
@@ -359,10 +408,12 @@ export class TimeStore {
             rate?.source ?? 'no rate (not billable)',
             input.billable ? amountFor(minutes, rate!.hourlyMinor) : 0,
             this.currency,
+            input.proposed ? 'proposed' : 'unbilled',
             input.source,
             input.createdBy,
             now,
             now,
+            input.proposed ? JSON.stringify(input.proposed.basis) : null,
         );
         return this.get(id)!;
     }
@@ -372,11 +423,21 @@ export class TimeStore {
         return row ? toEntry(row) : null;
     }
 
+    /** An entry that may still change: unbilled, or proposed and not yet confirmed. */
     private mustBeUnbilled(id: string, action: string): TimeEntry {
         const e = this.get(id);
         if (!e) throw new TimeInputError(`No time entry with id ${id}.`);
-        if (e.status !== 'unbilled') throw new TimeInputError(`This entry is ${e.status.replace('_', ' ')}, so it cannot be ${action}.`);
+        if (e.status !== 'unbilled' && e.status !== 'proposed') throw new TimeInputError(`This entry is ${e.status.replace('_', ' ')}, so it cannot be ${action}.`);
         return e;
+    }
+
+    /** The person confirms a proposed entry (after any edits): it becomes ordinary unbilled time. */
+    confirm(id: string): TimeEntry {
+        const e = this.get(id);
+        if (!e) throw new TimeInputError(`No time entry with id ${id}.`);
+        if (e.status !== 'proposed') throw new TimeInputError('Only a proposed entry can be confirmed.');
+        prepareCached(this.db, `UPDATE time_entries SET status = 'unbilled', updated_at = ? WHERE id = ? AND status = 'proposed'`).run(this.clock(), id);
+        return this.get(id)!;
     }
 
     /** Change an unbilled entry. The rate stays as recorded; minutes and amount are worked out again. */
@@ -402,7 +463,7 @@ export class TimeStore {
         prepareCached(
             this.db,
             `UPDATE time_entries SET date = ?, raw_minutes = ?, minutes = ?, narrative = ?, billable = ?, task_code = ?, activity_code = ?,
-               amount_minor = ?, updated_at = ? WHERE id = ? AND status = 'unbilled'`,
+               amount_minor = ?, updated_at = ? WHERE id = ? AND status IN ('unbilled', 'proposed')`,
         ).run(
             next.date,
             next.rawMinutes,
@@ -420,11 +481,12 @@ export class TimeStore {
 
     delete(id: string): void {
         this.mustBeUnbilled(id, 'deleted');
-        prepareCached(this.db, `DELETE FROM time_entries WHERE id = ? AND status = 'unbilled'`).run(id);
+        prepareCached(this.db, `DELETE FROM time_entries WHERE id = ? AND status IN ('unbilled', 'proposed')`).run(id);
     }
 
     writeOff(id: string, reason: string): TimeEntry {
-        this.mustBeUnbilled(id, 'written off');
+        const e = this.mustBeUnbilled(id, 'written off');
+        if (e.status === 'proposed') throw new TimeInputError('A proposed entry is confirmed or deleted, not written off.');
         if (!reason.trim()) throw new TimeInputError('say why the time is written off');
         prepareCached(
             this.db,
