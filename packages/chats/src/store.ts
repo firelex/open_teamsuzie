@@ -26,6 +26,7 @@ interface MessageRow {
     content: string;
     tool_events: string | null;
     citations: string | null;
+    author_id: string | null;
     created_at: number;
 }
 
@@ -123,13 +124,14 @@ export class ChatsStore {
                 string,
                 string | null,
                 string | null,
+                string | null,
                 number,
             ]
         >(
             this.db,
             `INSERT INTO chat_messages
-             (id, chat_id, role, content, tool_events, citations, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (id, chat_id, role, content, tool_events, citations, author_id, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
             id,
             input.chatId,
@@ -137,6 +139,7 @@ export class ChatsStore {
             input.content,
             input.toolEvents ?? null,
             input.citations ?? null,
+            input.authorId ?? null,
             now,
         );
         this.touchChat(input.chatId);
@@ -149,6 +152,17 @@ export class ChatsStore {
             `SELECT * FROM chat_messages WHERE id = ?`,
         ).get(id);
         return row ? rowToMessage(row) : null;
+    }
+
+    /** Messages one person wrote between two times (ms), with each chat's workspace, oldest first. */
+    messagesByAuthor(authorId: string, from: number, to: number): AuthoredMessage[] {
+        return prepareCached<[string, number, number], MessageRow & { workspace_id: string; chat_name: string }>(
+            this.db,
+            `SELECT m.*, c.workspace_id, c.name AS chat_name FROM chat_messages m JOIN chats c ON c.id = m.chat_id
+             WHERE lower(m.author_id) = lower(?) AND m.created_at >= ? AND m.created_at < ? ORDER BY m.created_at, m.rowid`,
+        )
+            .all(authorId, from, to)
+            .map((r) => ({ ...rowToMessage(r), workspaceId: r.workspace_id, chatName: r.chat_name }));
     }
 
     listMessages(chatId: string): ChatMessage[] {
@@ -181,6 +195,12 @@ function rowToChat(row: ChatRow): Chat {
     };
 }
 
+/** A message with the workspace of its chat. */
+export interface AuthoredMessage extends ChatMessage {
+    workspaceId: string;
+    chatName: string;
+}
+
 function rowToMessage(row: MessageRow): ChatMessage {
     return {
         id: row.id,
@@ -189,6 +209,7 @@ function rowToMessage(row: MessageRow): ChatMessage {
         content: row.content,
         toolEvents: row.tool_events,
         citations: row.citations,
+        authorId: row.author_id,
         createdAt: row.created_at,
     };
 }

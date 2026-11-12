@@ -139,3 +139,19 @@ describe('id + clock injection', () => {
         fixedDb.close();
     });
 });
+
+describe('message authors', () => {
+    it('records who wrote a message and finds a person’s messages by time', async () => {
+        const { openDb } = await import('@teamsuzie/db-sqlite');
+        const { CHATS_MIGRATIONS, ChatsStore } = await import('../index.js');
+        let t = 1000;
+        const store = new ChatsStore({ db: openDb({ path: ':memory:', migrations: CHATS_MIGRATIONS }), now: () => ++t });
+        const chat = store.createChat({ workspaceId: 'm1', name: 'Side letter' });
+        store.appendMessage({ chatId: chat.id, role: 'user', content: 'Check MFN', authorId: 'jane@firm.test' });
+        store.appendMessage({ chatId: chat.id, role: 'assistant', content: 'Done' });
+        store.appendMessage({ chatId: chat.id, role: 'user', content: 'Other', authorId: 'tom@firm.test' });
+        const mine = store.messagesByAuthor('JANE@firm.test', 0, 10_000);
+        expect(mine.map((m) => [m.content, m.workspaceId, m.chatName, m.authorId])).toEqual([['Check MFN', 'm1', 'Side letter', 'jane@firm.test']]);
+        expect(store.listMessages(chat.id)[1]!.authorId).toBeNull();
+    });
+});

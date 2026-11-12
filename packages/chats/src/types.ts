@@ -21,6 +21,8 @@ export interface ChatMessage {
     toolEvents: string | null;
     /** Raw JSON-encoded `Citation[]`. Caller parses. */
     citations: string | null;
+    /** Who wrote it; null for assistant messages and messages from before authors were recorded. */
+    authorId: string | null;
     createdAt: number;
 }
 
@@ -44,4 +46,6 @@ export interface AppendMessageInput {
     content: string;
     toolEvents?: string | null;
     citations?: string | null;
+    /** Who wrote the message (for user messages in shared chats). */
+    authorId?: string | null;
 }

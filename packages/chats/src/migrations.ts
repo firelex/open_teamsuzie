@@ -49,4 +49,13 @@ export const CHATS_MIGRATIONS: Migration[] = [
             ALTER TABLE chats ADD COLUMN persona_id TEXT;
         `,
     },
+    {
+        // Who wrote a user message, in chats several people share (e.g. a
+        // matter's chats). Null for assistant messages and older rows.
+        name: '20261112_chat_messages_author',
+        up: `
+            ALTER TABLE chat_messages ADD COLUMN author_id TEXT;
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_author ON chat_messages(author_id, created_at);
+        `,
+    },
 ];
