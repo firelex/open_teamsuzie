@@ -1,0 +1,29 @@
+{
+  "name": "@teamsuzie/prompt-files",
+  "version": "0.1.0",
+  "description": "Prompts kept as plain-text files next to the code that uses them: [[include area/name]], {placeholder} filling with doubled braces as literal braces (the Jeff Desk rules).",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
