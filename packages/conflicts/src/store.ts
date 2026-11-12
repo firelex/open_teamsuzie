@@ -99,6 +99,20 @@ export const CONFLICTS_MIGRATIONS: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_conflict_checks_subject ON conflict_checks(subject_type, subject_id);
         `,
     },
+    {
+        // How to recognise a party in mail: its email addresses and its own domains.
+        name: '20261112_party_contacts',
+        up: `
+            CREATE TABLE IF NOT EXISTS party_contacts (
+                party_id   TEXT NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+                value      TEXT NOT NULL,
+                added_by   TEXT NOT NULL,
+                added_at   INTEGER NOT NULL,
+                PRIMARY KEY (party_id, value)
+            );
+            CREATE INDEX IF NOT EXISTS idx_party_contacts_value ON party_contacts(value);
+        `,
+    },
 ];
 
 interface PartyRow {
@@ -174,6 +188,13 @@ export interface PartyRegisterOptions {
  * (with where each party appears) so the record shows what the person who
  * decided actually saw.
  */
+/** Domains anyone can get an address at: never a party's own domain. */
+export const FREE_MAIL = new Set([
+    'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'hotmail.co.uk', 'live.com', 'msn.com', 'yahoo.com', 'yahoo.co.uk',
+    'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.de', 'gmx.net', 'gmx.at', 'gmx.ch', 'web.de',
+    't-online.de', 'bluewin.ch', 'yandex.com', 'mail.com', 'zoho.com',
+]);
+
 export class PartyRegister {
     private readonly db: DatabaseInstance;
     private readonly threshold: number;
@@ -261,6 +282,52 @@ export class PartyRegister {
         return prepareCached<[string], LinkRow>(this.db, `SELECT * FROM party_links WHERE party_id = ? ORDER BY added_at`)
             .all(partyId)
             .map(toLink);
+    }
+
+    /**
+     * Add how to recognise a party in mail: an email address
+     * (`tom@widget.com`) or one of its own domains (`@widget.com`). Free-mail
+     * domains (gmail.com and the like) are refused as domains: they say
+     * nothing about who someone works for.
+     */
+    addContact(partyId: string, value: string, by: string): string {
+        if (!this.get(partyId)) throw new Error(`No party with id ${partyId}.`);
+        const v = value.trim().toLowerCase();
+        const isDomain = v.startsWith('@');
+        if (isDomain ? !/^@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(v) : !/^[^@\s]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(v)) {
+            throw new Error(`"${value}" is neither an email address nor a domain written @example.com`);
+        }
+        if (isDomain && FREE_MAIL.has(v.slice(1))) throw new Error(`${v} is a free-mail domain; add the person's address instead`);
+        prepareCached(this.db, `INSERT OR IGNORE INTO party_contacts (party_id, value, added_by, added_at) VALUES (?, ?, ?, ?)`).run(
+            partyId,
+            v,
+            by,
+            this.clock(),
+        );
+        return v;
+    }
+
+    removeContact(partyId: string, value: string): boolean {
+        return prepareCached(this.db, `DELETE FROM party_contacts WHERE party_id = ? AND value = ?`).run(partyId, value.trim().toLowerCase()).changes > 0;
+    }
+
+    contactsOf(partyId: string): string[] {
+        return prepareCached<[string], { value: string }>(this.db, `SELECT value FROM party_contacts WHERE party_id = ? ORDER BY value`)
+            .all(partyId)
+            .map((r) => r.value);
+    }
+
+    /** The parties an email address belongs to: by the address itself, or by its domain. */
+    partiesForAddress(address: string): Party[] {
+        const a = address.trim().toLowerCase();
+        const at = a.lastIndexOf('@');
+        if (at < 1) return [];
+        return prepareCached<[string, string], PartyRow>(
+            this.db,
+            `SELECT DISTINCT p.* FROM party_contacts c JOIN parties p ON p.id = c.party_id WHERE c.value = ? OR c.value = ? ORDER BY p.name`,
+        )
+            .all(a, a.slice(at))
+            .map(toParty);
     }
 
     /** Remove a subject's party links (e.g. when it is deleted). Parties and past checks stay. */

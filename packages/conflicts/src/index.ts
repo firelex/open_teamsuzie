@@ -1,5 +1,5 @@
 export { normalizeName, nameSimilarity } from './match.js';
-export { CONFLICTS_MIGRATIONS, PartyRegister } from './store.js';
+export { CONFLICTS_MIGRATIONS, FREE_MAIL, PartyRegister } from './store.js';
 export type {
     CheckDecision,
     CheckHit,

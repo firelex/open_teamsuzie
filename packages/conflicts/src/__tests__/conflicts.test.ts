@@ -74,3 +74,21 @@ describe('PartyRegister', () => {
         expect(reg.partiesOf(m2)).toEqual([]);
     });
 });
+
+describe('party contacts', () => {
+    it('recognises a party by address or own domain, never by a free-mail domain', () => {
+        const reg = setup();
+        const widget = reg.findOrCreate('Widget Corp', 'organisation', 'p');
+        const tom = reg.findOrCreate('Tom Private', 'person', 'p');
+        expect(reg.addContact(widget.id, '@Widget.com', 'p')).toBe('@widget.com');
+        reg.addContact(tom.id, 'tom.private@gmail.com', 'p');
+        expect(() => reg.addContact(tom.id, '@gmail.com', 'p')).toThrow(/free-mail/);
+        expect(() => reg.addContact(tom.id, 'not an address', 'p')).toThrow(/neither an email address/);
+        expect(reg.partiesForAddress('Anna@widget.com').map((p) => p.name)).toEqual(['Widget Corp']);
+        expect(reg.partiesForAddress('tom.private@gmail.com').map((p) => p.name)).toEqual(['Tom Private']);
+        expect(reg.partiesForAddress('someone@gmail.com')).toEqual([]);
+        expect(reg.contactsOf(widget.id)).toEqual(['@widget.com']);
+        expect(reg.removeContact(widget.id, '@WIDGET.com')).toBe(true);
+        expect(reg.partiesForAddress('anna@widget.com')).toEqual([]);
+    });
+});
