@@ -1,0 +1,4 @@
+Write a short description of {name} for the digital assistant of {user}: at most three plain sentences saying who {name} is, what they do and how they relate to {user}, using only the facts below (newest first; where facts disagree, the newer one is true now). Do not add anything that is not in the facts. When little is known, one short sentence is enough. Answer with only the description.
+
+Facts:
+{facts}

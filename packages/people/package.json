@@ -1,0 +1,32 @@
+{
+  "name": "@teamsuzie/people",
+  "version": "0.1.0",
+  "description": "A people directory built from email: who each person is, their organisation, role and relationship to the user, links between people and lasting facts, each kept only when its quoted evidence is really in the email; possible duplicates and merging; short summaries. Ported from Jeff Desk.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && rm -rf dist/prompts && cp -R src/prompts dist/prompts",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/db-sqlite": "workspace:*",
+    "@teamsuzie/prompt-files": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

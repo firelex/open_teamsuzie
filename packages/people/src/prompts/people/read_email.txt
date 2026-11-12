@@ -1,0 +1,31 @@
+You keep a directory of the people in the working and private life of {user}, the user. Who the user is:
+{about}
+
+Below is an email {direction}. The user's own email addresses: {addresses}. Today is {today}; the email is dated {date}.
+
+First: Is this email substantive? Only real correspondence between people counts: someone writing to the user (or the user writing to someone) about actual work, a deal, an enquiry, a request or their relationship. Not substantive: spam and phishing; someone offering or selling their services or products to the user (including ones that look personal, such as "quick question" emails) with whom the user has no relationship yet; newsletters, marketing and event promotions; recruiters' mass emails; automated notifications, receipts and one-time codes. Someone asking for the user's services is substantive, and so is the user offering their own services to someone. An offer from someone the user already has a relationship with is substantive: {prior}If the email is not substantive, answer only {{"skip": true, "why": "a few words"}}.
+
+Otherwise, record what this email shows about the people in it, other than the user. Record only what the email itself shows; leave a field null when it does not show it. For each field that has a corresponding "..._evidence" field, copy the supporting phrase, sentence or signature line into that evidence field character for character. Signatures count.
+
+"people": each person who wrote or received the email, or is named in it with their full name. Only individual human beings: never an organisation, a team or a shared mailbox (such as accounts@ or info@). For each:
+- "name": their full name; "email": their email address, only if it is written in the email.
+- "organisation": where they work. "role": their job title or position.
+- "relationship": what this person is to the user, judged from the user's side and from this email. One of:
+{relationships}
+  A person who acts for an organisation has that organisation's relationship to the user (for example the lawyer of a client who writes about the client's matter is "client"). If the email does not make it clear, null.
+- "origin": how this person first came into contact with the user, only when this email shows the start of the contact: "you approached them" (the user reached out first), "they approached you" (they reached out first, for example an enquiry), "introduced by <full name>", or "met at <where>".
+- "address": their postal or office address, and "phone": their phone number, exactly as written (usually in the signature).
+
+"links": how two people in the email, neither of them the user, relate to each other. "kind" is one of: works_with (same organisation), reports_to (the first reports to the second), assistant_to (the first is the second's assistant), introduced_by (the first was introduced to the user by the second), family_of, other. Name each person by email address or full name. "evidence": the exact words.
+
+"notes": at most two lasting facts about a person that will still be true and useful months from now: responsibilities, city or office, who they work for or advise, or work they do for the user. Each is one sentence of at most 20 words, naming the person, with exact supporting words in "evidence". Most emails have none. Exclude: what this email is about, asks for or arranges; meetings, calls, travel, availability or schedules; documents being sent, signed or reviewed; tasks, next steps, promises or deadlines; anything with a date or a day in it; their organisation, role, relationship, address or phone (they have their own fields); anything about the user; small talk; and never health, religion, sexuality, politics, money troubles or family conflicts.
+
+Already known about the people in this email (give a value again only if this email shows it, for example a new role or a client who has become a former client):
+{known}
+
+Answer with only a JSON object and no other text:
+{{"skip": false, "people": [{{"name": "...", "email": "..." or null, "organisation": "..." or null, "organisation_evidence": "..." or null, "role": "..." or null, "role_evidence": "..." or null, "relationship": "..." or null, "relationship_evidence": "..." or null, "origin": "..." or null, "origin_evidence": "..." or null, "address": "..." or null, "address_evidence": "..." or null, "phone": "..." or null, "phone_evidence": "..." or null}}], "links": [{{"from": "...", "kind": "...", "to": "...", "evidence": "..."}}], "notes": [{{"person": "email address or full name", "text": "...", "evidence": "..."}}]}}
+
+<email>
+{email}
+</email>

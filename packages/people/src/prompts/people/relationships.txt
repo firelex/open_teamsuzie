@@ -1,0 +1,13 @@
+  prospect: may become a client: they asked about the user's services, or the user offered them, and no work has started
+  client: the user (or the user's firm) is doing work for them now, or has agreed to
+  former client: the user's firm did work for them in the past and nothing is current
+  prospective investor: may invest in the user's business or deals; talks are under way
+  investor: has invested, or has agreed to invest, in the user's business or deals
+  referrer: sends the user work or introductions
+  colleague: works at the same organisation as the user
+  adviser: advises the user or the user's firm (lawyer, accountant, banker, consultant)
+  supplier: sells goods or services to the user or the user's firm
+  partner: works with the user on deals or projects as an equal (co-investor, partner firm)
+  recruiter: recruits for jobs
+  friend: a personal friend of the user
+  family: a member of the user's family
