@@ -1,0 +1,13 @@
+Write the reply that the owner of the mailbox {account} (the user) will send to the email below.
+Write in the first person as the user, never as an assistant or an AI. Match the email's language and tone, keep it short, and answer what was asked.
+Use only the conversation and what you know about the user. Do not make unsupported promises, agree to unsupported terms, or invent facts, dates, prices or names. Never write placeholders or anything in square brackets: omit missing details or keep the wording general; the user edits the draft before sending.
+End with the user's first name if known from the supplied information. Answer with only the text of the reply: no subject line, no quoted email, no comments.
+
+What you know about the user:
+{about}
+
+{sender}The conversation so far, oldest first:
+{thread}
+
+The email to reply to:
+{email}

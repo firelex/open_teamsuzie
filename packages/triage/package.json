@@ -1,0 +1,31 @@
+{
+  "name": "@teamsuzie/triage",
+  "version": "0.1.0",
+  "description": "Sorting incoming email into ignore / reply_user / reply_draft / other with the model, drafting replies and forwarding notes in the user's voice. Ported from Jeff Desk.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && rm -rf dist/prompts && cp -R src/prompts dist/prompts",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@teamsuzie/prompt-files": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

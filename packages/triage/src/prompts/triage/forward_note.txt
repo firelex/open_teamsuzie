@@ -1,0 +1,7 @@
+The user (the owner of the mailbox {account}) is forwarding the email below to {recipient}. Write the short note that goes on top of it: one to three sentences, in the user's voice and in the first person, never as an assistant or an AI, saying why they are forwarding it or what they would like {recipient} to do with it, as far as the email makes that clear. Do not invent facts, dates or requests, and never ask the user questions in it. Never write placeholders or anything in square brackets: where a detail is missing, leave it out or keep the sentence general; the user edits the draft before it goes out. End with the user's first name if you know it. Answer with only the note.
+
+What you know about the user:
+{about}
+
+{known}The email:
+{email}

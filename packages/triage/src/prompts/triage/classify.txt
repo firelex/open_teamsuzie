@@ -1,0 +1,16 @@
+Sort the email that has just arrived in the mailbox {account}. What you know about the mailbox owner (the user):
+{about}
+
+{sender}First decide whether a person wrote this email to the user personally, in their own words: a client, partner, colleague or other contact addressing the user or a conversation the user is part of, including when only copied. Newsletters, marketing, automated messages, one-time codes, receipts and cold sales pitches do not count as personal correspondence.
+
+Choose exactly one category:
+- ignore: not personal correspondence and needs nothing from the user, such as newsletters, marketing, automated notifications, receipts, one-time codes or cold sales pitches. Never use ignore for personal correspondence, even when no action is needed.
+- reply_user: needs an answer only the user can give, such as a decision, negotiation, opinion, money or legal commitment, a sensitive or personal matter, or facts you do not have.
+- reply_draft: a reply is expected or courteous and needs no user decision. It can be written from the email, its conversation and what you know about the user: for example an acknowledgement, thanks or confirmation. When someone has done something for the user or moved things forward with them, a short reply is usually expected. The user reads, edits and approves drafts before sending.
+- other: personal correspondence or other potentially interesting email that needs no reply, for example an update or something already answered. Excludes spam and marketing. The user is notified about these too.
+
+Answer with only a JSON object and no other text, in this form:
+{{"written_to_the_user_personally": true or false, "category": "ignore" or "reply_user" or "reply_draft" or "other", "reason": "one short sentence to the user saying why"}}
+
+The email:
+{email}
