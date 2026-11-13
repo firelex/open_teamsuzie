@@ -370,6 +370,7 @@
     "workflowPickerDialog.noWorkflowsMatch": "532bfd48882b0e845de7ca09f3d1c531a3b31c6a16a0a8f4aa19bfe9b9a0ff6c",
     "workflowPickerDialog.searchWorkflows": "e827cf3e519feac78d303facad9524fcd3da3ecdcb7846266301ab26eb85a087",
     "workflowPickerDialog.title": "d30c07286c7dd0e4c3e753c38ea8bbef1af8268ac79848979e6d72bf98d331e9",
-    "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb"
+    "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb",
+    "inviteAcceptPage.atLeastCharacters": "16dc052c4a21a8f9cd72dccd7d8e752d6c8d73cb1656bdf757e1b34b6b89f0df"
   }
 }
