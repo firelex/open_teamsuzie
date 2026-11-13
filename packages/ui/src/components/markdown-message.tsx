@@ -40,10 +40,10 @@ export class MarkdownErrorBoundary extends React.Component<
  * Team Suzie's chat starters and apps. Drop-in replacement for an inline
  * ReactMarkdown call — handles headings, lists, code blocks, tables, etc.
  */
-export function MarkdownMessage({ content }: { content: string }) {
+export function MarkdownMessage({ content, className }: { content: string; /** e.g. a smaller text size for side panels. */ className?: string }) {
   return (
     <MarkdownErrorBoundary>
-    <div className="space-y-3 text-[15px] leading-relaxed text-foreground">
+    <div className={cn("space-y-3 text-[15px] leading-relaxed text-foreground", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
