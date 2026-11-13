@@ -182,12 +182,19 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
     await runAction(action, pendingInfo)
   }
 
+  /** A change to the signed-in admin's own account ends their own session too; say so in the confirmation. */
+  function withSelfNote(user: AdminUserRow, description: string): string {
+    return user.email === currentUserEmail ? `${description} ${t('userAdmin.selfSignOutNote')}` : description
+  }
+
   async function changeRole(user: AdminUserRow) {
     const nextRole = user.role === "admin" ? "user" : "admin"
-    const description =
+    const description = withSelfNote(
+      user,
       nextRole === "admin"
         ? t('userAdmin.makeAdminDescription', { name: user.name })
-        : t('userAdmin.makeUserDescription', { name: user.name })
+        : t('userAdmin.makeUserDescription', { name: user.name }),
+    )
     await confirmThenRun(
       {
         title:
@@ -206,7 +213,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
       await confirmThenRun(
         {
           title: t('userAdmin.deactivateTitle', { name: user.name }),
-          description: t('userAdmin.deactivateDescription', { name: user.name }),
+          description: withSelfNote(user, t('userAdmin.deactivateDescription', { name: user.name })),
           confirmLabel: t('userAdmin.deactivate'),
           variant: "destructive",
         },

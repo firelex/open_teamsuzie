@@ -65,6 +65,7 @@
     "revokingEllipsis": "Révocation…",
     "roleHeader": "Rôle",
     "savingEllipsis": "Enregistrement…",
+    "selfSignOutNote": "Il s'agit de votre propre compte : vous serez déconnecté immédiatement.",
     "statusHeader": "Statut",
     "unknownError": "erreur inconnue",
     "user": "Utilisateur",

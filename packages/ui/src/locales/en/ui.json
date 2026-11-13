@@ -435,6 +435,7 @@
     "revokingEllipsis": "Revoking…",
     "roleHeader": "Role",
     "savingEllipsis": "Saving…",
+    "selfSignOutNote": "This is your own account: you will be signed out immediately.",
     "statusHeader": "Status",
     "unknownError": "unknown error",
     "user": "User",

@@ -42,6 +42,30 @@ describe('UserAdmin', () => {
         await waitFor(() => expect(screen.getByText('The firm must keep at least one active admin.')).toBeTruthy());
     });
 
+    it('warns that the admin is signed out at once only when the change is to their own account', async () => {
+        vi.stubGlobal('fetch', mockFetch({
+            'GET /api/p/users': () => ({ status: 200, body: { users } }),
+            'GET /api/p/invites': () => ({ status: 200, body: { invites: [] } }),
+        }));
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
+        await screen.findByText('Bob');
+        const note = /This is your own account: you will be signed out immediately\./;
+
+        await chooseRowAction('Ann', 'Make user');
+        expect(await screen.findByText(note)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        await waitFor(() => expect(screen.queryByText(note)).toBeNull());
+
+        await chooseRowAction('Ann', 'Deactivate');
+        expect(await screen.findByText(note)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        await waitFor(() => expect(screen.queryByText(note)).toBeNull());
+
+        await chooseRowAction('Bob', 'Deactivate');
+        expect(await screen.findByText(/Bob is signed out everywhere/)).toBeTruthy();
+        expect(screen.queryByText(note)).toBeNull();
+    });
+
     it('shows the running action on its own row while the request is unresolved', async () => {
         let resolvePatch: ((value: Response) => void) | undefined;
         const pendingPatch = new Promise<Response>((resolve) => {
