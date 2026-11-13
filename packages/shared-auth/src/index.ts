@@ -30,6 +30,8 @@ export { SessionTracker, type SetStore } from './services/session-tracker.js';
 export { default as UserService } from './services/user.js';
 export { default as Logger } from './services/logger.js';
 export { ensureUserAdminSchema } from './services/schema-upgrade.js';
+export { ensureFirmOrganization, setFirmMembership, firmOrganization } from './services/firm.js';
+export { SequelizeUserAdminStore, type UserAdminStore, type AdminUserRow, type InviteRow, type InviteLookup, type AppRole } from './services/user-admin-store.js';
 
 // Middleware
 export { default as CsrfMiddleware } from './middleware/csrf.js';
