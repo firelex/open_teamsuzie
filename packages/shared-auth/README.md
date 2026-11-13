@@ -12,6 +12,34 @@ Multi-tenant auth models, session service, and middleware for Team Suzie.
   `AUTH_REGISTRATION` / `AUTH_REGISTRATION_DOMAINS`); unset means closed. `GET /users` needs an admin and
   `GET /users/by-email/:email` an admin or the caller's own address.
 
+## User administration
+
+For a single-firm app that manages its own people (invite, change role, deactivate, reset password, remove),
+rather than self-service registration:
+
+- `createUserAdminRouter(opts: UserAdminOptions)` — admin-only routes: list/patch/delete a user, issue a password
+  reset, list/create/revoke invites. Mount it behind the app's own `requireAuth`.
+- `createUserAdminPublicRouter(opts: UserAdminOptions)` — the public routes a person without an account (or
+  password) uses from a link an admin gave them: look up an invite, accept an invite, use a password-reset token.
+- `UserAdminOptions` ties both routers to the host app: a `UserAdminStore` (the Sequelize-backed
+  `SequelizeUserAdminStore` by default), a `SessionTracker`, an `onChange` callback run after each successful
+  change (for audit logging — a throw fails the request), and `beforeDelete` (may refuse a removal, e.g. to force
+  transferring ownership of a person's work first).
+- `ensureUserAdminSchema(sequelize)` — run once after `sync()`. Adds the columns later releases introduced
+  (`users.is_active`, `users.last_sign_in_at`, `org_invite.email`) only where a table is missing them, so it is
+  safe to run on every boot.
+- `ensureFirmOrganization(name)` — run at boot (after `ensureUserAdminSchema`). Creates the one organisation a
+  single-firm installation keeps its people in, or renames it if the configured name changed. `setFirmMembership`
+  and `firmOrganization` work against that same organisation.
+- Rules enforced inside the routers, not left to the host app: invites are one-time, bound to one email, and
+  expire 7 days after creation; password-reset links are one-time and expire 24 hours after creation; both are
+  stored only as a SHA-256 hash (`hashToken`), never the raw token. A password set through an invite or a reset
+  link must be at least 12 characters. Any change that would leave the firm with zero active admins is refused
+  with HTTP 409 and `error: 'last_admin'`, decided inside a database transaction that locks the active-admin rows
+  so two concurrent changes can't both pass. After a role change, deactivation, reset, or removal, the target's
+  sessions are ended and their bearer tokens revoked before the response is sent; if that clean-up and the
+  sign-out both fail, the thrown error names both failures.
+
 ## What's explicitly *not* here
 
 - **No billing models.** `OrgBilling`, `BillingTransaction`, Stripe references — those live in the commercial product, not the OSS layer. If you need billing, build your own adapter in a separate package; don't add it here.
