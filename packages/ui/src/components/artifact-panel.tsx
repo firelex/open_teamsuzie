@@ -252,7 +252,7 @@ export function ArtifactPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         {artifact.markdown.length === 0 && !artifact.html ? (
           <p className="text-sm italic text-muted-foreground">
-            Empty document — content will appear here as the agent writes.
+            {t('artifactPanel.emptyDocumentHint')}
           </p>
         ) : artifact.html ? (
           <div

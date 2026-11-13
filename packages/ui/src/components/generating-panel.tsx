@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Loader2 } from "lucide-react"
+import { useUiT } from "../lib/i18n.js"
 
 export interface GenerateBatch {
   /** Current batch index, 1-based. */
@@ -40,6 +41,7 @@ function formatElapsed(seconds: number): string {
  * without lying about how far along it is.
  */
 export function GeneratingPanel({ active, label, detail, startedAt, batch }: GeneratingPanelProps) {
+  const { t } = useUiT()
   const [now, setNow] = React.useState(() => Date.now())
   const [internalStart, setInternalStart] = React.useState<number | null>(null)
 
@@ -84,7 +86,7 @@ export function GeneratingPanel({ active, label, detail, startedAt, batch }: Gen
       )}
       {batch && (
         <div className="mt-1 text-neutral-500 truncate">
-          Batch {batch.current} / {batch.total}
+          {t('generatingPanel.batchOf', { current: batch.current, total: batch.total })}
           {batch.runningTitle ? ` · ${batch.runningTitle}` : ""}
         </div>
       )}

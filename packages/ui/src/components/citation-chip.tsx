@@ -8,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./tooltip"
+import { useUiT } from "../lib/i18n.js"
 
 export type CitationChipProps = {
   id: number
@@ -27,12 +28,13 @@ export function CitationChip({
   className,
   docLabel,
 }: CitationChipProps) {
+  const { t } = useUiT()
   const orphan = !citation
 
   if (orphan) {
     return (
       <span
-        aria-label={`Unresolved citation [${id}]`}
+        aria-label={t('citationChip.unresolvedCitation', { id })}
         className={cn(
           baseClass,
           "bg-muted text-muted-foreground line-through cursor-help",
@@ -61,7 +63,11 @@ export function CitationChip({
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={`Citation [${id}] — ${docName}${ariaLocator}${notFound ? " — quote not found in source" : ""}`}
+            aria-label={
+              notFound
+                ? t('citationChip.citationAriaLabelNotFound', { id, docName, locator: ariaLocator })
+                : t('citationChip.citationAriaLabel', { id, docName, locator: ariaLocator })
+            }
             onClick={handleClick}
             className={cn(
               baseClass,
@@ -85,7 +91,7 @@ export function CitationChip({
             </div>
             {notFound ? (
               <div className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                This quote was not found in the document. Check the source before relying on it.
+                {t('citationChip.quoteNotFoundWarning')}
               </div>
             ) : null}
           </div>

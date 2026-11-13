@@ -175,8 +175,8 @@ export function CompareTable({
               </tr>
             </thead>
             <tbody>
-              {effectiveTopics!.map((t, idx) => (
-                <TopicRows key={idx} topic={t} />
+              {effectiveTopics!.map((topic, idx) => (
+                <TopicRows key={idx} topic={topic} />
               ))}
             </tbody>
           </table>
@@ -184,17 +184,15 @@ export function CompareTable({
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <div className="size-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
             <p className="text-sm text-muted-foreground">
-              Synthesizing topics from {visible.length} substantive
-              difference{visible.length === 1 ? "" : "s"}…
+              {t('redline.synthesizingTopicsFromCount', { count: visible.length })}
             </p>
             <p className="max-w-sm text-xs text-muted-foreground/70">
-              Topics will appear here as they're identified. This usually
-              takes a few seconds.
+              {t('redline.topicsWillAppearHint')}
             </p>
           </div>
         ) : visibleEvents.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
-            The two documents are identical (after paragraph-level alignment).
+            {t('redline.documentsIdentical')}
           </p>
         ) : (
           <table className="w-full border-collapse text-sm">
@@ -221,8 +219,7 @@ export function CompareTable({
         )}
         {!useTopics && !shouldHideMechanical && result.stats.unchanged > 0 && visibleEvents.length > 0 && (
           <p className="px-4 py-3 text-xs text-muted-foreground">
-            {result.stats.unchanged} paragraph
-            {result.stats.unchanged === 1 ? "" : "s"} unchanged (hidden).
+            {t('redline.paragraphsUnchangedHidden', { count: result.stats.unchanged })}
           </p>
         )}
       </div>

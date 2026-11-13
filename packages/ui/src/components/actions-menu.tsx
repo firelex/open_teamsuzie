@@ -14,8 +14,15 @@ import { useUiT } from '../lib/i18n.js';
 export interface ActionItem {
     /** Unique key for the action */
     key: string;
-    /** Display label */
-    label: string;
+    /** Display label. Omit to fall back to `defaultLabelKey`'s translation. */
+    label?: string;
+    /**
+     * Translation key `<ActionsMenu>` looks up when `label` is omitted — how
+     * `createEditAction`/`createViewAction`/`createDeleteAction`/
+     * `createMembersAction` supply a translated default instead of baking
+     * English into the action object.
+     */
+    defaultLabelKey?: string;
     /** Icon component */
     icon?: React.ReactNode;
     /** Click handler */
@@ -85,7 +92,7 @@ export function ActionsMenu({
                         disabled={action.disabled}
                     >
                         {action.icon && <span className="mr-2">{action.icon}</span>}
-                        {action.label}
+                        {action.label ?? (action.defaultLabelKey ? t(action.defaultLabelKey) : '')}
                     </DropdownMenuItem>
                 ))}
                 {regularActions.length > 0 && destructiveActions.length > 0 && (
@@ -99,7 +106,7 @@ export function ActionsMenu({
                         variant="destructive"
                     >
                         {action.icon && <span className="mr-2">{action.icon}</span>}
-                        {action.label}
+                        {action.label ?? (action.defaultLabelKey ? t(action.defaultLabelKey) : '')}
                     </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>
@@ -107,32 +114,38 @@ export function ActionsMenu({
     );
 }
 
-// Pre-built action helpers for common patterns
-export const createEditAction = (onClick: () => void, label = 'Edit'): ActionItem => ({
+// Pre-built action helpers for common patterns. `label` is optional — when
+// omitted, <ActionsMenu> renders the translated default via `defaultLabelKey`
+// instead of baking English into the action object.
+export const createEditAction = (onClick: () => void, label?: string): ActionItem => ({
     key: 'edit',
     label,
+    defaultLabelKey: 'actionsMenu.edit',
     icon: <Edit className="h-4 w-4" />,
     onClick,
 });
 
-export const createViewAction = (onClick: () => void, label = 'View'): ActionItem => ({
+export const createViewAction = (onClick: () => void, label?: string): ActionItem => ({
     key: 'view',
     label,
+    defaultLabelKey: 'actionsMenu.view',
     icon: <Eye className="h-4 w-4" />,
     onClick,
 });
 
-export const createDeleteAction = (onClick: () => void, label = 'Delete'): ActionItem => ({
+export const createDeleteAction = (onClick: () => void, label?: string): ActionItem => ({
     key: 'delete',
     label,
+    defaultLabelKey: 'actionsMenu.delete',
     icon: <Trash2 className="h-4 w-4" />,
     onClick,
     destructive: true,
 });
 
-export const createMembersAction = (onClick: () => void, label = 'Members'): ActionItem => ({
+export const createMembersAction = (onClick: () => void, label?: string): ActionItem => ({
     key: 'members',
     label,
+    defaultLabelKey: 'actionsMenu.members',
     icon: <Users className="h-4 w-4" />,
     onClick,
 });

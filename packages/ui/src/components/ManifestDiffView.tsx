@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { diffLines } from 'diff';
+import { useUiT } from '../lib/i18n.js';
 
 export interface ManifestDiffViewProps {
   before: string;
@@ -32,13 +33,14 @@ function buildLines(before: string, after: string): Line[] {
 }
 
 export function ManifestDiffView(props: ManifestDiffViewProps) {
-  const { before, after, beforeLabel = 'before', afterLabel = 'after', className } = props;
+  const { t } = useUiT();
+  const { before, after, beforeLabel, afterLabel, className } = props;
   const lines = useMemo(() => buildLines(before, after), [before, after]);
   return (
     <div className={className} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', fontFamily: 'monospace', fontSize: 11, opacity: 0.7, padding: '4px 8px' }}>
-        <span style={{ flex: 1 }}>{beforeLabel}</span>
-        <span style={{ flex: 1 }}>{afterLabel}</span>
+        <span style={{ flex: 1 }}>{beforeLabel ?? t('manifestDiffView.before')}</span>
+        <span style={{ flex: 1 }}>{afterLabel ?? t('manifestDiffView.after')}</span>
       </div>
       <pre
         style={{

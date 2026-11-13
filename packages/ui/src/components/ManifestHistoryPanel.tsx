@@ -74,7 +74,7 @@ export function ManifestHistoryPanel(props: ManifestHistoryPanelProps) {
                 {t('manifestHistoryPanel.revertToThis')}
               </button>
             </div>
-            <ManifestDiffView before={body} after={currentManifest} beforeLabel={selected} afterLabel="current" />
+            <ManifestDiffView before={body} after={currentManifest} beforeLabel={selected} afterLabel={t('manifestHistoryPanel.current')} />
           </>
         ) : (
           <div style={{ padding: 16, fontSize: 12, opacity: 0.6 }}>{t('manifestHistoryPanel.pickRevisionToDiff')}</div>

@@ -12,6 +12,7 @@ import {
 } from './table';
 import { Button } from './button';
 import { Input } from './input';
+import { useUiT } from '../lib/i18n.js';
 
 // Standard date format for consistency across the app
 export function formatDate(date: string | Date | null | undefined): string {
@@ -35,6 +36,11 @@ export interface Column<T> {
     width?: string;
     /** Text alignment */
     align?: 'left' | 'center' | 'right';
+    /**
+     * Extra classes for both the header and the body cells of this column,
+     * e.g. `"hidden md:table-cell"` to drop a column on narrow screens.
+     */
+    className?: string;
     /** Render function for cell content */
     render: (item: T) => React.ReactNode;
 }
@@ -64,6 +70,11 @@ export interface DataTableProps<T> {
     renderActions?: (item: T) => React.ReactNode;
     /** Actions column width */
     actionsWidth?: string;
+    /**
+     * Actions column header. Defaults to the translated "Actions"; pass e.g.
+     * `<span className="sr-only">Actions</span>` for an icon-only column.
+     */
+    actionsHeader?: React.ReactNode;
     /** Additional className for the table container */
     className?: string;
 
@@ -85,16 +96,19 @@ export function DataTable<T>({
     columns,
     getRowKey,
     isLoading = false,
-    emptyMessage = 'No data found',
+    emptyMessage,
     onRowClick,
     renderActions,
     actionsWidth = 'w-[100px]',
+    actionsHeader,
     className,
-    filterPlaceholder = 'Filter...',
+    filterPlaceholder,
     filterFn,
     selectable = false,
     bulkActions,
 }: DataTableProps<T>) {
+    const { t } = useUiT();
+    const effectiveFilterPlaceholder = filterPlaceholder ?? t('dataTable.filterEllipsis');
     const [filter, setFilter] = React.useState('');
     const [selected, setSelected] = React.useState<Set<string>>(new Set());
 
@@ -160,7 +174,7 @@ export function DataTable<T>({
                         <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder={filterPlaceholder}
+                                placeholder={effectiveFilterPlaceholder}
                                 value={filter}
                                 onChange={(e) => setFilter(e.target.value)}
                                 className="pl-8 w-56"
@@ -190,7 +204,8 @@ export function DataTable<T>({
                                     className={cn(
                                         column.width,
                                         column.align === 'right' && 'text-right',
-                                        column.align === 'center' && 'text-center'
+                                        column.align === 'center' && 'text-center',
+                                        column.className
                                     )}
                                 >
                                     {column.header}
@@ -198,7 +213,7 @@ export function DataTable<T>({
                             ))}
                             {renderActions && (
                                 <TableHead className={cn(actionsWidth, 'text-right')}>
-                                    Actions
+                                    {actionsHeader ?? t('dataTable.actions')}
                                 </TableHead>
                             )}
                         </TableRow>
@@ -216,7 +231,9 @@ export function DataTable<T>({
                                     colSpan={totalColumns}
                                     className="text-center text-muted-foreground py-8"
                                 >
-                                    {filter ? `No results for "${filter}"` : emptyMessage}
+                                    {filter
+                                        ? t('dataTable.noResultsFor', { filter })
+                                        : emptyMessage ?? t('dataTable.noDataFound')}
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -246,7 +263,8 @@ export function DataTable<T>({
                                                 key={column.key}
                                                 className={cn(
                                                     column.align === 'right' && 'text-right',
-                                                    column.align === 'center' && 'text-center'
+                                                    column.align === 'center' && 'text-center',
+                                                    column.className
                                                 )}
                                             >
                                                 {column.render(item)}

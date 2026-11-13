@@ -374,7 +374,7 @@ export function ReviewGrid({
                 }}
               >
                 <Maximize2 />
-                Open
+                {t('reviewGrid.open')}
               </ContextMenuItem>
               {onCellRegenerate && (
                 <ContextMenuItem
@@ -385,7 +385,7 @@ export function ReviewGrid({
                   }}
                 >
                   <RefreshCw />
-                  {!cell || cell.status === "pending" ? "Run cell" : "Regenerate"}
+                  {!cell || cell.status === "pending" ? t('reviewGrid.runCell') : t('reviewGrid.regenerate')}
                 </ContextMenuItem>
               )}
             </ContextMenuContent>
@@ -423,7 +423,7 @@ export function ReviewGrid({
           <button
             type="button"
             onClick={() => onColumnRemove(col)}
-            aria-label={`Remove ${col.title}`}
+            aria-label={t('reviewGrid.removeColumn', { title: col.title })}
             className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
           >
             ×
@@ -451,7 +451,7 @@ export function ReviewGrid({
               }}
             >
               <Play />
-              Run column
+              {t('reviewGrid.runColumn')}
             </ContextMenuItem>
           )}
           {onColumnRegenerate && (
@@ -463,7 +463,7 @@ export function ReviewGrid({
               }}
             >
               <RefreshCw />
-              Regenerate column
+              {t('reviewGrid.regenerateColumn')}
             </ContextMenuItem>
           )}
           {onColumnClick && (
@@ -474,7 +474,7 @@ export function ReviewGrid({
               }}
             >
               <Pencil />
-              Edit prompt
+              {t('reviewGrid.editPrompt')}
             </ContextMenuItem>
           )}
           {onColumnRemove && (
@@ -488,7 +488,7 @@ export function ReviewGrid({
                 }}
               >
                 <Trash2 />
-                Remove column
+                {t('reviewGrid.removeColumnAction')}
               </ContextMenuItem>
             </>
           )}
@@ -512,7 +512,7 @@ export function ReviewGrid({
           <button
             type="button"
             onClick={() => onRowRemove(doc)}
-            aria-label={`Remove ${doc.name}`}
+            aria-label={t('reviewGrid.removeRow', { name: doc.name })}
             className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus:opacity-100"
           >
             ×
@@ -540,7 +540,7 @@ export function ReviewGrid({
               }}
             >
               <Play />
-              Run row
+              {t('reviewGrid.runRow')}
             </ContextMenuItem>
           )}
           {onRowRegenerate && (
@@ -552,7 +552,7 @@ export function ReviewGrid({
               }}
             >
               <RefreshCw />
-              Regenerate row
+              {t('reviewGrid.regenerateRow')}
             </ContextMenuItem>
           )}
           {onRowRemove && (
@@ -566,7 +566,7 @@ export function ReviewGrid({
                 }}
               >
                 <Trash2 />
-                Remove row
+                {t('reviewGrid.removeRowAction')}
               </ContextMenuItem>
             </>
           )}
@@ -826,7 +826,7 @@ function CellExpandDialog({
                 "disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
-              {busy || isStreaming ? "Running…" : regenLabel}
+              {busy || isStreaming ? t('reviewGrid.runningEllipsis') : regenLabel}
             </button>
           </div>
         )}
@@ -834,7 +834,7 @@ function CellExpandDialog({
           {livePrompt && (
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
               <div className="mb-0.5 font-medium uppercase tracking-wide text-[10px] text-muted-foreground">
-                Question
+                {t('reviewGrid.question')}
               </div>
               <div className="text-foreground">{livePrompt}</div>
             </div>
@@ -917,7 +917,7 @@ function CellExpandDialog({
           {citations.length > 0 && (
             <div className="border-t border-border pt-4">
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Citations
+                {t('reviewGrid.citations')}
               </div>
               <ul className="space-y-2 text-xs">
                 {citations.map((c) => (
@@ -936,7 +936,7 @@ function CellExpandDialog({
                       type="button"
                       onClick={() => handleCitationJumpWithGuard(c)}
                       className="min-w-0 flex-1 rounded p-1 -m-1 text-left hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={`Open citation ${c.id} in source document`}
+                      aria-label={t('reviewGrid.openCitationInSourceDocument', { id: c.id })}
                     >
                       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         {docLabels?.[c.doc] ?? c.doc}
@@ -951,7 +951,7 @@ function CellExpandDialog({
           )}
           {cell?.status === "done" && byId.size === 0 && (
             <p className="text-[11px] text-muted-foreground">
-              No citations supplied for this cell.
+              {t('reviewGrid.noCitationsSupplied')}
             </p>
           )}
         </div>

@@ -1,26 +1,10 @@
 {
-  "common": {
-    "cancel": "Cancel",
-    "close": "Close",
-    "continue": "Continue",
-    "create": "Create",
+  "actionsMenu": {
     "delete": "Delete",
     "edit": "Edit",
-    "email": "Email",
-    "empty": "(empty)",
-    "loadingEllipsis": "Loading…",
-    "name": "Name",
-    "next": "Next",
-    "password": "Password",
-    "previous": "Previous",
-    "save": "Save",
-    "saveFailed": "Save failed",
-    "savingEllipsis": "Saving…",
-    "view": "View",
-    "all": "All"
-  },
-  "actionsMenu": {
-    "openActionsMenu": "Open actions menu"
+    "members": "Members",
+    "openActionsMenu": "Open actions menu",
+    "view": "View"
   },
   "activityTimeline": {
     "noActivityYet": "No activity yet."
@@ -33,6 +17,7 @@
     "closePreview": "Close preview",
     "documentPreview": "Document preview",
     "download": "Download",
+    "emptyDocumentHint": "Empty document — content will appear here as the agent writes.",
     "exportFailed": "Export failed",
     "markdownFile": "Markdown (.md)",
     "wordFile": "Word (.docx)",
@@ -62,15 +47,21 @@
     "typeAMessage": "type a message…",
     "uploadFailed": "Upload failed: {{error}}"
   },
+  "citationChip": {
+    "citationAriaLabel": "Citation [{{id}}] — {{docName}}{{locator}}",
+    "citationAriaLabelNotFound": "Citation [{{id}}] — {{docName}}{{locator}} — quote not found in source",
+    "quoteNotFoundWarning": "This quote was not found in the document. Check the source before relying on it.",
+    "unresolvedCitation": "Unresolved citation [{{id}}]"
+  },
   "columnHeaderEditor": {
     "addColumn": "Add column",
     "autofilledFromPreset": "Autofilled prompt + format from preset.",
     "couldNotDraftPrompt": "Couldn't draft a prompt: {{error}}. Fill it in below.",
-    "draftedPromptAndFormat": "Drafted prompt + format.",
     "draftFailed": "Draft failed",
-    "draftingPrompt": "Drafting prompt…",
     "draftPromptFromTitle": "Draft prompt + format from title",
     "draftPromptWithAi": "Draft prompt with AI",
+    "draftedPromptAndFormat": "Drafted prompt + format.",
+    "draftingPrompt": "Drafting prompt…",
     "editEitherToOverride": "Edit either to override.",
     "enterTitleFirst": "Enter a title first",
     "format": "Format",
@@ -88,9 +79,35 @@
     "titlePlaceholder": "Governing law",
     "titleRequired": "Title is required"
   },
+  "common": {
+    "all": "All",
+    "cancel": "Cancel",
+    "close": "Close",
+    "continue": "Continue",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "email": "Email",
+    "empty": "(empty)",
+    "loadingEllipsis": "Loading…",
+    "name": "Name",
+    "next": "Next",
+    "password": "Password",
+    "previous": "Previous",
+    "save": "Save",
+    "saveFailed": "Save failed",
+    "savingEllipsis": "Saving…",
+    "view": "View"
+  },
   "confirmDialog": {
     "actionFailed": "Action failed",
     "confirm": "Confirm"
+  },
+  "dataTable": {
+    "actions": "Actions",
+    "filterEllipsis": "Filter...",
+    "noDataFound": "No data found",
+    "noResultsFor": "No results for \"{{filter}}\""
   },
   "docFindBar": {
     "closeFind": "Close find",
@@ -103,6 +120,15 @@
     "previousMatch": "Previous match",
     "previousMatchTitle": "Previous match (Shift+Enter)"
   },
+  "emailThreadView": {
+    "cc": "Cc",
+    "hideQuotedText": "Hide quoted text",
+    "showQuotedText": "Show quoted text",
+    "to": "To"
+  },
+  "generatingPanel": {
+    "batchOf": "Batch {{current}} / {{total}}"
+  },
   "inviteAcceptPage": {
     "adminInvite": "Admin invite",
     "atLeast12Characters": "At least 12 characters",
@@ -111,12 +137,12 @@
     "couldNotSetPassword": "Could not set password",
     "failedToLoadInvite": "Failed to load invite",
     "join": "Join",
-    "joiningEllipsis": "Joining…",
     "joinOrganization": "Join {{organizationName}}",
+    "joiningEllipsis": "Joining…",
     "linkNoLongerUsable": "This invite link {{reason}}. Ask your admin for a new one.",
     "newPassword": "New password",
-    "passwordsDontMatch": "Passwords don't match.",
     "passwordSet": "Password set. Sign in with your new password.",
+    "passwordsDontMatch": "Passwords don't match.",
     "reasonExpired": "has expired",
     "reasonRevoked": "was revoked",
     "reasonUsed": "has been used",
@@ -133,8 +159,8 @@
     "configureTitle": "Configure {{modelName}}",
     "description": "Point chat at your locally-hosted endpoint. The hostname must be loopback (localhost, 127.0.0.1), mDNS (*.local), or a private-range IP — public hosts are rejected.",
     "resetFailed": "Reset failed",
-    "resettingEllipsis": "Resetting…",
     "resetToDefault": "Reset to default",
+    "resettingEllipsis": "Resetting…",
     "saveFailed": "Save failed"
   },
   "loginForm": {
@@ -147,7 +173,12 @@
   "longRunning": {
     "working": "Working…"
   },
+  "manifestDiffView": {
+    "after": "after",
+    "before": "before"
+  },
   "manifestHistoryPanel": {
+    "current": "current",
     "noRevisionsYet": "No revisions yet.",
     "pickRevisionToDiff": "Pick a revision to diff against the current manifest.",
     "revertToThis": "Revert to this"
@@ -203,9 +234,9 @@
     "namePlaceholder": "e.g. Litigation associate",
     "newPersona": "New persona",
     "noAvatar": "No avatar",
-    "none": "None",
     "noPersonasMatch": "No personas match \"{{query}}\".",
     "noPersonasToShow": "No personas to show.",
+    "none": "None",
     "persona": "Persona",
     "personas": "Personas",
     "pickerOpenHint": "Picker open — pick one or click to close",
@@ -241,20 +272,42 @@
     "inlineTrackedChangesHint": "Inline tracked changes — click an edit to find its card",
     "loadingRedline": "Loading redline…",
     "noParagraphsInDocument": "No paragraphs in document.",
+    "paragraphsUnchangedHidden_one": "{{count}} paragraph unchanged (hidden).",
+    "paragraphsUnchangedHidden_other": "{{count}} paragraphs unchanged (hidden).",
     "paragraphsUnchanged_one": "{{count}} paragraph unchanged.",
     "paragraphsUnchanged_other": "{{count}} paragraphs unchanged.",
     "streamFailed": "stream failed",
     "synthesizingTopics": "Synthesizing topics…",
-    "topicSynthesisFailed": "topic synthesis failed — showing paragraph view"
+    "synthesizingTopicsFromCount_one": "Synthesizing topics from {{count}} substantive difference…",
+    "synthesizingTopicsFromCount_other": "Synthesizing topics from {{count}} substantive differences…",
+    "topicSynthesisFailed": "topic synthesis failed — showing paragraph view",
+    "topicsWillAppearHint": "Topics will appear here as they're identified. This usually takes a few seconds."
   },
   "reviewGrid": {
     "cell": "Cell",
+    "citations": "Citations",
     "column": "Column",
     "docsAsColumns": "Docs as columns",
     "docsAsRows": "Docs as rows",
+    "editPrompt": "Edit prompt",
     "error": "Error",
     "noAnswerYet": "No answer yet.",
+    "noCitationsSupplied": "No citations supplied for this cell.",
+    "open": "Open",
+    "openCitationInSourceDocument": "Open citation {{id}} in source document",
+    "question": "Question",
+    "regenerate": "Regenerate",
+    "regenerateColumn": "Regenerate column",
+    "regenerateRow": "Regenerate row",
+    "removeColumn": "Remove {{title}}",
+    "removeColumnAction": "Remove column",
+    "removeRow": "Remove {{name}}",
+    "removeRowAction": "Remove row",
     "row": "Row",
+    "runCell": "Run cell",
+    "runColumn": "Run column",
+    "runRow": "Run row",
+    "runningEllipsis": "Running…",
     "showDocumentsAsColumns": "Show documents as columns",
     "showDocumentsAsRows": "Show documents as rows"
   },
@@ -271,16 +324,21 @@
     "settings": "Settings",
     "signOut": "Sign out"
   },
-  "sidebar": {
-    "sidebar": "Sidebar",
-    "signOut": "Sign out"
-  },
   "sidePanel": {
     "closeTab": "Close {{title}}",
     "focusTab": "Focus {{title}}",
     "hideSidePanel": "Hide side panel",
     "openTabs": "Open side-panel tabs",
     "sidePanel": "Side panel"
+  },
+  "sidebar": {
+    "sidebar": "Sidebar",
+    "signOut": "Sign out"
+  },
+  "statusDot": {
+    "checkingRuntime": "Checking runtime",
+    "runtimeOffline": "Runtime offline",
+    "runtimeReachable": "Runtime reachable"
   },
   "tagInput": {
     "removeTag": "Remove {{tag}}",
@@ -305,11 +363,24 @@
     "result": "Result",
     "running": "Running…"
   },
+  "trackedChangesPanel": {
+    "accept": "Accept",
+    "accepted": "Accepted",
+    "inDocument": "In document",
+    "proposedEdits_one": "{{count}} proposed edit · accept or reject in-app, or open in Word",
+    "proposedEdits_other": "{{count}} proposed edits · accept or reject in-app, or open in Word",
+    "reDownloadHint": "Re-download the .docx to get the updated file.",
+    "reject": "Reject",
+    "rejected": "Rejected",
+    "resolveFailed": "Resolve failed",
+    "viewRedline": "View redline"
+  },
   "userAdmin": {
     "actionsHeader": "Actions",
     "active": "Active",
     "addSomeoneTitle": "Add someone to the firm",
     "admin": "Admin",
+    "ariaActionsFor": "Actions for {{name}}",
     "ariaDeactivate": "Deactivate {{name}}",
     "ariaMakeAdmin": "Make {{name}} an admin",
     "ariaMakeUser": "Make {{name}} a user",
@@ -322,12 +393,13 @@
     "couldNotCopy": "Could not copy: {{message}}. Select the link and copy it yourself.",
     "createInviteLink": "Create invite link",
     "deactivate": "Deactivate",
-    "deactivated": "Deactivated",
     "deactivateDescription": "{{name}} is signed out everywhere and cannot sign in until reactivated. Their matters and history stay.",
     "deactivateTitle": "Deactivate {{name}}?",
+    "deactivated": "Deactivated",
     "deactivatingEllipsis": "Deactivating…",
     "everyoneTitle": "Everyone at the firm",
     "expiresHeader": "Expires",
+    "expiresOn": "Expires {{date}}",
     "failedToLoad": "Failed to load",
     "inviteLabel": "Invite",
     "inviteLinkNote": "One use; expires {{expires}}. Send it to them yourself.",
@@ -343,6 +415,7 @@
     "nameHeader": "Name",
     "never": "Never",
     "noPendingInvites": "No pending invites.",
+    "noPeople": "No one yet.",
     "pendingLabel": "Pending",
     "peopleLabel": "People",
     "reactivate": "Reactivate",

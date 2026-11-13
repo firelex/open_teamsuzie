@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils'
 import { useSidePanel } from '../side-panel'
 import { RedlineSpan } from './redline-span'
 import { RedlinePanelContent } from './redline-panel-content'
+import { useUiT } from '../../lib/i18n.js'
 import type { RedlineParagraph } from './redline-runs'
 import type {
   FocusCardEventDetail,
@@ -142,6 +143,7 @@ export function TrackedChangesPanel({
   onLoadRedline,
   downloadHref,
 }: TrackedChangesPanelProps) {
+  const { t } = useUiT()
   const sidePanel = useSidePanel()
   const applied = result.applied_edits ?? []
   const autoOpenedRef = React.useRef(false)
@@ -251,7 +253,7 @@ export function TrackedChangesPanel({
         [edit.index]: {
           ...prev,
           status: 'pending',
-          error: err instanceof Error ? err.message : 'Resolve failed',
+          error: err instanceof Error ? err.message : t('trackedChangesPanel.resolveFailed'),
         },
       }))
     }
@@ -275,8 +277,7 @@ export function TrackedChangesPanel({
     <div className="my-3 space-y-2">
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
-          {applied.length} proposed edit{applied.length === 1 ? '' : 's'} ·
-          accept or reject in-app, or open in Word
+          {t('trackedChangesPanel.proposedEdits', { count: applied.length })}
         </span>
         <button
           type="button"
@@ -284,7 +285,7 @@ export function TrackedChangesPanel({
           className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium hover:bg-accent/40"
         >
           <ExternalLink className="size-3" aria-hidden />
-          View redline
+          {t('trackedChangesPanel.viewRedline')}
         </button>
       </div>
       {applied.map((edit) => (
@@ -317,6 +318,7 @@ function TrackedChangeCard({
   onReject: () => void
   onView: () => void
 }) {
+  const { t } = useUiT()
   const cardRef = React.useRef<HTMLDivElement | null>(null)
   const [flashing, setFlashing] = React.useState(false)
 
@@ -376,17 +378,17 @@ function TrackedChangeCard({
             onClick={onView}
           >
             <ExternalLink className="size-3" aria-hidden />
-            In document
+            {t('trackedChangesPanel.inDocument')}
           </Button>
         </div>
         <div className="flex items-center gap-1.5">
           {state.status === 'accepted' ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-              <Check className="size-3" aria-hidden /> Accepted
+              <Check className="size-3" aria-hidden /> {t('trackedChangesPanel.accepted')}
             </span>
           ) : state.status === 'rejected' ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-              <Undo2 className="size-3" aria-hidden /> Rejected
+              <Undo2 className="size-3" aria-hidden /> {t('trackedChangesPanel.rejected')}
             </span>
           ) : (
             <>
@@ -399,7 +401,7 @@ function TrackedChangeCard({
                 onClick={onReject}
               >
                 <X className="size-3" aria-hidden />
-                Reject
+                {t('trackedChangesPanel.reject')}
               </Button>
               <Button
                 type="button"
@@ -409,7 +411,7 @@ function TrackedChangeCard({
                 onClick={onAccept}
               >
                 <Check className="size-3" aria-hidden />
-                Accept
+                {t('trackedChangesPanel.accept')}
               </Button>
             </>
           )}
@@ -420,7 +422,7 @@ function TrackedChangeCard({
       )}
       {resolved && !state.error && (
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Re-download the .docx to get the updated file.
+          {t('trackedChangesPanel.reDownloadHint')}
         </p>
       )}
     </div>

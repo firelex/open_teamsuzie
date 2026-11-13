@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { cn } from '../../lib/utils.js';
 import { EmailAttachmentChip } from './email-attachment-chip.js';
+import { useUiT } from '../../lib/i18n.js';
 
 export interface EmailThreadMessage {
   id: string;
@@ -46,6 +47,7 @@ function Addresses({ label, list }: { label: string; list: string[] }) {
 }
 
 function Body({ message, renderHtml }: { message: EmailThreadMessage; renderHtml: EmailThreadViewProps['renderHtml'] }) {
+  const { t } = useUiT();
   const [showQuote, setShowQuote] = React.useState(false);
   const hasQuote = message.quotedFrom !== null;
   // HTML is shown whole (the host's frame decides its layout); the quote toggle applies to plain text.
@@ -57,7 +59,7 @@ function Body({ message, renderHtml }: { message: EmailThreadMessage; renderHtml
       {hasQuote && (
         <>
           <button type="button" onClick={() => setShowQuote((v) => !v)} className="mt-2 rounded-sm px-1 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            {showQuote ? 'Hide quoted text' : 'Show quoted text'}
+            {showQuote ? t('emailThreadView.hideQuotedText') : t('emailThreadView.showQuotedText')}
           </button>
           {showQuote && <p className="mt-1 whitespace-pre-wrap border-l-2 pl-3 text-muted-foreground">{message.text.slice(message.quotedFrom!)}</p>}
         </>
@@ -68,6 +70,7 @@ function Body({ message, renderHtml }: { message: EmailThreadMessage; renderHtml
 
 /** An email conversation laid out like a desktop mail client: a header block per message, the body, and attachment chips. */
 export function EmailThreadView({ messages, order, renderHtml, onOpenAttachment, className }: EmailThreadViewProps) {
+  const { t } = useUiT();
   const sorted = [...messages].sort((a, b) => (order === 'latest_first' ? b.sentAt.localeCompare(a.sentAt) : a.sentAt.localeCompare(b.sentAt)));
   return (
     <div data-slot="email-thread" className={cn('flex flex-col gap-3', className)}>
@@ -79,8 +82,8 @@ export function EmailThreadView({ messages, order, renderHtml, onOpenAttachment,
                 <span className="font-semibold">{m.fromName ?? m.from}</span>
                 {m.fromName && <span className="text-xs text-muted-foreground">{`<${m.from}>`}</span>}
               </div>
-              <Addresses label="To" list={m.to} />
-              <Addresses label="Cc" list={m.cc} />
+              <Addresses label={t('emailThreadView.to')} list={m.to} />
+              <Addresses label={t('emailThreadView.cc')} list={m.cc} />
             </div>
             <time dateTime={m.sentAt} className="shrink-0 text-xs text-muted-foreground">{dateFormat.format(new Date(m.sentAt))}</time>
           </header>
