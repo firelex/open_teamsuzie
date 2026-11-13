@@ -1,0 +1,23 @@
+{
+  "name": "@teamsuzie/i18n",
+  "version": "0.1.0",
+  "description": "Translation setup shared by Team Suzie apps: i18next with no fallback language, a React provider and hooks, Intl formatters, and a server-side translator.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./server": { "import": "./dist/server.js", "types": "./dist/server.d.ts" }
+  },
+  "files": ["dist"],
+  "scripts": { "build": "tsc", "dev": "tsc --watch", "test": "vitest run", "typecheck": "tsc --noEmit" },
+  "peerDependencies": { "react": "^18.0.0 || ^19.0.0" },
+  "peerDependenciesMeta": { "react": { "optional": true } },
+  "dependencies": { "i18next": "^27.1.1", "react-i18next": "^18.0.1" },
+  "devDependencies": {
+    "@types/react": "^19.1.8", "react": "^19.1.0", "react-dom": "^19.1.0",
+    "@testing-library/react": "^16.1.0", "jsdom": "^25.0.1",
+    "typescript": "^5.7.3", "vitest": "^4.0.18"
+  }
+}
