@@ -23,12 +23,13 @@ export interface PageProps {
 /**
  * A page of an app: a header (back link, label, title, description, actions)
  * over a body, both at one centred width with the same padding, so every
- * page lines up with every other. Apps style the parts through their
+ * page lines up with every other. The page fills the space it is given and
+ * scrolls itself when it is longer. Apps style the parts through their
  * `data-slot` names (page-eyebrow, page-title, page-description, …).
  */
 export function Page({ eyebrow, title, description, actions, back, meta, children, className, bodyClassName }: PageProps) {
   return (
-    <div data-slot="page" className={cn("flex min-h-full w-full flex-col", className)}>
+    <div data-slot="page" className={cn("flex min-h-0 w-full flex-1 flex-col overflow-y-auto", className)}>
       <header data-slot="page-header" className="border-b border-border">
         <div className="mx-auto w-full max-w-6xl px-8 pb-6 pt-8">
           {back && (
