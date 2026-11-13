@@ -59,6 +59,9 @@ function row(u: User): AdminUserRow {
     };
 }
 
+/** Internal signal that a reset token could not be used; never escapes this module. */
+class InvalidResetToken extends Error {}
+
 function inviteRow(i: OrgInvite, createdByEmail: string): InviteRow {
     if (!i.email || !i.expires_at) throw new Error(`invite ${i.id} has no email or expiry; it was not made by the user admin routes`);
     return {
@@ -87,10 +90,11 @@ export class SequelizeUserAdminStore implements UserAdminStore {
         return User.count({ where: { role: 'admin', is_active: true } });
     }
     async createInvite(input: { email: string; role: AppRole; createdBy: string; tokenHash: string; expiresAt: Date }) {
+        const email = input.email.trim().toLowerCase();
         const org = await firmOrganization();
         const invite = await OrgInvite.create({
             organization_id: org.id, created_by: input.createdBy, token: input.tokenHash, role: input.role,
-            email: input.email, max_uses: 1, use_count: 0, expires_at: input.expiresAt, is_active: true,
+            email, max_uses: 1, use_count: 0, expires_at: input.expiresAt, is_active: true,
         });
         const creator = await User.findByPk(input.createdBy);
         if (!creator) throw new Error(`createInvite: creator ${input.createdBy} not found`);
@@ -125,9 +129,9 @@ export class SequelizeUserAdminStore implements UserAdminStore {
                 throw Object.assign(new Error('This invite link is no longer valid'), { code: 410 });
             }
             const role: AppRole = i.role === 'admin' ? 'admin' : 'user';
-            const user = await this.users.create(i.email!, input.password, input.name, role);
+            const user = await this.users.create(i.email!, input.password, input.name, role, { transaction });
             await i.update({ use_count: i.use_count + 1 }, { transaction });
-            await setFirmMembership(user.id, role);
+            await setFirmMembership(user.id, role, { transaction });
             return row(user);
         });
     }
@@ -145,13 +149,29 @@ export class SequelizeUserAdminStore implements UserAdminStore {
         await PasswordResetToken.create({ user_id: input.userId, token_hash: input.tokenHash, expires_at: input.expiresAt, created_by: input.createdBy });
     }
     async useResetToken(tokenHash: string, password: string, now: Date) {
-        const t = await PasswordResetToken.findOne({ where: { token_hash: tokenHash } });
-        if (!t || t.used_at || t.expires_at <= now) return 'invalid' as const;
-        const u = await User.findByPk(t.user_id);
-        if (!u || !u.is_active) return 'invalid' as const;
-        await u.update({ password_hash: await bcrypt.hash(password, 10) });
-        await t.update({ used_at: now });
-        return row(u);
+        const sequelize = PasswordResetToken.sequelize;
+        if (!sequelize) throw new Error('PasswordResetToken model is not initialised');
+        try {
+            return await sequelize.transaction(async (transaction) => {
+                // Claim the token first, conditioned on it still being unused and unexpired: this is the one
+                // write that decides the race, so a second concurrent call sees 0 rows affected and bails out
+                // before it can also update the password.
+                const [claimed] = await PasswordResetToken.update(
+                    { used_at: now },
+                    { where: { token_hash: tokenHash, used_at: null, expires_at: { [Op.gt]: now } }, transaction },
+                );
+                if (claimed === 0) throw new InvalidResetToken();
+                const t = await PasswordResetToken.findOne({ where: { token_hash: tokenHash }, transaction });
+                if (!t) throw new Error(`useResetToken: token ${tokenHash} vanished inside its own transaction`);
+                const u = await User.findByPk(t.user_id, { transaction });
+                if (!u || !u.is_active) throw new InvalidResetToken();
+                await u.update({ password_hash: await bcrypt.hash(password, 10) }, { transaction });
+                return row(u);
+            });
+        } catch (err) {
+            if (err instanceof InvalidResetToken) return 'invalid' as const;
+            throw err;
+        }
     }
     async deleteUser(id: string) {
         const ok = await this.users.delete(id);

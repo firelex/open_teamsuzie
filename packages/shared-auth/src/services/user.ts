@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { Op, type Transaction } from 'sequelize';
 import { User } from '../models/user.js';
 import { UserAccessToken } from '../models/user-access-token.js';
 import { OAuthAccount } from '../models/oauth-account.js';
@@ -7,6 +8,8 @@ import { OrganizationMember } from '../models/organization-member.js';
 import { PendingMembership } from '../models/pending-membership.js';
 import { UserDevice } from '../models/user-device.js';
 import { Agent } from '../models/agent.js';
+import { OrgInvite } from '../models/org-invite.js';
+import { PasswordResetToken } from '../models/password-reset-token.js';
 import type { SharedAuthConfig } from '../types.js';
 import { generateApiKey, verifyApiKey } from '../utils/encryption.js';
 
@@ -18,9 +21,15 @@ export default class UserService {
         this.config = config;
     }
 
-    create = async (email: string, password: string, name: string, role: 'admin' | 'user' = 'user'): Promise<User> => {
+    create = async (
+        email: string,
+        password: string,
+        name: string,
+        role: 'admin' | 'user' = 'user',
+        opts?: { transaction?: Transaction },
+    ): Promise<User> => {
         email = email.trim().toLowerCase();
-        const existingUser = await User.findOne({ where: { email } });
+        const existingUser = await User.findOne({ where: { email }, transaction: opts?.transaction });
         if (existingUser) {
             throw Object.assign(new Error('User with this email already exists'), { code: 400 });
         }
@@ -34,7 +43,7 @@ export default class UserService {
             role,
             created_by: this.config.default_user_id,
             updated_by: this.config.default_user_id
-        });
+        }, { transaction: opts?.transaction });
 
         return user;
     }
@@ -172,9 +181,11 @@ export default class UserService {
     /**
      * Permanently delete a user and the rows that only make sense with them:
      * access tokens, linked OAuth accounts, notifications, organisation
-     * memberships, pending memberships and devices. Refuses (throws) when the
-     * user still owns agents, which must be reassigned or deleted first.
-     * Runs in one transaction. Returns false when no such user exists.
+     * memberships, pending memberships, devices, password reset tokens (as
+     * the target or as the admin who created them) and invites the user
+     * created. Refuses (throws) when the user still owns agents, which must
+     * be reassigned or deleted first. Runs in one transaction. Returns false
+     * when no such user exists.
      */
     delete = async (userId: string): Promise<boolean> => {
         const user = await User.findByPk(userId);
@@ -204,6 +215,18 @@ export default class UserService {
                 await PendingMembership.destroy({ where: { user_id: userId }, transaction });
             }
             if (registered(UserDevice)) await UserDevice.destroy({ where: { user_id: userId }, transaction });
+            if (registered(PasswordResetToken)) {
+                // The user is either the token's target (user_id) or the admin who created it (created_by);
+                // both are NOT NULL foreign keys into users, so either role blocks the delete if left behind.
+                await PasswordResetToken.destroy({
+                    where: { [Op.or]: [{ user_id: userId }, { created_by: userId }] },
+                    transaction,
+                });
+            }
+            if (registered(OrgInvite)) {
+                // created_by is a NOT NULL foreign key into users; an invite this user created must go too.
+                await OrgInvite.destroy({ where: { created_by: userId }, transaction });
+            }
             await user.destroy({ transaction });
         });
         return true;

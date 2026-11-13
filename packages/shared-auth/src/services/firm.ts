@@ -1,3 +1,4 @@
+import type { Transaction } from 'sequelize';
 import { Organization } from '../models/organization.js';
 import { OrganizationMember } from '../models/organization-member.js';
 import type { AppRole } from './user-admin-store.js';
@@ -37,15 +38,17 @@ export async function ensureFirmOrganization(name: string): Promise<{ id: string
 }
 
 /** Puts the user in the firm organisation with the organisation role matching their app role. */
-export async function setFirmMembership(userId: string, role: AppRole): Promise<void> {
-    const org = await Organization.findOne({ where: { slug: FIRM_SLUG } });
+export async function setFirmMembership(userId: string, role: AppRole, opts?: { transaction?: Transaction }): Promise<void> {
+    const transaction = opts?.transaction;
+    const org = await Organization.findOne({ where: { slug: FIRM_SLUG }, transaction });
     if (!org) throw new Error('setFirmMembership: the firm organisation does not exist; call ensureFirmOrganization at boot');
     const orgRole = role === 'admin' ? 'admin' : 'member';
     const [member] = await OrganizationMember.findOrCreate({
         where: { organization_id: org.id, user_id: userId },
         defaults: { role: orgRole, created_by: userId, updated_by: userId },
+        transaction,
     });
-    if (member.role !== orgRole && member.role !== 'owner') await member.update({ role: orgRole });
+    if (member.role !== orgRole && member.role !== 'owner') await member.update({ role: orgRole }, { transaction });
 }
 
 export async function firmOrganization(): Promise<{ id: string; name: string }> {
