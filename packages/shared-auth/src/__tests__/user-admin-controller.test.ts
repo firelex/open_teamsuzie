@@ -243,6 +243,29 @@ describe('removal', () => {
         expect(ended).toEqual(['bob']);
         expect(store.revokeAccessTokens).toHaveBeenCalledWith('bob');
     });
+
+    it('reports both errors when onChange and signing out both fail', async () => {
+        const { c, store } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        (c as any).opts.onChange = async (e: UserAdminEvent) => {
+            if (e.kind === 'removed') throw new Error('clean-up failed');
+        };
+        (c as any).opts.sessions = { endSessionsFor: async () => { throw new Error('redis down'); } };
+        const out = await call(c.deleteUser, req('ann', { params: { id: 'bob' } }));
+        expect(out.status).toBe(500);
+        expect(out.body.message).toContain('clean-up failed');
+        expect(out.body.message).toContain('redis down');
+        expect(store.deleteUser).toHaveBeenCalledWith('bob');
+    });
+
+    it('keeps the onChange error’s code when signing out also fails', async () => {
+        const { c } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        (c as any).opts.onChange = async () => { throw Object.assign(new Error('refused by the app'), { code: 409, error: 'app_refused' }); };
+        (c as any).opts.sessions = { endSessionsFor: async () => { throw new Error('redis down'); } };
+        const out = await call(c.deleteUser, req('ann', { params: { id: 'bob' } }));
+        expect(out.status).toBe(409);
+        expect(out.body.error).toBe('app_refused');
+        expect(out.body.message).toBe('refused by the app; and signing the person out also failed: redis down');
+    });
 });
 
 describe('password reset links', () => {

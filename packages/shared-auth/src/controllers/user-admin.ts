@@ -79,6 +79,37 @@ export class UserAdminController {
         await this.opts.store.revokeAccessTokens(userId);
     }
 
+    /**
+     * Runs `work` (the onChange calls), then always signs `userId` out, so a failing app hook never leaves the
+     * person signed in after their change was written. No error is lost: if only one step failed, that error is
+     * rethrown unchanged (its `code`/`error` still pick the response); if both failed, the thrown error names
+     * both messages and keeps the work error's `code`/`error`.
+     */
+    private async thenSignOut(userId: string, work: () => Promise<void>): Promise<void> {
+        let workErr: unknown = null;
+        let workFailed = false;
+        try {
+            await work();
+        } catch (e) {
+            workFailed = true;
+            workErr = e;
+        }
+        try {
+            await this.signOut(userId);
+        } catch (signOutErr) {
+            if (!workFailed) throw signOutErr;
+            const w = workErr as { message?: unknown; code?: unknown; error?: unknown };
+            const workMessage = workErr instanceof Error ? workErr.message : String(workErr);
+            const signOutMessage = signOutErr instanceof Error ? signOutErr.message : String(signOutErr);
+            const combined = new Error(`${workMessage}; and signing the person out also failed: ${signOutMessage}`, { cause: workErr });
+            throw Object.assign(combined, {
+                ...(w && w.code !== undefined ? { code: w.code } : {}),
+                ...(w && w.error !== undefined ? { error: w.error } : {}),
+            });
+        }
+        if (workFailed) throw workErr;
+    }
+
     listUsers = async (req: Request, res: Response): Promise<void> => {
         try {
             if (!(await this.admin(req, res))) return;
@@ -148,20 +179,19 @@ export class UserAdminController {
             const activeChanged = isActive !== undefined && isActive !== previousActive;
             // Record the audit events right after the write, then sign out: if ending sessions fails, the
             // change and its event are already recorded, and the request still fails loud with the real
-            // error. Sign-out runs even when onChange throws (finally), so the person never keeps a session
-            // after the change itself was written. Only end sessions/tokens when something actually
-            // changed: a PATCH that merely restates the current role/active state must not sign them out.
+            // error. Sign-out runs even when onChange throws (thenSignOut), so the person never keeps a
+            // session after the change itself was written, and neither error is lost. Only end
+            // sessions/tokens when something actually changed: a PATCH that merely restates the current
+            // role/active state must not sign them out.
             if (roleChanged || activeChanged) {
-                try {
+                await this.thenSignOut(target.id, async () => {
                     if (roleChanged) {
                         await this.opts.onChange({ kind: 'role_changed', actor: me, target: updated, from: previousRole, to: role! });
                     }
                     if (activeChanged) {
                         await this.opts.onChange({ kind: isActive ? 'reactivated' : 'deactivated', actor: me, target: updated });
                     }
-                } finally {
-                    await this.signOut(target.id);
-                }
+                });
             }
             res.status(200).json({ user: updated });
         } catch (e) { answerError(res, e); }
@@ -194,12 +224,11 @@ export class UserAdminController {
             await this.opts.store.deleteUser(target.id);
             // Ending sessions by user id still works once the row is gone; doing it last means a failure
             // here never hides that the removal (and its audit event) already happened. It runs even when
-            // onChange throws (e.g. the app's clean-up failed), so a removed person is never left signed in.
-            try {
+            // onChange throws (e.g. the app's clean-up failed), so a removed person is never left signed in;
+            // thenSignOut reports both errors if both steps fail.
+            await this.thenSignOut(target.id, async () => {
                 await this.opts.onChange({ kind: 'removed', actor: me, target });
-            } finally {
-                await this.signOut(target.id);
-            }
+            });
             res.status(200).json({ ok: true });
         } catch (e) { answerError(res, e); }
     };
@@ -243,11 +272,9 @@ export class UserAdminController {
             // Same ordering as updateUser/deleteUser: record the event right after the write, then sign
             // out (even if onChange throws), so a session-ending failure can never make the password change
             // or its event disappear, and an onChange failure never leaves old sessions alive.
-            try {
+            await this.thenSignOut(result.id, async () => {
                 await this.opts.onChange({ kind: 'password_reset_used', target: result });
-            } finally {
-                await this.signOut(result.id);
-            }
+            });
             res.status(200).json({ ok: true });
         } catch (e) { answerError(res, e); }
     };
