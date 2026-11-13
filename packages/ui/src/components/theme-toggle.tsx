@@ -6,10 +6,10 @@ export type Theme = "system" | "light" | "dark"
 
 const STORAGE_KEY = "teamsuzie.theme"
 
-function readStored(): Theme {
-  if (typeof window === "undefined") return "system"
+function readStored(defaultTheme: Theme): Theme {
+  if (typeof window === "undefined") return defaultTheme
   const raw = window.localStorage.getItem(STORAGE_KEY)
-  return raw === "light" || raw === "dark" ? raw : "system"
+  return raw === "light" || raw === "dark" || raw === "system" ? raw : defaultTheme
 }
 
 function apply(theme: Theme) {
@@ -27,9 +27,12 @@ function apply(theme: Theme) {
  * root if you want the saved theme applied on first paint without depending
  * on the toggle component rendering. (Optional — ThemeToggle does the same
  * inside its own effect.)
+ *
+ * `defaultTheme` is used until the person chooses one (default "system":
+ * follow the operating system). An app that should open light passes "light".
  */
-export function useTheme(): [Theme, (next: Theme) => void] {
-  const [theme, setThemeState] = React.useState<Theme>(() => readStored())
+export function useTheme(defaultTheme: Theme = "system"): [Theme, (next: Theme) => void] {
+  const [theme, setThemeState] = React.useState<Theme>(() => readStored(defaultTheme))
 
   React.useEffect(() => {
     apply(theme)
@@ -37,11 +40,11 @@ export function useTheme(): [Theme, (next: Theme) => void] {
 
   const setTheme = React.useCallback((next: Theme) => {
     if (typeof window !== "undefined") {
-      if (next === "system") window.localStorage.removeItem(STORAGE_KEY)
+      if (next === defaultTheme) window.localStorage.removeItem(STORAGE_KEY)
       else window.localStorage.setItem(STORAGE_KEY, next)
     }
     setThemeState(next)
-  }, [])
+  }, [defaultTheme])
 
   return [theme, setTheme]
 }
