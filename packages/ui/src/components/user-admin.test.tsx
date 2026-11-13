@@ -20,6 +20,13 @@ function mockFetch(handlers: Record<string, (init?: RequestInit) => { status: nu
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+// Each person's actions live in one row menu. Open it from the keyboard (as
+// Radix supports) and pick an item; the item runs once the menu has closed.
+async function chooseRowAction(person: string, item: string) {
+    fireEvent.keyDown(screen.getByRole('button', { name: `Actions for ${person}` }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: item }));
+}
+
 describe('UserAdmin', () => {
     it('lists people and shows the server’s message when a change is refused', async () => {
         vi.stubGlobal('fetch', mockFetch({
@@ -30,7 +37,7 @@ describe('UserAdmin', () => {
         render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
         expect(await screen.findByText('Bob')).toBeTruthy();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Deactivate Ann' }));
+        await chooseRowAction('Ann', 'Deactivate');
         fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
         await waitFor(() => expect(screen.getByText('The firm must keep at least one active admin.')).toBeTruthy());
     });
@@ -57,7 +64,7 @@ describe('UserAdmin', () => {
         render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
         await screen.findByText('Bob');
 
-        fireEvent.click(screen.getByRole('button', { name: 'Deactivate Bob' }));
+        await chooseRowAction('Bob', 'Deactivate');
         fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
 
         // While the PATCH is still unresolved, Bob's own row shows that it is
@@ -96,7 +103,7 @@ describe('UserAdmin', () => {
         }));
         render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
         await screen.findByText('Bob');
-        fireEvent.click(screen.getByRole('button', { name: 'Reset password for Bob' }));
+        await chooseRowAction('Bob', 'Reset password');
         expect(await screen.findByDisplayValue('https://firm.example/allinone/reset/xyz')).toBeTruthy();
     });
 });

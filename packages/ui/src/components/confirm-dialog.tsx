@@ -57,6 +57,11 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
   const [pending, setPending] = React.useState<PendingConfirm | null>(null)
   const [running, setRunning] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  // The element that had focus when the dialog opened (the button or menu
+  // trigger that asked for confirmation). The dialog has no Radix trigger
+  // of its own, so without this Radix drops focus on <body> when it closes
+  // and a keyboard user loses their place.
+  const returnFocusTo = React.useRef<HTMLElement | null>(null)
 
   const confirm = React.useCallback(
     (options: ConfirmOptions) =>
@@ -108,7 +113,21 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
           if (!open && !running) finish(false)
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className="max-w-md"
+          onOpenAutoFocus={() => {
+            const active = document.activeElement
+            returnFocusTo.current = active instanceof HTMLElement && active !== document.body ? active : null
+          }}
+          onCloseAutoFocus={(event) => {
+            const target = returnFocusTo.current
+            returnFocusTo.current = null
+            if (target?.isConnected) {
+              event.preventDefault()
+              target.focus()
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isDestructive && (

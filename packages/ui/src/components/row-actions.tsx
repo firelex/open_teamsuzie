@@ -51,6 +51,12 @@ export function RowActions({
   className,
 }: RowActionsProps) {
   const { t } = useUiT()
+  // The chosen action runs only once the menu has closed and handed focus
+  // back to the trigger. Actions usually open a confirm dialog; opening it
+  // while the menu is still open leaves the menu sitting under the dialog,
+  // and the dialog would hand focus back to a menu item that no longer
+  // exists when it closes.
+  const chosen = React.useRef<RowAction | null>(null)
   if (actions.length === 0) return null
 
   return (
@@ -65,7 +71,15 @@ export function RowActions({
           <MoreHorizontal className="size-4" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="w-44">
+      <DropdownMenuContent
+        align={align}
+        className="min-w-44"
+        onCloseAutoFocus={() => {
+          const action = chosen.current
+          chosen.current = null
+          if (action) void action.onSelect()
+        }}
+      >
         {actions.map((action) => {
           const Icon = action.icon
           return (
@@ -73,14 +87,10 @@ export function RowActions({
               {action.separatorBefore && <DropdownMenuSeparator />}
               <DropdownMenuItem
                 disabled={action.disabled}
-                onSelect={(e) => {
-                  e.preventDefault()
-                  void action.onSelect()
+                variant={action.destructive ? "destructive" : "default"}
+                onSelect={() => {
+                  chosen.current = action
                 }}
-                className={cn(
-                  action.destructive &&
-                    "text-destructive focus:bg-destructive/10 focus:text-destructive",
-                )}
               >
                 {Icon && <Icon className="size-4" aria-hidden />}
                 <span>{action.label}</span>

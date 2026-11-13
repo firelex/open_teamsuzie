@@ -1,10 +1,10 @@
 import * as React from "react"
+import { KeyRound, Loader2, ShieldCheck, ShieldOff, Trash2, UserCheck, UserX } from "lucide-react"
 
 import { Badge } from "./badge.js"
 import { Button } from "./button.js"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card.js"
 import { useConfirm } from "./confirm-dialog.js"
-import { formatDateTime } from "./data-table.js"
+import { DataTable, formatDateTime, type Column } from "./data-table.js"
 import { Input } from "./input.js"
 import { Label } from "./label.js"
 import {
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./select.js"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table.js"
+import { RowActions } from "./row-actions.js"
 import { useUiT } from "../lib/i18n.js"
 
 export interface AdminUserRow {
@@ -100,6 +100,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
   const [link, setLink] = React.useState<ShownLink | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [pending, setPending] = React.useState<PendingAction | null>(null)
+  const [loading, setLoading] = React.useState(true)
   const confirm = useConfirm()
 
   const load = React.useCallback(async () => {
@@ -120,7 +121,9 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
   }, [apiBase])
 
   React.useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : t('userAdmin.failedToLoad')))
+    load()
+      .catch((err) => setError(err instanceof Error ? err.message : t('userAdmin.failedToLoad')))
+      .finally(() => setLoading(false))
   }, [load])
 
   const send = React.useCallback(
@@ -257,8 +260,93 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
     )
   }
 
+  function rowPendingLabel(id: string): string | null {
+    if (!pending) return null
+    const ids = [roleActionId(id), activeActionId(id), resetActionId(id), removeActionId(id)]
+    return ids.includes(pending.id) ? pending.label : null
+  }
+
+  const userColumns: Column<AdminUserRow>[] = [
+    {
+      key: "name",
+      header: t('userAdmin.nameHeader'),
+      render: (user) => (
+        <div className="min-w-0 space-y-1">
+          <div className="font-medium text-foreground">
+            {user.name}
+            {user.email === currentUserEmail && (
+              <span className="font-normal text-muted-foreground"> {t('userAdmin.you')}</span>
+            )}
+          </div>
+          {/* On narrow screens the email, role and status columns are
+              hidden, so the same facts sit under the name instead. */}
+          <div className="break-words text-xs text-muted-foreground md:hidden"><EmailText email={user.email} /></div>
+          <div className="flex flex-wrap gap-1.5 sm:hidden">
+            <RoleBadge role={user.role} />
+            <StatusBadge active={user.is_active} />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "email",
+      header: t('common.email'),
+      className: "hidden md:table-cell",
+      render: (user) => <span className="break-words"><EmailText email={user.email} /></span>,
+    },
+    {
+      key: "role",
+      header: t('userAdmin.roleHeader'),
+      className: "hidden sm:table-cell",
+      render: (user) => <RoleBadge role={user.role} />,
+    },
+    {
+      key: "status",
+      header: t('userAdmin.statusHeader'),
+      className: "hidden sm:table-cell",
+      render: (user) => <StatusBadge active={user.is_active} />,
+    },
+    {
+      key: "lastSignIn",
+      header: t('userAdmin.lastSignInHeader'),
+      className: "hidden lg:table-cell whitespace-nowrap text-muted-foreground",
+      render: (user) => (user.last_sign_in_at ? formatDateTime(user.last_sign_in_at) : t('userAdmin.never')),
+    },
+  ]
+
+  const inviteColumns: Column<InviteRow>[] = [
+    {
+      key: "email",
+      header: t('common.email'),
+      render: (invite) => (
+        <div className="min-w-0 space-y-1">
+          <div className="break-words font-medium text-foreground"><EmailText email={invite.email} /></div>
+          {/* Role and expiry columns are hidden on narrow screens. */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground sm:hidden">
+            <RoleBadge role={invite.role} />
+            <span>{t('userAdmin.expiresOn', { date: formatDateTime(invite.expires_at) })}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "role",
+      header: t('userAdmin.roleHeader'),
+      className: "hidden sm:table-cell",
+      render: (invite) => <RoleBadge role={invite.role} />,
+    },
+    {
+      key: "expires",
+      header: t('userAdmin.expiresHeader'),
+      className: "hidden sm:table-cell whitespace-nowrap text-muted-foreground",
+      render: (invite) => formatDateTime(invite.expires_at),
+    },
+  ]
+
   return (
-    <div className="space-y-4">
+    // The panel usually sits inside a settings card whose body text is
+    // small and muted; reset to the normal table text here.
+    <div className="space-y-6 text-sm text-foreground">
       <InviteForm
         apiBase={apiBase}
         linkBase={linkBase}
@@ -277,153 +365,124 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
         </p>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardDescription>{t('userAdmin.peopleLabel')}</CardDescription>
-          <CardTitle>{t('userAdmin.everyoneTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('userAdmin.nameHeader')}</TableHead>
-                <TableHead>{t('common.email')}</TableHead>
-                <TableHead>{t('userAdmin.roleHeader')}</TableHead>
-                <TableHead>{t('userAdmin.statusHeader')}</TableHead>
-                <TableHead>{t('userAdmin.lastSignInHeader')}</TableHead>
-                <TableHead>{t('userAdmin.actionsHeader')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    {user.name}
-                    {user.email === currentUserEmail && (
-                      <span className="text-muted-foreground"> {t('userAdmin.you')}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                      {user.role === "admin" ? t('userAdmin.admin') : t('userAdmin.user')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.is_active ? "success" : "outline"}>
-                      {user.is_active ? t('userAdmin.active') : t('userAdmin.deactivated')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {user.last_sign_in_at ? formatDateTime(user.last_sign_in_at) : t('userAdmin.never')}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        aria-label={user.role === "admin" ? t('userAdmin.ariaMakeUser', { name: user.name }) : t('userAdmin.ariaMakeAdmin', { name: user.name })}
-                        onClick={() => void changeRole(user)}
-                      >
-                        {pending?.id === roleActionId(user.id)
-                          ? pending.label
-                          : user.role === "admin"
-                            ? t('userAdmin.makeUser')
-                            : t('userAdmin.makeAdmin')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={user.is_active ? "destructive" : "outline"}
-                        disabled={busy}
-                        aria-label={user.is_active ? t('userAdmin.ariaDeactivate', { name: user.name }) : t('userAdmin.ariaReactivate', { name: user.name })}
-                        onClick={() => void toggleActive(user)}
-                      >
-                        {pending?.id === activeActionId(user.id)
-                          ? pending.label
-                          : user.is_active
-                            ? t('userAdmin.deactivate')
-                            : t('userAdmin.reactivate')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        aria-label={t('userAdmin.ariaResetPassword', { name: user.name })}
-                        onClick={() => void resetPassword(user)}
-                      >
-                        {pending?.id === resetActionId(user.id) ? pending.label : t('userAdmin.resetPassword')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        aria-label={t('userAdmin.ariaRemove', { name: user.name })}
-                        onClick={() => void removeUser(user)}
-                      >
-                        {pending?.id === removeActionId(user.id) ? pending.label : t('userAdmin.remove')}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium">{t('userAdmin.everyoneTitle')}</h3>
+        <DataTable<AdminUserRow>
+          data={users}
+          columns={userColumns}
+          getRowKey={(user) => user.id}
+          isLoading={loading}
+          emptyMessage={t('userAdmin.noPeople')}
+          actionsWidth="w-12"
+          actionsHeader={<span className="sr-only">{t('userAdmin.actionsHeader')}</span>}
+          renderActions={(user) => {
+            const pendingLabel = rowPendingLabel(user.id)
+            return (
+              <div className="flex items-center justify-end gap-2">
+                {pendingLabel && (
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground" role="status">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    {pendingLabel}
+                  </span>
+                )}
+                <RowActions
+                  triggerLabel={t('userAdmin.ariaActionsFor', { name: user.name })}
+                  actions={[
+                    {
+                      id: "role",
+                      label: user.role === "admin" ? t('userAdmin.makeUser') : t('userAdmin.makeAdmin'),
+                      icon: user.role === "admin" ? ShieldOff : ShieldCheck,
+                      disabled: busy,
+                      onSelect: () => changeRole(user),
+                    },
+                    {
+                      id: "reset",
+                      label: t('userAdmin.resetPassword'),
+                      icon: KeyRound,
+                      disabled: busy,
+                      onSelect: () => resetPassword(user),
+                    },
+                    {
+                      id: "active",
+                      label: user.is_active ? t('userAdmin.deactivate') : t('userAdmin.reactivate'),
+                      icon: user.is_active ? UserX : UserCheck,
+                      destructive: user.is_active,
+                      separatorBefore: true,
+                      disabled: busy,
+                      onSelect: () => toggleActive(user),
+                    },
+                    {
+                      id: "remove",
+                      label: t('userAdmin.remove'),
+                      icon: Trash2,
+                      destructive: true,
+                      disabled: busy,
+                      onSelect: () => removeUser(user),
+                    },
+                  ]}
+                />
+              </div>
+            )
+          }}
+        />
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardDescription>{t('userAdmin.pendingLabel')}</CardDescription>
-          <CardTitle>{t('userAdmin.invitesTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {invites.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('userAdmin.noPendingInvites')}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('common.email')}</TableHead>
-                  <TableHead>{t('userAdmin.roleHeader')}</TableHead>
-                  <TableHead>{t('userAdmin.expiresHeader')}</TableHead>
-                  <TableHead>{t('userAdmin.actionsHeader')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invites.map((invite) => (
-                  <TableRow key={invite.id}>
-                    <TableCell>{invite.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={invite.role === "admin" ? "default" : "secondary"}>
-                        {invite.role === "admin" ? t('userAdmin.admin') : t('userAdmin.user')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDateTime(invite.expires_at)}</TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        aria-label={t('userAdmin.ariaRevoke', { email: invite.email })}
-                        onClick={() => void revokeInvite(invite)}
-                      >
-                        {pending?.id === revokeActionId(invite.id) ? pending.label : t('userAdmin.revoke')}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium">{t('userAdmin.pendingInvitesTitle')}</h3>
+        <DataTable<InviteRow>
+          data={invites}
+          columns={inviteColumns}
+          getRowKey={(invite) => invite.id}
+          isLoading={loading}
+          emptyMessage={t('userAdmin.noPendingInvites')}
+          actionsWidth="w-28"
+          actionsHeader={<span className="sr-only">{t('userAdmin.actionsHeader')}</span>}
+          renderActions={(invite) => (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              aria-label={t('userAdmin.ariaRevoke', { email: invite.email })}
+              onClick={() => void revokeInvite(invite)}
+            >
+              {pending?.id === revokeActionId(invite.id) ? pending.label : t('userAdmin.revoke')}
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        />
+      </section>
     </div>
+  )
+}
+
+/** An email address that, when it must wrap, wraps before the "@". */
+function EmailText({ email }: { email: string }) {
+  const at = email.indexOf("@")
+  if (at <= 0) return <>{email}</>
+  return (
+    <>
+      {email.slice(0, at)}
+      <wbr />
+      {email.slice(at)}
+    </>
+  )
+}
+
+function RoleBadge({ role }: { role: "admin" | "user" }) {
+  const { t } = useUiT()
+  return (
+    <Badge variant={role === "admin" ? "default" : "secondary"}>
+      {role === "admin" ? t('userAdmin.admin') : t('userAdmin.user')}
+    </Badge>
+  )
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+  const { t } = useUiT()
+  return (
+    <Badge variant={active ? "success" : "outline"}>
+      {active ? t('userAdmin.active') : t('userAdmin.deactivated')}
+    </Badge>
   )
 }
 
@@ -470,40 +529,44 @@ function InviteForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{t('userAdmin.inviteLabel')}</CardDescription>
-        <CardTitle>{t('userAdmin.addSomeoneTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="invite-email">{t('common.email')}</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="invite-role">{t('userAdmin.roleHeader')}</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as "user" | "admin")}>
-              <SelectTrigger id="invite-role" className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="user">{t('userAdmin.user')}</SelectItem>
-                <SelectItem value="admin">{t('userAdmin.admin')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button type="button" disabled={busy || !email} onClick={() => void handleInvite()}>
-            {t('userAdmin.createInviteLink')}
-          </Button>
+    <section className="space-y-3">
+      <h3 className="text-sm font-medium">{t('userAdmin.addSomeoneTitle')}</h3>
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void handleInvite()
+        }}
+      >
+        {/* gap, not space-y: inside a form, Radix Select adds a hidden
+            native <select> after its trigger, and space-y would give the
+            trigger a bottom margin and lift it out of line. */}
+        <div className="flex min-w-56 flex-1 flex-col gap-1.5 sm:max-w-md">
+          <Label htmlFor="invite-email">{t('common.email')}</Label>
+          <Input
+            id="invite-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invite-role">{t('userAdmin.roleHeader')}</Label>
+          <Select value={role} onValueChange={(value) => setRole(value as "user" | "admin")}>
+            <SelectTrigger id="invite-role" className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="user">{t('userAdmin.user')}</SelectItem>
+              <SelectItem value="admin">{t('userAdmin.admin')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button type="submit" disabled={busy || !email}>
+          {t('userAdmin.createInviteLink')}
+        </Button>
+      </form>
+    </section>
   )
 }
 
@@ -527,17 +590,15 @@ function LinkBox({ link }: { link: ShownLink }) {
   }
 
   return (
-    <Card>
-      <CardContent className="space-y-2 pt-6">
-        <div className="flex items-center gap-2">
-          <Input readOnly value={link.url} aria-label={t('userAdmin.link')} />
-          <Button type="button" variant="outline" onClick={() => void handleCopy()}>
-            {copied ? t('userAdmin.copied') : t('userAdmin.copy')}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">{link.note}</p>
-        {copyError && <p className="text-xs text-destructive">{copyError}</p>}
-      </CardContent>
-    </Card>
+    <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+      <div className="flex items-center gap-2">
+        <Input readOnly value={link.url} aria-label={t('userAdmin.link')} className="bg-background" />
+        <Button type="button" variant="outline" onClick={() => void handleCopy()}>
+          {copied ? t('userAdmin.copied') : t('userAdmin.copy')}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{link.note}</p>
+      {copyError && <p className="text-xs text-destructive">{copyError}</p>}
+    </div>
   )
 }
