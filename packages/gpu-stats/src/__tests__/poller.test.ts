@@ -14,6 +14,25 @@ describe('createGpuPoller', () => {
         expect(p.state().latest?.at).toBe('2026-11-13T12:00:10Z');
     });
 
+    it('skips a tick while the previous read is still running', async () => {
+        let calls = 0;
+        let finish: (s: GpuSnapshot) => void = () => { throw new Error('read was never started'); };
+        const p = createGpuPoller({ intervalMs: 5000, keepMs: 60000, read: () => {
+            calls++;
+            return new Promise<GpuSnapshot>((resolve) => { finish = resolve; });
+        } });
+        const first = p.tick();
+        await p.tick();
+        expect(calls).toBe(1);
+        finish(snap('2026-11-13T12:00:00Z'));
+        await first;
+        expect(p.state().latest?.at).toBe('2026-11-13T12:00:00Z');
+        const third = p.tick();
+        expect(calls).toBe(2);
+        finish(snap('2026-11-13T12:00:05Z'));
+        await third;
+    });
+
     it('records the error with its first time, logs only on change, and clears it on recovery', async () => {
         const logs: string[] = [];
         let fail = true;

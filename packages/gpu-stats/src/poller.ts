@@ -10,8 +10,21 @@ export function createGpuPoller(opts: { intervalMs: number; keepMs: number; read
     let latest: GpuSnapshot | null = null;
     let error: GpuPollerState['error'] = null;
     let timer: NodeJS.Timeout | null = null;
+    let reading = false;
 
+    /** One reading. Skipped (resolves at once, nothing read) while the previous reading is still running, so a
+     *  slow nvidia-smi never stacks up overlapping reads. */
     async function tick(): Promise<void> {
+        if (reading) return;
+        reading = true;
+        try {
+            await readOnce();
+        } finally {
+            reading = false;
+        }
+    }
+
+    async function readOnce(): Promise<void> {
         try {
             const s = await read();
             if (error) log(`[gpu] readings back after error: ${error.message}`);
