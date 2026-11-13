@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
 import AuthController from '../controllers/auth.js';
+import { SessionTracker, type SetStore } from '../services/session-tracker.js';
 import type { SharedAuthConfig } from '../types.js';
 import type { RegistrationPolicy } from '../utils/registration.js';
 
@@ -40,13 +41,29 @@ function fakeUserService() {
     };
 }
 
+// A minimal in-memory stand-in for the Redis set commands SessionTracker needs, so tests never open a real
+// Redis connection. Copied from session-tracker.test.ts's fakeRedis.
+function fakeRedisForTests(): SetStore & { data: Map<string, Set<string> | string> } {
+    const data = new Map<string, Set<string> | string>();
+    const set = (k: string) => (data.get(k) as Set<string>) ?? (data.set(k, new Set()).get(k) as Set<string>);
+    return {
+        data,
+        async sadd(k, m) { set(k).add(m); return 1; },
+        async srem(k, m) { set(k).delete(m); return 1; },
+        async smembers(k) { return [...((data.get(k) as Set<string>) ?? [])]; },
+        async del(...ks) { ks.forEach((k) => data.delete(k)); return ks.length; },
+    };
+}
+
 function makeController(registration?: RegistrationPolicy) {
     const controller = new AuthController(baseConfig(registration));
     const users = fakeUserService();
     (controller as unknown as { userService: unknown }).userService = users;
     // Creating a workspace touches the organisation tables; not what these tests are about.
     (controller as unknown as { ensureHumanWorkspace: () => Promise<void> }).ensureHumanWorkspace = async () => {};
-    return { controller, users };
+    const redis = fakeRedisForTests();
+    controller.setSessionTracker(new SessionTracker(redis, 'test'));
+    return { controller, users, redis };
 }
 
 function fakeReq(opts: { userId?: string; bearer?: string; body?: unknown; params?: Record<string, string> } = {}): Request {
@@ -54,6 +71,7 @@ function fakeReq(opts: { userId?: string; bearer?: string; body?: unknown; param
     session.regenerate = (cb: (err?: unknown) => void) => cb();
     return {
         session,
+        sessionID: 'sid-1',
         headers: opts.bearer ? { authorization: `Bearer ${opts.bearer}` } : {},
         body: opts.body ?? {},
         params: opts.params ?? {},
@@ -192,6 +210,15 @@ describe('GET /users/by-email/:email', () => {
 
         const missing = await call(controller.lookupByEmail, lookup('nobody@example.com', { bearer: 'tsu_admin_token' }));
         expect(missing.statusCode).toBe(404);
+    });
+});
+
+describe('login', () => {
+    it('tracks the new session so it can be ended later', async () => {
+        const { controller, redis } = makeController();
+        const out = await call(controller.login, fakeReq({ body: { email: 'alice@example.com', password: 'right' } }));
+        expect(out.statusCode).toBe(200);
+        expect(await redis.smembers('test:user-sessions:u-alice')).toEqual(['sid-1']);
     });
 });
 

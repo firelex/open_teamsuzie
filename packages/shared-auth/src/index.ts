@@ -26,6 +26,7 @@ export { Notification, type NotificationType } from './models/notification.js';
 export { default as RedisService } from './services/redis.js';
 export { default as SequelizeService } from './services/sequelize.js';
 export { default as SessionService } from './services/session.js';
+export { SessionTracker, type SetStore } from './services/session-tracker.js';
 export { default as UserService } from './services/user.js';
 export { default as Logger } from './services/logger.js';
 export { ensureUserAdminSchema } from './services/schema-upgrade.js';

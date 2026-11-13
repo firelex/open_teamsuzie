@@ -3,6 +3,8 @@ import { Organization } from '../models/organization.js';
 import { OrganizationMember } from '../models/organization-member.js';
 import { OrgDomain } from '../models/org-domain.js';
 import { User } from '../models/user.js';
+import RedisService from '../services/redis.js';
+import { SessionTracker } from '../services/session-tracker.js';
 import UserService from '../services/user.js';
 import type { SharedAuthConfig } from '../types.js';
 import { checkRegistration, type RegistrationPolicy } from '../utils/registration.js';
@@ -18,10 +20,29 @@ export default class AuthController {
 
     private userService: UserService;
     private registration: RegistrationPolicy | undefined;
+    private config: SharedAuthConfig;
+    private sessionTracker: SessionTracker | undefined;
 
     constructor(config: SharedAuthConfig) {
         this.userService = new UserService(config);
         this.registration = config.registration;
+        this.config = config;
+    }
+
+    /**
+     * Built lazily on first use, not in the constructor, so constructing AuthController never opens a Redis
+     * connection (tests construct it freely without a live Redis).
+     */
+    private get sessions(): SessionTracker {
+        if (!this.sessionTracker) {
+            this.sessionTracker = new SessionTracker(new RedisService(this.config).getClient(), this.config.redis.key_prefix);
+        }
+        return this.sessionTracker;
+    }
+
+    /** For tests: inject a SessionTracker backed by an in-memory store instead of the lazily-created Redis one. */
+    setSessionTracker(tracker: SessionTracker): void {
+        this.sessionTracker = tracker;
     }
 
     private extractBearerToken(req: Request): string | null {
@@ -265,6 +286,7 @@ export default class AuthController {
                     session.userEmail = user.email;
                     session.userName = user.name;
                     session.userRole = user.role;
+                    await this.sessions.track(user.id, req.sessionID);
 
                     const tokenResponse = await this.buildTokenResponse(user.id, req);
 
@@ -292,6 +314,7 @@ export default class AuthController {
             }
 
             if (session?.userId) {
+                await this.sessions.untrack(session.userId, req.sessionID);
                 req.session.destroy((err) => {
                     if (err) {
                         res.status(500).json({ message: 'Failed to logout' });
@@ -345,6 +368,7 @@ export default class AuthController {
                     session.userEmail = user.email;
                     session.userName = user.name;
                     session.userRole = user.role;
+                    await this.sessions.track(user.id, req.sessionID);
 
                     const tokenResponse = await this.buildTokenResponse(user.id, req);
 
