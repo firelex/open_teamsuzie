@@ -16,4 +16,14 @@ describe('formatters', () => {
     expect(formatMoney(14900, 'EUR', 'de').replace(/\s/g, ' ')).toBe('149,00 €'.replace(/\s/g, ' '));
     expect(formatMoney(14900, 'EUR', 'en').replace(/\s/g, ' ')).toBe('€149.00'.replace(/\s/g, ' '));
   });
+  it('uses the currency\'s own minor-unit digits, not a fixed 100', () => {
+    // JPY has no minor unit (digits = 0): 1500 minor units is already 1500 yen.
+    expect(formatMoney(1500, 'JPY', 'en').replace(/\s/g, ' ')).toBe('¥1,500');
+    // KWD has three minor-unit digits: 1500 fils is 1.500 dinars.
+    expect(formatMoney(1500, 'KWD', 'en').replace(/\s/g, ' ')).toMatch(/1\.500/);
+  });
+  it('wholeUnits drops the fractional part regardless of the currency\'s usual precision', () => {
+    expect(formatMoney(750000, 'EUR', 'en', { wholeUnits: true }).replace(/\s/g, ' ')).toBe('€7,500');
+    expect(formatMoney(750000, 'EUR', 'de', { wholeUnits: true }).replace(/\s/g, ' ')).toBe('7.500 €'.replace(/\s/g, ' '));
+  });
 });

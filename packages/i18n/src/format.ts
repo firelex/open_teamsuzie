@@ -11,7 +11,22 @@ export function formatDateTime(d: Date | number, locale: Locale): string {
 export function formatNumber(n: number, locale: Locale): string {
   return new Intl.NumberFormat(TAG[locale]).format(n);
 }
-/** Money held as integer cents. */
-export function formatMoney(cents: number, currency: string, locale: Locale): string {
-  return new Intl.NumberFormat(TAG[locale], { style: 'currency', currency }).format(cents / 100);
+/**
+ * Money held as an integer in the currency's minor unit (cents for EUR/USD, no decimals for JPY,
+ * three decimals for KWD — never assumed to be 100). Pass `{ wholeUnits: true }` to drop the
+ * fractional part of the display regardless of the currency's usual precision (e.g. a round price
+ * like "€7,500" rather than "€7,500.00").
+ */
+export function formatMoney(minor: number, currency: string, locale: Locale, opts?: { wholeUnits?: boolean }): string {
+  const digits = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits;
+  if (digits === undefined) {
+    throw new Error(`formatMoney: could not resolve the minor-unit digits for currency "${currency}"`);
+  }
+  const amount = minor / 10 ** digits;
+  const options: Intl.NumberFormatOptions = { style: 'currency', currency };
+  if (opts?.wholeUnits) {
+    options.minimumFractionDigits = 0;
+    options.maximumFractionDigits = 0;
+  }
+  return new Intl.NumberFormat(TAG[locale], options).format(amount);
 }
