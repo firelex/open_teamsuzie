@@ -46,6 +46,12 @@ export interface CraftAppFrameProps {
   onFailed?: (error: string) => void
   /** The app's command API once it is ready (null when the frame goes away). */
   onApi?: (api: CraftAppApi | null) => void
+  /**
+   * Preferences to set before the app starts, merged into what it keeps in
+   * this origin's localStorage under `<app>.ui` (camelCase names of its
+   * UiState, e.g. `{ showDiscord: false }` hides the community button).
+   */
+  prefs?: Record<string, unknown>
   /** Accessible name of the frame. */
   title: string
   className?: string
@@ -56,7 +62,12 @@ interface CraftMessage {
   [key: string]: unknown
 }
 
-export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFailed, onApi, title, className }: CraftAppFrameProps) {
+export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFailed, onApi, prefs, title, className }: CraftAppFrameProps) {
+  // Before the iframe exists, so the app reads them at start-up.
+  React.useState(() => {
+    if (prefs) mergePrefs(`${app}.ui`, prefs)
+    return null
+  })
   const frameRef = React.useRef<HTMLIFrameElement | null>(null)
   const [ready, setReady] = React.useState(false)
   const [dirty, setDirty] = React.useState(false)
@@ -137,4 +148,23 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
 
   const url = `${src}?host=parent${author ? `&author=${encodeURIComponent(author)}` : ""}`
   return <iframe ref={frameRef} src={url} title={title} className={cn("h-full w-full border-0", className)} />
+}
+
+/**
+ * Merge `prefs` into the JSON object the app keeps under `key`. A stored
+ * value that is not a JSON object is one the app itself would ignore (it
+ * starts from its defaults), so it is replaced by `prefs` alone.
+ */
+function mergePrefs(key: string, prefs: Record<string, unknown>): void {
+  const raw = window.localStorage.getItem(key)
+  let stored: Record<string, unknown> = {}
+  if (raw) {
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed as Record<string, unknown>
+    } catch {
+      // Unreadable: the app would start from its defaults too.
+    }
+  }
+  window.localStorage.setItem(key, JSON.stringify({ ...stored, ...prefs }))
 }
