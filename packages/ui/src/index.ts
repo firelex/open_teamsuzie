@@ -124,6 +124,8 @@ export type {
 } from './lib/use-pagination.js';
 export { progressiveArtifactStream } from './lib/progressive-artifact.js';
 export { readJsonEvents } from './lib/read-json-events.js';
+export { Page } from './components/page.js';
+export type { PageProps } from './components/page.js';
 export type { ProgressiveArtifactStreamOptions } from './lib/progressive-artifact.js';
 
 // Components
