@@ -46,9 +46,35 @@ interface ShownLink {
   note: string
 }
 
+/** The one action currently in flight, so its own row/button can show a
+ *  progress label (e.g. "Deactivating…") instead of just going disabled
+ *  like every other button on the panel. */
+interface PendingAction {
+  id: string
+  label: string
+}
+
 async function parseJson(res: Response): Promise<unknown> {
   const text = await res.text()
   return text ? JSON.parse(text) : {}
+}
+
+// One id per (action kind, target) pair, used to key `PendingAction` so the
+// right row's button — and only that one — shows its progress label.
+function roleActionId(userId: string): string {
+  return `role:${userId}`
+}
+function activeActionId(userId: string): string {
+  return `active:${userId}`
+}
+function resetActionId(userId: string): string {
+  return `reset:${userId}`
+}
+function removeActionId(userId: string): string {
+  return `remove:${userId}`
+}
+function revokeActionId(inviteId: string): string {
+  return `revoke:${inviteId}`
 }
 
 /**
@@ -64,6 +90,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
   const [error, setError] = React.useState<string | null>(null)
   const [link, setLink] = React.useState<ShownLink | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const [pending, setPending] = React.useState<PendingAction | null>(null)
   const confirm = useConfirm()
 
   const load = React.useCallback(async () => {
@@ -114,22 +141,33 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
   // immediately on confirm (no `onConfirm`), then run the request and show
   // any failure in our own banner below — so the message is only ever
   // shown once, and it stays visible after the dialog has closed.
-  async function runAction(action: () => Promise<unknown>) {
+  //
+  // `pendingInfo`, when given, is shown as the in-flight action's own row
+  // button label (e.g. "Deactivating…") for as long as the request is
+  // running — every other button on the panel is just disabled via
+  // `busy`, but the one actually doing something says so.
+  async function runAction(action: () => Promise<unknown>, pendingInfo?: PendingAction) {
     setBusy(true)
     setError(null)
+    if (pendingInfo) setPending(pendingInfo)
     try {
       await action()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed")
     } finally {
       setBusy(false)
+      setPending(null)
     }
   }
 
-  async function confirmThenRun(options: Parameters<typeof confirm>[0], action: () => Promise<unknown>) {
+  async function confirmThenRun(
+    options: Parameters<typeof confirm>[0],
+    action: () => Promise<unknown>,
+    pendingInfo?: PendingAction,
+  ) {
     const ok = await confirm(options)
     if (!ok) return
-    await runAction(action)
+    await runAction(action, pendingInfo)
   }
 
   async function changeRole(user: AdminUserRow) {
@@ -144,6 +182,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
         description,
       },
       () => send("PATCH", `/users/${user.id}`, { role: nextRole }),
+      { id: roleActionId(user.id), label: "Saving…" },
     )
   }
 
@@ -157,20 +196,27 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
           variant: "destructive",
         },
         () => send("PATCH", `/users/${user.id}`, { is_active: false }),
+        { id: activeActionId(user.id), label: "Deactivating…" },
       )
     } else {
-      await runAction(() => send("PATCH", `/users/${user.id}`, { is_active: true }))
+      await runAction(
+        () => send("PATCH", `/users/${user.id}`, { is_active: true }),
+        { id: activeActionId(user.id), label: "Reactivating…" },
+      )
     }
   }
 
   async function resetPassword(user: AdminUserRow) {
-    await runAction(async () => {
-      const result = (await send("POST", `/users/${user.id}/password-reset`)) as { path: string }
-      setLink({
-        url: window.location.origin + result.path,
-        note: "One use; expires in 24 hours.",
-      })
-    })
+    await runAction(
+      async () => {
+        const result = (await send("POST", `/users/${user.id}/password-reset`)) as { path: string }
+        setLink({
+          url: window.location.origin + result.path,
+          note: "One use; expires in 24 hours.",
+        })
+      },
+      { id: resetActionId(user.id), label: "Resetting…" },
+    )
   }
 
   async function removeUser(user: AdminUserRow) {
@@ -182,6 +228,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
         variant: "destructive",
       },
       () => send("DELETE", `/users/${user.id}`),
+      { id: removeActionId(user.id), label: "Removing…" },
     )
   }
 
@@ -194,6 +241,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
         variant: "destructive",
       },
       () => send("DELETE", `/invites/${invite.id}`),
+      { id: revokeActionId(invite.id), label: "Revoking…" },
     )
   }
 
@@ -266,7 +314,11 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
                         aria-label={user.role === "admin" ? `Make ${user.name} a user` : `Make ${user.name} an admin`}
                         onClick={() => void changeRole(user)}
                       >
-                        {user.role === "admin" ? "Make user" : "Make admin"}
+                        {pending?.id === roleActionId(user.id)
+                          ? pending.label
+                          : user.role === "admin"
+                            ? "Make user"
+                            : "Make admin"}
                       </Button>
                       <Button
                         type="button"
@@ -276,7 +328,11 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
                         aria-label={`${user.is_active ? "Deactivate" : "Reactivate"} ${user.name}`}
                         onClick={() => void toggleActive(user)}
                       >
-                        {user.is_active ? "Deactivate" : "Reactivate"}
+                        {pending?.id === activeActionId(user.id)
+                          ? pending.label
+                          : user.is_active
+                            ? "Deactivate"
+                            : "Reactivate"}
                       </Button>
                       <Button
                         type="button"
@@ -286,7 +342,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
                         aria-label={`Reset password for ${user.name}`}
                         onClick={() => void resetPassword(user)}
                       >
-                        Reset password
+                        {pending?.id === resetActionId(user.id) ? pending.label : "Reset password"}
                       </Button>
                       <Button
                         type="button"
@@ -296,7 +352,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
                         aria-label={`Remove ${user.name}`}
                         onClick={() => void removeUser(user)}
                       >
-                        Remove
+                        {pending?.id === removeActionId(user.id) ? pending.label : "Remove"}
                       </Button>
                     </div>
                   </TableCell>
@@ -344,7 +400,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
                         aria-label={`Revoke invite for ${invite.email}`}
                         onClick={() => void revokeInvite(invite)}
                       >
-                        Revoke
+                        {pending?.id === revokeActionId(invite.id) ? pending.label : "Revoke"}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -437,23 +493,33 @@ function InviteForm({
 
 function LinkBox({ link }: { link: ShownLink }) {
   const [copied, setCopied] = React.useState(false)
+  const [copyError, setCopyError] = React.useState<string | null>(null)
+
+  async function handleCopy() {
+    setCopyError(null)
+    try {
+      // Only claim success once the browser has actually copied the text —
+      // never say "Copied" before (or regardless of whether) it happened.
+      await navigator.clipboard.writeText(link.url)
+      setCopied(true)
+    } catch (err) {
+      setCopied(false)
+      const message = err instanceof Error ? err.message : "unknown error"
+      setCopyError(`Could not copy: ${message}. Select the link and copy it yourself.`)
+    }
+  }
+
   return (
     <Card>
       <CardContent className="space-y-2 pt-6">
         <div className="flex items-center gap-2">
           <Input readOnly value={link.url} aria-label="Link" />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void navigator.clipboard.writeText(link.url)
-              setCopied(true)
-            }}
-          >
+          <Button type="button" variant="outline" onClick={() => void handleCopy()}>
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">{link.note}</p>
+        {copyError && <p className="text-xs text-destructive">{copyError}</p>}
       </CardContent>
     </Card>
   )

@@ -35,6 +35,46 @@ describe('UserAdmin', () => {
         await waitFor(() => expect(screen.getByText('The firm must keep at least one active admin.')).toBeTruthy());
     });
 
+    it('shows the running action on its own row while the request is unresolved', async () => {
+        let resolvePatch: ((value: Response) => void) | undefined;
+        const pendingPatch = new Promise<Response>((resolve) => {
+            resolvePatch = resolve;
+        });
+        vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+            const key = `${init?.method ?? 'GET'} ${url}`;
+            if (key === 'GET /api/p/users') {
+                return new Response(JSON.stringify({ users }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (key === 'GET /api/p/invites') {
+                return new Response(JSON.stringify({ invites: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (key === 'PATCH /api/p/users/bob') {
+                return pendingPatch;
+            }
+            throw new Error(`unexpected request ${key}`);
+        }));
+
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" /></ConfirmDialogProvider>);
+        await screen.findByText('Bob');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Deactivate Bob' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
+
+        // While the PATCH is still unresolved, Bob's own row shows that it is
+        // the one running — not just a disabled button indistinguishable from
+        // every other disabled button on the panel.
+        expect(await screen.findByText('Deactivating…')).toBeTruthy();
+
+        resolvePatch!(
+            new Response(JSON.stringify({ user: { ...users[1], is_active: false } }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }),
+        );
+
+        await waitFor(() => expect(screen.queryByText('Deactivating…')).toBeNull());
+    });
+
     it('shows the invite link after inviting someone', async () => {
         vi.stubGlobal('fetch', mockFetch({
             'GET /api/p/users': () => ({ status: 200, body: { users } }),
