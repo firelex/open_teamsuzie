@@ -20,7 +20,17 @@ import { cn } from "../lib/utils"
  * The app must be served from the same origin as the page: the bridge only
  * talks to a same-origin parent. `author` signs comments and tracked
  * changes made in the app.
+ *
+ * `onApi` receives the app's page command API (`window.<app>`, the
+ * `craft-web-api` contract) once the app is ready, so the host can run the
+ * app's commands on the open document, e.g. `execute("document.text")`.
  */
+
+/** The app's command API, as the host sees it. */
+export interface CraftAppApi {
+  /** Run one of the app's commands; resolves with its result, rejects with its error. */
+  execute: (command: string, params?: Record<string, unknown>) => Promise<unknown>
+}
 export interface CraftAppFrameProps {
   /** The app id in the messages, e.g. "wordcraft". */
   app: string
@@ -34,6 +44,8 @@ export interface CraftAppFrameProps {
   onSave: (save: { name: string; bytes: ArrayBuffer; saveAs: boolean }) => Promise<void>
   onDirty?: (dirty: boolean) => void
   onFailed?: (error: string) => void
+  /** The app's command API once it is ready (null when the frame goes away). */
+  onApi?: (api: CraftAppApi | null) => void
   /** Accessible name of the frame. */
   title: string
   className?: string
@@ -44,14 +56,14 @@ interface CraftMessage {
   [key: string]: unknown
 }
 
-export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFailed, title, className }: CraftAppFrameProps) {
+export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFailed, onApi, title, className }: CraftAppFrameProps) {
   const frameRef = React.useRef<HTMLIFrameElement | null>(null)
   const [ready, setReady] = React.useState(false)
   const [dirty, setDirty] = React.useState(false)
   const sentRef = React.useRef<ArrayBuffer | null>(null)
   // The latest callbacks, without re-subscribing the listener on every render.
-  const handlers = React.useRef({ onSave, onDirty, onFailed })
-  handlers.current = { onSave, onDirty, onFailed }
+  const handlers = React.useRef({ onSave, onDirty, onFailed, onApi })
+  handlers.current = { onSave, onDirty, onFailed, onApi }
 
   const post = React.useCallback((message: Record<string, unknown>, transfer?: Transferable[]) => {
     const target = frameRef.current?.contentWindow
@@ -68,6 +80,15 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
       if (kind === "ready") {
         post({ type: `${app}:host`, version: "1" })
         setReady(true)
+        if (handlers.current.onApi) {
+          const api = (frameRef.current?.contentWindow as unknown as Record<string, { execute?: CraftAppApi["execute"] }> | null)?.[app]
+          if (!api?.execute) {
+            handlers.current.onFailed?.(`${app} is ready but has no command API (window.${app}.execute)`)
+          } else {
+            const execute = api.execute
+            handlers.current.onApi({ execute: (command, params) => execute(command, params ?? {}) })
+          }
+        }
       } else if (kind === "save") {
         const bytes = data.bytes
         if (!(bytes instanceof ArrayBuffer)) {
@@ -89,7 +110,10 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
       }
     }
     window.addEventListener("message", onMessage)
-    return () => window.removeEventListener("message", onMessage)
+    return () => {
+      window.removeEventListener("message", onMessage)
+      handlers.current.onApi?.(null)
+    }
   }, [app, post])
 
   // Send the document once the app is ready (and again if a different one is given).

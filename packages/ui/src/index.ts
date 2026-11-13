@@ -134,7 +134,7 @@ export * from './components/card.js';
 export * from './components/checkbox.js';
 export * from './components/confirm-dialog.js';
 export { CraftAppFrame } from './components/craft-app-frame.js';
-export type { CraftAppFrameProps } from './components/craft-app-frame.js';
+export type { CraftAppApi, CraftAppFrameProps } from './components/craft-app-frame.js';
 export * from './components/toast.js';
 export * from './components/data-table.js';
 export * from './components/dialog.js';
