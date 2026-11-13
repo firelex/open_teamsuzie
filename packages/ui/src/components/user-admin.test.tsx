@@ -27,7 +27,7 @@ describe('UserAdmin', () => {
             'GET /api/p/invites': () => ({ status: 200, body: { invites: [] } }),
             'PATCH /api/p/users/ann': () => ({ status: 409, body: { error: 'last_admin', message: 'The firm must keep at least one active admin.' } }),
         }));
-        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" /></ConfirmDialogProvider>);
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
         expect(await screen.findByText('Bob')).toBeTruthy();
 
         fireEvent.click(screen.getByRole('button', { name: 'Deactivate Ann' }));
@@ -54,7 +54,7 @@ describe('UserAdmin', () => {
             throw new Error(`unexpected request ${key}`);
         }));
 
-        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" /></ConfirmDialogProvider>);
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
         await screen.findByText('Bob');
 
         fireEvent.click(screen.getByRole('button', { name: 'Deactivate Bob' }));
@@ -81,10 +81,22 @@ describe('UserAdmin', () => {
             'GET /api/p/invites': () => ({ status: 200, body: { invites: [] } }),
             'POST /api/p/invites': () => ({ status: 201, body: { path: '/join/abc', invite: { id: 'i1', email: 'dee@firm.test', role: 'user', expires_at: '2026-11-20T12:00:00Z', created_at: '', created_by_email: 'ann@firm.test' } } }),
         }));
-        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" /></ConfirmDialogProvider>);
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
         await screen.findByText('Bob');
         fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'dee@firm.test' } });
         fireEvent.click(screen.getByRole('button', { name: 'Create invite link' }));
-        expect(await screen.findByDisplayValue(`${window.location.origin}/join/abc`)).toBeTruthy();
+        expect(await screen.findByDisplayValue('https://firm.example/allinone/join/abc')).toBeTruthy();
+    });
+
+    it('shows the reset link under the link base', async () => {
+        vi.stubGlobal('fetch', mockFetch({
+            'GET /api/p/users': () => ({ status: 200, body: { users } }),
+            'GET /api/p/invites': () => ({ status: 200, body: { invites: [] } }),
+            'POST /api/p/users/bob/password-reset': () => ({ status: 201, body: { path: '/reset/xyz', expires_at: '2026-11-14T12:00:00Z' } }),
+        }));
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
+        await screen.findByText('Bob');
+        fireEvent.click(screen.getByRole('button', { name: 'Reset password for Bob' }));
+        expect(await screen.findByDisplayValue('https://firm.example/allinone/reset/xyz')).toBeTruthy();
     });
 });

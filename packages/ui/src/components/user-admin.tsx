@@ -39,6 +39,13 @@ export interface UserAdminProps {
   /** Where `createUserAdminRouter` is mounted, e.g. `/api/admin/people`. */
   apiBase: string
   currentUserEmail: string
+  /**
+   * Prefix for the invite and reset links shown to the admin: the app's public
+   * address including any sub-path it is served under, without a trailing
+   * slash (e.g. `https://firm.example/allinone`). The server's link path
+   * (`/join/…`, `/reset/…`) is appended to it.
+   */
+  linkBase: string
 }
 
 interface ShownLink {
@@ -84,7 +91,7 @@ function revokeActionId(inviteId: string): string {
  * the server's own `message` — there is no local guessing at why a
  * request failed.
  */
-export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
+export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProps) {
   const [users, setUsers] = React.useState<AdminUserRow[]>([])
   const [invites, setInvites] = React.useState<InviteRow[]>([])
   const [error, setError] = React.useState<string | null>(null)
@@ -211,7 +218,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
       async () => {
         const result = (await send("POST", `/users/${user.id}/password-reset`)) as { path: string }
         setLink({
-          url: window.location.origin + result.path,
+          url: linkBase + result.path,
           note: "One use; expires in 24 hours.",
         })
       },
@@ -249,6 +256,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
     <div className="space-y-4">
       <InviteForm
         apiBase={apiBase}
+        linkBase={linkBase}
         send={send}
         busy={busy}
         setBusy={setBusy}
@@ -416,6 +424,7 @@ export function UserAdmin({ apiBase, currentUserEmail }: UserAdminProps) {
 
 function InviteForm({
   apiBase,
+  linkBase,
   send,
   busy,
   setBusy,
@@ -423,6 +432,7 @@ function InviteForm({
   setLink,
 }: {
   apiBase: string
+  linkBase: string
   send: (method: string, path: string, body?: unknown) => Promise<unknown>
   busy: boolean
   setBusy: (busy: boolean) => void
@@ -441,7 +451,7 @@ function InviteForm({
         invite: InviteRow
       }
       setLink({
-        url: window.location.origin + result.path,
+        url: linkBase + result.path,
         note: `One use; expires ${formatDateTime(result.invite.expires_at)}. Send it to them yourself.`,
       })
       setEmail("")
