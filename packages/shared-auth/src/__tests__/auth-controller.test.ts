@@ -7,11 +7,11 @@ import type { RegistrationPolicy } from '../utils/registration.js';
 // The controller's handlers are driven directly with fake requests and a fake user service, so these tests need no
 // database or Redis.
 
-type FakeUser = { id: string; email: string; name: string; role: 'admin' | 'user' };
+type FakeUser = { id: string; email: string; name: string; role: 'admin' | 'user'; is_active: boolean };
 
-const ADMIN: FakeUser = { id: 'u-admin', email: 'admin@example.com', name: 'Admin', role: 'admin' };
-const ALICE: FakeUser = { id: 'u-alice', email: 'alice@example.com', name: 'Alice', role: 'user' };
-const BOB: FakeUser = { id: 'u-bob', email: 'bob@example.com', name: 'Bob', role: 'user' };
+const ADMIN: FakeUser = { id: 'u-admin', email: 'admin@example.com', name: 'Admin', role: 'admin', is_active: true };
+const ALICE: FakeUser = { id: 'u-alice', email: 'alice@example.com', name: 'Alice', role: 'user', is_active: true };
+const BOB: FakeUser = { id: 'u-bob', email: 'bob@example.com', name: 'Bob', role: 'user', is_active: true };
 const USERS = [ADMIN, ALICE, BOB];
 
 function baseConfig(registration?: RegistrationPolicy): SharedAuthConfig {
@@ -33,6 +33,7 @@ function fakeUserService() {
         findAll: vi.fn(async () => ({ users: [ALICE, BOB].map(({ id, name, role }) => ({ id, name, role })) })),
         authenticateAccessToken: vi.fn(async (token: string) =>
             token === 'tsu_admin_token' ? { user: ADMIN, accessToken: { id: 't-1' } } : null),
+        authenticate: vi.fn(async (email: string, _password: string) => USERS.find((u) => u.email === email) ?? null),
         create: vi.fn(async (email: string, _password: string, name: string) =>
             ({ id: 'u-new', email, name, role: 'user' as const })),
         createAccessToken: vi.fn(),
@@ -191,5 +192,24 @@ describe('GET /users/by-email/:email', () => {
 
         const missing = await call(controller.lookupByEmail, lookup('nobody@example.com', { bearer: 'tsu_admin_token' }));
         expect(missing.statusCode).toBe(404);
+    });
+});
+
+describe('deactivated accounts', () => {
+    it('login answers 403 with the deactivation message', async () => {
+        const { controller, users } = makeController();
+        (users as any).authenticate = vi.fn(async () => {
+            throw Object.assign(new Error('This account has been deactivated'), { code: 403 });
+        });
+        const out = await call(controller.login, fakeReq({ body: { email: 'alice@example.com', password: 'x' } }));
+        expect(out.statusCode).toBe(403);
+        expect(out.body).toEqual({ message: 'This account has been deactivated' });
+    });
+
+    it('an existing session of a deactivated user counts as signed out', async () => {
+        const { controller, users } = makeController();
+        users.findById.mockResolvedValueOnce({ ...ALICE, is_active: false } as any);
+        const out = await call(controller.me, fakeReq({ userId: ALICE.id }));
+        expect(out.statusCode).toBe(401);
     });
 });

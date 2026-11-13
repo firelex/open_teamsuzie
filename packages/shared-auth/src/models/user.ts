@@ -58,6 +58,12 @@ export class User extends BaseModel {
     })
     declare email_verified: boolean;
 
+    @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+    declare is_active: boolean;
+
+    @Column({ type: DataType.DATE, allowNull: true })
+    declare last_sign_in_at: Date | null;
+
     // Override BaseModel's audit fields: users are root entities that can
     // be created without a parent user (signup, admin bootstrap), so
     // these must be nullable at the DB + Sequelize validation level. The

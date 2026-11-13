@@ -51,7 +51,7 @@ export default class AuthController {
         const session = req.session as any;
         if (session.userId) {
             const user = await this.userService.findById(session.userId);
-            if (!user) {
+            if (!user || !(user as User).is_active) {
                 return null;
             }
 
@@ -278,7 +278,7 @@ export default class AuthController {
                 }
             });
         } catch (e: any) {
-            res.status(500).json({ message: e.message || 'Internal server error' });
+            res.status(e.code || 500).json({ message: e.message || 'Internal server error' });
         }
     }
 

@@ -39,6 +39,10 @@ export class OrgInvite extends Model {
     })
     declare token: string;
 
+    /** Only this address (lower-cased) may accept the invite; null means anyone with the link. */
+    @Column({ type: DataType.STRING(255), allowNull: true })
+    declare email: string | null;
+
     @Column({
         type: DataType.STRING(20),
         allowNull: false,

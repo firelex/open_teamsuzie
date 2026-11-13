@@ -19,6 +19,7 @@ export default class UserService {
     }
 
     create = async (email: string, password: string, name: string, role: 'admin' | 'user' = 'user'): Promise<User> => {
+        email = email.trim().toLowerCase();
         const existingUser = await User.findOne({ where: { email } });
         if (existingUser) {
             throw Object.assign(new Error('User with this email already exists'), { code: 400 });
@@ -39,12 +40,18 @@ export default class UserService {
     }
 
     authenticate = async (email: string, password: string): Promise<User | null> => {
-        const user = await User.findOne({ where: { email } });
+        const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
         if (!user) return null;
 
         const isValid = await bcrypt.compare(password, user.password_hash);
         if (!isValid) return null;
+        // Checked after the password, so the answer never reveals that an address has an account.
+        if (!user.is_active) {
+            throw Object.assign(new Error('This account has been deactivated'), { code: 403 });
+        }
 
+        user.last_sign_in_at = new Date();
+        await user.save();
         return user;
     }
 
@@ -110,6 +117,10 @@ export default class UserService {
 
             if (!candidate.user) {
                 continue;
+            }
+
+            if (!candidate.user.is_active) {
+                return null;
             }
 
             return { user: candidate.user, accessToken: candidate };

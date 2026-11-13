@@ -16,6 +16,7 @@ export { AgentRuntimeConfig, type DeploymentStatus, type OpenClawConfig } from '
 export { UserDevice } from './models/user-device.js';
 export { UserAccessToken } from './models/user-access-token.js';
 export { OrgInvite } from './models/org-invite.js';
+export { PasswordResetToken } from './models/password-reset-token.js';
 export { EmailVerification } from './models/email-verification.js';
 export { OrgDomain } from './models/org-domain.js';
 export { PendingMembership, type PendingMembershipStatus } from './models/pending-membership.js';
@@ -27,6 +28,7 @@ export { default as SequelizeService } from './services/sequelize.js';
 export { default as SessionService } from './services/session.js';
 export { default as UserService } from './services/user.js';
 export { default as Logger } from './services/logger.js';
+export { ensureUserAdminSchema } from './services/schema-upgrade.js';
 
 // Middleware
 export { default as CsrfMiddleware } from './middleware/csrf.js';
