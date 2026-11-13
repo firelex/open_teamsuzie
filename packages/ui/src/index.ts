@@ -245,3 +245,7 @@ export { EmailThreadView } from './components/email/email-thread-view.js';
 export type { EmailThreadMessage, EmailThreadViewProps } from './components/email/email-thread-view.js';
 export { EmailAttachmentChip } from './components/email/email-attachment-chip.js';
 export type { EmailAttachmentChipProps } from './components/email/email-attachment-chip.js';
+export { UserAdmin } from './components/user-admin.js';
+export type { UserAdminProps, AdminUserRow, InviteRow } from './components/user-admin.js';
+export { AcceptInvitePage, ResetPasswordPage } from './components/invite-accept-page.js';
+export type { AcceptInvitePageProps, ResetPasswordPageProps } from './components/invite-accept-page.js';
