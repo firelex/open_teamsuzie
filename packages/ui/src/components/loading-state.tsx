@@ -2,6 +2,7 @@ import * as React from "react"
 import { Loader2 } from "lucide-react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface LoadingStateProps {
   /** Children render as the loading label, e.g. "Loading reviews…". */
@@ -27,11 +28,13 @@ export interface LoadingStateProps {
  * placeholders (e.g. while a chat history loads).
  */
 export function LoadingState({
-  children = "Loading…",
+  children,
   variant = "inline",
   iconClassName,
   className,
 }: LoadingStateProps) {
+  const { t } = useUiT()
+  const content = children ?? t('common.loadingEllipsis')
   if (variant === "block") {
     return (
       <div
@@ -44,7 +47,7 @@ export function LoadingState({
       >
         <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className={cn("size-4 animate-spin", iconClassName)} aria-hidden />
-          <span>{children}</span>
+          <span>{content}</span>
         </span>
       </div>
     )
@@ -59,7 +62,7 @@ export function LoadingState({
       aria-live="polite"
     >
       <Loader2 className={cn("size-4 animate-spin", iconClassName)} aria-hidden />
-      <span>{children}</span>
+      <span>{content}</span>
     </p>
   )
 }

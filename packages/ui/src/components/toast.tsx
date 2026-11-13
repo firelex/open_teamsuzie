@@ -11,6 +11,7 @@ import * as React from "react"
 import { AlertCircle, AlertTriangle, CheckCircle2, X } from "lucide-react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export type ToastVariant = "default" | "success" | "error" | "warning"
 
@@ -159,14 +160,15 @@ function ToastViewport({
   toasts: Toast[]
   onDismiss: (id: number) => void
 }) {
+  const { t } = useUiT()
   return (
     <div
       aria-live="polite"
-      aria-label="Notifications"
+      aria-label={t('toast.notifications')}
       className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2"
     >
-      {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
     </div>
   )
@@ -183,6 +185,7 @@ function ToastItem({
   toast: Toast
   onDismiss: (id: number) => void
 }) {
+  const { t } = useUiT()
   const Icon = variantIcons[toast.opts.variant]
   const handleAction = () => {
     toast.opts.action?.onClick()
@@ -211,7 +214,7 @@ function ToastItem({
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
-        aria-label="Dismiss"
+        aria-label={t('toast.dismiss')}
         className="shrink-0 rounded p-0.5 text-current/70 hover:text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="size-4" aria-hidden />

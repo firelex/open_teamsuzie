@@ -6,6 +6,7 @@ import type {
 } from "@teamsuzie/docx-diff"
 
 import { cn } from "../../lib/utils"
+import { useUiT } from "../../lib/i18n.js"
 
 /**
  * One row of the topic-based comparison. The host (compare_documents
@@ -72,6 +73,7 @@ export function CompareTable({
   headerRight,
   className,
 }: CompareTableProps): React.ReactElement {
+  const { t } = useUiT()
   const visible = result.events.filter((e) => e.kind !== "unchanged")
   const leftName = headerLeft ?? result.left.name
   const rightName = headerRight ?? result.right.name
@@ -91,13 +93,13 @@ export function CompareTable({
     let cancelled = false
     void (async () => {
       try {
-        for await (const t of onLoadTopics(ac.signal)) {
+        for await (const topic of onLoadTopics(ac.signal)) {
           if (cancelled) return
-          setStreamedTopics((prev) => [...prev, t])
+          setStreamedTopics((prev) => [...prev, topic])
         }
       } catch (err) {
         if (cancelled) return
-        setStreamError(err instanceof Error ? err.message : "stream failed")
+        setStreamError(err instanceof Error ? err.message : t('redline.streamFailed'))
       } finally {
         if (!cancelled) setIsStreaming(false)
       }
@@ -132,12 +134,12 @@ export function CompareTable({
               {isStreaming && (
                 <span className="ml-2 inline-flex items-center gap-1 text-foreground">
                   <span className="inline-block size-1.5 animate-pulse rounded-full bg-[color:var(--color-accent)]" />
-                  Synthesizing topics…
+                  {t('redline.synthesizingTopics')}
                 </span>
               )}
               {streamError && (
                 <span className="ml-2 text-destructive">
-                  topic synthesis failed — showing paragraph view
+                  {t('redline.topicSynthesisFailed')}
                 </span>
               )}
             </div>
@@ -147,10 +149,10 @@ export function CompareTable({
               href={downloadHref}
               download
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-accent/40"
-              title="Download a tracked-change .docx (accept-all reproduces right)"
+              title={t('redline.downloadBlacklineTitle')}
             >
               <Download className="size-3.5" aria-hidden />
-              Download blackline
+              {t('redline.downloadBlackline')}
             </a>
           )}
         </div>

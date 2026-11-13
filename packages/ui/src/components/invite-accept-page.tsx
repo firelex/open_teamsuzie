@@ -4,6 +4,7 @@ import { Button } from "./button.js"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card.js"
 import { Input } from "./input.js"
 import { Label } from "./label.js"
+import { useUiT } from "../lib/i18n.js"
 
 async function parseJson(res: Response): Promise<unknown> {
   const text = await res.text()
@@ -38,6 +39,7 @@ interface InviteDetails {
  * and otherwise collects a name and password to create the account.
  */
 export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageProps) {
+  const { t } = useUiT()
   const [invite, setInvite] = React.useState<InviteDetails | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [name, setName] = React.useState("")
@@ -58,7 +60,7 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
       }
     }
     load().catch((err) => {
-      if (!cancelled) setLoadError(err instanceof Error ? err.message : "Failed to load invite")
+      if (!cancelled) setLoadError(err instanceof Error ? err.message : t('inviteAcceptPage.failedToLoadInvite'))
     })
     return () => {
       cancelled = true
@@ -82,7 +84,7 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
       }
       onJoined()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join")
+      setError(err instanceof Error ? err.message : t('inviteAcceptPage.couldNotJoin'))
     } finally {
       setSubmitting(false)
     }
@@ -102,24 +104,24 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
     return (
       <PageCard>
         <CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-muted-foreground">{t('common.loadingEllipsis')}</p>
         </CardContent>
       </PageCard>
     )
   }
 
   if (invite.state !== "open") {
-    const reason =
+    const reasonKey =
       invite.state === "used"
-        ? "has been used"
+        ? 'inviteAcceptPage.reasonUsed'
         : invite.state === "expired"
-          ? "has expired"
-          : "was revoked"
+          ? 'inviteAcceptPage.reasonExpired'
+          : 'inviteAcceptPage.reasonRevoked'
     return (
       <PageCard>
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">
-            This invite link {reason}. Ask your admin for a new one.
+            {t('inviteAcceptPage.linkNoLongerUsable', { reason: t(reasonKey) })}
           </p>
         </CardContent>
       </PageCard>
@@ -129,17 +131,21 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
   return (
     <PageCard>
       <CardHeader>
-        <CardTitle>Join {invite.organizationName}</CardTitle>
-        <CardDescription>{invite.role === "admin" ? "Admin" : "User"} invite</CardDescription>
+        <CardTitle>{t('inviteAcceptPage.joinOrganization', { organizationName: invite.organizationName })}</CardTitle>
+        <CardDescription>
+          {invite.role === "admin"
+            ? t('inviteAcceptPage.adminInvite')
+            : t('inviteAcceptPage.userInvite')}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="invite-accept-email">Email</Label>
+            <Label htmlFor="invite-accept-email">{t('common.email')}</Label>
             <Input id="invite-accept-email" type="email" value={invite.email} readOnly />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="invite-accept-name">Name</Label>
+            <Label htmlFor="invite-accept-name">{t('common.name')}</Label>
             <Input
               id="invite-accept-name"
               type="text"
@@ -150,7 +156,7 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="invite-accept-password">Password</Label>
+            <Label htmlFor="invite-accept-password">{t('common.password')}</Label>
             <Input
               id="invite-accept-password"
               type="password"
@@ -159,11 +165,11 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <p className="text-xs text-muted-foreground">At least 12 characters</p>
+            <p className="text-xs text-muted-foreground">{t('inviteAcceptPage.atLeast12Characters')}</p>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? "Joining…" : "Join"}
+            {submitting ? t('inviteAcceptPage.joiningEllipsis') : t('inviteAcceptPage.join')}
           </Button>
         </form>
       </CardContent>
@@ -184,6 +190,7 @@ export interface ResetPasswordPageProps {
  * the link has already been used or has expired.
  */
 export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageProps) {
+  const { t } = useUiT()
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
@@ -194,7 +201,7 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
     event.preventDefault()
     setError(null)
     if (password !== confirmPassword) {
-      setError("Passwords don't match.")
+      setError(t('inviteAcceptPage.passwordsDontMatch'))
       return
     }
     setSubmitting(true)
@@ -211,7 +218,7 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
       }
       setDone(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not set password")
+      setError(err instanceof Error ? err.message : t('inviteAcceptPage.couldNotSetPassword'))
     } finally {
       setSubmitting(false)
     }
@@ -221,9 +228,9 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
     return (
       <PageCard>
         <CardContent className="space-y-4 pt-6">
-          <p className="text-sm text-foreground">Password set. Sign in with your new password.</p>
+          <p className="text-sm text-foreground">{t('inviteAcceptPage.passwordSet')}</p>
           <Button type="button" className="w-full" onClick={onDone}>
-            Continue
+            {t('common.continue')}
           </Button>
         </CardContent>
       </PageCard>
@@ -233,12 +240,12 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
   return (
     <PageCard>
       <CardHeader>
-        <CardTitle>Set a new password</CardTitle>
+        <CardTitle>{t('inviteAcceptPage.setNewPassword')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="reset-password">New password</Label>
+            <Label htmlFor="reset-password">{t('inviteAcceptPage.newPassword')}</Label>
             <Input
               id="reset-password"
               type="password"
@@ -247,10 +254,10 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <p className="text-xs text-muted-foreground">At least 12 characters</p>
+            <p className="text-xs text-muted-foreground">{t('inviteAcceptPage.atLeast12Characters')}</p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="reset-password-confirm">Confirm password</Label>
+            <Label htmlFor="reset-password-confirm">{t('inviteAcceptPage.confirmPassword')}</Label>
             <Input
               id="reset-password-confirm"
               type="password"
@@ -262,7 +269,7 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? "Setting password…" : "Set password"}
+            {submitting ? t('inviteAcceptPage.settingPasswordEllipsis') : t('inviteAcceptPage.setPassword')}
           </Button>
         </form>
       </CardContent>

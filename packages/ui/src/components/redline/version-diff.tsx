@@ -7,6 +7,7 @@ import type {
 
 import { cn } from "../../lib/utils"
 import { RedlineSpan } from "./redline-span"
+import { useUiT } from "../../lib/i18n.js"
 
 /**
  * Whole-document diff renderer for a `DocumentDiffResult` produced by
@@ -38,6 +39,7 @@ export function VersionDiff({
   headerRight,
   className,
 }: VersionDiffProps): React.ReactElement {
+  const { t } = useUiT()
   const stats = formatStatsLine(result)
   const visible = result.events.filter((e) => e.kind !== "unchanged")
   const leftName = headerLeft ?? result.left.name
@@ -58,10 +60,10 @@ export function VersionDiff({
               href={downloadHref}
               download
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-accent/40"
-              title="Download a tracked-change .docx Word can accept-all"
+              title={t('redline.downloadDocxAcceptAllTitle')}
             >
               <Download className="size-3.5" aria-hidden />
-              Download DOCX
+              {t('redline.downloadDocx')}
             </a>
           )}
         </div>
@@ -69,15 +71,14 @@ export function VersionDiff({
       <div className="flex-1 space-y-3 overflow-y-auto p-4 text-sm">
         {visible.length === 0 ? (
           <p className="text-muted-foreground">
-            The two documents are identical (after paragraph-level alignment).
+            {t('redline.documentsIdentical')}
           </p>
         ) : (
           visible.map((event, idx) => <DiffEventBlock key={idx} event={event} />)
         )}
         {result.stats.unchanged > 0 && visible.length > 0 && (
           <p className="pt-2 text-xs text-muted-foreground">
-            {result.stats.unchanged} paragraph
-            {result.stats.unchanged === 1 ? "" : "s"} unchanged.
+            {t('redline.paragraphsUnchanged', { count: result.stats.unchanged })}
           </p>
         )}
       </div>

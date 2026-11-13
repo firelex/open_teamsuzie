@@ -5,6 +5,7 @@ import { EmptyState, EmptyStateDescription, EmptyStateTitle } from "./empty-stat
 import { LoadingState } from "./loading-state.js"
 import { cn } from "../lib/utils.js"
 import { useWorkflows, type Workflow } from "../hooks/use-workflows.js"
+import { useUiT } from "../lib/i18n.js"
 
 export interface WorkflowPickerDialogProps {
   open: boolean
@@ -41,21 +42,6 @@ export interface WorkflowPickerDialogProps {
   emptyLibraryDescription?: ReactNode
 }
 
-const DEFAULT_OUTPUT_MODE_BADGE: Record<Workflow["outputMode"], string> = {
-  inline_chat: "Chat",
-  generate_docx: "Word doc",
-  tabular_review: "Review",
-}
-
-function defaultBadge(workflow: Workflow): ReactNode {
-  const label = DEFAULT_OUTPUT_MODE_BADGE[workflow.outputMode]
-  return (
-    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-      {label}
-    </span>
-  )
-}
-
 const DEFAULT_FILTER = (w: Workflow): boolean => w.outputMode !== "tabular_review"
 
 /**
@@ -76,10 +62,23 @@ export function WorkflowPickerDialog({
   filter,
   renderBadge,
   renderTags,
-  title = "Run a workflow",
-  description = "Pick a workflow to fill in the chat input.",
+  title,
+  description,
   emptyLibraryDescription,
 }: WorkflowPickerDialogProps) {
+  const { t } = useUiT()
+  const effectiveTitle = title ?? t('workflowPickerDialog.title')
+  const effectiveDescription = description ?? t('workflowPickerDialog.description')
+  const defaultOutputModeBadge: Record<Workflow["outputMode"], string> = {
+    inline_chat: t('workflowPickerDialog.badgeChat'),
+    generate_docx: t('workflowPickerDialog.badgeWordDoc'),
+    tabular_review: t('workflowPickerDialog.badgeReview'),
+  }
+  const defaultBadge = (workflow: Workflow): ReactNode => (
+    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      {defaultOutputModeBadge[workflow.outputMode]}
+    </span>
+  )
   const wf = useWorkflows()
   const [query, setQuery] = useState("")
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -117,8 +116,8 @@ export function WorkflowPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{effectiveTitle}</DialogTitle>
+          <DialogDescription>{effectiveDescription}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -126,23 +125,23 @@ export function WorkflowPickerDialog({
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search workflows"
-            aria-label="Search workflows"
+            placeholder={t('workflowPickerDialog.searchWorkflows')}
+            aria-label={t('workflowPickerDialog.searchWorkflows')}
           />
 
           {wf.loading ? (
-            <LoadingState>Loading workflows…</LoadingState>
+            <LoadingState>{t('workflowPickerDialog.loading')}</LoadingState>
           ) : filtered.length === 0 ? (
             <EmptyState>
               <EmptyStateTitle>
                 {eligible.length === 0
-                  ? "No workflows in your library"
-                  : "No workflows match"}
+                  ? t('workflowPickerDialog.noWorkflowsInLibrary')
+                  : t('workflowPickerDialog.noWorkflowsMatch')}
               </EmptyStateTitle>
               <EmptyStateDescription>
                 {eligible.length === 0
-                  ? emptyLibraryDescription ?? "Create one from the Library to get started."
-                  : "Try a different search term."}
+                  ? emptyLibraryDescription ?? t('workflowPickerDialog.createOneToStart')
+                  : t('workflowPickerDialog.tryDifferentSearch')}
               </EmptyStateDescription>
             </EmptyState>
           ) : (

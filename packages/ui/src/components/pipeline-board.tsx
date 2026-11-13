@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 /**
  * Generic stage-board layout. Renders one column per
@@ -51,9 +52,11 @@ function PipelineBoard<TSubject>({
   getSubjectId,
   onMove,
   columnWidth = "20rem",
-  emptyStageLabel = "No items",
+  emptyStageLabel,
   className,
 }: PipelineBoardProps<TSubject>) {
+  const { t } = useUiT()
+  const effectiveEmptyStageLabel = emptyStageLabel ?? t('pipelineBoard.noItems')
   const [hoverStage, setHoverStage] = React.useState<string | null>(null)
   const dragDisabled = !onMove
   return (
@@ -114,7 +117,7 @@ function PipelineBoard<TSubject>({
                   data-slot="pipeline-board-empty"
                   className="rounded border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground"
                 >
-                  {emptyStageLabel}
+                  {effectiveEmptyStageLabel}
                 </div>
               ) : (
                 stage.subjects.map((subject) => {

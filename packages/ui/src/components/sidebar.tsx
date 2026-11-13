@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react"
 import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 interface SidebarContextValue {
   gradient: boolean
@@ -32,12 +33,13 @@ function Sidebar({
   gradient?: boolean
   watermarkSrc?: string | null
 }) {
+  const { t } = useUiT()
   return (
     <SidebarContext.Provider value={{ gradient }}>
       <aside
         data-slot="sidebar"
         data-gradient={gradient ? "" : undefined}
-        aria-label="Sidebar"
+        aria-label={t('sidebar.sidebar')}
         className={cn(
           "relative hidden w-64 shrink-0 flex-col overflow-x-hidden border-r font-inter antialiased md:flex",
           gradient
@@ -361,9 +363,11 @@ function SidebarUserProfile({
   statusDot,
   onSignOut,
   signOutPending,
-  signOutLabel = "Sign out",
+  signOutLabel,
   className,
 }: SidebarUserProfileProps) {
+  const { t } = useUiT()
+  const effectiveSignOutLabel = signOutLabel ?? t('sidebar.signOut')
   const defaultAvatar = (
     <div className="relative">
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-fancy-gradient text-sm font-bold text-white shadow-violet-glow ring-2 ring-white">
@@ -404,7 +408,7 @@ function SidebarUserProfile({
           className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white/80 text-sm font-medium text-neutral-700 transition hover:bg-white hover:text-ev-700 disabled:opacity-60"
         >
           <LogOut className="h-3.5 w-3.5" />
-          {signOutLabel}
+          {effectiveSignOutLabel}
         </button>
       )}
     </div>

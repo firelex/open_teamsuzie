@@ -3,6 +3,7 @@ import { Loader2, Paperclip, X } from 'lucide-react';
 import type { ChatAttachment, ChatThreadProps, ChatToolCall } from './types.js';
 import { useChatThreadStream } from './use-chat-thread-stream.js';
 import { MarkdownMessage } from '../markdown-message.js';
+import { useUiT } from '../../lib/i18n.js';
 
 /* ── Editorial-terminal aesthetic, tuned to the host palette ──────────────
  *
@@ -494,6 +495,7 @@ function ensureStyles(): void {
 const TOOL_ARGS_INLINE_LIMIT = 160;
 
 function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
+  const { t } = useUiT();
   const argsView = (() => {
     try {
       const compact = JSON.stringify(call.args);
@@ -520,7 +522,7 @@ function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
         <details className="ct-tool-args">
           <summary className="ct-tool-args-summary">
             {argsView.summary || '·'}
-            <span className="ct-tool-args-expand"> +{argsView.extraChars.toLocaleString()} chars</span>
+            <span className="ct-tool-args-expand"> {t('chatThread.extraChars', { count: argsView.extraChars })}</span>
           </summary>
           <pre className="ct-tool-args-full">{argsView.full}</pre>
         </details>
@@ -528,7 +530,7 @@ function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
         <span className="ct-tool-args">{argsView.summary || '·'}</span>
       )}
       <span className="ct-tool-status" data-status={call.status}>
-        {call.status === 'running' ? '· · ·' : call.status === 'ok' ? 'ok' : 'err'}
+        {call.status === 'running' ? '· · ·' : call.status === 'ok' ? t('chatThread.toolStatusOk') : t('chatThread.toolStatusErr')}
       </span>
       {call.status === 'error' && call.error && (
         <span className="ct-tool-error">{call.error}</span>
@@ -575,6 +577,7 @@ export function ChatThread(props: ChatThreadProps) {
     defaultInput, autoSendDefaultInput,
     initialMessages, onMessagesChange,
   } = props;
+  const { t } = useUiT();
   const stream = useChatThreadStream({ endpoint, extraBody, initialMessages });
   const [input, setInput] = useState(defaultInput ?? '');
   // When initialMessages is provided, the hook seeds messages synchronously
@@ -792,7 +795,7 @@ export function ChatThread(props: ChatThreadProps) {
 
       <div className="ct-scroll" ref={scrollRef}>
         {!loadedHistory && (
-          <div className="ct-empty">· loading ·</div>
+          <div className="ct-empty">{t('chatThread.loadingDots')}</div>
         )}
         {/* No empty-state copy on purpose — the composer placeholder is
             instruction enough. Earlier we shipped a "start a conversation"
@@ -855,7 +858,7 @@ export function ChatThread(props: ChatThreadProps) {
         onDrop={onDrop}
       >
         {dragOver && uploadAttachment && (
-          <div className="ct-drop-overlay">drop image to attach</div>
+          <div className="ct-drop-overlay">{t('chatThread.dropImageToAttach')}</div>
         )}
         {pending.length > 0 && (
           <div className="ct-attachment-strip">
@@ -864,7 +867,7 @@ export function ChatThread(props: ChatThreadProps) {
                 key={p.key}
                 className="ct-attachment-chip"
                 data-pending={p.status === 'uploading' ? 'true' : 'false'}
-                title={p.status === 'error' ? `Upload failed: ${p.error ?? ''}` : p.filename}
+                title={p.status === 'error' ? t('chatThread.uploadFailed', { error: p.error ?? '' }) : p.filename}
               >
                 <img className="ct-attachment-thumb" src={p.previewUrl} alt={p.filename} />
                 <span className="ct-attachment-name">{p.filename}</span>
@@ -873,7 +876,7 @@ export function ChatThread(props: ChatThreadProps) {
                   type="button"
                   className="ct-attachment-remove"
                   onClick={() => removePending(p.key)}
-                  aria-label={`Remove ${p.filename}`}
+                  aria-label={t('chatThread.removeAttachment', { filename: p.filename })}
                 >
                   <X size={12} />
                 </button>
@@ -900,7 +903,7 @@ export function ChatThread(props: ChatThreadProps) {
                 type="button"
                 className="ct-icon-button"
                 onClick={() => fileInputRef.current?.click()}
-                aria-label="Attach image"
+                aria-label={t('chatThread.attachImage')}
                 disabled={stream.inFlight}
               >
                 <Paperclip size={16} />
@@ -915,7 +918,7 @@ export function ChatThread(props: ChatThreadProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onPaste={onPaste}
-            placeholder={placeholder ?? 'type a message…'}
+            placeholder={placeholder ?? t('chatThread.typeAMessage')}
             rows={1}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
@@ -930,8 +933,8 @@ export function ChatThread(props: ChatThreadProps) {
         </div>
         <div className="ct-meta">
           <span className="ct-hint">
-            <kbd>↵</kbd> send  <kbd>⇧↵</kbd> newline  <kbd>esc</kbd> abort
-            {uploadAttachment && <> <kbd>paste</kbd> image</>}
+            <kbd>↵</kbd> {t('chatThread.hintSend')}  <kbd>⇧↵</kbd> {t('chatThread.hintNewline')}  <kbd>esc</kbd> {t('chatThread.hintAbort')}
+            {uploadAttachment && <> <kbd>paste</kbd> {t('chatThread.hintImage')}</>}
           </span>
           <span style={{ flex: 1 }} />
           {composerExtras}
@@ -944,7 +947,7 @@ export function ChatThread(props: ChatThreadProps) {
             }
             onClick={() => { void handleSend(); }}
           >
-            {stream.inFlight ? '· · · sending' : '↳ send'}
+            {stream.inFlight ? t('chatThread.sendingEllipsis') : t('chatThread.send')}
           </button>
         </div>
       </div>

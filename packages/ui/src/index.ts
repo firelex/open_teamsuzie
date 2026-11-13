@@ -2,6 +2,7 @@
 export { cn } from './lib/utils.js';
 export { humanSize, safeFilename } from './lib/format.js';
 export { WHIMSICAL_VERBS, prettyToolName, summarizeArgs } from './lib/tool-display.js';
+export { uiResources, useUiT } from './lib/i18n.js';
 
 // Icons — re-exported so consumer apps don't need to declare a separate
 // lucide-react dependency. Curated set; if you need an icon that isn't

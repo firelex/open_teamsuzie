@@ -9,6 +9,7 @@ import {
 } from "./dropdown-menu"
 import { MarkdownMessage } from "./markdown-message"
 import { safeFilename } from "../lib/format"
+import { useUiT } from "../lib/i18n.js"
 
 /**
  * Read-only snapshot of a document. The chat client lifts this to state when
@@ -126,6 +127,7 @@ export function ArtifactPanel({
     filename?: string
   }>
 }) {
+  const { t } = useUiT()
   const [exporting, setExporting] = React.useState(false)
   const [exportError, setExportError] = React.useState<string | null>(null)
   // Cache the URL we got back from on-demand export so re-clicks reuse it
@@ -183,7 +185,7 @@ export function ArtifactPanel({
       a.click()
       document.body.removeChild(a)
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : "Export failed")
+      setExportError(err instanceof Error ? err.message : t('artifactPanel.exportFailed'))
     } finally {
       setExporting(false)
     }
@@ -191,7 +193,7 @@ export function ArtifactPanel({
 
   return (
     <aside
-      aria-label="Document preview"
+      aria-label={t('artifactPanel.documentPreview')}
       className="hidden h-full w-[44%] shrink-0 flex-col border-l border-border bg-card md:flex"
     >
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-5">
@@ -204,30 +206,30 @@ export function ArtifactPanel({
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs">
                 <DownloadIcon />
-                Download
+                {t('artifactPanel.download')}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={downloadMarkdown}>
-                Markdown (.md)
+                {t('artifactPanel.markdownFile')}
               </DropdownMenuItem>
               {docxUrl ? (
                 <DropdownMenuItem asChild>
                   <a href={docxUrl} download={docxName}>
-                    Word (.docx)
+                    {t('artifactPanel.wordFile')}
                   </a>
                 </DropdownMenuItem>
               ) : canTriggerExport ? (
                 <DropdownMenuItem onSelect={triggerExport}>
-                  Word (.docx)
+                  {t('artifactPanel.wordFile')}
                 </DropdownMenuItem>
               ) : exporting ? (
                 <DropdownMenuItem disabled>
-                  Word (.docx) — exporting…
+                  {t('artifactPanel.wordFileExporting')}
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem disabled>
-                  Word (.docx) — not yet exported
+                  {t('artifactPanel.wordFileNotExported')}
                 </DropdownMenuItem>
               )}
               {exportError && (
@@ -241,7 +243,7 @@ export function ArtifactPanel({
             type="button"
             onClick={onClose}
             className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close preview"
+            aria-label={t('artifactPanel.closePreview')}
           >
             <CloseIcon />
           </button>

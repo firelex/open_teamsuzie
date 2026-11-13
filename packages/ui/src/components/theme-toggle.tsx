@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "../lib/utils.js"
+import { useUiT } from "../lib/i18n.js"
 
 export type Theme = "system" | "light" | "dark"
 
@@ -49,12 +50,6 @@ export function useTheme(defaultTheme: Theme = "system"): [Theme, (next: Theme) 
   return [theme, setTheme]
 }
 
-const OPTIONS: { value: Theme; label: string; glyph: string }[] = [
-  { value: "light",  label: "Light",  glyph: "☀" },
-  { value: "system", label: "System", glyph: "⌂" },
-  { value: "dark",   label: "Dark",   glyph: "☾" },
-]
-
 /**
  * A compact segmented theme toggle. Renders three options (Light / System /
  * Dark) with the current selection highlighted. Persists to localStorage and
@@ -68,13 +63,19 @@ export function ThemeToggle({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const { t } = useUiT()
   const [theme, setTheme] = useTheme()
+  const OPTIONS: { value: Theme; label: string; glyph: string }[] = [
+    { value: "light", label: t('themeToggle.light'), glyph: "☀" },
+    { value: "system", label: t('themeToggle.system'), glyph: "⌂" },
+    { value: "dark", label: t('themeToggle.dark'), glyph: "☾" },
+  ]
 
   return (
     <div
       data-slot="theme-toggle"
       role="radiogroup"
-      aria-label="Color theme"
+      aria-label={t('themeToggle.colorTheme')}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5",
         className,
@@ -90,7 +91,7 @@ export function ThemeToggle({
             role="radio"
             aria-checked={active}
             onClick={() => setTheme(opt.value)}
-            title={`${opt.label} theme`}
+            title={t('themeToggle.themeTitle', { label: opt.label })}
             className={cn(
               "inline-flex h-6 min-w-6 items-center justify-center rounded-sm px-1.5 text-xs transition-colors",
               active

@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "./dialog.js"
 import type { Persona } from "../hooks/use-personas.js"
+import { useUiT } from "../lib/i18n.js"
 
 export interface PersonaPickerProps {
   open: boolean
@@ -30,6 +31,7 @@ export interface PersonaPickerProps {
 }
 
 export function PersonaPicker(props: PersonaPickerProps) {
+  const { t } = useUiT()
   const {
     open,
     onOpenChange,
@@ -38,10 +40,10 @@ export function PersonaPicker(props: PersonaPickerProps) {
     selectedId,
     onSelect,
     onClearSelection,
-    title = "Choose a persona",
-    description = "Each persona has its own system prompt and tool set. Picking one starts a chat tuned for that persona.",
-    defaultLabel = "Default assistant",
-    defaultDescription = "The generic assistant — no persona-specific tuning.",
+    title = t('personaPicker.chooseTitle'),
+    description = t('personaPicker.chooseDescription'),
+    defaultLabel = t('personaPicker.defaultLabel'),
+    defaultDescription = t('personaPicker.defaultDescription'),
   } = props
   const builtins = personas.filter((p) => p.source === "builtin")
   const userOwned = personas.filter((p) => p.source === "user")
@@ -55,7 +57,7 @@ export function PersonaPicker(props: PersonaPickerProps) {
         </DialogHeader>
 
         {loading ? (
-          <p className="py-6 text-sm text-muted-foreground">Loading personas…</p>
+          <p className="py-6 text-sm text-muted-foreground">{t('personaPicker.loading')}</p>
         ) : (
           <div className="space-y-5">
             <PersonaCard
@@ -70,7 +72,7 @@ export function PersonaPicker(props: PersonaPickerProps) {
             />
 
             {builtins.length > 0 && (
-              <Section title="Built-in">
+              <Section title={t('personaPicker.builtIn')}>
                 {builtins.map((p) => (
                   <PersonaCard
                     key={p.id}
@@ -86,7 +88,7 @@ export function PersonaPicker(props: PersonaPickerProps) {
             )}
 
             {userOwned.length > 0 && (
-              <Section title="Your personas">
+              <Section title={t('personaPicker.yourPersonas')}>
                 {userOwned.map((p) => (
                   <PersonaCard
                     key={p.id}

@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface LongRunningEntry {
   readonly token: number
@@ -35,15 +36,16 @@ const LongRunningContext = React.createContext<LongRunningContextValue | null>(n
  * change because abandoned async work would not surface anyway.
  */
 export function LongRunningProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useUiT()
   const [entries, setEntries] = React.useState<LongRunningEntry[]>([])
   const nextToken = React.useRef(1)
 
-  const start = React.useCallback((label = "Working…") => {
+  const start = React.useCallback((label?: string) => {
     const token = nextToken.current++
-    const entry: LongRunningEntry = { token, label, startedAt: Date.now() }
+    const entry: LongRunningEntry = { token, label: label ?? t('longRunning.working'), startedAt: Date.now() }
     setEntries((prev) => [...prev, entry])
     return token
-  }, [])
+  }, [t])
 
   const stop = React.useCallback((token: number) => {
     setEntries((prev) => prev.filter((e) => e.token !== token))
@@ -81,6 +83,7 @@ export interface TopProgressBarProps {
  * `useAsyncAction` call across the app without needing per-page wiring.
  */
 export function TopProgressBar({ alwaysMount = false, className }: TopProgressBarProps) {
+  const { t } = useUiT()
   const { activeCount } = useLongRunning()
   const visible = activeCount > 0
   if (!visible && !alwaysMount) return null
@@ -88,7 +91,7 @@ export function TopProgressBar({ alwaysMount = false, className }: TopProgressBa
     <div
       role="progressbar"
       aria-busy={visible}
-      aria-label={visible ? "Working" : undefined}
+      aria-label={visible ? t('longRunning.working') : undefined}
       data-active={visible || undefined}
       className={cn(
         "pointer-events-none absolute inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity",

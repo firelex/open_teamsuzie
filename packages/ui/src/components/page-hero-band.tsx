@@ -3,6 +3,7 @@ import { Eraser } from "lucide-react"
 
 import { Button } from "./button"
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface PageHeroBandStatusPill {
   tone: "live" | "read" | "beta"
@@ -81,11 +82,13 @@ export function PageHeroBand({
   actions,
   onClear,
   clearPending,
-  clearLabel = "Clear",
+  clearLabel,
   reserveUsageArea = true,
   watermarkSrc = "/assets/graph-effect.png",
   className,
 }: PageHeroBandProps) {
+  const { t } = useUiT()
+  const effectiveClearLabel = clearLabel ?? t('pageHeroBand.clear')
   return (
     <section
       data-slot="page-hero-band"
@@ -147,14 +150,14 @@ export function PageHeroBand({
               size="sm"
               variant="ghost"
               disabled={!!clearPending}
-              title={`${clearLabel} chat history`}
+              title={t('pageHeroBand.clearChatHistoryTitle', { label: effectiveClearLabel })}
               onClick={() => {
                 if (!clearPending) onClear()
               }}
               className="h-8 px-2.5 text-xs"
             >
               <Eraser className="mr-1 h-3.5 w-3.5" />
-              {clearLabel}
+              {effectiveClearLabel}
             </Button>
           )}
         </div>

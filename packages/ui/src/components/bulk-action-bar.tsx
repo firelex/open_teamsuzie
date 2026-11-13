@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react"
 
 import { Button } from "./button"
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface BulkActionBarItem {
   /** Stable id used as React key. */
@@ -50,6 +51,7 @@ export function BulkActionBarItemBar({
   actions,
   className,
 }: BulkActionBarItemBarProps) {
+  const { t } = useUiT()
   if (selectionCount === 0) return null
   const noun =
     selectionCount === 1
@@ -59,7 +61,7 @@ export function BulkActionBarItemBar({
   return (
     <div
       role="region"
-      aria-label="Bulk actions"
+      aria-label={t('bulkActionBar.bulkActions')}
       className={cn(
         "flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm",
         className,
@@ -70,12 +72,12 @@ export function BulkActionBarItemBar({
           variant="ghost"
           size="icon"
           onClick={onClear}
-          aria-label="Clear selection"
+          aria-label={t('bulkActionBar.clearSelection')}
         >
           <X className="size-4" aria-hidden />
         </Button>
         <span className="font-medium">
-          {selectionCount} {noun} selected
+          {t('bulkActionBar.selected', { count: selectionCount, noun })}
         </span>
       </div>
       <div className="flex items-center gap-2">

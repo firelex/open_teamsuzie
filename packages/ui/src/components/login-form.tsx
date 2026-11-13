@@ -10,6 +10,7 @@ import {
 } from "./card"
 import { Input } from "./input"
 import { Label } from "./label"
+import { useUiT } from "../lib/i18n.js"
 
 export interface LoginCredentials {
   email: string
@@ -49,13 +50,15 @@ export function LoginForm({
   description,
   onSubmit,
   demo,
-  submitLabel = "Sign in",
+  submitLabel,
   brand,
 }: LoginFormProps) {
+  const { t } = useUiT()
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  const effectiveSubmitLabel = submitLabel ?? t('loginForm.signIn')
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -64,7 +67,7 @@ export function LoginForm({
     try {
       await onSubmit({ email, password })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed")
+      setError(err instanceof Error ? err.message : t('loginForm.signInFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -83,7 +86,7 @@ export function LoginForm({
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
-              <Label htmlFor="login-email">Email</Label>
+              <Label htmlFor="login-email">{t('common.email')}</Label>
               <Input
                 id="login-email"
                 type="email"
@@ -94,7 +97,7 @@ export function LoginForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="login-password">Password</Label>
+              <Label htmlFor="login-password">{t('common.password')}</Label>
               <Input
                 id="login-password"
                 type="password"
@@ -106,11 +109,11 @@ export function LoginForm({
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
             <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Signing in…" : submitLabel}
+              {submitting ? t('loginForm.signingIn') : effectiveSubmitLabel}
             </Button>
             {demo && (
               <div className="rounded-md border border-border bg-muted/50 p-3 text-xs">
-                <div className="mb-1 font-medium text-foreground">Try the demo</div>
+                <div className="mb-1 font-medium text-foreground">{t('loginForm.tryTheDemo')}</div>
                 <div className="space-y-0.5 font-mono text-muted-foreground">
                   <div>{demo.email}</div>
                   <div>{demo.password}</div>
@@ -123,7 +126,7 @@ export function LoginForm({
                     setPassword(demo.password)
                   }}
                 >
-                  Fill credentials
+                  {t('loginForm.fillCredentials')}
                 </button>
               </div>
             )}

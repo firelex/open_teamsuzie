@@ -40,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./dialog"
+import { useUiT } from "../lib/i18n.js"
 
 export type { Review, ReviewCell, ReviewColumn, ReviewDocument, ReviewSnapshot }
 
@@ -224,6 +225,7 @@ export function ReviewGrid({
   onCitationJump,
   className,
 }: ReviewGridProps) {
+  const { t } = useUiT()
   const [expanded, setExpanded] = React.useState<ExpandedCell | null>(null)
   // Transpose toggle: docs as rows (default) ↔ docs as columns. Cell lookup
   // is unchanged either way (`cellsByKey` is keyed by column.id::doc.id);
@@ -364,7 +366,7 @@ export function ReviewGrid({
               <div>{tdInner}</div>
             </ContextMenuTrigger>
             <ContextMenuContent>
-              <ContextMenuLabel>Cell</ContextMenuLabel>
+              <ContextMenuLabel>{t('reviewGrid.cell')}</ContextMenuLabel>
               <ContextMenuItem
                 onSelect={(e) => {
                   e.preventDefault()
@@ -439,7 +441,7 @@ export function ReviewGrid({
           <div>{columnHeaderInner(col)}</div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuLabel>Column</ContextMenuLabel>
+          <ContextMenuLabel>{t('reviewGrid.column')}</ContextMenuLabel>
           {onColumnRun && (
             <ContextMenuItem
               disabled={busy}
@@ -528,7 +530,7 @@ export function ReviewGrid({
           <div>{docHeaderInner(doc)}</div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuLabel>Row</ContextMenuLabel>
+          <ContextMenuLabel>{t('reviewGrid.row')}</ContextMenuLabel>
           {onRowRun && (
             <ContextMenuItem
               disabled={busy}
@@ -584,13 +586,13 @@ export function ReviewGrid({
         <div className="flex items-center justify-end border-b border-border bg-muted/20 px-2 py-1.5">
           <button
             type="button"
-            onClick={() => setTransposed((t) => !t)}
+            onClick={() => setTransposed((prev) => !prev)}
             className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={transposed ? "Show documents as rows" : "Show documents as columns"}
-            title={transposed ? "Show documents as rows" : "Show documents as columns"}
+            aria-label={transposed ? t('reviewGrid.showDocumentsAsRows') : t('reviewGrid.showDocumentsAsColumns')}
+            title={transposed ? t('reviewGrid.showDocumentsAsRows') : t('reviewGrid.showDocumentsAsColumns')}
           >
             <ArrowLeftRight className="size-3.5" aria-hidden />
-            <span>{transposed ? "Docs as rows" : "Docs as columns"}</span>
+            <span>{transposed ? t('reviewGrid.docsAsRows') : t('reviewGrid.docsAsColumns')}</span>
           </button>
         </div>
         <div className="overflow-auto">
@@ -698,6 +700,7 @@ function CellExpandDialog({
   onCellRegenerate?: (column: ReviewColumn, document: ReviewDocument) => void | Promise<void>
   busy?: boolean
 }) {
+  const { t } = useUiT()
   const open = expanded !== null
   const cell = expanded?.cell ?? null
   const citations = parseCitations(cell?.citations ?? null)
@@ -886,9 +889,9 @@ function CellExpandDialog({
               <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-primary align-middle" />
             </div>
           ) : !cell || cell.status === "pending" ? (
-            <p className="text-sm text-muted-foreground">No answer yet.</p>
+            <p className="text-sm text-muted-foreground">{t('reviewGrid.noAnswerYet')}</p>
           ) : cell.status === "error" ? (
-            <p className="text-sm text-destructive">{cell.error ?? "Error"}</p>
+            <p className="text-sm text-destructive">{cell.error ?? t('reviewGrid.error')}</p>
           ) : cell.status === "streaming" ? (
             <div className="text-foreground" onClick={handleCellMarkdownClick}>
               {truncateAtSentinel(cell.value ?? "") ? (
@@ -907,7 +910,7 @@ function CellExpandDialog({
                   content={linkifyCitations(truncateAtSentinel(cell.value ?? ""))}
                 />
               ) : (
-                <span className="text-sm text-muted-foreground">(empty)</span>
+                <span className="text-sm text-muted-foreground">{t('common.empty')}</span>
               )}
             </div>
           )}

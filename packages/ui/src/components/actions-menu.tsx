@@ -9,6 +9,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from './dropdown-menu';
+import { useUiT } from '../lib/i18n.js';
 
 export interface ActionItem {
     /** Unique key for the action */
@@ -59,6 +60,7 @@ export function ActionsMenu({
     variant = 'outline',
     align = 'end',
 }: ActionsMenuProps) {
+    const { t } = useUiT();
     // Separate destructive actions to show after separator
     const regularActions = actions.filter((a) => !a.destructive);
     const destructiveActions = actions.filter((a) => a.destructive);
@@ -70,7 +72,7 @@ export function ActionsMenu({
                     variant={variant}
                     size={size}
                     className={cn('h-8 w-8 p-0', className)}
-                    aria-label="Open actions menu"
+                    aria-label={t('actionsMenu.openActionsMenu')}
                 >
                     <MoreHorizontal className="h-4 w-4" />
                 </Button>

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu"
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface RowAction {
   id: string
@@ -45,10 +46,11 @@ export interface RowActionsProps {
  */
 export function RowActions({
   actions,
-  triggerLabel = "Actions",
+  triggerLabel,
   align = "end",
   className,
 }: RowActionsProps) {
+  const { t } = useUiT()
   if (actions.length === 0) return null
 
   return (
@@ -58,7 +60,7 @@ export function RowActions({
           variant="ghost"
           size="icon"
           className={cn("size-8", className)}
-          aria-label={triggerLabel}
+          aria-label={triggerLabel ?? t('rowActions.actions')}
         >
           <MoreHorizontal className="size-4" aria-hidden />
         </Button>

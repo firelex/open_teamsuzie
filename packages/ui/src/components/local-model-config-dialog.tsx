@@ -11,6 +11,8 @@ import {
 } from "./dialog.js"
 import { Input } from "./input.js"
 import { Label } from "./label.js"
+import { useUiT } from "../lib/i18n.js"
+import { Trans } from "@teamsuzie/i18n"
 
 export interface LocalModelConfigDialogProps {
   open: boolean
@@ -38,6 +40,7 @@ export interface LocalModelConfigDialogProps {
  * surfaces server errors via the rejection of `onSave`.
  */
 export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
+  const { t, i18n } = useUiT()
   const { open, onOpenChange, modelName, initialBaseUrl, initialApiKey, onSave, onReset } = props
   const [baseUrl, setBaseUrl] = React.useState(initialBaseUrl)
   const [apiKey, setApiKey] = React.useState(initialApiKey ?? "")
@@ -60,7 +63,7 @@ export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
     try {
       await onSave({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() ? apiKey.trim() : null })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed")
+      setError(err instanceof Error ? err.message : t('localModelConfigDialog.saveFailed'))
       setSubmitting(false)
       return
     }
@@ -74,7 +77,7 @@ export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
     try {
       await onReset()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Reset failed")
+      setError(err instanceof Error ? err.message : t('localModelConfigDialog.resetFailed'))
       setResetting(false)
       return
     }
@@ -85,16 +88,15 @@ export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Configure {modelName}</DialogTitle>
+          <DialogTitle>{t('localModelConfigDialog.configureTitle', { modelName })}</DialogTitle>
           <DialogDescription>
-            Point chat at your locally-hosted endpoint. The hostname must be loopback (localhost,
-            127.0.0.1), mDNS (*.local), or a private-range IP — public hosts are rejected.
+            {t('localModelConfigDialog.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="local-base-url">Base URL</Label>
+            <Label htmlFor="local-base-url">{t('localModelConfigDialog.baseUrl')}</Label>
             <Input
               id="local-base-url"
               value={baseUrl}
@@ -105,18 +107,18 @@ export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
               className="font-mono"
             />
             <p className="text-[11px] text-muted-foreground">
-              The OpenAI-compatible server. Endpoint must serve <code>/v1/chat/completions</code>.
+              <Trans i18nKey="localModelConfigDialog.baseUrlHint" i18n={i18n} ns="ui" components={{ code: <code /> }} />
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="local-api-key">API key (optional)</Label>
+            <Label htmlFor="local-api-key">{t('localModelConfigDialog.apiKeyOptional')}</Label>
             <Input
               id="local-api-key"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="leave blank if your server doesn't enforce auth"
+              placeholder={t('localModelConfigDialog.apiKeyPlaceholder')}
               autoComplete="off"
               spellCheck={false}
             />
@@ -133,17 +135,17 @@ export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
               disabled={resetting || submitting}
               className="text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
             >
-              {resetting ? "Resetting…" : "Reset to default"}
+              {resetting ? t('localModelConfigDialog.resettingEllipsis') : t('localModelConfigDialog.resetToDefault')}
             </button>
           ) : (
             <span />
           )}
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="button" onClick={handleSave} disabled={!baseUrl.trim() || submitting}>
-              {submitting ? "Saving…" : "Save"}
+              {submitting ? t('common.savingEllipsis') : t('common.save')}
             </Button>
           </div>
         </DialogFooter>

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "./select"
 import { Textarea } from "./textarea"
+import { useUiT } from "../lib/i18n.js"
 
 export interface ColumnHeaderEditorValue {
   title: string
@@ -72,15 +73,6 @@ export interface ColumnHeaderEditorProps {
   error?: string | null
 }
 
-const FORMAT_LABELS: { value: CellFormat; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "short_text", label: "Short text" },
-  { value: "date", label: "Date" },
-  { value: "yes_no", label: "Yes / No" },
-  { value: "bullets", label: "Bullet list" },
-  { value: "money", label: "Money" },
-]
-
 /**
  * Form for creating or editing a review column. In `create` mode, typing
  * a title that matches a preset autofills prompt + format — but only into
@@ -99,6 +91,15 @@ export function ColumnHeaderEditor({
   busy = false,
   error,
 }: ColumnHeaderEditorProps) {
+  const { t } = useUiT()
+  const FORMAT_LABELS: { value: CellFormat; label: string }[] = [
+    { value: "text", label: t('columnHeaderEditor.formatText') },
+    { value: "short_text", label: t('columnHeaderEditor.formatShortText') },
+    { value: "date", label: t('columnHeaderEditor.formatDate') },
+    { value: "yes_no", label: t('columnHeaderEditor.formatYesNo') },
+    { value: "bullets", label: t('columnHeaderEditor.formatBulletList') },
+    { value: "money", label: t('columnHeaderEditor.formatMoney') },
+  ]
   const [title, setTitle] = React.useState(initial.title)
   const [prompt, setPrompt] = React.useState(initial.prompt)
   const [format, setFormat] = React.useState<CellFormat>(initial.format)
@@ -148,13 +149,13 @@ export function ColumnHeaderEditor({
     // the on-blur path early-returns for edit so users don't accidentally
     // clobber an existing prompt.
     if (!opts.force && mode !== "create") return
-    const t = title.trim()
-    if (!t) return
+    const titleValue = title.trim()
+    if (!titleValue) return
     if (!opts.force) {
       // Sync preset already filled it — don't pay the network cost.
       if (matchedPresetId) return
       // Already drafted this exact title; skip.
-      if (lastDraftedRef.current === t) return
+      if (lastDraftedRef.current === titleValue) return
       // User has manually authored both fields; don't clobber.
       if (promptDirtyRef.current && formatDirtyRef.current) return
     }
@@ -167,14 +168,14 @@ export function ColumnHeaderEditor({
     setDraftedTitle(null)
     try {
       const draft = await draftFromTitle({
-        title: t,
+        title: titleValue,
         formatHint: format,
         formatDirty: formatDirtyRef.current,
         signal: ctrl.signal,
       })
       if (ctrl.signal.aborted) return
       if (!draft) return
-      lastDraftedRef.current = t
+      lastDraftedRef.current = titleValue
       // Force mode unconditionally writes both fields — user clicked the
       // explicit button, so they're asking to replace.
       if (opts.force || !promptDirtyRef.current) {
@@ -185,12 +186,12 @@ export function ColumnHeaderEditor({
         setFormat(draft.format)
         setFormatDirty(false)
       }
-      setDraftedTitle(t)
+      setDraftedTitle(titleValue)
     } catch (err) {
       if (ctrl.signal.aborted) return
       // Aborts surface as DOMException("AbortError"); ignore those.
       if (err instanceof DOMException && err.name === "AbortError") return
-      setDraftError(err instanceof Error ? err.message : "Draft failed")
+      setDraftError(err instanceof Error ? err.message : t('columnHeaderEditor.draftFailed'))
     } finally {
       if (!ctrl.signal.aborted) setDrafting(false)
     }
@@ -209,64 +210,64 @@ export function ColumnHeaderEditor({
   }
 
   const submit = async () => {
-    const t = title.trim()
+    const titleValue = title.trim()
     const p = prompt.trim()
-    if (!t) {
-      setLocalError("Title is required")
+    if (!titleValue) {
+      setLocalError(t('columnHeaderEditor.titleRequired'))
       return
     }
     if (!p) {
-      setLocalError("Prompt is required")
+      setLocalError(t('columnHeaderEditor.promptRequired'))
       return
     }
     setLocalError(null)
-    await onSubmit({ title: t, prompt: p, format })
+    await onSubmit({ title: titleValue, prompt: p, format })
   }
 
   const submitText =
-    submitLabel ?? (mode === "create" ? "Add column" : "Save changes")
+    submitLabel ?? (mode === "create" ? t('columnHeaderEditor.addColumn') : t('columnHeaderEditor.saveChanges'))
   const displayError = error ?? localError
 
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="col-title">Title</Label>
+        <Label htmlFor="col-title">{t('columnHeaderEditor.title')}</Label>
         <Input
           id="col-title"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
           onBlur={() => void handleTitleBlur()}
-          placeholder="Governing law"
+          placeholder={t('columnHeaderEditor.titlePlaceholder')}
           autoFocus
           disabled={busy}
         />
         {matchedPresetId && (
           <p className="text-[11px] text-muted-foreground">
-            Autofilled prompt + format from preset.{" "}
-            <span className="font-medium">Edit either to override.</span>
+            {t('columnHeaderEditor.autofilledFromPreset')}{" "}
+            <span className="font-medium">{t('columnHeaderEditor.editEitherToOverride')}</span>
           </p>
         )}
         {!matchedPresetId && drafting && (
           <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-            <span>Drafting prompt…</span>
+            <span>{t('columnHeaderEditor.draftingPrompt')}</span>
           </p>
         )}
         {!matchedPresetId && !drafting && draftedTitle && draftedTitle === title.trim() && (
           <p className="text-[11px] text-muted-foreground">
-            Drafted prompt + format.{" "}
-            <span className="font-medium">Edit either to override.</span>
+            {t('columnHeaderEditor.draftedPromptAndFormat')}{" "}
+            <span className="font-medium">{t('columnHeaderEditor.editEitherToOverride')}</span>
           </p>
         )}
         {!matchedPresetId && !drafting && draftError && (
           <p className="text-[11px] text-destructive">
-            Couldn't draft a prompt: {draftError}. Fill it in below.
+            {t('columnHeaderEditor.couldNotDraftPrompt', { error: draftError })}
           </p>
         )}
       </div>
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between">
-          <Label htmlFor="col-prompt">Prompt</Label>
+          <Label htmlFor="col-prompt">{t('columnHeaderEditor.prompt')}</Label>
           {draftFromTitle && (
             <Button
               type="button"
@@ -276,10 +277,10 @@ export function ColumnHeaderEditor({
               disabled={busy || drafting || !title.trim()}
               title={
                 !title.trim()
-                  ? "Enter a title first"
-                  : "Draft prompt + format from title"
+                  ? t('columnHeaderEditor.enterTitleFirst')
+                  : t('columnHeaderEditor.draftPromptFromTitle')
               }
-              aria-label="Draft prompt with AI"
+              aria-label={t('columnHeaderEditor.draftPromptWithAi')}
               className="size-8 text-muted-foreground hover:text-foreground"
             >
               {drafting ? (
@@ -294,13 +295,13 @@ export function ColumnHeaderEditor({
           id="col-prompt"
           value={prompt}
           onChange={(e) => handlePromptChange(e.target.value)}
-          placeholder="What is the governing law?"
+          placeholder={t('columnHeaderEditor.promptPlaceholder')}
           rows={3}
           disabled={busy}
         />
       </div>
       <div className="space-y-1.5">
-        <Label>Format</Label>
+        <Label>{t('columnHeaderEditor.format')}</Label>
         <Select
           value={format}
           onValueChange={(v) => handleFormatChange(v as CellFormat)}
@@ -329,11 +330,11 @@ export function ColumnHeaderEditor({
             onClick={onCancel}
             disabled={busy}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
         )}
         <Button type="button" onClick={() => void submit()} disabled={busy}>
-          {busy ? "Saving…" : submitText}
+          {busy ? t('common.savingEllipsis') : submitText}
         </Button>
       </div>
     </div>

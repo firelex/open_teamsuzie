@@ -3,6 +3,7 @@ import { Loader2, Sparkles } from "lucide-react"
 
 import { Button } from "./button"
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 /**
  * The set of draft kinds the `/api/ai/draft` endpoint understands.
@@ -53,6 +54,7 @@ export function AiFillButton({
   title,
   ...rest
 }: AiFillButtonProps) {
+  const { t } = useUiT()
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -69,10 +71,10 @@ export function AiFillButton({
       if (j.ok && typeof j.text === "string") {
         onFill(j.text)
       } else {
-        setError(j.error ?? "AI fill failed")
+        setError(j.error ?? t('aiFillButton.aiFillFailed'))
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "AI fill failed")
+      setError(e instanceof Error ? e.message : t('aiFillButton.aiFillFailed'))
     } finally {
       setBusy(false)
     }
@@ -86,9 +88,9 @@ export function AiFillButton({
         size="icon"
         onClick={go}
         disabled={disabled || busy}
-        aria-label="Fill with AI"
+        aria-label={t('aiFillButton.fillWithAi')}
         aria-busy={busy || undefined}
-        title={title ?? error ?? "Fill with AI"}
+        title={title ?? error ?? t('aiFillButton.fillWithAi')}
         className={cn(
           "size-8 text-muted-foreground hover:text-foreground",
           error && "text-destructive hover:text-destructive",

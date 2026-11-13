@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 /**
  * Cmd-F-style find bar overlaid on a document preview. Stateless wrt the
@@ -37,6 +38,7 @@ export const DocFindBar = React.forwardRef<DocFindBarHandle, DocFindBarProps>(
     { query, onQueryChange, count, currentIndex, onPrev, onNext, onClose, className },
     ref,
   ) {
+    const { t } = useUiT()
     const inputRef = React.useRef<HTMLInputElement | null>(null)
     React.useImperativeHandle(ref, () => ({
       focus: () => {
@@ -52,7 +54,7 @@ export const DocFindBar = React.forwardRef<DocFindBarHandle, DocFindBarProps>(
           className,
         )}
         role="search"
-        aria-label="Find in document"
+        aria-label={t('docFindBar.findInDocument')}
       >
         <input
           ref={inputRef}
@@ -69,15 +71,15 @@ export const DocFindBar = React.forwardRef<DocFindBarHandle, DocFindBarProps>(
               else onNext()
             }
           }}
-          placeholder="Find in document"
+          placeholder={t('docFindBar.findInDocument')}
           className="w-44 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-          aria-label="Find query"
+          aria-label={t('docFindBar.findQuery')}
         />
         <span className="min-w-12 text-right text-[11px] tabular-nums text-muted-foreground">
           {query.length === 0
             ? ""
             : count === 0
-              ? "No matches"
+              ? t('docFindBar.noMatches')
               : `${currentIndex} / ${count}`}
         </span>
         <button
@@ -85,8 +87,8 @@ export const DocFindBar = React.forwardRef<DocFindBarHandle, DocFindBarProps>(
           onClick={onPrev}
           disabled={count === 0}
           className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Previous match"
-          title="Previous match (Shift+Enter)"
+          aria-label={t('docFindBar.previousMatch')}
+          title={t('docFindBar.previousMatchTitle')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-3.5" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="m18 15-6-6-6 6" />
@@ -97,8 +99,8 @@ export const DocFindBar = React.forwardRef<DocFindBarHandle, DocFindBarProps>(
           onClick={onNext}
           disabled={count === 0}
           className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Next match"
-          title="Next match (Enter)"
+          aria-label={t('docFindBar.nextMatch')}
+          title={t('docFindBar.nextMatchTitle')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-3.5" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
@@ -108,8 +110,8 @@ export const DocFindBar = React.forwardRef<DocFindBarHandle, DocFindBarProps>(
           type="button"
           onClick={onClose}
           className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent/40 hover:text-foreground"
-          aria-label="Close find"
-          title="Close (Esc)"
+          aria-label={t('docFindBar.closeFind')}
+          title={t('docFindBar.closeFindTitle')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-3.5" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M6 18 18 6" />

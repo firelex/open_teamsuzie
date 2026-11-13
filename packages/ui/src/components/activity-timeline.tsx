@@ -2,6 +2,7 @@ import * as React from "react"
 import { Activity } from "lucide-react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 /**
  * Generic activity timeline. Renders a vertical sequence of events
@@ -42,9 +43,10 @@ export interface ActivityTimelineProps {
 function ActivityTimeline({
   entries,
   kindRenderer,
-  emptyLabel = "No activity yet.",
+  emptyLabel,
   className,
 }: ActivityTimelineProps) {
+  const { t } = useUiT()
   if (entries.length === 0) {
     return (
       <div
@@ -54,7 +56,7 @@ function ActivityTimeline({
           className,
         )}
       >
-        {emptyLabel}
+        {emptyLabel ?? t('activityTimeline.noActivityYet')}
       </div>
     )
   }

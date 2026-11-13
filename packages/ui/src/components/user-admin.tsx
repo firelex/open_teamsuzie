@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "./select.js"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table.js"
+import { useUiT } from "../lib/i18n.js"
 
 export interface AdminUserRow {
   id: string
@@ -92,6 +93,7 @@ function revokeActionId(inviteId: string): string {
  * request failed.
  */
 export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProps) {
+  const { t } = useUiT()
   const [users, setUsers] = React.useState<AdminUserRow[]>([])
   const [invites, setInvites] = React.useState<InviteRow[]>([])
   const [error, setError] = React.useState<string | null>(null)
@@ -118,7 +120,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
   }, [apiBase])
 
   React.useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
+    load().catch((err) => setError(err instanceof Error ? err.message : t('userAdmin.failedToLoad')))
   }, [load])
 
   const send = React.useCallback(
@@ -160,7 +162,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
     try {
       await action()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed")
+      setError(err instanceof Error ? err.message : t('userAdmin.requestFailed'))
     } finally {
       setBusy(false)
       setPending(null)
@@ -181,15 +183,18 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
     const nextRole = user.role === "admin" ? "user" : "admin"
     const description =
       nextRole === "admin"
-        ? `Admins can invite, change and remove people, and see firm-wide settings. ${user.name} will be signed out and sign in again with the new role.`
-        : `${user.name} will no longer be able to invite, change or remove people, or see firm-wide settings. ${user.name} will be signed out and sign in again with the new role.`
+        ? t('userAdmin.makeAdminDescription', { name: user.name })
+        : t('userAdmin.makeUserDescription', { name: user.name })
     await confirmThenRun(
       {
-        title: `Make ${user.name} ${nextRole === "admin" ? "an admin" : "a user"}?`,
+        title:
+          nextRole === "admin"
+            ? t('userAdmin.makeAdminTitle', { name: user.name })
+            : t('userAdmin.makeUserTitle', { name: user.name }),
         description,
       },
       () => send("PATCH", `/users/${user.id}`, { role: nextRole }),
-      { id: roleActionId(user.id), label: "Saving…" },
+      { id: roleActionId(user.id), label: t('userAdmin.savingEllipsis') },
     )
   }
 
@@ -197,18 +202,18 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
     if (user.is_active) {
       await confirmThenRun(
         {
-          title: `Deactivate ${user.name}?`,
-          description: `${user.name} is signed out everywhere and cannot sign in until reactivated. Their matters and history stay.`,
-          confirmLabel: "Deactivate",
+          title: t('userAdmin.deactivateTitle', { name: user.name }),
+          description: t('userAdmin.deactivateDescription', { name: user.name }),
+          confirmLabel: t('userAdmin.deactivate'),
           variant: "destructive",
         },
         () => send("PATCH", `/users/${user.id}`, { is_active: false }),
-        { id: activeActionId(user.id), label: "Deactivating…" },
+        { id: activeActionId(user.id), label: t('userAdmin.deactivatingEllipsis') },
       )
     } else {
       await runAction(
         () => send("PATCH", `/users/${user.id}`, { is_active: true }),
-        { id: activeActionId(user.id), label: "Reactivating…" },
+        { id: activeActionId(user.id), label: t('userAdmin.reactivatingEllipsis') },
       )
     }
   }
@@ -219,36 +224,36 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
         const result = (await send("POST", `/users/${user.id}/password-reset`)) as { path: string }
         setLink({
           url: linkBase + result.path,
-          note: "One use; expires in 24 hours.",
+          note: t('userAdmin.resetLinkNote'),
         })
       },
-      { id: resetActionId(user.id), label: "Resetting…" },
+      { id: resetActionId(user.id), label: t('userAdmin.resettingEllipsis') },
     )
   }
 
   async function removeUser(user: AdminUserRow) {
     await confirmThenRun(
       {
-        title: `Remove ${user.name} permanently?`,
-        description: `Deletes ${user.name}'s account, private chats, playbooks and knowledge-base documents. Matters only ${user.name} is on are deleted. Matters shared with others stay. This cannot be undone. Prefer Deactivate to keep their history.`,
-        confirmLabel: "Remove",
+        title: t('userAdmin.removeTitle', { name: user.name }),
+        description: t('userAdmin.removeDescription', { name: user.name }),
+        confirmLabel: t('userAdmin.remove'),
         variant: "destructive",
       },
       () => send("DELETE", `/users/${user.id}`),
-      { id: removeActionId(user.id), label: "Removing…" },
+      { id: removeActionId(user.id), label: t('userAdmin.removingEllipsis') },
     )
   }
 
   async function revokeInvite(invite: InviteRow) {
     await confirmThenRun(
       {
-        title: `Revoke the invite for ${invite.email}?`,
-        description: "The link stops working.",
-        confirmLabel: "Revoke",
+        title: t('userAdmin.revokeTitle', { email: invite.email }),
+        description: t('userAdmin.revokeDescription'),
+        confirmLabel: t('userAdmin.revoke'),
         variant: "destructive",
       },
       () => send("DELETE", `/invites/${invite.id}`),
-      { id: revokeActionId(invite.id), label: "Revoking…" },
+      { id: revokeActionId(invite.id), label: t('userAdmin.revokingEllipsis') },
     )
   }
 
@@ -274,19 +279,19 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
 
       <Card>
         <CardHeader>
-          <CardDescription>People</CardDescription>
-          <CardTitle>Everyone at the firm</CardTitle>
+          <CardDescription>{t('userAdmin.peopleLabel')}</CardDescription>
+          <CardTitle>{t('userAdmin.everyoneTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last sign-in</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t('userAdmin.nameHeader')}</TableHead>
+                <TableHead>{t('common.email')}</TableHead>
+                <TableHead>{t('userAdmin.roleHeader')}</TableHead>
+                <TableHead>{t('userAdmin.statusHeader')}</TableHead>
+                <TableHead>{t('userAdmin.lastSignInHeader')}</TableHead>
+                <TableHead>{t('userAdmin.actionsHeader')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -295,22 +300,22 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
                   <TableCell>
                     {user.name}
                     {user.email === currentUserEmail && (
-                      <span className="text-muted-foreground"> (you)</span>
+                      <span className="text-muted-foreground"> {t('userAdmin.you')}</span>
                     )}
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                      {user.role === "admin" ? "Admin" : "User"}
+                      {user.role === "admin" ? t('userAdmin.admin') : t('userAdmin.user')}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? "success" : "outline"}>
-                      {user.is_active ? "Active" : "Deactivated"}
+                      {user.is_active ? t('userAdmin.active') : t('userAdmin.deactivated')}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {user.last_sign_in_at ? formatDateTime(user.last_sign_in_at) : "Never"}
+                    {user.last_sign_in_at ? formatDateTime(user.last_sign_in_at) : t('userAdmin.never')}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
@@ -319,48 +324,48 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
                         size="sm"
                         variant="outline"
                         disabled={busy}
-                        aria-label={user.role === "admin" ? `Make ${user.name} a user` : `Make ${user.name} an admin`}
+                        aria-label={user.role === "admin" ? t('userAdmin.ariaMakeUser', { name: user.name }) : t('userAdmin.ariaMakeAdmin', { name: user.name })}
                         onClick={() => void changeRole(user)}
                       >
                         {pending?.id === roleActionId(user.id)
                           ? pending.label
                           : user.role === "admin"
-                            ? "Make user"
-                            : "Make admin"}
+                            ? t('userAdmin.makeUser')
+                            : t('userAdmin.makeAdmin')}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant={user.is_active ? "destructive" : "outline"}
                         disabled={busy}
-                        aria-label={`${user.is_active ? "Deactivate" : "Reactivate"} ${user.name}`}
+                        aria-label={user.is_active ? t('userAdmin.ariaDeactivate', { name: user.name }) : t('userAdmin.ariaReactivate', { name: user.name })}
                         onClick={() => void toggleActive(user)}
                       >
                         {pending?.id === activeActionId(user.id)
                           ? pending.label
                           : user.is_active
-                            ? "Deactivate"
-                            : "Reactivate"}
+                            ? t('userAdmin.deactivate')
+                            : t('userAdmin.reactivate')}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         disabled={busy}
-                        aria-label={`Reset password for ${user.name}`}
+                        aria-label={t('userAdmin.ariaResetPassword', { name: user.name })}
                         onClick={() => void resetPassword(user)}
                       >
-                        {pending?.id === resetActionId(user.id) ? pending.label : "Reset password"}
+                        {pending?.id === resetActionId(user.id) ? pending.label : t('userAdmin.resetPassword')}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="destructive"
                         disabled={busy}
-                        aria-label={`Remove ${user.name}`}
+                        aria-label={t('userAdmin.ariaRemove', { name: user.name })}
                         onClick={() => void removeUser(user)}
                       >
-                        {pending?.id === removeActionId(user.id) ? pending.label : "Remove"}
+                        {pending?.id === removeActionId(user.id) ? pending.label : t('userAdmin.remove')}
                       </Button>
                     </div>
                   </TableCell>
@@ -373,20 +378,20 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
 
       <Card>
         <CardHeader>
-          <CardDescription>Pending</CardDescription>
-          <CardTitle>Invites</CardTitle>
+          <CardDescription>{t('userAdmin.pendingLabel')}</CardDescription>
+          <CardTitle>{t('userAdmin.invitesTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           {invites.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No pending invites.</p>
+            <p className="text-sm text-muted-foreground">{t('userAdmin.noPendingInvites')}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>{t('common.email')}</TableHead>
+                  <TableHead>{t('userAdmin.roleHeader')}</TableHead>
+                  <TableHead>{t('userAdmin.expiresHeader')}</TableHead>
+                  <TableHead>{t('userAdmin.actionsHeader')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -395,7 +400,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
                     <TableCell>{invite.email}</TableCell>
                     <TableCell>
                       <Badge variant={invite.role === "admin" ? "default" : "secondary"}>
-                        {invite.role === "admin" ? "Admin" : "User"}
+                        {invite.role === "admin" ? t('userAdmin.admin') : t('userAdmin.user')}
                       </Badge>
                     </TableCell>
                     <TableCell>{formatDateTime(invite.expires_at)}</TableCell>
@@ -405,10 +410,10 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
                         size="sm"
                         variant="destructive"
                         disabled={busy}
-                        aria-label={`Revoke invite for ${invite.email}`}
+                        aria-label={t('userAdmin.ariaRevoke', { email: invite.email })}
                         onClick={() => void revokeInvite(invite)}
                       >
-                        {pending?.id === revokeActionId(invite.id) ? pending.label : "Revoke"}
+                        {pending?.id === revokeActionId(invite.id) ? pending.label : t('userAdmin.revoke')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -439,6 +444,7 @@ function InviteForm({
   setError: (error: string | null) => void
   setLink: (link: ShownLink | null) => void
 }) {
+  const { t } = useUiT()
   const [email, setEmail] = React.useState("")
   const [role, setRole] = React.useState<"user" | "admin">("user")
 
@@ -452,12 +458,12 @@ function InviteForm({
       }
       setLink({
         url: linkBase + result.path,
-        note: `One use; expires ${formatDateTime(result.invite.expires_at)}. Send it to them yourself.`,
+        note: t('userAdmin.inviteLinkNote', { expires: formatDateTime(result.invite.expires_at) }),
       })
       setEmail("")
       setRole("user")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed")
+      setError(err instanceof Error ? err.message : t('userAdmin.requestFailed'))
     } finally {
       setBusy(false)
     }
@@ -466,13 +472,13 @@ function InviteForm({
   return (
     <Card>
       <CardHeader>
-        <CardDescription>Invite</CardDescription>
-        <CardTitle>Add someone to the firm</CardTitle>
+        <CardDescription>{t('userAdmin.inviteLabel')}</CardDescription>
+        <CardTitle>{t('userAdmin.addSomeoneTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="invite-email">Email</Label>
+            <Label htmlFor="invite-email">{t('common.email')}</Label>
             <Input
               id="invite-email"
               type="email"
@@ -481,19 +487,19 @@ function InviteForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="invite-role">Role</Label>
+            <Label htmlFor="invite-role">{t('userAdmin.roleHeader')}</Label>
             <Select value={role} onValueChange={(value) => setRole(value as "user" | "admin")}>
               <SelectTrigger id="invite-role" className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="user">{t('userAdmin.user')}</SelectItem>
+                <SelectItem value="admin">{t('userAdmin.admin')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <Button type="button" disabled={busy || !email} onClick={() => void handleInvite()}>
-            Create invite link
+            {t('userAdmin.createInviteLink')}
           </Button>
         </div>
       </CardContent>
@@ -502,6 +508,7 @@ function InviteForm({
 }
 
 function LinkBox({ link }: { link: ShownLink }) {
+  const { t } = useUiT()
   const [copied, setCopied] = React.useState(false)
   const [copyError, setCopyError] = React.useState<string | null>(null)
 
@@ -514,8 +521,8 @@ function LinkBox({ link }: { link: ShownLink }) {
       setCopied(true)
     } catch (err) {
       setCopied(false)
-      const message = err instanceof Error ? err.message : "unknown error"
-      setCopyError(`Could not copy: ${message}. Select the link and copy it yourself.`)
+      const message = err instanceof Error ? err.message : t('userAdmin.unknownError')
+      setCopyError(t('userAdmin.couldNotCopy', { message }))
     }
   }
 
@@ -523,9 +530,9 @@ function LinkBox({ link }: { link: ShownLink }) {
     <Card>
       <CardContent className="space-y-2 pt-6">
         <div className="flex items-center gap-2">
-          <Input readOnly value={link.url} aria-label="Link" />
+          <Input readOnly value={link.url} aria-label={t('userAdmin.link')} />
           <Button type="button" variant="outline" onClick={() => void handleCopy()}>
-            {copied ? "Copied" : "Copy"}
+            {copied ? t('userAdmin.copied') : t('userAdmin.copy')}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">{link.note}</p>

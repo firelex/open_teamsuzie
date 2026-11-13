@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { cn } from "../lib/utils"
 import { prettyToolName, summarizeArgs } from "../lib/tool-display"
+import { useUiT } from "../lib/i18n.js"
 import type { ToolEvent } from "./tool-use-status"
 
 function ToolIcon() {
@@ -47,11 +48,12 @@ function ChevronIcon({ open }: { open: boolean }) {
  * "show details" disclosures and tool-debugging surfaces.
  */
 export function ToolCallCard({ event }: { event: ToolEvent }) {
+  const { t } = useUiT()
   const [open, setOpen] = React.useState(false)
   const statusLabel = {
-    running: "Running…",
-    done: "Done",
-    error: "Failed",
+    running: t('toolCallCard.running'),
+    done: t('toolCallCard.done'),
+    error: t('toolCallCard.failed'),
   }[event.status]
   const statusColor = {
     running: "text-muted-foreground",
@@ -106,7 +108,7 @@ export function ToolCallCard({ event }: { event: ToolEvent }) {
           {event.args !== undefined && (
             <div>
               <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-                Arguments
+                {t('toolCallCard.arguments')}
               </div>
               <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
                 {JSON.stringify(event.args, null, 2)}
@@ -116,7 +118,7 @@ export function ToolCallCard({ event }: { event: ToolEvent }) {
           {event.result !== undefined && (
             <div>
               <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-                Result
+                {t('toolCallCard.result')}
               </div>
               <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
                 {JSON.stringify(event.result, null, 2)}
@@ -125,7 +127,7 @@ export function ToolCallCard({ event }: { event: ToolEvent }) {
           )}
           {event.error && (
             <div className="text-destructive">
-              <div className="mb-1 text-[11px] uppercase tracking-wider">Error</div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider">{t('toolCallCard.error')}</div>
               <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
                 {event.error}
               </pre>

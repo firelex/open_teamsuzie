@@ -10,6 +10,7 @@ import {
   PageHeaderTitle,
 } from "./page-header.js"
 import { ModelPicker, type ModelOption } from "./model-picker.js"
+import { useUiT } from "../lib/i18n.js"
 
 export interface SettingsLayoutProps {
   title?: string
@@ -22,12 +23,13 @@ export interface SettingsLayoutProps {
  * the layout provides the page header and a consistent two-column grid
  * (single column on small screens).
  */
-export function SettingsLayout({ title = "Settings", description, children }: SettingsLayoutProps) {
+export function SettingsLayout({ title, description, children }: SettingsLayoutProps) {
+  const { t } = useUiT()
   return (
     <>
       <PageHeader>
         <PageHeaderContent>
-          <PageHeaderTitle>{title}</PageHeaderTitle>
+          <PageHeaderTitle>{title ?? t('settingsCards.settings')}</PageHeaderTitle>
           {description && <PageHeaderDescription>{description}</PageHeaderDescription>}
         </PageHeaderContent>
       </PageHeader>
@@ -52,31 +54,32 @@ export interface AccountCardProps {
  * specific extras. Uses `<Card>` so the `className` for grid placement is
  * handled by the parent layout.
  */
-export function AccountCard({ user, onLogout, label = "Account", children }: AccountCardProps) {
+export function AccountCard({ user, onLogout, label, children }: AccountCardProps) {
+  const { t } = useUiT()
   return (
     <Card>
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
+        <CardDescription>{label ?? t('settingsCards.account')}</CardDescription>
         <CardTitle>{user?.name ?? "—"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="text-xs text-muted-foreground">
           {user?.email && (
             <div>
-              <span className="font-medium text-foreground">Email:</span>{" "}
+              <span className="font-medium text-foreground">{t('settingsCards.emailLabel')}</span>{" "}
               <span className="font-mono">{user.email}</span>
             </div>
           )}
           {user?.role && (
             <div>
-              <span className="font-medium text-foreground">Role:</span>{" "}
+              <span className="font-medium text-foreground">{t('settingsCards.roleLabel')}</span>{" "}
               <span className="font-mono">{user.role}</span>
             </div>
           )}
         </div>
         {children}
         <Button variant="outline" size="sm" onClick={() => void onLogout()}>
-          Sign out
+          {t('settingsCards.signOut')}
         </Button>
       </CardContent>
     </Card>
@@ -109,21 +112,25 @@ export function ModelPickerCard({
   models,
   selected,
   onSelect,
-  title = "Pick the model that powers chat",
-  description = "Chat model",
-  hint = "Changes apply on the next message. Pricing is approximate; follow the link beside each model to verify.",
+  title,
+  description,
+  hint,
   fullWidth = true,
   compact = true,
   onConfigure,
 }: ModelPickerCardProps) {
+  const { t } = useUiT()
+  const effectiveTitle = title ?? t('settingsCards.pickModelTitle')
+  const effectiveDescription = description ?? t('settingsCards.chatModel')
+  const effectiveHint = hint ?? t('settingsCards.pickModelHint')
   return (
     <Card className={fullWidth ? "lg:col-span-2" : undefined}>
       <CardHeader>
-        <CardDescription>{description}</CardDescription>
-        <CardTitle>{title}</CardTitle>
+        <CardDescription>{effectiveDescription}</CardDescription>
+        <CardTitle>{effectiveTitle}</CardTitle>
       </CardHeader>
       <CardContent>
-        {hint && <p className="mb-3 text-xs text-muted-foreground">{hint}</p>}
+        {effectiveHint && <p className="mb-3 text-xs text-muted-foreground">{effectiveHint}</p>}
         <ModelPicker
           models={models}
           selected={selected}

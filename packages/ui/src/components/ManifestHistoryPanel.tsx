@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ManifestDiffView } from './ManifestDiffView';
+import { useUiT } from '../lib/i18n.js';
 
 export interface HistoryRevision {
   ts: string;
@@ -20,6 +21,7 @@ export interface ManifestHistoryPanelProps {
 
 export function ManifestHistoryPanel(props: ManifestHistoryPanelProps) {
   const { revisions, fetchRevision, currentManifest, onRevert, className } = props;
+  const { t } = useUiT();
   const [selected, setSelected] = useState<string | null>(null);
   const [body, setBody] = useState<string>('');
 
@@ -34,7 +36,7 @@ export function ManifestHistoryPanel(props: ManifestHistoryPanelProps) {
     <div className={className} style={{ display: 'flex', height: '100%' }}>
       <div style={{ width: 240, borderRight: '1px solid var(--border, #2a2a2a)', overflow: 'auto' }}>
         {revisions.length === 0 && (
-          <div style={{ padding: 12, fontSize: 12, opacity: 0.6 }}>No revisions yet.</div>
+          <div style={{ padding: 12, fontSize: 12, opacity: 0.6 }}>{t('manifestHistoryPanel.noRevisionsYet')}</div>
         )}
         {revisions.map((r) => (
           <button
@@ -69,13 +71,13 @@ export function ManifestHistoryPanel(props: ManifestHistoryPanelProps) {
                 onClick={() => { void onRevert(selected); }}
                 style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
               >
-                Revert to this
+                {t('manifestHistoryPanel.revertToThis')}
               </button>
             </div>
             <ManifestDiffView before={body} after={currentManifest} beforeLabel={selected} afterLabel="current" />
           </>
         ) : (
-          <div style={{ padding: 16, fontSize: 12, opacity: 0.6 }}>Pick a revision to diff against the current manifest.</div>
+          <div style={{ padding: 16, fontSize: 12, opacity: 0.6 }}>{t('manifestHistoryPanel.pickRevisionToDiff')}</div>
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react"
 
 import { Button } from "./button"
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface SidePanelTab {
   /**
@@ -161,6 +162,7 @@ export function SidePanelSurface({
   width = 640,
   className,
 }: SidePanelSurfaceProps = {}) {
+  const { t } = useUiT()
   const { tabs, activeTabId, isOpen, closeTab, focusTab, close } = useSidePanel()
 
   // Expose the panel's effective width as a CSS variable on the body
@@ -200,7 +202,7 @@ export function SidePanelSurface({
 
   if (!isOpen || tabs.length === 0) return null
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0]
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0]
 
   return (
     <aside
@@ -210,12 +212,12 @@ export function SidePanelSurface({
         className,
       )}
       style={{ width: `${width}px`, minWidth: `${width}px` }}
-      aria-label="Side panel"
+      aria-label={t('sidePanel.sidePanel')}
     >
       <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-1.5">
         <div
           role="tablist"
-          aria-label="Open side-panel tabs"
+          aria-label={t('sidePanel.openTabs')}
           className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
         >
           {tabs.map((tab) => {
@@ -237,7 +239,7 @@ export function SidePanelSurface({
                   type="button"
                   onClick={() => focusTab(tab.id)}
                   className="flex min-w-0 items-center gap-1.5 text-left outline-none"
-                  aria-label={`Focus ${tab.title}`}
+                  aria-label={t('sidePanel.focusTab', { title: tab.title })}
                 >
                   {Icon && <Icon className="size-3.5 shrink-0" aria-hidden />}
                   <span className="truncate font-medium">{tab.title}</span>
@@ -249,7 +251,7 @@ export function SidePanelSurface({
                     "rounded-sm p-0.5 opacity-60 transition-opacity hover:bg-muted hover:opacity-100",
                     isActive && "opacity-100",
                   )}
-                  aria-label={`Close ${tab.title}`}
+                  aria-label={t('sidePanel.closeTab', { title: tab.title })}
                 >
                   <X className="size-3" aria-hidden />
                 </button>
@@ -262,7 +264,7 @@ export function SidePanelSurface({
           size="icon"
           className="ml-auto size-7 shrink-0"
           onClick={close}
-          aria-label="Hide side panel"
+          aria-label={t('sidePanel.hideSidePanel')}
         >
           <X className="size-3.5" aria-hidden />
         </Button>

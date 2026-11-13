@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm"
 import { Code2, Eye } from "lucide-react"
 
 import { markdownComponents } from "./markdown-components"
+import { useUiT } from "../lib/i18n.js"
 
 type Mode = "rendered" | "raw"
 
@@ -36,6 +37,7 @@ export function MarkdownView({
   components,
   className = "",
 }: MarkdownViewProps) {
+  const { t } = useUiT()
   const [mode, setMode] = React.useState<Mode>(initial)
 
   const hasBody = body.trim().length > 0
@@ -51,10 +53,10 @@ export function MarkdownView({
             className={`px-2.5 py-1 flex items-center gap-1 ${
               mode === "rendered" ? "bg-ev-50 text-ev-700" : "text-neutral-500 hover:text-ev-700"
             }`}
-            title="Rendered markdown"
+            title={t('markdownView.renderedTitle')}
           >
             <Eye className="w-3 h-3" />
-            Rendered
+            {t('markdownView.rendered')}
           </button>
           <button
             type="button"
@@ -62,16 +64,16 @@ export function MarkdownView({
             className={`px-2.5 py-1 flex items-center gap-1 border-l border-neutral-200 ${
               mode === "raw" ? "bg-ev-50 text-ev-700" : "text-neutral-500 hover:text-ev-700"
             }`}
-            title="Raw markdown source"
+            title={t('markdownView.rawTitle')}
           >
             <Code2 className="w-3 h-3" />
-            Raw
+            {t('markdownView.raw')}
           </button>
         </div>
         {headerExtras}
       </div>
       <div className="flex-1 min-h-0 overflow-auto">
-        {!hasBody && (emptyState ?? <div className="text-sm text-neutral-400 italic">(empty)</div>)}
+        {!hasBody && (emptyState ?? <div className="text-sm text-neutral-400 italic">{t('common.empty')}</div>)}
         {hasBody && mode === "rendered" && (
           <article
             className="prose prose-slate prose-sm max-w-none

@@ -12,6 +12,7 @@ import {
 } from "./dialog"
 import { Button } from "./button"
 import { PendingButton } from "./pending-button"
+import { useUiT } from "../lib/i18n.js"
 
 export interface ConfirmOptions {
   title: string
@@ -52,6 +53,7 @@ const ConfirmDialogContext = React.createContext<ConfirmDialogContextValue | nul
  */
 // Companion: <ToastProvider> + useToast (./toast) for non-blocking feedback.
 export function ConfirmDialogProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useUiT()
   const [pending, setPending] = React.useState<PendingConfirm | null>(null)
   const [running, setRunning] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -88,7 +90,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
       finish(true)
     } catch (err) {
       setRunning(false)
-      setError(err instanceof Error ? err.message : "Action failed")
+      setError(err instanceof Error ? err.message : t('confirmDialog.actionFailed'))
     }
   }
 
@@ -129,16 +131,16 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" disabled={running}>
-                {opts?.cancelLabel ?? "Cancel"}
+                {opts?.cancelLabel ?? t('common.cancel')}
               </Button>
             </DialogClose>
             <PendingButton
               variant={isDestructive ? "destructive" : "default"}
               pending={running}
-              pendingLabel={(opts?.confirmLabel ?? "Confirm") + "…"}
+              pendingLabel={(opts?.confirmLabel ?? t('confirmDialog.confirm')) + "…"}
               onClick={() => void handleConfirm()}
             >
-              {opts?.confirmLabel ?? "Confirm"}
+              {opts?.confirmLabel ?? t('confirmDialog.confirm')}
             </PendingButton>
           </DialogFooter>
         </DialogContent>

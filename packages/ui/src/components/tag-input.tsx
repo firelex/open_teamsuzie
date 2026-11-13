@@ -2,6 +2,7 @@ import * as React from "react"
 import { X } from "lucide-react"
 
 import { cn } from "../lib/utils"
+import { useUiT } from "../lib/i18n.js"
 
 export interface TagInputProps {
   /** Current chip values. Controlled. */
@@ -56,7 +57,7 @@ export function TagInput({
   value,
   onChange,
   ariaLabel,
-  placeholder = "Type and press Enter",
+  placeholder,
   maxTags,
   allowDuplicates = false,
   caseSensitiveDedup = false,
@@ -66,6 +67,8 @@ export function TagInput({
   tone = "neutral",
   ...rest
 }: TagInputProps) {
+  const { t } = useUiT()
+  const effectivePlaceholder = placeholder ?? t('tagInput.typeAndPressEnter')
   const [draft, setDraft] = React.useState("")
   const inputRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -172,7 +175,7 @@ export function TagInput({
           {!disabled && (
             <button
               type="button"
-              aria-label={`Remove ${tag}`}
+              aria-label={t('tagInput.removeTag', { tag })}
               onClick={(e) => {
                 e.stopPropagation()
                 removeChipAt(i)
@@ -191,7 +194,7 @@ export function TagInput({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
-        placeholder={value.length === 0 ? placeholder : undefined}
+        placeholder={value.length === 0 ? effectivePlaceholder : undefined}
         disabled={disabled}
         aria-label={ariaLabel}
         className="flex-1 min-w-32 bg-transparent outline-none disabled:cursor-not-allowed"

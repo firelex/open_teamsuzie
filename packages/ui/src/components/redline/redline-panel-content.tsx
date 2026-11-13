@@ -3,6 +3,7 @@ import { Download } from 'lucide-react'
 import { LoadingState } from '../loading-state'
 import { RedlineRuns, type RedlineParagraph } from './redline-runs'
 import { ensureRedlineStyles } from './redline-styles'
+import { useUiT } from '../../lib/i18n.js'
 
 /**
  * Inline redline preview rendered as the body of a side-panel tab.
@@ -86,6 +87,7 @@ export function RedlinePanelContent({
   onLoadRedline,
   downloadHref,
 }: RedlinePanelContentProps) {
+  const { t } = useUiT()
   ensureRedlineStyles()
   const [paragraphs, setParagraphs] = React.useState<RedlineParagraph[] | null>(
     null,
@@ -104,7 +106,7 @@ export function RedlinePanelContent({
         setError(null)
       } catch (err) {
         if (signal?.aborted) return
-        setError(err instanceof Error ? err.message : 'Failed to load preview')
+        setError(err instanceof Error ? err.message : t('redline.failedToLoadPreview'))
       }
     },
     [sessionId, fileId, onLoadRedline],
@@ -194,7 +196,7 @@ export function RedlinePanelContent({
             {fileName}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Inline tracked changes — click an edit to find its card
+            {t('redline.inlineTrackedChangesHint')}
           </div>
         </div>
         {downloadHref && (
@@ -202,10 +204,10 @@ export function RedlinePanelContent({
             href={downloadHref}
             download
             className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-accent/40"
-            title="Download the .docx with native Word tracked changes"
+            title={t('redline.downloadDocxTitle')}
           >
             <Download className="size-3.5" aria-hidden />
-            Download
+            {t('redline.download')}
           </a>
         )}
       </div>
@@ -214,10 +216,10 @@ export function RedlinePanelContent({
         className="flex-1 overflow-y-auto p-4 text-sm leading-relaxed"
       >
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!paragraphs && !error && <LoadingState>Loading redline…</LoadingState>}
+        {!paragraphs && !error && <LoadingState>{t('redline.loadingRedline')}</LoadingState>}
         {paragraphs && paragraphs.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No paragraphs in document.
+            {t('redline.noParagraphsInDocument')}
           </p>
         )}
         {paragraphs && paragraphs.length > 0 && (

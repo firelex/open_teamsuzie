@@ -10,6 +10,7 @@ import {
   type ModelOption,
   type ModelPricing,
 } from "../lib/default-models.js"
+import { useUiT } from "../lib/i18n.js"
 
 export { DEFAULT_MODELS }
 export type { ModelOption, ModelPricing }
@@ -77,6 +78,7 @@ function CompactRow({
   onSelect: (id: string) => void
   onConfigure?: (model: ModelOption) => void
 }) {
+  const { t } = useUiT()
   return (
     <button
       type="button"
@@ -114,7 +116,7 @@ function CompactRow({
           {model.description && <span className="text-foreground/80">{model.description}</span>}
           <span className="font-mono">{model.id}</span>
           {model.local && model.resolvedBaseUrl && (
-            <span title="Resolved server URL — set in .env">
+            <span title={t('modelPicker.resolvedServerUrl')}>
               → <span className="font-mono">{model.resolvedBaseUrl}</span>
             </span>
           )}
@@ -126,7 +128,7 @@ function CompactRow({
               onClick={(e) => e.stopPropagation()}
               className="text-primary underline-offset-2 hover:underline"
             >
-              Install instructions →
+              {t('modelPicker.installInstructions')}
             </a>
           ) : (
             model.pricingUrl && (
@@ -137,7 +139,7 @@ function CompactRow({
                 onClick={(e) => e.stopPropagation()}
                 className="text-primary underline-offset-2 hover:underline"
               >
-                Verify pricing →
+                {t('modelPicker.verifyPricing')}
               </a>
             )
           )}
@@ -150,7 +152,7 @@ function CompactRow({
               }}
               className="text-primary underline-offset-2 hover:underline"
             >
-              Configure endpoint →
+              {t('modelPicker.configureEndpoint')}
             </button>
           )}
           {model.pricing?.note && <span>{model.pricing.note}</span>}
@@ -171,6 +173,7 @@ function RoomyRow({
   onSelect: (id: string) => void
   onConfigure?: (model: ModelOption) => void
 }) {
+  const { t } = useUiT()
   return (
     <button
       type="button"
@@ -207,7 +210,7 @@ function RoomyRow({
               <div className="font-mono text-foreground">
                 {formatUsd(model.pricing.inputPer1M)} / {formatUsd(model.pricing.outputPer1M)}
               </div>
-              <div className="text-muted-foreground">per 1M tokens</div>
+              <div className="text-muted-foreground">{t('modelPicker.perMillionTokens')}</div>
             </div>
           )}
         </div>
@@ -215,7 +218,7 @@ function RoomyRow({
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="font-mono">{model.id}</span>
           {model.local && model.resolvedBaseUrl && (
-            <span title="Resolved server URL — set in .env">
+            <span title={t('modelPicker.resolvedServerUrl')}>
               → <span className="font-mono">{model.resolvedBaseUrl}</span>
             </span>
           )}
@@ -227,7 +230,7 @@ function RoomyRow({
               onClick={(e) => e.stopPropagation()}
               className="text-primary underline-offset-2 hover:underline"
             >
-              Install instructions →
+              {t('modelPicker.installInstructions')}
             </a>
           ) : (
             model.pricingUrl && (
@@ -238,7 +241,7 @@ function RoomyRow({
                 onClick={(e) => e.stopPropagation()}
                 className="text-primary underline-offset-2 hover:underline"
               >
-                Verify pricing →
+                {t('modelPicker.verifyPricing')}
               </a>
             )
           )}
@@ -251,7 +254,7 @@ function RoomyRow({
               }}
               className="text-primary underline-offset-2 hover:underline"
             >
-              Configure endpoint →
+              {t('modelPicker.configureEndpoint')}
             </button>
           )}
           {model.pricing?.note && <span>{model.pricing.note}</span>}
@@ -262,9 +265,10 @@ function RoomyRow({
 }
 
 function LocalBadge() {
+  const { t } = useUiT()
   return (
     <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-      Local
+      {t('modelPicker.local')}
     </span>
   )
 }

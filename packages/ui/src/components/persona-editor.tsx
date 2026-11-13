@@ -14,6 +14,7 @@ import { Label } from "./label.js"
 import { Textarea } from "./textarea.js"
 import { PersonaAvatar } from "./persona-picker.js"
 import { useConfirm } from "./confirm-dialog.js"
+import { useUiT } from "../lib/i18n.js"
 import {
   usePersonas,
   type Persona,
@@ -57,6 +58,7 @@ export interface PersonaEditorProps {
 }
 
 export function PersonaEditor(props: PersonaEditorProps) {
+  const { t } = useUiT()
   const {
     availableAvatars = [],
     availableTools = [],
@@ -113,15 +115,15 @@ export function PersonaEditor(props: PersonaEditorProps) {
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Personas</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t('personaEditor.personas')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {selectable
-              ? "Click a persona to activate it. Create your own with custom system prompts and tool subsets."
-              : "Create your own assistant personas with custom system prompts and tool subsets. Built-in personas are read-only."}
+              ? t('personaEditor.clickToActivateHint')
+              : t('personaEditor.createOwnHint')}
           </p>
         </div>
         <Button type="button" className="shrink-0" onClick={() => setEditing("new")}>
-          New persona
+          {t('personaEditor.newPersona')}
         </Button>
       </div>
 
@@ -130,9 +132,9 @@ export function PersonaEditor(props: PersonaEditorProps) {
           type="search"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search personas…"
+          placeholder={t('personaEditor.searchPersonas')}
           className="h-9"
-          aria-label="Search personas"
+          aria-label={t('personaEditor.searchPersonas')}
         />
       </div>
 
@@ -146,14 +148,14 @@ export function PersonaEditor(props: PersonaEditorProps) {
             active={noPersonaActive}
             onClick={() => onSelect?.(null)}
             avatar={<DefaultPersonaCircle />}
-            title="Default Counsel"
-            description="No persona — the assistant uses its base system prompt and full tool set."
+            title={t('personaEditor.defaultCounsel')}
+            description={t('personaEditor.defaultCounselDescription')}
           />
         </div>
       )}
 
       {loading ? (
-        <p className="px-1 py-3 text-xs text-muted-foreground">Loading…</p>
+        <p className="px-1 py-3 text-xs text-muted-foreground">{t('common.loadingEllipsis')}</p>
       ) : personas.length === 0 ? (
         <EmptyState q={q} />
       ) : (
@@ -233,6 +235,7 @@ function PersonaRow({
   onEdit: (persona: Persona) => void
   onDelete: (id: string) => Promise<void>
 }) {
+  const { t } = useUiT()
   const confirmDelete = useConfirm()
   const isUser = persona.source === "user"
   return (
@@ -254,7 +257,7 @@ function PersonaRow({
                 onEdit(persona)
               }}
             >
-              Edit
+              {t('common.edit')}
             </Button>
             <Button
               type="button"
@@ -263,9 +266,9 @@ function PersonaRow({
               onClick={async (e) => {
                 e.stopPropagation()
                 const ok = await confirmDelete({
-                  title: `Delete "${persona.name}"?`,
-                  description: "This persona will be removed.",
-                  confirmLabel: "Delete",
+                  title: t('personaEditor.deletePersonaTitle', { name: persona.name }),
+                  description: t('personaEditor.deletePersonaDescription'),
+                  confirmLabel: t('common.delete'),
                   variant: "destructive",
                 })
                 if (!ok) return
@@ -273,7 +276,7 @@ function PersonaRow({
               }}
               className="text-destructive hover:text-destructive"
             >
-              Delete
+              {t('common.delete')}
             </Button>
           </>
         ) : (
@@ -286,7 +289,7 @@ function PersonaRow({
               onView(persona)
             }}
           >
-            View
+            {t('common.view')}
           </Button>
         )
       }
@@ -295,10 +298,11 @@ function PersonaRow({
 }
 
 function EmptyState({ q }: { q: string }) {
+  const { t } = useUiT()
   return (
     <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
       <p className="text-sm text-muted-foreground">
-        {q ? `No personas match "${q}".` : "No personas to show."}
+        {q ? t('personaEditor.noPersonasMatch', { query: q }) : t('personaEditor.noPersonasToShow')}
       </p>
     </div>
   )
@@ -313,10 +317,11 @@ function Pagination({
   totalPages: number
   onPageChange: (next: number) => void
 }) {
+  const { t } = useUiT()
   return (
     <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
       <span>
-        Page {page} of {totalPages}
+        {t('pagination.pageOf', { page, total: totalPages })}
       </span>
       <div className="flex items-center gap-2">
         <Button
@@ -326,7 +331,7 @@ function Pagination({
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
-          Previous
+          {t('common.previous')}
         </Button>
         <Button
           type="button"
@@ -335,7 +340,7 @@ function Pagination({
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >
-          Next
+          {t('common.next')}
         </Button>
       </div>
     </div>
@@ -361,6 +366,7 @@ function PersonaCard(props: {
    *  title in a quieter outline style than the "Active" pill. */
   kindLabel?: "Built-in" | "Custom"
 }) {
+  const { t } = useUiT()
   const { active, onClick, avatar, title, description, actions, kindLabel } = props
   const clickable = !!onClick
   // Render as a div with role="button" when clickable — using a real <button>
@@ -405,12 +411,12 @@ function PersonaCard(props: {
                   : "border-primary/30 bg-primary/5 text-primary",
               )}
             >
-              {kindLabel}
+              {kindLabel === "Built-in" ? t('personaEditor.builtIn') : t('personaEditor.custom')}
             </span>
           )}
           {active && (
             <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-background">
-              Active
+              {t('personaEditor.active')}
             </span>
           )}
         </div>
@@ -450,6 +456,7 @@ function AvatarPicker({
   selected: string | undefined
   onChange: (next: string | undefined) => void
 }) {
+  const { t } = useUiT()
   const [open, setOpen] = React.useState(false)
   // Stage Escape: while the picker is expanded inside the persona dialog,
   // pressing Escape should collapse the picker first; only when it's
@@ -495,7 +502,7 @@ function AvatarPicker({
 
   return (
     <div className="space-y-1.5">
-      <Label>Avatar</Label>
+      <Label>{t('personaEditor.avatar')}</Label>
       {/* Trigger is the avatar itself — click it to open the picker. The
           "no avatar" state shows a placeholder circle with a + glyph; same
           click target. Removing the avatar entirely happens via the "None"
@@ -521,10 +528,10 @@ function AvatarPicker({
         )}
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-foreground">
-            {selected ? "Avatar" : "No avatar"}
+            {selected ? t('personaEditor.avatar') : t('personaEditor.noAvatar')}
           </div>
           <div className="text-xs text-muted-foreground">
-            {open ? "Picker open — pick one or click to close" : "Click to change"}
+            {open ? t('personaEditor.pickerOpenHint') : t('personaEditor.clickToChange')}
           </div>
         </div>
       </button>
@@ -533,7 +540,7 @@ function AvatarPicker({
           {groupNames.length > 1 && (
             <div className="flex items-center gap-1 border-b border-border p-1.5">
               <GroupTab
-                label="All"
+                label={t('common.all')}
                 active={activeGroup === "__all__"}
                 onClick={() => setActiveGroup("__all__")}
                 count={available.length}
@@ -563,9 +570,9 @@ function AvatarPicker({
                       ? "border-foreground"
                       : "border-transparent hover:border-foreground/30",
                   )}
-                  title="No avatar"
+                  title={t('personaEditor.noAvatar')}
                 >
-                  None
+                  {t('personaEditor.none')}
                 </button>
               </div>
             )}
@@ -660,6 +667,7 @@ interface PersonaFormProps {
 }
 
 function PersonaForm(props: PersonaFormProps) {
+  const { t } = useUiT()
   const { mode, initial, availableAvatars, availableTools, onCancel, onSubmit, renderSystemPromptAiFill } = props
   const readOnly = mode === "view"
   const [name, setName] = React.useState(initial?.name ?? "")
@@ -691,7 +699,7 @@ function PersonaForm(props: PersonaFormProps) {
       if (!allowAll) input.allowedTools = Array.from(allowedTools)
       await onSubmit(input)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed")
+      setError(err instanceof Error ? err.message : t('common.saveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -713,26 +721,26 @@ function PersonaForm(props: PersonaFormProps) {
         <DialogHeader>
           <DialogTitle>
             {mode === "create"
-              ? "New persona"
+              ? t('personaEditor.newPersona')
               : mode === "view"
-                ? `${initial?.name ?? "Persona"} — built-in`
-                : "Edit persona"}
+                ? t('personaEditor.builtInTitle', { name: initial?.name ?? t('personaEditor.persona') })
+                : t('personaEditor.editPersona')}
           </DialogTitle>
           <DialogDescription>
             {readOnly
-              ? "Read-only view of a built-in persona's system prompt and tool allowlist."
-              : "Personas have their own system prompt and (optionally) restricted tool set. They show up in the persona picker alongside the built-ins."}
+              ? t('personaEditor.readOnlyDescription')
+              : t('personaEditor.formDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="-mr-2 space-y-4 overflow-y-auto pr-2">
           <div className="space-y-1.5">
-            <Label htmlFor="persona-name">Name</Label>
+            <Label htmlFor="persona-name">{t('common.name')}</Label>
             <Input
               id="persona-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Litigation associate"
+              placeholder={t('personaEditor.namePlaceholder')}
               maxLength={100}
               readOnly={readOnly}
               disabled={readOnly}
@@ -740,12 +748,12 @@ function PersonaForm(props: PersonaFormProps) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="persona-description">Description</Label>
+            <Label htmlFor="persona-description">{t('personaEditor.description')}</Label>
             <Input
               id="persona-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="One sentence — shown in the picker"
+              placeholder={t('personaEditor.descriptionPlaceholder')}
               maxLength={200}
               readOnly={readOnly}
               disabled={readOnly}
@@ -761,7 +769,7 @@ function PersonaForm(props: PersonaFormProps) {
           )}
           {readOnly && avatar && (
             <div className="space-y-1.5">
-              <Label>Avatar</Label>
+              <Label>{t('personaEditor.avatar')}</Label>
               <div className="size-12 overflow-hidden rounded-full border-2 border-foreground">
                 <img src={avatar} alt="" className="size-full object-cover" />
               </div>
@@ -771,17 +779,17 @@ function PersonaForm(props: PersonaFormProps) {
           <div className="space-y-1.5">
             {!readOnly && renderSystemPromptAiFill ? (
               <div className="flex items-center justify-between">
-                <Label htmlFor="persona-prompt">System prompt</Label>
+                <Label htmlFor="persona-prompt">{t('personaEditor.systemPrompt')}</Label>
                 {renderSystemPromptAiFill({ name, description, setSystemPrompt })}
               </div>
             ) : (
-              <Label htmlFor="persona-prompt">System prompt</Label>
+              <Label htmlFor="persona-prompt">{t('personaEditor.systemPrompt')}</Label>
             )}
             <Textarea
               id="persona-prompt"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="You are Counsel, an AI legal assistant focused on…"
+              placeholder={t('personaEditor.systemPromptPlaceholder')}
               className="min-h-[180px] font-mono text-xs"
               readOnly={readOnly}
               disabled={readOnly}
@@ -790,7 +798,7 @@ function PersonaForm(props: PersonaFormProps) {
 
           {availableTools.length > 0 && (
             <div className="space-y-1.5">
-              <Label>Tools</Label>
+              <Label>{t('personaEditor.tools')}</Label>
               <label className={cn("flex items-center gap-2 text-sm", readOnly ? "cursor-default" : "cursor-pointer")}>
                 <input
                   type="checkbox"
@@ -798,7 +806,7 @@ function PersonaForm(props: PersonaFormProps) {
                   onChange={(e) => setAllowAll(e.target.checked)}
                   disabled={readOnly}
                 />
-                <span>Use all available tools</span>
+                <span>{t('personaEditor.useAllAvailableTools')}</span>
               </label>
               {!allowAll && (
                 <div className="max-h-44 overflow-y-auto rounded-md border border-border p-2">
@@ -843,11 +851,11 @@ function PersonaForm(props: PersonaFormProps) {
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel}>
-            {readOnly ? "Close" : "Cancel"}
+            {readOnly ? t('common.close') : t('common.cancel')}
           </Button>
           {!readOnly && (
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-              {submitting ? "Saving…" : mode === "create" ? "Create" : "Save changes"}
+              {submitting ? t('common.savingEllipsis') : mode === "create" ? t('common.create') : t('personaEditor.saveChanges')}
             </Button>
           )}
         </DialogFooter>

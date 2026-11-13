@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './button';
+import { useUiT } from '../lib/i18n.js';
 
 export interface PaginationProps {
   currentPage: number;
@@ -23,6 +24,7 @@ export function Pagination({
   className,
   size = 'md'
 }: PaginationProps) {
+  const { t } = useUiT();
   // Calculate which page numbers to show
   const getVisiblePages = () => {
     if (totalPages <= maxVisiblePages) {
@@ -57,7 +59,7 @@ export function Pagination({
   return (
     <nav
       role="navigation"
-      aria-label="Pagination Navigation"
+      aria-label={t('pagination.navigation')}
       className={cn('flex items-center justify-center space-x-1', className)}
     >
       {/* First page */}
@@ -67,7 +69,7 @@ export function Pagination({
           size="icon"
           className={buttonSize}
           onClick={() => onPageChange(1)}
-          aria-label="Go to first page"
+          aria-label={t('pagination.goToFirstPage')}
         >
           1
         </Button>
@@ -81,7 +83,7 @@ export function Pagination({
           className={buttonSize}
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          aria-label="Go to previous page"
+          aria-label={t('pagination.goToPreviousPage')}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -108,7 +110,7 @@ export function Pagination({
           size="icon"
           className={buttonSize}
           onClick={() => onPageChange(page)}
-          aria-label={`Go to page ${page}`}
+          aria-label={t('pagination.goToPage', { page })}
           aria-current={page === currentPage ? "page" : undefined}
         >
           {page}
@@ -136,7 +138,7 @@ export function Pagination({
           className={buttonSize}
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          aria-label="Go to next page"
+          aria-label={t('pagination.goToNextPage')}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -149,7 +151,7 @@ export function Pagination({
           size="icon"
           className={buttonSize}
           onClick={() => onPageChange(totalPages)}
-          aria-label="Go to last page"
+          aria-label={t('pagination.goToLastPage')}
         >
           {totalPages}
         </Button>
@@ -171,12 +173,13 @@ export function PaginationInfo({
   totalItems,
   className
 }: PaginationInfoProps) {
+  const { t } = useUiT();
   const startItem = Math.min((currentPage - 1) * pageSize + 1, totalItems);
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
     <div className={cn('text-sm text-muted-foreground', className)}>
-      Showing {startItem} to {endItem} of {totalItems} entries
+      {t('pagination.showingEntries', { start: startItem, end: endItem, total: totalItems })}
     </div>
   );
 }

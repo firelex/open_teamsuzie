@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { useUiT } from "../lib/i18n.js"
+
 /**
  * Render a Mermaid diagram. `mermaid` is lazy-imported the first time a
  * block mounts so the dep (~700kb) stays out of the main bundle for users
@@ -15,6 +17,7 @@ export interface MermaidBlockProps {
 }
 
 export function MermaidBlock({ code }: MermaidBlockProps) {
+  const { t } = useUiT()
   const hostRef = React.useRef<HTMLDivElement>(null)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -51,7 +54,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
   if (error) {
     return (
       <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2">
-        <div className="text-xs font-medium text-rose-700">Mermaid diagram failed to render</div>
+        <div className="text-xs font-medium text-rose-700">{t('mermaidBlock.failedToRender')}</div>
         <div className="mt-1 text-[11px] text-rose-700">{error}</div>
         <pre className="mt-2 overflow-x-auto rounded bg-rose-100/70 p-2 font-mono text-[11px] text-rose-900">
 {code}
