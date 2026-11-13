@@ -16,6 +16,28 @@ const PUBLIC_EMAIL_DOMAINS = new Set([
     'gmx.com', 'gmx.net', 'fastmail.com',
 ]);
 
+/**
+ * Stable, machine-readable codes for the specific `UserService` errors (thrown as
+ * `Object.assign(new Error(message), { code: <http status> })`) that reach the generic
+ * `catch (e: any) { res.status(e.code || 500)... }` blocks in `login`, `register`, and
+ * `createAccessToken` below. Keyed by the exact, fixed message those errors are thrown with
+ * in `services/user.ts`. Returns `undefined` for anything else (including every 5xx case),
+ * so those keep answering with `message` only, exactly as before this file gained an `error`
+ * code for its own literal 4xx responses.
+ */
+function serviceErrorCode(e: { message?: string }): string | undefined {
+    switch (e.message) {
+        case 'This account has been deactivated':
+            return 'account_deactivated';
+        case 'User with this email already exists':
+            return 'email_already_registered';
+        case 'User not found':
+            return 'user_not_found';
+        default:
+            return undefined;
+    }
+}
+
 export default class AuthController {
 
     private userService: UserService;
@@ -223,7 +245,7 @@ export default class AuthController {
         try {
             const auth = await this.getAuthenticatedUser(req);
             if (!auth) {
-                res.status(401).json({ message: 'Not authenticated' });
+                res.status(401).json({ error: 'not_authenticated', message: 'Not authenticated' });
                 return;
             }
 
@@ -240,7 +262,7 @@ export default class AuthController {
         try {
             const auth = await this.getAuthenticatedUser(req);
             if (!auth) {
-                res.status(401).json({ authenticated: false, message: 'Not authenticated' });
+                res.status(401).json({ authenticated: false, error: 'not_authenticated', message: 'Not authenticated' });
                 return;
             }
 
@@ -260,14 +282,14 @@ export default class AuthController {
             const { email, password } = req.body;
 
             if (!email || !password) {
-                res.status(400).json({ message: 'Email and password are required' });
+                res.status(400).json({ error: 'missing_credentials', message: 'Email and password are required' });
                 return;
             }
 
             const user = await this.userService.authenticate(email, password);
 
             if (!user) {
-                res.status(401).json({ message: 'Invalid email or password' });
+                res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });
                 return;
             }
 
@@ -300,7 +322,11 @@ export default class AuthController {
                 }
             });
         } catch (e: any) {
-            res.status(e.code || 500).json({ message: e.message || 'Internal server error' });
+            const errorCode = serviceErrorCode(e);
+            res.status(e.code || 500).json({
+                ...(errorCode ? { error: errorCode } : {}),
+                message: e.message || 'Internal server error',
+            });
         }
     }
 
@@ -342,13 +368,13 @@ export default class AuthController {
 
             const decision = checkRegistration(this.registration, typeof email === 'string' ? email : '');
             if (!decision.allowed) {
-                res.status(403).json({ message: decision.message });
+                res.status(403).json({ error: 'registration_not_allowed', message: decision.message });
                 return;
             }
 
             if (!email || !password || !name
                 || typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string') {
-                res.status(400).json({ message: 'Email, password, and name are required' });
+                res.status(400).json({ error: 'missing_registration_fields', message: 'Email, password, and name are required' });
                 return;
             }
 
@@ -383,7 +409,11 @@ export default class AuthController {
             });
         } catch (e: any) {
             const code = e.code || 500;
-            res.status(code).json({ message: e.message || 'Internal server error' });
+            const errorCode = serviceErrorCode(e);
+            res.status(code).json({
+                ...(errorCode ? { error: errorCode } : {}),
+                message: e.message || 'Internal server error',
+            });
         }
     }
 
@@ -391,7 +421,7 @@ export default class AuthController {
         try {
             const auth = await this.getAuthenticatedUser(req);
             if (!auth) {
-                res.status(401).json({ message: 'Not authenticated' });
+                res.status(401).json({ error: 'not_authenticated', message: 'Not authenticated' });
                 return;
             }
 
@@ -416,7 +446,11 @@ export default class AuthController {
             });
         } catch (e: any) {
             const code = e.code || 500;
-            res.status(code).json({ message: e.message || 'Internal server error' });
+            const errorCode = serviceErrorCode(e);
+            res.status(code).json({
+                ...(errorCode ? { error: errorCode } : {}),
+                message: e.message || 'Internal server error',
+            });
         }
     }
 
@@ -424,7 +458,7 @@ export default class AuthController {
         try {
             const auth = await this.getAuthenticatedUser(req);
             if (!auth) {
-                res.status(401).json({ message: 'Not authenticated' });
+                res.status(401).json({ error: 'not_authenticated', message: 'Not authenticated' });
                 return;
             }
 
@@ -439,19 +473,19 @@ export default class AuthController {
         try {
             const auth = await this.getAuthenticatedUser(req);
             if (!auth) {
-                res.status(401).json({ message: 'Not authenticated' });
+                res.status(401).json({ error: 'not_authenticated', message: 'Not authenticated' });
                 return;
             }
 
             const tokenId = String(req.params.id || '').trim();
             if (!tokenId) {
-                res.status(400).json({ message: 'Token id is required' });
+                res.status(400).json({ error: 'token_id_required', message: 'Token id is required' });
                 return;
             }
 
             const revoked = await this.userService.revokeAccessToken(auth.user.id, tokenId);
             if (!revoked) {
-                res.status(404).json({ message: 'Token not found' });
+                res.status(404).json({ error: 'token_not_found', message: 'Token not found' });
                 return;
             }
 
@@ -472,11 +506,11 @@ export default class AuthController {
     ): Promise<{ id: string; email: string; role: string } | null> {
         const auth = await this.getAuthenticatedUser(req);
         if (!auth) {
-            res.status(401).json({ message: 'Not authenticated' });
+            res.status(401).json({ error: 'not_authenticated', message: 'Not authenticated' });
             return null;
         }
         if (!allowed(auth.user)) {
-            res.status(403).json({ message: 'Forbidden' });
+            res.status(403).json({ error: 'forbidden', message: 'Forbidden' });
             return null;
         }
         return auth.user;
@@ -487,7 +521,7 @@ export default class AuthController {
         try {
             const email = req.params.email as string;
             if (!email) {
-                res.status(400).json({ message: 'Email parameter is required' });
+                res.status(400).json({ error: 'email_required', message: 'Email parameter is required' });
                 return;
             }
             // Checked before the lookup, so the answer never reveals whether someone else's address has an account.
@@ -497,7 +531,7 @@ export default class AuthController {
 
             const user = await this.userService.findByEmail(email);
             if (!user) {
-                res.status(404).json({ message: 'User not found' });
+                res.status(404).json({ error: 'user_not_found', message: 'User not found' });
                 return;
             }
             res.status(200).json({ user });

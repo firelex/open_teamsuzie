@@ -109,7 +109,7 @@ describe('register', () => {
         const { controller, users } = makeController({ mode: 'closed' });
         const out = await call(controller.register, fakeReq({ body: NEW_ACCOUNT }));
         expect(out.statusCode).toBe(403);
-        expect(out.body).toEqual({ message: expect.stringMatching(/closed/i) });
+        expect(out.body).toEqual({ error: 'registration_not_allowed', message: expect.stringMatching(/closed/i) });
         expect(users.create).not.toHaveBeenCalled();
     });
 
@@ -230,7 +230,7 @@ describe('deactivated accounts', () => {
         });
         const out = await call(controller.login, fakeReq({ body: { email: 'alice@example.com', password: 'x' } }));
         expect(out.statusCode).toBe(403);
-        expect(out.body).toEqual({ message: 'This account has been deactivated' });
+        expect(out.body).toEqual({ error: 'account_deactivated', message: 'This account has been deactivated' });
     });
 
     it('an existing session of a deactivated user counts as signed out', async () => {
