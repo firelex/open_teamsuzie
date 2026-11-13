@@ -151,20 +151,14 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
 }
 
 /**
- * Merge `prefs` into the JSON object the app keeps under `key`. A stored
- * value that is not a JSON object is one the app itself would ignore (it
- * starts from its defaults), so it is replaced by `prefs` alone.
+ * Merge `prefs` into the JSON object the app keeps under `key`. The app
+ * always writes a JSON object there; anything else is a fault and throws.
  */
 function mergePrefs(key: string, prefs: Record<string, unknown>): void {
   const raw = window.localStorage.getItem(key)
-  let stored: Record<string, unknown> = {}
-  if (raw) {
-    try {
-      const parsed: unknown = JSON.parse(raw)
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed as Record<string, unknown>
-    } catch {
-      // Unreadable: the app would start from its defaults too.
-    }
+  const stored: unknown = raw ? JSON.parse(raw) : {}
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+    throw new Error(`The stored preferences under ${key} are not a JSON object`)
   }
-  window.localStorage.setItem(key, JSON.stringify({ ...stored, ...prefs }))
+  window.localStorage.setItem(key, JSON.stringify({ ...(stored as Record<string, unknown>), ...prefs }))
 }
