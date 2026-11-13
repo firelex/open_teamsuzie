@@ -267,3 +267,39 @@ describe('deactivated accounts', () => {
         expect(out.statusCode).toBe(401);
     });
 });
+
+describe('sign-in with an external password check', () => {
+    function withExternal(check: (name: string, password: string) => Promise<string | null>) {
+        const { controller, users } = makeController();
+        (controller as unknown as { config: SharedAuthConfig }).config = { ...baseConfig(), externalPasswords: vi.fn(check) };
+        const signInExternal = vi.fn(async (email: string) => {
+            const u = USERS.find((x) => x.email === email);
+            if (!u) throw Object.assign(new Error('no account'), { code: 500 });
+            return u;
+        });
+        Object.assign(users, { signInExternal, authenticate: vi.fn(async () => null) });
+        return { controller, users };
+    }
+
+    it('signs in a sign-in name the check vouches for, as the account it names', async () => {
+        const { controller, users } = withExternal(async (name, pw) => (name === 'alice79' && pw === 'right-pass' ? 'alice@example.com' : null));
+        const out = await call(controller.login, fakeReq({ body: { email: 'alice79', password: 'right-pass' } }));
+        expect(out.statusCode).toBe(200);
+        expect((out.body as { user: { email: string } }).user.email).toBe('alice@example.com');
+        // A name without @ is never tried as a local email.
+        expect(users.authenticate).not.toHaveBeenCalled();
+    });
+
+    it('asks the check after a local email and password fail, and refuses when it says no', async () => {
+        const { controller, users } = withExternal(async () => null);
+        const out = await call(controller.login, fakeReq({ body: { email: 'alice@example.com', password: 'wrong' } }));
+        expect(users.authenticate).toHaveBeenCalled();
+        expect(out.statusCode).toBe(401);
+    });
+
+    it('without a check, a sign-in name is simply wrong', async () => {
+        const { controller } = makeController();
+        const out = await call(controller.login, fakeReq({ body: { email: 'alice79', password: 'x' } }));
+        expect(out.statusCode).toBe(401);
+    });
+});

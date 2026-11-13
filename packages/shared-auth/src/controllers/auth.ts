@@ -281,6 +281,7 @@ export default class AuthController {
 
     login = async (req: Request, res: Response): Promise<void> => {
         try {
+            // `email` is what the person typed: an email address, or a sign-in name an external check knows.
             const { email, password } = req.body;
 
             if (!email || !password) {
@@ -288,7 +289,12 @@ export default class AuthController {
                 return;
             }
 
-            const user = await this.userService.authenticate(email, password);
+            const external = this.config.externalPasswords;
+            let user = String(email).includes('@') ? await this.userService.authenticate(email, password) : null;
+            if (!user && external) {
+                const vouched = await external(String(email).trim(), String(password));
+                if (vouched) user = await this.userService.signInExternal(vouched);
+            }
 
             if (!user) {
                 res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });

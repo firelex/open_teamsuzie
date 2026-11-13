@@ -67,6 +67,19 @@ export default class UserService {
         return user;
     }
 
+    /**
+     * Sign in the local account an external password check vouched for (SharedAuthConfig.externalPasswords):
+     * refused when it has no account here or the account is deactivated.
+     */
+    signInExternal = async (email: string): Promise<User> => {
+        const user = await User.findOne({ where: emailMatches(email) });
+        if (!user) throw Object.assign(new Error(`The external password check named ${email}, which has no account here`), { code: 500 });
+        if (!user.is_active) throw Object.assign(new Error('This account has been deactivated'), { code: 403 });
+        user.last_sign_in_at = new Date();
+        await user.save();
+        return user;
+    };
+
     createAccessToken = async (
         userId: string,
         name = 'app-client',
