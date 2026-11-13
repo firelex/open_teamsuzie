@@ -34,11 +34,17 @@ function fail(res: Response, status: number, error: string, message: string): vo
     res.status(status).json({ error, message });
 }
 
-/** Turns a thrown error into a response: its `code` when it is an HTTP status, else 500 with its message. */
+/**
+ * Turns a thrown error into a response: its `code` when it is an HTTP status, else 500. The error label is the
+ * thrown error's own `error` string when it has one (e.g. the store's `{ code: 409, error: 'last_admin' }`) —
+ * that is just labeling what was already decided elsewhere, not masking anything — and only falls back to a
+ * generic label when the thrown error carries none.
+ */
 function answerError(res: Response, e: unknown): void {
-    const err = e as { code?: unknown; message?: string };
+    const err = e as { code?: unknown; message?: string; error?: unknown };
     const status = typeof err.code === 'number' && err.code >= 400 && err.code < 600 ? err.code : 500;
-    fail(res, status, status === 500 ? 'internal' : 'refused', err.message ?? String(e));
+    const label = typeof err.error === 'string' ? err.error : (status === 500 ? 'internal' : 'refused');
+    fail(res, status, label, err.message ?? String(e));
 }
 
 function passwordProblem(password: unknown): string | null {
@@ -71,13 +77,6 @@ export class UserAdminController {
     private async signOut(userId: string): Promise<void> {
         await this.opts.sessions.endSessionsFor(userId);
         await this.opts.store.revokeAccessTokens(userId);
-    }
-
-    /** Would this change leave no active admin? */
-    private async removesLastAdmin(target: AdminUserRow, after: { role: AppRole; is_active: boolean } | null): Promise<boolean> {
-        const countsNow = target.role === 'admin' && target.is_active;
-        const countsAfter = after !== null && after.role === 'admin' && after.is_active;
-        return countsNow && !countsAfter && (await this.opts.store.countActiveAdmins()) <= 1;
     }
 
     listUsers = async (req: Request, res: Response): Promise<void> => {
@@ -135,23 +134,31 @@ export class UserAdminController {
             if (role !== undefined && !ROLES.includes(role)) return fail(res, 400, 'invalid', 'role must be admin or user');
             if (isActive !== undefined && typeof isActive !== 'boolean') return fail(res, 400, 'invalid', 'is_active must be true or false');
             if (role === undefined && isActive === undefined) return fail(res, 400, 'invalid', 'Nothing to change');
-            // Snapshot the prior role/active state before the store call: a store may mutate and return the
-            // same object `findUser` gave us, so reading `target` again afterwards would see the new values.
+            // Snapshot the prior role/active state before the store call: the store may mutate and return
+            // the same object `findUser` gave us, so reading `target` again afterwards would see the new
+            // values. The last-admin rule itself is enforced atomically inside the store's own transaction
+            // (it locks the active-admin rows before deciding), not here, so two concurrent demotions of
+            // different admins can't both pass a stale, separately-read count.
             const previousRole = target.role;
             const previousActive = target.is_active;
-            const after = { role: role ?? previousRole, is_active: isActive ?? previousActive };
-            if (await this.removesLastAdmin(target, after)) {
-                return fail(res, 409, 'last_admin', 'The firm must keep at least one active admin. Make someone else an admin first.');
-            }
             const updated = await this.opts.store.updateUser(target.id, {
                 ...(role !== undefined ? { role } : {}), ...(isActive !== undefined ? { is_active: isActive } : {}),
             }, me.id);
-            await this.signOut(target.id);
-            if (role !== undefined && role !== previousRole) {
-                await this.opts.onChange({ kind: 'role_changed', actor: me, target: updated, from: previousRole, to: role });
+            const roleChanged = role !== undefined && role !== previousRole;
+            const activeChanged = isActive !== undefined && isActive !== previousActive;
+            // Record the audit events right after the write, before signing anyone out: if ending sessions
+            // then fails, the change and its event are already recorded, and the request still fails loud
+            // with the real error — a retry just finds nothing left to change rather than losing the event.
+            if (roleChanged) {
+                await this.opts.onChange({ kind: 'role_changed', actor: me, target: updated, from: previousRole, to: role! });
             }
-            if (isActive !== undefined && isActive !== previousActive) {
+            if (activeChanged) {
                 await this.opts.onChange({ kind: isActive ? 'reactivated' : 'deactivated', actor: me, target: updated });
+            }
+            // Only end sessions/tokens when something actually changed: a PATCH that merely restates the
+            // current role/active state must not sign the person out.
+            if (roleChanged || activeChanged) {
+                await this.signOut(target.id);
             }
             res.status(200).json({ user: updated });
         } catch (e) { answerError(res, e); }
@@ -178,13 +185,14 @@ export class UserAdminController {
             if (!me) return;
             const target = await this.opts.store.findUser(String(req.params.id));
             if (!target) return fail(res, 404, 'not_found', 'No such person');
-            if (await this.removesLastAdmin(target, null)) {
-                return fail(res, 409, 'last_admin', 'The firm must keep at least one active admin. Make someone else an admin first.');
-            }
+            // The store enforces the last-admin rule itself (same atomic check as updateUser) when it
+            // deletes the row, so there is no separate pre-check here.
             await this.opts.beforeDelete(target);
-            await this.signOut(target.id);
             await this.opts.store.deleteUser(target.id);
             await this.opts.onChange({ kind: 'removed', actor: me, target });
+            // Ending sessions by user id still works once the row is gone; doing it last means a failure
+            // here never hides that the removal (and its audit event) already happened.
+            await this.signOut(target.id);
             res.status(200).json({ ok: true });
         } catch (e) { answerError(res, e); }
     };
@@ -225,8 +233,10 @@ export class UserAdminController {
             if (problem) return fail(res, 400, 'invalid', problem);
             const result = await this.opts.store.useResetToken(hashToken(String(req.params.token)), body!.password as string, this.now());
             if (result === 'invalid') return fail(res, 410, 'invalid_link', 'This reset link is no longer valid. Ask an admin for a new one.');
-            await this.signOut(result.id);
+            // Same ordering as updateUser/deleteUser: record the event right after the write, then sign
+            // out, so a session-ending failure can never make the password change or its event disappear.
             await this.opts.onChange({ kind: 'password_reset_used', target: result });
+            await this.signOut(result.id);
             res.status(200).json({ ok: true });
         } catch (e) { answerError(res, e); }
     };

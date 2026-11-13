@@ -38,16 +38,22 @@ export interface UserAdminStore {
     listUsers(): Promise<AdminUserRow[]>;
     findUser(id: string): Promise<AdminUserRow | null>;
     findUserByEmail(email: string): Promise<AdminUserRow | null>;
-    countActiveAdmins(): Promise<number>;
     createInvite(input: { email: string; role: AppRole; createdBy: string; tokenHash: string; expiresAt: Date }): Promise<InviteRow>;
     listOpenInvites(now: Date): Promise<InviteRow[]>;
     revokeInvite(id: string): Promise<boolean>;
     lookupInvite(tokenHash: string, now: Date): Promise<InviteLookup | null>;
     acceptInvite(tokenHash: string, input: { name: string; password: string }): Promise<AdminUserRow>;
+    /**
+     * Applies the patch. Enforces the last-active-admin rule itself, atomically (locking the active-admin
+     * rows before deciding), so the caller does not need a separate check-then-write: a concurrent call
+     * against the same admins can't both pass. Throws `{ code: 409, error: 'last_admin' }` when the change
+     * would leave no active admin.
+     */
     updateUser(id: string, patch: { role?: AppRole; is_active?: boolean }, by: string): Promise<AdminUserRow>;
     revokeAccessTokens(userId: string): Promise<void>;
     createResetToken(input: { userId: string; tokenHash: string; expiresAt: Date; createdBy: string }): Promise<void>;
     useResetToken(tokenHash: string, password: string, now: Date): Promise<AdminUserRow | 'invalid'>;
+    /** Deletes the user. Enforces the last-active-admin rule the same way `updateUser` does. */
     deleteUser(id: string): Promise<void>;
 }
 
@@ -61,6 +67,13 @@ function row(u: User): AdminUserRow {
 
 /** Internal signal that a reset token could not be used; never escapes this module. */
 class InvalidResetToken extends Error {}
+
+function lastAdminError(): Error {
+    return Object.assign(
+        new Error('The firm must keep at least one active admin. Make someone else an admin first.'),
+        { code: 409, error: 'last_admin' },
+    );
+}
 
 function inviteRow(i: OrgInvite, createdByEmail: string): InviteRow {
     if (!i.email || !i.expires_at) throw new Error(`invite ${i.id} has no email or expiry; it was not made by the user admin routes`);
@@ -85,9 +98,6 @@ export class SequelizeUserAdminStore implements UserAdminStore {
     async findUserByEmail(email: string) {
         const u = await User.findOne({ where: { email: email.toLowerCase() } });
         return u ? row(u) : null;
-    }
-    async countActiveAdmins() {
-        return User.count({ where: { role: 'admin', is_active: true } });
     }
     async createInvite(input: { email: string; role: AppRole; createdBy: string; tokenHash: string; expiresAt: Date }) {
         const email = input.email.trim().toLowerCase();
@@ -136,11 +146,27 @@ export class SequelizeUserAdminStore implements UserAdminStore {
         });
     }
     async updateUser(id: string, patch: { role?: AppRole; is_active?: boolean }, by: string) {
-        const u = await User.findByPk(id);
-        if (!u) throw Object.assign(new Error('No such user'), { code: 404 });
-        await u.update({ ...patch, updated_by: by });
-        if (patch.role) await setFirmMembership(u.id, patch.role);
-        return row(u);
+        const sequelize = User.sequelize;
+        if (!sequelize) throw new Error('User model is not initialised');
+        return sequelize.transaction(async (transaction) => {
+            // Lock every active admin row before deciding anything: a concurrent update against the same
+            // set of admins then serializes on these rows (Postgres blocks the second SELECT ... FOR UPDATE
+            // until the first transaction commits or rolls back), so the second request's count always
+            // reflects the first request's already-applied change instead of a stale snapshot.
+            const activeAdmins = await User.findAll({
+                where: { role: 'admin', is_active: true }, lock: transaction.LOCK.UPDATE, transaction,
+            });
+            const u = await User.findByPk(id, { transaction });
+            if (!u) throw Object.assign(new Error('No such user'), { code: 404 });
+            const wasActiveAdmin = u.role === 'admin' && u.is_active;
+            const staysActiveAdmin = (patch.role ?? u.role) === 'admin' && (patch.is_active ?? u.is_active);
+            if (wasActiveAdmin && !staysActiveAdmin && activeAdmins.filter((a) => a.id !== u.id).length === 0) {
+                throw lastAdminError();
+            }
+            await u.update({ ...patch, updated_by: by }, { transaction });
+            if (patch.role) await setFirmMembership(u.id, patch.role, { transaction });
+            return row(u);
+        });
     }
     async revokeAccessTokens(userId: string) {
         await UserAccessToken.update({ revoked_at: new Date() }, { where: { user_id: userId, revoked_at: null } });
@@ -174,7 +200,22 @@ export class SequelizeUserAdminStore implements UserAdminStore {
         }
     }
     async deleteUser(id: string) {
-        const ok = await this.users.delete(id);
-        if (!ok) throw Object.assign(new Error('No such user'), { code: 404 });
+        const sequelize = User.sequelize;
+        if (!sequelize) throw new Error('User model is not initialised');
+        await sequelize.transaction(async (transaction) => {
+            // Same locked-read as updateUser, so a concurrent delete/demotion against the same admins
+            // can't both pass their check before either writes.
+            const activeAdmins = await User.findAll({
+                where: { role: 'admin', is_active: true }, lock: transaction.LOCK.UPDATE, transaction,
+            });
+            const u = await User.findByPk(id, { transaction });
+            if (!u) throw Object.assign(new Error('No such user'), { code: 404 });
+            const wasActiveAdmin = u.role === 'admin' && u.is_active;
+            if (wasActiveAdmin && activeAdmins.filter((a) => a.id !== u.id).length === 0) {
+                throw lastAdminError();
+            }
+            const ok = await this.users.delete(id, { transaction });
+            if (!ok) throw Object.assign(new Error('No such user'), { code: 404 });
+        });
     }
 }

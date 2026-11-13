@@ -8,13 +8,25 @@ const NOW = new Date('2026-11-13T12:00:00Z');
 const person = (id: string, role: AppRole, is_active = true): AdminUserRow =>
     ({ id, email: `${id}@firm.test`, name: id, role, is_active, created_at: NOW.toISOString(), last_sign_in_at: null });
 
+/** Same shape the real store throws from `updateUser`/`deleteUser` when a change would leave no active admin. */
+function lastAdminError(): Error {
+    return Object.assign(
+        new Error('The firm must keep at least one active admin. Make someone else an admin first.'),
+        { code: 409, error: 'last_admin' },
+    );
+}
+
 function fakeStore(users: AdminUserRow[]) {
     const invites: Array<InviteRow & { tokenHash: string; used: boolean; revoked: boolean }> = [];
+    // How many OTHER active admins there are besides `id` — mirrors the real store's locked read of the
+    // active-admin rows, just without a database: since this fake has no internal `await` between reading
+    // `users` and mutating it, two calls made "concurrently" from the test (e.g. via Promise.all) still run
+    // this check-then-write atomically relative to each other, the same way the real store's transaction does.
+    const otherActiveAdmins = (id: string) => users.filter((u) => u.role === 'admin' && u.is_active && u.id !== id).length;
     const store: UserAdminStore = {
         listUsers: async () => users,
         findUser: async (id) => users.find((u) => u.id === id) ?? null,
         findUserByEmail: async (e) => users.find((u) => u.email === e.toLowerCase()) ?? null,
-        countActiveAdmins: async () => users.filter((u) => u.role === 'admin' && u.is_active).length,
         createInvite: async ({ email, role, tokenHash, expiresAt }) => {
             const inv = { id: `i${invites.length + 1}`, email, role, expires_at: expiresAt.toISOString(),
                 created_at: NOW.toISOString(), created_by_email: 'ann@firm.test', tokenHash, used: false, revoked: false };
@@ -37,11 +49,23 @@ function fakeStore(users: AdminUserRow[]) {
             users.push(u);
             return u;
         },
-        updateUser: async (id, patch) => { const u = users.find((x) => x.id === id)!; Object.assign(u, patch); return u; },
+        updateUser: async (id, patch) => {
+            const u = users.find((x) => x.id === id)!;
+            const wasActiveAdmin = u.role === 'admin' && u.is_active;
+            const staysActiveAdmin = (patch.role ?? u.role) === 'admin' && (patch.is_active ?? u.is_active);
+            if (wasActiveAdmin && !staysActiveAdmin && otherActiveAdmins(u.id) === 0) throw lastAdminError();
+            Object.assign(u, patch);
+            return u;
+        },
         revokeAccessTokens: vi.fn(async () => {}),
         createResetToken: vi.fn(async () => {}),
         useResetToken: vi.fn(async () => 'invalid' as const),
-        deleteUser: vi.fn(async (id: string) => { users.splice(users.findIndex((u) => u.id === id), 1); }),
+        deleteUser: vi.fn(async (id: string) => {
+            const u = users.find((x) => x.id === id)!;
+            const wasActiveAdmin = u.role === 'admin' && u.is_active;
+            if (wasActiveAdmin && otherActiveAdmins(u.id) === 0) throw lastAdminError();
+            users.splice(users.findIndex((x) => x.id === id), 1);
+        }),
     };
     return { store, invites };
 }
@@ -142,6 +166,26 @@ describe('the last active admin', () => {
         expect(ended).toEqual(['ann']);
         expect(events[0]).toMatchObject({ kind: 'role_changed', from: 'admin', to: 'user' });
     });
+
+    it('a single request demoting and deactivating the last admin at once is still refused', async () => {
+        const { c } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        const out = await call(c.updateUser, req('ann', { params: { id: 'ann' }, body: { role: 'user', is_active: false } }));
+        expect(out.status).toBe(409);
+        expect(out.body.error).toBe('last_admin');
+    });
+
+    it('two admins demoting each other at the same time cannot both succeed and leave zero admins', async () => {
+        const { c } = setup([person('ann', 'admin'), person('bob', 'admin')]);
+        const [r1, r2] = await Promise.all([
+            call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { role: 'user' } })),
+            call(c.updateUser, req('bob', { params: { id: 'ann' }, body: { role: 'user' } })),
+        ]);
+        // Exactly one of the two demotions must win; the other must be refused as last_admin, so the firm
+        // never ends up with zero admins even though each request only ever looked at a different target.
+        expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+        const refused = r1.status === 409 ? r1 : r2;
+        expect(refused.body.error).toBe('last_admin');
+    });
 });
 
 describe('changes end the target’s sessions and tokens', () => {
@@ -154,12 +198,25 @@ describe('changes end the target’s sessions and tokens', () => {
         expect(events[0]).toMatchObject({ kind: 'deactivated' });
     });
 
-    it('fails the request when sessions cannot be ended', async () => {
-        const { c } = setup([person('ann', 'admin'), person('bob', 'user')]);
+    it('fails the request when sessions cannot be ended, but keeps the already-saved change and its event', async () => {
+        const { c, store, events } = setup([person('ann', 'admin'), person('bob', 'user')]);
         (c as any).opts.sessions = { endSessionsFor: async () => { throw new Error('redis down'); } };
         const out = await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { is_active: false } }));
         expect(out.status).toBe(500);
         expect(out.body.message).toBe('redis down');
+        // The store write and the audit event happen before sign-out, so a Redis failure here never loses
+        // either of them — only ending the session failed, not the change itself.
+        expect((await store.findUser('bob'))!.is_active).toBe(false);
+        expect(events[0]).toMatchObject({ kind: 'deactivated' });
+    });
+
+    it('a PATCH that only restates the current role/active state changes nothing and signs no one out', async () => {
+        const { c, store, ended, events } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        const out = await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { role: 'user' } }));
+        expect(out.status).toBe(200);
+        expect(ended).toEqual([]);
+        expect(events).toEqual([]);
+        expect(store.revokeAccessTokens).not.toHaveBeenCalled();
     });
 });
 
@@ -189,5 +246,15 @@ describe('password reset links', () => {
         const { c } = setup([person('ann', 'admin')]);
         const out = await call(c.usePasswordReset, req(undefined, { params: { token: 'nope' }, body: { password: 'twelve-chars-ok' } }));
         expect(out.status).toBe(410);
+    });
+
+    it('on success, signs the target out and records the event', async () => {
+        const { c, store, ended, events } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        const bobAfterReset = person('bob', 'user');
+        store.useResetToken = vi.fn(async () => bobAfterReset);
+        const out = await call(c.usePasswordReset, req(undefined, { params: { token: 'tok' }, body: { password: 'twelve-chars-ok' } }));
+        expect(out.status).toBe(200);
+        expect(ended).toEqual(['bob']);
+        expect(events[0]).toMatchObject({ kind: 'password_reset_used', target: bobAfterReset });
     });
 });

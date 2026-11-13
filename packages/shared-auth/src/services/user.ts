@@ -184,13 +184,21 @@ export default class UserService {
      * memberships, pending memberships, devices, password reset tokens (as
      * the target or as the admin who created them) and invites the user
      * created. Refuses (throws) when the user still owns agents, which must
-     * be reassigned or deleted first. Runs in one transaction. Returns false
-     * when no such user exists.
+     * be reassigned or deleted first. Returns false when no such user exists.
+     *
+     * Runs in one transaction. Pass `opts.transaction` to run inside a
+     * transaction the caller already opened (e.g. one that is also
+     * enforcing the last-active-admin rule on the same rows) instead of
+     * opening a second, nested one; every query below then uses it.
+     * Without it, this opens its own transaction as before.
      */
-    delete = async (userId: string): Promise<boolean> => {
-        const user = await User.findByPk(userId);
+    delete = async (userId: string, opts?: { transaction?: Transaction }): Promise<boolean> => {
+        const outerTransaction = opts?.transaction;
+        const user = await User.findByPk(userId, { transaction: outerTransaction });
         if (!user) return false;
-        const agents = User.sequelize?.models[Agent.name] ? await Agent.count({ where: { user_id: userId } }) : 0;
+        const agents = User.sequelize?.models[Agent.name]
+            ? await Agent.count({ where: { user_id: userId }, transaction: outerTransaction })
+            : 0;
         if (agents > 0) {
             throw Object.assign(
                 new Error(`User owns ${agents} agent(s); reassign or delete them before deleting the user`),
@@ -202,7 +210,7 @@ export default class UserService {
         // Apps register only the models they use; a model that is not
         // registered has no table here, so there is nothing to delete in it.
         const registered = (model: { name: string }) => Boolean(sequelize.models[model.name]);
-        await sequelize.transaction(async (transaction) => {
+        const run = async (transaction: Transaction) => {
             if (registered(UserAccessToken)) await UserAccessToken.destroy({ where: { user_id: userId }, transaction });
             if (registered(OAuthAccount)) {
                 await OAuthAccount.destroy({ where: { owner_type: 'user', owner_id: userId }, transaction });
@@ -228,7 +236,12 @@ export default class UserService {
                 await OrgInvite.destroy({ where: { created_by: userId }, transaction });
             }
             await user.destroy({ transaction });
-        });
+        };
+        if (outerTransaction) {
+            await run(outerTransaction);
+        } else {
+            await sequelize.transaction(run);
+        }
         return true;
     };
 
