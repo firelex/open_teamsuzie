@@ -13,6 +13,7 @@ import {
   AgentProfile,
   Agent,
   OrgDomain,
+  ensureUserAdminSchema,
 } from '@teamsuzie/shared-auth';
 import type { ModelCtor } from 'sequelize-typescript';
 import { config, sharedAuthConfig } from './config.js';
@@ -46,6 +47,8 @@ async function main() {
   try {
     await sequelizeService.getSequelize().authenticate();
     await sequelizeService.getSequelize().sync();
+    // sync() never adds a column to an existing table; this adds the user columns shared-auth reads now.
+    await ensureUserAdminSchema(sequelizeService.getSequelize());
     console.log('[DB] Schema synced (users + organizations + contacts)');
   } catch (err) {
     printStartupError(err);
