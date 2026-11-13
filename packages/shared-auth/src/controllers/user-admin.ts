@@ -19,11 +19,13 @@ export interface UserAdminOptions {
     /** May throw `{ code: 409, message }` to refuse a removal. */
     beforeDelete: (target: AdminUserRow) => void | Promise<void>;
     now?: () => Date;
+    /** The shortest password accepted when an invite is accepted or a reset link used (default 12, at least 8). */
+    minPasswordLength?: number;
 }
 
 const INVITE_MS = 7 * 24 * 60 * 60 * 1000;
 const RESET_MS = 24 * 60 * 60 * 1000;
-const MIN_PASSWORD = 12;
+const DEFAULT_MIN_PASSWORD = 12;
 const ROLES: AppRole[] = ['admin', 'user'];
 
 export function hashToken(token: string): string {
@@ -47,8 +49,8 @@ function answerError(res: Response, e: unknown): void {
     fail(res, status, label, err.message ?? String(e));
 }
 
-function passwordProblem(password: unknown): string | null {
-    if (typeof password !== 'string' || password.length < MIN_PASSWORD) return `The password must be at least ${MIN_PASSWORD} characters`;
+function passwordProblem(password: unknown, min: number): string | null {
+    if (typeof password !== 'string' || password.length < min) return `The password must be at least ${min} characters`;
     return null;
 }
 
@@ -89,7 +91,12 @@ export async function workThenSignOut(work: () => Promise<void>, signOut: () => 
  * people without an account yet.
  */
 export class UserAdminController {
-    constructor(private readonly opts: UserAdminOptions) {}
+    private readonly minPassword: number;
+
+    constructor(private readonly opts: UserAdminOptions) {
+        this.minPassword = opts.minPasswordLength ?? DEFAULT_MIN_PASSWORD;
+        if (!Number.isInteger(this.minPassword) || this.minPassword < 8) throw new Error(`minPasswordLength must be a whole number of at least 8, not ${opts.minPasswordLength}`);
+    }
 
     private now(): Date {
         return this.opts.now ? this.opts.now() : new Date();
@@ -251,7 +258,7 @@ export class UserAdminController {
             const body = req.body as Record<string, unknown> | undefined;
             const name = String(body?.name ?? '').trim();
             if (!name) return fail(res, 400, 'invalid', 'Enter your name');
-            const problem = passwordProblem(body?.password);
+            const problem = passwordProblem(body?.password, this.minPassword);
             if (problem) return fail(res, 400, 'invalid', problem);
             const user = await this.opts.store.acceptInvite(hashToken(String(req.params.token)), { name, password: body!.password as string });
             await this.opts.onChange({ kind: 'joined', target: user });
@@ -272,7 +279,7 @@ export class UserAdminController {
     usePasswordReset = async (req: Request, res: Response): Promise<void> => {
         try {
             const body = req.body as Record<string, unknown> | undefined;
-            const problem = passwordProblem(body?.password);
+            const problem = passwordProblem(body?.password, this.minPassword);
             if (problem) return fail(res, 400, 'invalid', problem);
             const result = await this.opts.store.useResetToken(hashToken(String(req.params.token)), body!.password as string, this.now());
             if (result === 'invalid') return fail(res, 410, 'invalid_link', 'This reset link is no longer valid. Ask an admin for a new one.');

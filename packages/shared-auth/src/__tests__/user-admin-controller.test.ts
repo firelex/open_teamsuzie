@@ -296,4 +296,16 @@ describe('password reset links', () => {
         expect(ended).toEqual(['bob']);
         expect(events[0]).toMatchObject({ kind: 'password_reset_used', target: bobAfterReset });
     });
+
+    it('takes passwords as short as minPasswordLength, and no shorter (default 12)', async () => {
+        const { c, store } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        store.useResetToken = vi.fn(async () => person('bob', 'user'));
+        const short = await call(c.usePasswordReset, req(undefined, { params: { token: 'tok' }, body: { password: 'ten-chars!' } }));
+        expect(short).toMatchObject({ status: 400, body: { message: 'The password must be at least 12 characters' } });
+        const ten = new UserAdminController({ store, sessions: { endSessionsFor: async () => 1, track: async () => {} } as unknown as SessionTracker,
+            onChange: () => {}, beforeDelete: () => {}, now: () => NOW, minPasswordLength: 10 });
+        expect((await call(ten.usePasswordReset, req(undefined, { params: { token: 'tok' }, body: { password: 'ten-chars!' } }))).status).toBe(200);
+        expect((await call(ten.usePasswordReset, req(undefined, { params: { token: 'tok' }, body: { password: 'nine-char' } }))).status).toBe(400);
+        expect(() => new UserAdminController({ store, sessions: {} as SessionTracker, onChange: () => {}, beforeDelete: () => {}, minPasswordLength: 6 })).toThrow(/at least 8/);
+    });
 });

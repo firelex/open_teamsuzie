@@ -198,6 +198,7 @@
   "inviteAcceptPage": {
     "adminInvite": "Admin-Einladung",
     "atLeast12Characters": "Mindestens 12 Zeichen",
+    "atLeastCharacters": "Mindestens {{count}} Zeichen",
     "confirmPassword": "Passwort bestätigen",
     "couldNotJoin": "Beitritt nicht möglich",
     "couldNotSetPassword": "Passwort konnte nicht festgelegt werden",

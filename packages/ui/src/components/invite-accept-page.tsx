@@ -24,6 +24,8 @@ export interface AcceptInvitePageProps {
   apiBase: string
   token: string
   onJoined: () => void
+  /** The shortest password the server accepts (its `minPasswordLength`), shown as a hint. Default 12. */
+  minPasswordLength?: number
 }
 
 interface InviteDetails {
@@ -38,7 +40,7 @@ interface InviteDetails {
  * details, shows a plain explanation if the link can no longer be used,
  * and otherwise collects a name and password to create the account.
  */
-export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageProps) {
+export function AcceptInvitePage({ apiBase, token, onJoined, minPasswordLength = 12 }: AcceptInvitePageProps) {
   const { t } = useUiT()
   const [invite, setInvite] = React.useState<InviteDetails | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
@@ -165,7 +167,7 @@ export function AcceptInvitePage({ apiBase, token, onJoined }: AcceptInvitePageP
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <p className="text-xs text-muted-foreground">{t('inviteAcceptPage.atLeast12Characters')}</p>
+            <p className="text-xs text-muted-foreground">{t('inviteAcceptPage.atLeastCharacters', { count: minPasswordLength })}</p>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Button type="submit" disabled={submitting} className="w-full">
@@ -182,6 +184,8 @@ export interface ResetPasswordPageProps {
   apiBase: string
   token: string
   onDone: () => void
+  /** The shortest password the server accepts (its `minPasswordLength`), shown as a hint. Default 12. */
+  minPasswordLength?: number
 }
 
 /**
@@ -189,7 +193,7 @@ export interface ResetPasswordPageProps {
  * password (typed twice) and sets it, or shows the server's message if
  * the link has already been used or has expired.
  */
-export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageProps) {
+export function ResetPasswordPage({ apiBase, token, onDone, minPasswordLength = 12 }: ResetPasswordPageProps) {
   const { t } = useUiT()
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -254,7 +258,7 @@ export function ResetPasswordPage({ apiBase, token, onDone }: ResetPasswordPageP
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <p className="text-xs text-muted-foreground">{t('inviteAcceptPage.atLeast12Characters')}</p>
+            <p className="text-xs text-muted-foreground">{t('inviteAcceptPage.atLeastCharacters', { count: minPasswordLength })}</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="reset-password-confirm">{t('inviteAcceptPage.confirmPassword')}</Label>

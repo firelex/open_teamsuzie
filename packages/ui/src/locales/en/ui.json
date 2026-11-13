@@ -132,6 +132,7 @@
   "inviteAcceptPage": {
     "adminInvite": "Admin invite",
     "atLeast12Characters": "At least 12 characters",
+    "atLeastCharacters": "At least {{count}} characters",
     "confirmPassword": "Confirm password",
     "couldNotJoin": "Could not join",
     "couldNotSetPassword": "Could not set password",
