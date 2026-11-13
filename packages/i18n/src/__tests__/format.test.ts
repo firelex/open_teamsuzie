@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatMoney, formatNumber } from '../format.js';
+import { currencyMinorDigits, formatDate, formatMoney, formatNumber } from '../format.js';
 
 const d = new Date(Date.UTC(2026, 10, 13, 12));
 describe('formatters', () => {
@@ -25,5 +25,11 @@ describe('formatters', () => {
   it('wholeUnits drops the fractional part regardless of the currency\'s usual precision', () => {
     expect(formatMoney(750000, 'EUR', 'en', { wholeUnits: true }).replace(/\s/g, ' ')).toBe('€7,500');
     expect(formatMoney(750000, 'EUR', 'de', { wholeUnits: true }).replace(/\s/g, ' ')).toBe('7.500 €'.replace(/\s/g, ' '));
+  });
+  it('currencyMinorDigits exposes the same lookup formatMoney uses internally', () => {
+    expect(currencyMinorDigits('EUR')).toBe(2);
+    expect(currencyMinorDigits('JPY')).toBe(0);
+    expect(currencyMinorDigits('KWD')).toBe(3);
+    expect(() => currencyMinorDigits('not-a-currency')).toThrow();
   });
 });
