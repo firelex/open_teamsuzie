@@ -27,6 +27,11 @@ export interface ConfirmOptions {
    * success; on throw it stays open and surfaces the error inline.
    */
   onConfirm?: () => void | Promise<void>
+  /**
+   * For what cannot be undone and reaches far (e.g. deleting a whole
+   * history): the person types this word before the confirm button works.
+   */
+  typeToConfirm?: string
 }
 
 interface PendingConfirm {
@@ -57,6 +62,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
   const [pending, setPending] = React.useState<PendingConfirm | null>(null)
   const [running, setRunning] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [typed, setTyped] = React.useState("")
   // The element that had focus when the dialog opened (the button or menu
   // trigger that asked for confirmation). The dialog has no Radix trigger
   // of its own, so without this Radix drops focus on <body> when it closes
@@ -68,6 +74,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
       new Promise<boolean>((resolve) => {
         setError(null)
         setRunning(false)
+        setTyped("")
         setPending({ options, resolve })
       }),
     [],
@@ -103,6 +110,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
 
   const opts = pending?.options
   const isDestructive = opts?.variant === "destructive"
+  const typedOk = !opts?.typeToConfirm || typed.trim() === opts.typeToConfirm
 
   return (
     <ConfirmDialogContext.Provider value={value}>
@@ -142,6 +150,19 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
               <DialogDescription>{opts.description}</DialogDescription>
             )}
           </DialogHeader>
+          {opts?.typeToConfirm && (
+            <label className="block space-y-1.5 text-sm">
+              <span>{t('confirmDialog.typeToConfirm', { word: opts.typeToConfirm })}</span>
+              <input
+                className="block h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-sm"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                autoFocus
+                disabled={running}
+              />
+            </label>
+          )}
           {error && (
             <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {error}
@@ -156,6 +177,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
             <PendingButton
               variant={isDestructive ? "destructive" : "default"}
               pending={running}
+              disabled={!typedOk}
               pendingLabel={(opts?.confirmLabel ?? t('confirmDialog.confirm')) + "…"}
               onClick={() => void handleConfirm()}
             >

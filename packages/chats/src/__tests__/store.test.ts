@@ -155,3 +155,27 @@ describe('message authors', () => {
         expect(store.listMessages(chat.id)[1]!.authorId).toBeNull();
     });
 });
+
+describe('who started a chat, and deleting all', () => {
+    it('records the starter, or for an older chat takes the author of its first message', () => {
+        const mine = store.createChat({ workspaceId: 'matter', createdBy: 'ann' });
+        expect(mine.createdBy).toBe('ann');
+        expect(store.startedBy(mine.id)).toBe('ann');
+        const older = store.createChat({ workspaceId: 'matter' });
+        store.appendMessage({ chatId: older.id, role: 'user', content: 'hi', authorId: 'bob' });
+        expect(store.startedBy(older.id)).toBe('bob');
+        expect(store.startedBy(store.createChat({ workspaceId: 'matter' }).id)).toBeNull();
+    });
+
+    it("deletes a person's own chats in a shared workspace, or all of them, and says how many stayed", () => {
+        const a = store.createChat({ workspaceId: 'm', createdBy: 'ann' });
+        store.appendMessage({ chatId: a.id, role: 'user', content: 'x', authorId: 'ann' });
+        store.createChat({ workspaceId: 'm', createdBy: 'bob' });
+        store.createChat({ workspaceId: 'm' });
+        store.createChat({ workspaceId: 'other', createdBy: 'ann' });
+        expect(store.deleteChats('m', 'ann')).toEqual({ deleted: 1, kept: 2 });
+        expect(store.listMessages(a.id)).toEqual([]);
+        expect(store.deleteChats('m', null)).toEqual({ deleted: 2, kept: 0 });
+        expect(store.listChats('other')).toHaveLength(1);
+    });
+});

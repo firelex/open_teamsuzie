@@ -58,4 +58,12 @@ export const CHATS_MIGRATIONS: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_chat_messages_author ON chat_messages(author_id, created_at);
         `,
     },
+    {
+        // Who started a chat, so a person can delete their own chats in a
+        // workspace several people share. Null for older rows.
+        name: '20261113_chats_created_by',
+        up: `
+            ALTER TABLE chats ADD COLUMN created_by TEXT;
+        `,
+    },
 ];

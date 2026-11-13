@@ -8,6 +8,8 @@ export interface Chat {
      *  package never resolves it — the host app does. `null` = no persona
      *  (default assistant). */
     personaId: string | null;
+    /** Who started the chat; null for chats from before this was recorded (see ChatsStore.startedBy). */
+    createdBy: string | null;
     createdAt: number;
     updatedAt: number;
 }
@@ -32,6 +34,8 @@ export interface CreateChatInput {
     name?: string;
     /** Opaque persona id; null/undefined = default assistant. */
     personaId?: string | null;
+    /** Who starts it (an opaque person id, e.g. an email). */
+    createdBy?: string | null;
 }
 
 export interface UpdateChatInput {

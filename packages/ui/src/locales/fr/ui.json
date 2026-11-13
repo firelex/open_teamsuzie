@@ -172,6 +172,7 @@
     "view": "Afficher"
   },
   "confirmDialog": {
+    "typeToConfirm": "Saisissez {{word}} pour confirmer",
     "actionFailed": "Échec de l'action",
     "confirm": "Confirmer"
   },

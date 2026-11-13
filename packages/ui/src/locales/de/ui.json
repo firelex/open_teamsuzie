@@ -172,6 +172,7 @@
     "view": "Anzeigen"
   },
   "confirmDialog": {
+    "typeToConfirm": "Geben Sie {{word}} ein, um zu bestätigen",
     "actionFailed": "Aktion fehlgeschlagen",
     "confirm": "Bestätigen"
   },

@@ -10,6 +10,15 @@ export interface CreateChatsRouterOptions {
      * + creation to the right workspace and to check ownership.
      */
     getWorkspaceId: (req: Request) => string;
+    /** Who is asking (recorded as a new chat's starter). */
+    getActor?: (req: Request) => string | null;
+    /**
+     * What `DELETE /` (delete all) removes: every chat in the workspace
+     * ('all', for a workspace that is one person's own), or only the chats
+     * the asking person started ('own', for a shared workspace; needs
+     * getActor). Unset: no `DELETE /`.
+     */
+    deleteAll?: 'all' | 'own';
 }
 
 /**
@@ -22,13 +31,15 @@ export interface CreateChatsRouterOptions {
  *   PATCH  /:chatId                 — rename
  *   DELETE /:chatId/messages        — clear history (keeps the chat row)
  *   DELETE /:chatId                 — delete chat (cascades to messages)
+ *   DELETE /                        — delete all (see `deleteAll`): { deleted, kept }
  *
  * Sending a new message + streaming the model is the host app's job — it
  * wraps the chat-completion handler and persists the resulting user +
  * assistant messages via `store.appendMessage(...)`.
  */
 export function createChatsRouter(opts: CreateChatsRouterOptions): Router {
-    const { store, getWorkspaceId } = opts;
+    const { store, getWorkspaceId, getActor, deleteAll } = opts;
+    if (deleteAll === 'own' && !getActor) throw new Error("createChatsRouter: deleteAll 'own' needs getActor");
     const router: Router = Router();
 
     router.get('/', (req, res) => {
@@ -45,7 +56,7 @@ export function createChatsRouter(opts: CreateChatsRouterOptions): Router {
             const raw = body.personaId;
             personaId = typeof raw === 'string' && raw.length > 0 ? raw : null;
         }
-        const chat = store.createChat({ workspaceId, name, personaId });
+        const chat = store.createChat({ workspaceId, name, personaId, createdBy: getActor ? getActor(req) : null });
         res.status(201).json({ item: chat });
     });
 
@@ -108,6 +119,16 @@ export function createChatsRouter(opts: CreateChatsRouterOptions): Router {
         const removed = store.clearMessages(chatId);
         res.json({ ok: true, removed });
     });
+
+    if (deleteAll) {
+        router.delete('/', (req, res) => {
+            const workspaceId = getWorkspaceId(req);
+            if (deleteAll === 'all') return void res.json(store.deleteChats(workspaceId, null));
+            const actor = getActor!(req);
+            if (!actor) return void res.status(401).json({ error: 'unauthorized' });
+            res.json(store.deleteChats(workspaceId, actor));
+        });
+    }
 
     router.delete('/:chatId', (req, res) => {
         const chatId = String(req.params.chatId ?? '');

@@ -15,6 +15,7 @@ interface ChatRow {
     workspace_id: string;
     name: string;
     persona_id: string | null;
+    created_by: string | null;
     created_at: number;
     updated_at: number;
 }
@@ -54,11 +55,11 @@ export class ChatsStore {
         const now = this.clock();
         const name = input.name?.trim() || 'New chat';
         const personaId = input.personaId ?? null;
-        prepareCached<[string, string, string, string | null, number, number]>(
+        prepareCached<[string, string, string, string | null, string | null, number, number]>(
             this.db,
-            `INSERT INTO chats (id, workspace_id, name, persona_id, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-        ).run(id, input.workspaceId, name, personaId, now, now);
+            `INSERT INTO chats (id, workspace_id, name, persona_id, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).run(id, input.workspaceId, name, personaId, input.createdBy ?? null, now, now);
         return this.getChat(id)!;
     }
 
@@ -101,6 +102,36 @@ export class ChatsStore {
             this.db,
             `UPDATE chats SET updated_at = ? WHERE id = ?`,
         ).run(this.clock(), id);
+    }
+
+    /**
+     * Who started a chat: who it records as its starter, or, for a chat from
+     * before that was recorded, who wrote its first message. Null when
+     * neither is known.
+     */
+    startedBy(chatId: string): string | null {
+        const row = prepareCached<[string, string], { starter: string | null }>(
+            this.db,
+            `SELECT COALESCE(c.created_by,
+                    (SELECT m.author_id FROM chat_messages m WHERE m.chat_id = ? AND m.role = 'user' ORDER BY m.created_at LIMIT 1)) AS starter
+             FROM chats c WHERE c.id = ?`,
+        ).get(chatId, chatId);
+        return row?.starter ?? null;
+    }
+
+    /**
+     * Delete a workspace's chats (with their messages): all of them, or only
+     * those `person` started (see startedBy). Returns how many went and how
+     * many stayed.
+     */
+    deleteChats(workspaceId: string, person: string | null): { deleted: number; kept: number } {
+        const chats = this.listChats(workspaceId);
+        const doomed = person === null ? chats : chats.filter((c) => this.startedBy(c.id) === person);
+        const remove = this.db.transaction((ids: string[]) => {
+            for (const id of ids) prepareCached<[string]>(this.db, `DELETE FROM chats WHERE id = ?`).run(id);
+        });
+        remove(doomed.map((c) => c.id));
+        return { deleted: doomed.length, kept: chats.length - doomed.length };
     }
 
     deleteChat(id: string): boolean {
@@ -190,6 +221,7 @@ function rowToChat(row: ChatRow): Chat {
         workspaceId: row.workspace_id,
         name: row.name,
         personaId: row.persona_id,
+        createdBy: row.created_by,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
