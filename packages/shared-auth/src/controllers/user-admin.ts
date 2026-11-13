@@ -146,19 +146,22 @@ export class UserAdminController {
             }, me.id);
             const roleChanged = role !== undefined && role !== previousRole;
             const activeChanged = isActive !== undefined && isActive !== previousActive;
-            // Record the audit events right after the write, before signing anyone out: if ending sessions
-            // then fails, the change and its event are already recorded, and the request still fails loud
-            // with the real error — a retry just finds nothing left to change rather than losing the event.
-            if (roleChanged) {
-                await this.opts.onChange({ kind: 'role_changed', actor: me, target: updated, from: previousRole, to: role! });
-            }
-            if (activeChanged) {
-                await this.opts.onChange({ kind: isActive ? 'reactivated' : 'deactivated', actor: me, target: updated });
-            }
-            // Only end sessions/tokens when something actually changed: a PATCH that merely restates the
-            // current role/active state must not sign the person out.
+            // Record the audit events right after the write, then sign out: if ending sessions fails, the
+            // change and its event are already recorded, and the request still fails loud with the real
+            // error. Sign-out runs even when onChange throws (finally), so the person never keeps a session
+            // after the change itself was written. Only end sessions/tokens when something actually
+            // changed: a PATCH that merely restates the current role/active state must not sign them out.
             if (roleChanged || activeChanged) {
-                await this.signOut(target.id);
+                try {
+                    if (roleChanged) {
+                        await this.opts.onChange({ kind: 'role_changed', actor: me, target: updated, from: previousRole, to: role! });
+                    }
+                    if (activeChanged) {
+                        await this.opts.onChange({ kind: isActive ? 'reactivated' : 'deactivated', actor: me, target: updated });
+                    }
+                } finally {
+                    await this.signOut(target.id);
+                }
             }
             res.status(200).json({ user: updated });
         } catch (e) { answerError(res, e); }
@@ -189,10 +192,14 @@ export class UserAdminController {
             // deletes the row, so there is no separate pre-check here.
             await this.opts.beforeDelete(target);
             await this.opts.store.deleteUser(target.id);
-            await this.opts.onChange({ kind: 'removed', actor: me, target });
             // Ending sessions by user id still works once the row is gone; doing it last means a failure
-            // here never hides that the removal (and its audit event) already happened.
-            await this.signOut(target.id);
+            // here never hides that the removal (and its audit event) already happened. It runs even when
+            // onChange throws (e.g. the app's clean-up failed), so a removed person is never left signed in.
+            try {
+                await this.opts.onChange({ kind: 'removed', actor: me, target });
+            } finally {
+                await this.signOut(target.id);
+            }
             res.status(200).json({ ok: true });
         } catch (e) { answerError(res, e); }
     };
@@ -234,9 +241,13 @@ export class UserAdminController {
             const result = await this.opts.store.useResetToken(hashToken(String(req.params.token)), body!.password as string, this.now());
             if (result === 'invalid') return fail(res, 410, 'invalid_link', 'This reset link is no longer valid. Ask an admin for a new one.');
             // Same ordering as updateUser/deleteUser: record the event right after the write, then sign
-            // out, so a session-ending failure can never make the password change or its event disappear.
-            await this.opts.onChange({ kind: 'password_reset_used', target: result });
-            await this.signOut(result.id);
+            // out (even if onChange throws), so a session-ending failure can never make the password change
+            // or its event disappear, and an onChange failure never leaves old sessions alive.
+            try {
+                await this.opts.onChange({ kind: 'password_reset_used', target: result });
+            } finally {
+                await this.signOut(result.id);
+            }
             res.status(200).json({ ok: true });
         } catch (e) { answerError(res, e); }
     };

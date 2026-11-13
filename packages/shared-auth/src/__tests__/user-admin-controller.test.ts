@@ -230,6 +230,19 @@ describe('removal', () => {
         expect(out.body.message).toBe('Bob is the only owner of "Acme v Beta"');
         expect(store.deleteUser).not.toHaveBeenCalled();
     });
+
+    it('still ends the removed person’s sessions and tokens when onChange (the app’s clean-up) throws', async () => {
+        const { c, store, ended } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        (c as any).opts.onChange = async (e: UserAdminEvent) => {
+            if (e.kind === 'removed') throw new Error('clean-up failed');
+        };
+        const out = await call(c.deleteUser, req('ann', { params: { id: 'bob' } }));
+        expect(out.status).toBe(500);
+        expect(out.body.message).toBe('clean-up failed');
+        expect(store.deleteUser).toHaveBeenCalledWith('bob');
+        expect(ended).toEqual(['bob']);
+        expect(store.revokeAccessTokens).toHaveBeenCalledWith('bob');
+    });
 });
 
 describe('password reset links', () => {
