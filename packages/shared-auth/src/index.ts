@@ -26,7 +26,7 @@ export { Notification, type NotificationType } from './models/notification.js';
 export { default as RedisService } from './services/redis.js';
 export { default as SequelizeService } from './services/sequelize.js';
 export { default as SessionService } from './services/session.js';
-export { SessionTracker, type SetStore } from './services/session-tracker.js';
+export { SessionTracker, sessionTrackerTtlSeconds, type SetStore } from './services/session-tracker.js';
 export { default as UserService } from './services/user.js';
 export { default as Logger } from './services/logger.js';
 export { ensureUserAdminSchema } from './services/schema-upgrade.js';
@@ -53,6 +53,7 @@ export {
 
 // Actor attribution for structured logs and audit trails.
 export { getRequestActor, type RequestActor } from './utils/actor.js';
+export { emailMatches } from './utils/email.js';
 
 // Utils
 export { encrypt, decrypt, hashApiKey, generateApiKey, verifyApiKey, generateSecureToken } from './utils/encryption.js';
@@ -64,7 +65,7 @@ export { ServiceError, handleControllerError } from './errors/index.js';
 
 // Controllers
 export { default as AuthController } from './controllers/auth.js';
-export { UserAdminController, hashToken, type UserAdminEvent, type UserAdminOptions } from './controllers/user-admin.js';
+export { UserAdminController, hashToken, workThenSignOut, type UserAdminEvent, type UserAdminOptions } from './controllers/user-admin.js';
 
 // Routes
 export { createAuthRouter } from './routes/auth.js';

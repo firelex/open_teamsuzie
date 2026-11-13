@@ -53,6 +53,37 @@ function passwordProblem(password: unknown): string | null {
 }
 
 /**
+ * Runs `work`, then always runs `signOut`, so a failing step before it never leaves a person signed in after their
+ * change was written. No error is lost: if only one step failed, that error is rethrown unchanged (its `code`/`error`
+ * still pick the response); if both failed, the thrown error names both messages and keeps the work error's
+ * `code`/`error`, with the work error as its `cause`.
+ */
+export async function workThenSignOut(work: () => Promise<void>, signOut: () => Promise<void>): Promise<void> {
+    let workErr: unknown = null;
+    let workFailed = false;
+    try {
+        await work();
+    } catch (e) {
+        workFailed = true;
+        workErr = e;
+    }
+    try {
+        await signOut();
+    } catch (signOutErr) {
+        if (!workFailed) throw signOutErr;
+        const w = workErr as { message?: unknown; code?: unknown; error?: unknown };
+        const workMessage = workErr instanceof Error ? workErr.message : String(workErr);
+        const signOutMessage = signOutErr instanceof Error ? signOutErr.message : String(signOutErr);
+        const combined = new Error(`${workMessage}; and signing the person out also failed: ${signOutMessage}`, { cause: workErr });
+        throw Object.assign(combined, {
+            ...(w && w.code !== undefined ? { code: w.code } : {}),
+            ...(w && w.error !== undefined ? { error: w.error } : {}),
+        });
+    }
+    if (workFailed) throw workErr;
+}
+
+/**
  * Admin-facing and public HTTP handlers for firm user administration: listing people, inviting, changing roles,
  * deactivating/reactivating, issuing password-reset links, removing people, and the public accept/reset flows for
  * people without an account yet.
@@ -79,35 +110,9 @@ export class UserAdminController {
         await this.opts.store.revokeAccessTokens(userId);
     }
 
-    /**
-     * Runs `work` (the onChange calls), then always signs `userId` out, so a failing app hook never leaves the
-     * person signed in after their change was written. No error is lost: if only one step failed, that error is
-     * rethrown unchanged (its `code`/`error` still pick the response); if both failed, the thrown error names
-     * both messages and keeps the work error's `code`/`error`.
-     */
+    /** Runs `work` (the onChange calls), then always signs `userId` out; see `workThenSignOut`. */
     private async thenSignOut(userId: string, work: () => Promise<void>): Promise<void> {
-        let workErr: unknown = null;
-        let workFailed = false;
-        try {
-            await work();
-        } catch (e) {
-            workFailed = true;
-            workErr = e;
-        }
-        try {
-            await this.signOut(userId);
-        } catch (signOutErr) {
-            if (!workFailed) throw signOutErr;
-            const w = workErr as { message?: unknown; code?: unknown; error?: unknown };
-            const workMessage = workErr instanceof Error ? workErr.message : String(workErr);
-            const signOutMessage = signOutErr instanceof Error ? signOutErr.message : String(signOutErr);
-            const combined = new Error(`${workMessage}; and signing the person out also failed: ${signOutMessage}`, { cause: workErr });
-            throw Object.assign(combined, {
-                ...(w && w.code !== undefined ? { code: w.code } : {}),
-                ...(w && w.error !== undefined ? { error: w.error } : {}),
-            });
-        }
-        if (workFailed) throw workErr;
+        await workThenSignOut(work, () => this.signOut(userId));
     }
 
     listUsers = async (req: Request, res: Response): Promise<void> => {
@@ -256,6 +261,8 @@ export class UserAdminController {
                     const s = req.session as unknown as Record<string, unknown>;
                     s.userId = user.id; s.userEmail = user.email; s.userName = user.name; s.userRole = user.role;
                     await this.opts.sessions.track(user.id, req.sessionID);
+                    // Only now can an admin's change end this session; apps treat a session without it as signed out.
+                    s.trackedForSignOut = true;
                     res.status(201).json({ user });
                 } catch (e) { answerError(res, e); }
             });

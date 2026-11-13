@@ -4,7 +4,7 @@ import { OrganizationMember } from '../models/organization-member.js';
 import { OrgDomain } from '../models/org-domain.js';
 import { User } from '../models/user.js';
 import RedisService from '../services/redis.js';
-import { SessionTracker } from '../services/session-tracker.js';
+import { SessionTracker, sessionTrackerTtlSeconds } from '../services/session-tracker.js';
 import UserService from '../services/user.js';
 import type { SharedAuthConfig } from '../types.js';
 import { checkRegistration, type RegistrationPolicy } from '../utils/registration.js';
@@ -57,7 +57,9 @@ export default class AuthController {
      */
     private get sessions(): SessionTracker {
         if (!this.sessionTracker) {
-            this.sessionTracker = new SessionTracker(new RedisService(this.config).getClient(), this.config.redis.key_prefix);
+            this.sessionTracker = new SessionTracker(
+                new RedisService(this.config).getClient(), this.config.redis.key_prefix, sessionTrackerTtlSeconds(this.config),
+            );
         }
         return this.sessionTracker;
     }
@@ -309,6 +311,8 @@ export default class AuthController {
                     session.userName = user.name;
                     session.userRole = user.role;
                     await this.sessions.track(user.id, req.sessionID);
+                    // Only now can an admin's change end this session; apps treat a session without it as signed out.
+                    session.trackedForSignOut = true;
 
                     const tokenResponse = await this.buildTokenResponse(user.id, req);
 
@@ -395,6 +399,8 @@ export default class AuthController {
                     session.userName = user.name;
                     session.userRole = user.role;
                     await this.sessions.track(user.id, req.sessionID);
+                    // Only now can an admin's change end this session; apps treat a session without it as signed out.
+                    session.trackedForSignOut = true;
 
                     const tokenResponse = await this.buildTokenResponse(user.id, req);
 

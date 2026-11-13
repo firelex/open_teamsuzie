@@ -52,6 +52,7 @@ function fakeRedisForTests(): SetStore & { data: Map<string, Set<string> | strin
         async srem(k, m) { set(k).delete(m); return 1; },
         async smembers(k) { return [...((data.get(k) as Set<string>) ?? [])]; },
         async del(...ks) { ks.forEach((k) => data.delete(k)); return ks.length; },
+        async expire() { return 1; },
     };
 }
 
@@ -62,7 +63,7 @@ function makeController(registration?: RegistrationPolicy) {
     // Creating a workspace touches the organisation tables; not what these tests are about.
     (controller as unknown as { ensureHumanWorkspace: () => Promise<void> }).ensureHumanWorkspace = async () => {};
     const redis = fakeRedisForTests();
-    controller.setSessionTracker(new SessionTracker(redis, 'test'));
+    controller.setSessionTracker(new SessionTracker(redis, 'test', 3600));
     return { controller, users, redis };
 }
 
@@ -219,6 +220,32 @@ describe('login', () => {
         const out = await call(controller.login, fakeReq({ body: { email: 'alice@example.com', password: 'right' } }));
         expect(out.statusCode).toBe(200);
         expect(await redis.smembers('test:user-sessions:u-alice')).toEqual(['sid-1']);
+    });
+
+    it('marks the session as tracked, so apps can tell it apart from sessions made before tracking existed', async () => {
+        const { controller } = makeController();
+        const req = fakeReq({ body: { email: 'alice@example.com', password: 'right' } });
+        await call(controller.login, req);
+        expect((req.session as unknown as Record<string, unknown>).trackedForSignOut).toBe(true);
+    });
+
+    it('does not mark the session when tracking fails', async () => {
+        const { controller, redis } = makeController();
+        redis.sadd = async () => { throw new Error('redis down'); };
+        const req = fakeReq({ body: { email: 'alice@example.com', password: 'right' } });
+        const out = await call(controller.login, req);
+        expect(out.statusCode).toBe(500);
+        expect((req.session as unknown as Record<string, unknown>).trackedForSignOut).toBeUndefined();
+    });
+});
+
+describe('register marks the session', () => {
+    it('tracks and marks the new session', async () => {
+        const { controller, redis } = makeController({ mode: 'open' });
+        const req = fakeReq({ body: NEW_ACCOUNT });
+        await call(controller.register, req);
+        expect(await redis.smembers('test:user-sessions:u-new')).toEqual(['sid-1']);
+        expect((req.session as unknown as Record<string, unknown>).trackedForSignOut).toBe(true);
     });
 });
 

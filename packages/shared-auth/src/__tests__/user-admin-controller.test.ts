@@ -127,8 +127,11 @@ describe('invites', () => {
     it('accepts once; a second accept and an accept after revoke answer 410', async () => {
         const { c } = setup([person('ann', 'admin')]);
         const token = (await call(c.createInvite, req('ann', { body: { email: 'dee@firm.test', role: 'user' } }))).body.path.slice(6);
-        const first = await call(c.acceptInvite, req(undefined, { params: { token }, body: { name: 'Dee', password: 'twelve-chars-ok' } }));
+        const firstReq = req(undefined, { params: { token }, body: { name: 'Dee', password: 'twelve-chars-ok' } });
+        const first = await call(c.acceptInvite, firstReq);
         expect(first.status).toBe(201);
+        // Signed in and tracked, so an admin's later change can end this session.
+        expect((firstReq.session as unknown as Record<string, unknown>).trackedForSignOut).toBe(true);
         const again = await call(c.acceptInvite, req(undefined, { params: { token }, body: { name: 'Dee', password: 'twelve-chars-ok' } }));
         expect(again.status).toBe(410);
 

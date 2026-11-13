@@ -6,6 +6,7 @@ import { PasswordResetToken } from '../models/password-reset-token.js';
 import { UserAccessToken } from '../models/user-access-token.js';
 import type UserService from './user.js';
 import { firmOrganization, setFirmMembership } from './firm.js';
+import { emailMatches } from '../utils/email.js';
 
 export type AppRole = 'admin' | 'user';
 
@@ -96,7 +97,7 @@ export class SequelizeUserAdminStore implements UserAdminStore {
         return u ? row(u) : null;
     }
     async findUserByEmail(email: string) {
-        const u = await User.findOne({ where: { email: email.toLowerCase() } });
+        const u = await User.findOne({ where: emailMatches(email) });
         return u ? row(u) : null;
     }
     async createInvite(input: { email: string; role: AppRole; createdBy: string; tokenHash: string; expiresAt: Date }) {

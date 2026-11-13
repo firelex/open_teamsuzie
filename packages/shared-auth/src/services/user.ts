@@ -12,6 +12,7 @@ import { OrgInvite } from '../models/org-invite.js';
 import { PasswordResetToken } from '../models/password-reset-token.js';
 import type { SharedAuthConfig } from '../types.js';
 import { generateApiKey, verifyApiKey } from '../utils/encryption.js';
+import { emailMatches } from '../utils/email.js';
 
 export default class UserService {
 
@@ -29,7 +30,8 @@ export default class UserService {
         opts?: { transaction?: Transaction },
     ): Promise<User> => {
         email = email.trim().toLowerCase();
-        const existingUser = await User.findOne({ where: { email }, transaction: opts?.transaction });
+        // Ignoring capitals: an older account stored as `Bob@Firm.com` is the same person as `bob@firm.com`.
+        const existingUser = await User.findOne({ where: emailMatches(email), transaction: opts?.transaction });
         if (existingUser) {
             throw Object.assign(new Error('User with this email already exists'), { code: 400 });
         }
@@ -49,7 +51,8 @@ export default class UserService {
     }
 
     authenticate = async (email: string, password: string): Promise<User | null> => {
-        const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+        // Ignoring capitals: older accounts may be stored with the capitals they were created with.
+        const user = await User.findOne({ where: emailMatches(email) });
         if (!user) return null;
 
         const isValid = await bcrypt.compare(password, user.password_hash);
@@ -250,7 +253,7 @@ export default class UserService {
     }
 
     findByEmail = async (email: string): Promise<{ id: string; email: string; name: string; role: string } | null> => {
-        const user = await User.findOne({ where: { email }, attributes: ['id', 'email', 'name', 'role'] });
+        const user = await User.findOne({ where: emailMatches(email), attributes: ['id', 'email', 'name', 'role'] });
         if (!user) return null;
         return { id: user.id, email: user.email, name: user.name, role: user.role };
     }

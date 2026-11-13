@@ -26,8 +26,18 @@ rather than self-service registration:
   change (for audit logging — a throw fails the request), and `beforeDelete` (may refuse a removal, e.g. to force
   transferring ownership of a person's work first).
 - `ensureUserAdminSchema(sequelize)` — run once after `sync()`. Adds the columns later releases introduced
-  (`users.is_active`, `users.last_sign_in_at`, `org_invite.email`) only where a table is missing them, so it is
-  safe to run on every boot.
+  (`users.is_active`, `users.last_sign_in_at`, `org_invite.email`) only where a table is missing them (and only for
+  models the app registered), so it is safe to run on every boot. It refuses to start when two accounts' emails are
+  equal once capital letters are ignored, naming both.
+- Emails are compared ignoring capital letters everywhere (`emailMatches(email)` builds that `where` clause). New
+  accounts are stored lower-cased; older rows keep their capitals and are never rewritten, because apps key their
+  own data by the stored string.
+- `SessionTracker(redis, keyPrefix, ttlSeconds)` — pass `sessionTrackerTtlSeconds(config)` (the cookie `maxAge`,
+  or 30 days when unset) so each user's set of sessions expires. Every sign-in that records its session (login,
+  register, invite accept) also sets `session.trackedForSignOut = true`; an app that reads the identity from the
+  session should treat a session without it as signed out, since nothing could end it.
+- `workThenSignOut(work, signOut)` — runs `work`, then always `signOut`, keeping both errors if both fail. The
+  routers use it; apps can use it for their own deletion flows.
 - `ensureFirmOrganization(name)` — run at boot (after `ensureUserAdminSchema`). Creates the one organisation a
   single-firm installation keeps its people in, or renames it if the configured name changed. `setFirmMembership`
   and `firmOrganization` work against that same organisation.

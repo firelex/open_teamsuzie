@@ -54,6 +54,7 @@ function fakeRedisForTests(): SetStore & { data: Map<string, Set<string> | strin
         async srem(k, m) { set(k).delete(m); return 1; },
         async smembers(k) { return [...((data.get(k) as Set<string>) ?? [])]; },
         async del(...ks) { ks.forEach((k) => data.delete(k)); return ks.length; },
+        async expire() { return 1; },
     };
 }
 
@@ -63,7 +64,7 @@ function makeController(registration?: RegistrationPolicy) {
     (controller as unknown as { userService: unknown }).userService = users;
     (controller as unknown as { ensureHumanWorkspace: () => Promise<void> }).ensureHumanWorkspace = async () => {};
     const redis = fakeRedisForTests();
-    controller.setSessionTracker(new SessionTracker(redis, 'test'));
+    controller.setSessionTracker(new SessionTracker(redis, 'test', 3600));
     return { controller, users, redis };
 }
 
