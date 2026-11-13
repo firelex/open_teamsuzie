@@ -1,6 +1,9 @@
 {
   "dataTable": {
-    "actions": "Actions"
+    "actions": "Actions",
+    "filterEllipsis": "Filtrer...",
+    "noDataFound": "Aucune donnée trouvée",
+    "noResultsFor": "Aucun résultat pour « {{filter}} »"
   },
   "userAdmin": {
     "actionsHeader": "Actions",
@@ -66,5 +69,388 @@
     "unknownError": "erreur inconnue",
     "user": "Utilisateur",
     "you": "(vous)"
+  },
+  "actionsMenu": {
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "members": "Membres",
+    "openActionsMenu": "Ouvrir le menu d'actions",
+    "view": "Afficher"
+  },
+  "activityTimeline": {
+    "noActivityYet": "Aucune activité pour le moment."
+  },
+  "aiFillButton": {
+    "aiFillFailed": "Échec du remplissage par l'IA",
+    "fillWithAi": "Remplir avec l'IA"
+  },
+  "artifactPanel": {
+    "closePreview": "Fermer l'aperçu",
+    "documentPreview": "Aperçu du document",
+    "download": "Télécharger",
+    "emptyDocumentHint": "Document vide — le contenu apparaîtra ici au fur et à mesure de la rédaction par l'agent.",
+    "exportFailed": "Échec de l'exportation",
+    "markdownFile": "Markdown (.md)",
+    "wordFile": "Word (.docx)",
+    "wordFileExporting": "Word (.docx) — exportation en cours…",
+    "wordFileNotExported": "Word (.docx) — pas encore exporté"
+  },
+  "bulkActionBar": {
+    "bulkActions": "Actions groupées",
+    "clearSelection": "Effacer la sélection",
+    "selected": "{{count}} {{noun}} sélectionné(s)"
+  },
+  "chatThread": {
+    "attachImage": "Joindre une image",
+    "dropImageToAttach": "déposez une image pour la joindre",
+    "extraChars_one": "+{{count}} caractère",
+    "extraChars_other": "+{{count}} caractères",
+    "hintAbort": "annuler",
+    "hintImage": "image",
+    "hintNewline": "nouvelle ligne",
+    "hintSend": "envoyer",
+    "loadingDots": "· chargement ·",
+    "removeAttachment": "Retirer {{filename}}",
+    "send": "↳ envoyer",
+    "sendingEllipsis": "· · · envoi en cours",
+    "toolStatusErr": "err",
+    "toolStatusOk": "ok",
+    "typeAMessage": "saisissez un message…",
+    "uploadFailed": "Échec du téléchargement : {{error}}"
+  },
+  "citationChip": {
+    "citationAriaLabel": "Citation [{{id}}] — {{docName}}{{locator}}",
+    "citationAriaLabelNotFound": "Citation [{{id}}] — {{docName}}{{locator}} — citation introuvable dans la source",
+    "quoteNotFoundWarning": "Cette citation n'a pas été trouvée dans le document. Vérifiez la source avant de vous y fier.",
+    "unresolvedCitation": "Citation non résolue [{{id}}]"
+  },
+  "columnHeaderEditor": {
+    "addColumn": "Ajouter une colonne",
+    "autofilledFromPreset": "Invite et format préremplis à partir du préréglage.",
+    "couldNotDraftPrompt": "Impossible de rédiger une invite : {{error}}. Veuillez la remplir ci-dessous.",
+    "draftFailed": "Échec de la rédaction",
+    "draftPromptFromTitle": "Rédiger l'invite et le format à partir du titre",
+    "draftPromptWithAi": "Rédiger l'invite avec l'IA",
+    "draftedPromptAndFormat": "Invite et format rédigés.",
+    "draftingPrompt": "Rédaction de l'invite…",
+    "editEitherToOverride": "Modifiez l'un ou l'autre pour remplacer.",
+    "enterTitleFirst": "Saisissez d'abord un titre",
+    "format": "Format",
+    "formatBulletList": "Liste à puces",
+    "formatDate": "Date",
+    "formatMoney": "Montant",
+    "formatShortText": "Texte court",
+    "formatText": "Texte",
+    "formatYesNo": "Oui / Non",
+    "prompt": "Invite",
+    "promptPlaceholder": "Quelle est la loi applicable ?",
+    "promptRequired": "L'invite est obligatoire",
+    "saveChanges": "Enregistrer les modifications",
+    "title": "Titre",
+    "titlePlaceholder": "Loi applicable",
+    "titleRequired": "Le titre est obligatoire"
+  },
+  "common": {
+    "all": "Tout",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "continue": "Continuer",
+    "create": "Créer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "email": "E-mail",
+    "empty": "(vide)",
+    "loadingEllipsis": "Chargement…",
+    "name": "Nom",
+    "next": "Suivant",
+    "password": "Mot de passe",
+    "previous": "Précédent",
+    "save": "Enregistrer",
+    "saveFailed": "Échec de l'enregistrement",
+    "savingEllipsis": "Enregistrement…",
+    "view": "Afficher"
+  },
+  "confirmDialog": {
+    "actionFailed": "Échec de l'action",
+    "confirm": "Confirmer"
+  },
+  "docFindBar": {
+    "closeFind": "Fermer la recherche",
+    "closeFindTitle": "Fermer (Échap)",
+    "findInDocument": "Rechercher dans le document",
+    "findQuery": "Requête de recherche",
+    "nextMatch": "Résultat suivant",
+    "nextMatchTitle": "Résultat suivant (Entrée)",
+    "noMatches": "Aucun résultat",
+    "previousMatch": "Résultat précédent",
+    "previousMatchTitle": "Résultat précédent (Maj+Entrée)"
+  },
+  "emailThreadView": {
+    "cc": "Cc",
+    "hideQuotedText": "Masquer le texte cité",
+    "showQuotedText": "Afficher le texte cité",
+    "to": "À"
+  },
+  "generatingPanel": {
+    "batchOf": "Lot {{current}} / {{total}}"
+  },
+  "inviteAcceptPage": {
+    "adminInvite": "Invitation administrateur",
+    "atLeast12Characters": "Au moins 12 caractères",
+    "confirmPassword": "Confirmer le mot de passe",
+    "couldNotJoin": "Impossible de rejoindre",
+    "couldNotSetPassword": "Impossible de définir le mot de passe",
+    "failedToLoadInvite": "Échec du chargement de l'invitation",
+    "join": "Rejoindre",
+    "joinOrganization": "Rejoindre {{organizationName}}",
+    "joiningEllipsis": "Connexion en cours…",
+    "linkNoLongerUsable": "Ce lien d'invitation {{reason}}. Demandez-en un nouveau à votre administrateur.",
+    "newPassword": "Nouveau mot de passe",
+    "passwordSet": "Mot de passe défini. Connectez-vous avec votre nouveau mot de passe.",
+    "passwordsDontMatch": "Les mots de passe ne correspondent pas.",
+    "reasonExpired": "a expiré",
+    "reasonRevoked": "a été révoqué",
+    "reasonUsed": "a déjà été utilisé",
+    "setNewPassword": "Définir un nouveau mot de passe",
+    "setPassword": "Définir le mot de passe",
+    "settingPasswordEllipsis": "Définition du mot de passe…",
+    "userInvite": "Invitation utilisateur"
+  },
+  "localModelConfigDialog": {
+    "apiKeyOptional": "Clé API (facultatif)",
+    "apiKeyPlaceholder": "laisser vide si votre serveur n'impose pas d'authentification",
+    "baseUrl": "URL de base",
+    "baseUrlHint": "Le serveur compatible OpenAI. Le point de terminaison doit servir <code>/v1/chat/completions</code>.",
+    "configureTitle": "Configurer {{modelName}}",
+    "description": "Dirigez le chat vers votre point de terminaison hébergé localement. Le nom d'hôte doit être une boucle locale (localhost, 127.0.0.1), mDNS (*.local) ou une IP privée — les hôtes publics sont rejetés.",
+    "resetFailed": "Échec de la réinitialisation",
+    "resetToDefault": "Rétablir les valeurs par défaut",
+    "resettingEllipsis": "Réinitialisation…",
+    "saveFailed": "Échec de l'enregistrement"
+  },
+  "loginForm": {
+    "fillCredentials": "Saisir les identifiants",
+    "signIn": "Se connecter",
+    "signInFailed": "Échec de la connexion",
+    "signingIn": "Connexion en cours…",
+    "tryTheDemo": "Essayer la démo"
+  },
+  "longRunning": {
+    "working": "Traitement en cours…"
+  },
+  "manifestDiffView": {
+    "after": "après",
+    "before": "avant"
+  },
+  "manifestHistoryPanel": {
+    "current": "actuel",
+    "noRevisionsYet": "Aucune révision pour le moment.",
+    "pickRevisionToDiff": "Sélectionnez une révision à comparer au manifeste actuel.",
+    "revertToThis": "Restaurer cette version"
+  },
+  "markdownView": {
+    "raw": "Brut",
+    "rawTitle": "Source markdown brute",
+    "rendered": "Rendu",
+    "renderedTitle": "Markdown rendu"
+  },
+  "mermaidBlock": {
+    "failedToRender": "Échec du rendu du diagramme Mermaid"
+  },
+  "modelPicker": {
+    "configureEndpoint": "Configurer le point de terminaison →",
+    "installInstructions": "Instructions d'installation →",
+    "local": "Local",
+    "perMillionTokens": "par 1 M de jetons",
+    "resolvedServerUrl": "URL du serveur résolue — définie dans .env",
+    "verifyPricing": "Vérifier les tarifs →"
+  },
+  "pageHeroBand": {
+    "clear": "Effacer",
+    "clearChatHistoryTitle": "Historique de discussion {{label}}"
+  },
+  "pagination": {
+    "goToFirstPage": "Aller à la première page",
+    "goToLastPage": "Aller à la dernière page",
+    "goToNextPage": "Aller à la page suivante",
+    "goToPage": "Aller à la page {{page}}",
+    "goToPreviousPage": "Aller à la page précédente",
+    "navigation": "Navigation de pagination",
+    "pageOf": "Page {{page}} sur {{total}}",
+    "showingEntries": "Affichage de {{start}} à {{end}} sur {{total}} entrées"
+  },
+  "personaEditor": {
+    "active": "Actif",
+    "avatar": "Avatar",
+    "builtIn": "Intégré",
+    "builtInTitle": "{{name}} — intégré",
+    "clickToActivateHint": "Cliquez sur un persona pour l'activer. Créez vos propres personas avec des invites système personnalisées et des sous-ensembles d'outils.",
+    "clickToChange": "Cliquez pour modifier",
+    "createOwnHint": "Créez vos propres personas d'assistant avec des invites système personnalisées et des sous-ensembles d'outils. Les personas intégrés sont en lecture seule.",
+    "custom": "Personnalisé",
+    "defaultCounsel": "Conseil par défaut",
+    "defaultCounselDescription": "Aucun persona — l'assistant utilise son invite système de base et l'ensemble complet des outils.",
+    "deletePersonaDescription": "Ce persona sera supprimé.",
+    "deletePersonaTitle": "Supprimer « {{name}} » ?",
+    "description": "Description",
+    "descriptionPlaceholder": "Une phrase — affichée dans le sélecteur",
+    "editPersona": "Modifier le persona",
+    "formDescription": "Les personas possèdent leur propre invite système et (facultativement) un ensemble d'outils restreint. Ils apparaissent dans le sélecteur de personas aux côtés des personas intégrés.",
+    "namePlaceholder": "ex. Collaborateur contentieux",
+    "newPersona": "Nouveau persona",
+    "noAvatar": "Aucun avatar",
+    "noPersonasMatch": "Aucun persona ne correspond à « {{query}} ».",
+    "noPersonasToShow": "Aucun persona à afficher.",
+    "none": "Aucun",
+    "persona": "Persona",
+    "personas": "Personas",
+    "pickerOpenHint": "Sélecteur ouvert — choisissez-en un ou cliquez pour fermer",
+    "readOnlyDescription": "Vue en lecture seule de l'invite système et de la liste blanche des outils d'un persona intégré.",
+    "saveChanges": "Enregistrer les modifications",
+    "searchPersonas": "Rechercher des personas…",
+    "systemPrompt": "Invite système",
+    "systemPromptPlaceholder": "Vous êtes Conseil, un assistant juridique IA spécialisé dans…",
+    "tools": "Outils",
+    "useAllAvailableTools": "Utiliser tous les outils disponibles"
+  },
+  "personaPicker": {
+    "builtIn": "Intégré",
+    "chooseDescription": "Chaque persona possède sa propre invite système et son propre ensemble d'outils. En sélectionner un lance une discussion adaptée à ce persona.",
+    "chooseTitle": "Choisir un persona",
+    "defaultDescription": "L'assistant générique — aucun réglage spécifique à un persona.",
+    "defaultLabel": "Assistant par défaut",
+    "loading": "Chargement des personas…",
+    "yourPersonas": "Vos personas"
+  },
+  "pipelineBoard": {
+    "noItems": "Aucun élément"
+  },
+  "redline": {
+    "documentsIdentical": "Les deux documents sont identiques (après alignement au niveau des paragraphes).",
+    "download": "Télécharger",
+    "downloadBlackline": "Télécharger la version annotée",
+    "downloadBlacklineTitle": "Télécharger un fichier .docx avec suivi des modifications (l’option « Tout accepter » reproduit le document de droite)",
+    "downloadDocx": "Télécharger le DOCX",
+    "downloadDocxAcceptAllTitle": "Télécharger un fichier .docx avec suivi des modifications compatible avec l’option « Tout accepter » de Word",
+    "downloadDocxTitle": "Télécharger le fichier .docx avec le suivi des modifications natif de Word",
+    "failedToLoadPreview": "Échec du chargement de l’aperçu",
+    "inlineTrackedChangesHint": "Modifications suivies en ligne — cliquez sur une modification pour afficher sa fiche",
+    "loadingRedline": "Chargement de la version annotée…",
+    "noParagraphsInDocument": "Aucun paragraphe dans le document.",
+    "paragraphsUnchangedHidden_one": "{{count}} paragraphe inchangé (masqué).",
+    "paragraphsUnchangedHidden_other": "{{count}} paragraphes inchangés (masqués).",
+    "paragraphsUnchanged_one": "{{count}} paragraphe inchangé.",
+    "paragraphsUnchanged_other": "{{count}} paragraphes inchangés.",
+    "streamFailed": "échec du flux",
+    "synthesizingTopics": "Synthèse des sujets…",
+    "synthesizingTopicsFromCount_one": "Synthèse des sujets à partir d’{{count}} différence substantielle…",
+    "synthesizingTopicsFromCount_other": "Synthèse des sujets à partir de {{count}} différences substantielles…",
+    "topicSynthesisFailed": "échec de la synthèse des sujets — affichage de la vue par paragraphes",
+    "topicsWillAppearHint": "Les sujets apparaîtront ici au fur et à mesure de leur identification. Cela prend généralement quelques secondes."
+  },
+  "reviewGrid": {
+    "cell": "Cellule",
+    "citations": "Citations",
+    "column": "Colonne",
+    "docsAsColumns": "Documents en colonnes",
+    "docsAsRows": "Documents en lignes",
+    "editPrompt": "Modifier l’invite",
+    "error": "Erreur",
+    "noAnswerYet": "Aucune réponse pour le moment.",
+    "noCitationsSupplied": "Aucune citation fournie pour cette cellule.",
+    "open": "Ouvrir",
+    "openCitationInSourceDocument": "Ouvrir la citation {{id}} dans le document source",
+    "question": "Question",
+    "regenerate": "Régénérer",
+    "regenerateColumn": "Régénérer la colonne",
+    "regenerateRow": "Régénérer la ligne",
+    "removeColumn": "Supprimer {{title}}",
+    "removeColumnAction": "Supprimer la colonne",
+    "removeRow": "Supprimer {{name}}",
+    "removeRowAction": "Supprimer la ligne",
+    "row": "Ligne",
+    "runCell": "Exécuter la cellule",
+    "runColumn": "Exécuter la colonne",
+    "runRow": "Exécuter la ligne",
+    "runningEllipsis": "Exécution…",
+    "showDocumentsAsColumns": "Afficher les documents en colonnes",
+    "showDocumentsAsRows": "Afficher les documents en lignes"
+  },
+  "rowActions": {
+    "actions": "Actions"
+  },
+  "settingsCards": {
+    "account": "Compte",
+    "chatModel": "Modèle de conversation",
+    "emailLabel": "E-mail :",
+    "pickModelHint": "Les modifications s'appliqueront au prochain message. Les tarifs sont approximatifs ; consultez le lien à côté de chaque modèle pour vérifier.",
+    "pickModelTitle": "Choisir le modèle alimentant la conversation",
+    "roleLabel": "Rôle :",
+    "settings": "Paramètres",
+    "signOut": "Se déconnecter"
+  },
+  "sidePanel": {
+    "closeTab": "Fermer {{title}}",
+    "focusTab": "Activer {{title}}",
+    "hideSidePanel": "Masquer le panneau latéral",
+    "openTabs": "Ouvrir les onglets du panneau latéral",
+    "sidePanel": "Panneau latéral"
+  },
+  "sidebar": {
+    "sidebar": "Barre latérale",
+    "signOut": "Se déconnecter"
+  },
+  "statusDot": {
+    "checkingRuntime": "Vérification de l'environnement d'exécution",
+    "runtimeOffline": "Environnement d'exécution hors ligne",
+    "runtimeReachable": "Environnement d'exécution accessible"
+  },
+  "tagInput": {
+    "removeTag": "Supprimer {{tag}}",
+    "typeAndPressEnter": "Saisir et appuyer sur Entrée"
+  },
+  "themeToggle": {
+    "colorTheme": "Thème de couleur",
+    "dark": "Sombre",
+    "light": "Clair",
+    "system": "Système",
+    "themeTitle": "Thème {{label}}"
+  },
+  "toast": {
+    "dismiss": "Ignorer",
+    "notifications": "Notifications"
+  },
+  "toolCallCard": {
+    "arguments": "Arguments",
+    "done": "Terminé",
+    "error": "Erreur",
+    "failed": "Échec",
+    "result": "Résultat",
+    "running": "En cours…"
+  },
+  "trackedChangesPanel": {
+    "accept": "Accepter",
+    "accepted": "Accepté",
+    "inDocument": "Dans le document",
+    "proposedEdits_one": "{{count}} modification proposée · accepter ou rejeter dans l'application, ou ouvrir dans Word",
+    "proposedEdits_other": "{{count}} modifications proposées · accepter ou rejeter dans l'application, ou ouvrir dans Word",
+    "reDownloadHint": "Téléchargez à nouveau le fichier .docx pour obtenir la version mise à jour.",
+    "reject": "Rejeter",
+    "rejected": "Rejeté",
+    "resolveFailed": "Échec de la résolution",
+    "viewRedline": "Voir la version annotée"
+  },
+  "workflowPickerDialog": {
+    "badgeChat": "Conversation",
+    "badgeReview": "Revue",
+    "badgeWordDoc": "Document Word",
+    "createOneToStart": "Créez-en un depuis la bibliothèque pour commencer.",
+    "description": "Sélectionnez un workflow pour remplir le champ de conversation.",
+    "loading": "Chargement des workflows…",
+    "noWorkflowsInLibrary": "Aucun workflow dans votre bibliothèque",
+    "noWorkflowsMatch": "Aucun workflow correspondant",
+    "searchWorkflows": "Rechercher des workflows",
+    "title": "Exécuter un workflow",
+    "tryDifferentSearch": "Essayez un autre terme de recherche."
   }
 }

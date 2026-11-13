@@ -1,6 +1,9 @@
 {
   "dataTable": {
-    "actions": "Aktionen"
+    "actions": "Aktionen",
+    "filterEllipsis": "Filtern...",
+    "noDataFound": "Keine Daten gefunden",
+    "noResultsFor": "Keine Ergebnisse für \"{{filter}}\""
   },
   "userAdmin": {
     "actionsHeader": "Aktionen",
@@ -66,5 +69,388 @@
     "unknownError": "unbekannter Fehler",
     "user": "Benutzer",
     "you": "(Sie)"
+  },
+  "actionsMenu": {
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "members": "Mitglieder",
+    "openActionsMenu": "Aktionsmenü öffnen",
+    "view": "Anzeigen"
+  },
+  "activityTimeline": {
+    "noActivityYet": "Noch keine Aktivitäten."
+  },
+  "aiFillButton": {
+    "aiFillFailed": "KI-Ausfüllen fehlgeschlagen",
+    "fillWithAi": "Mit KI ausfüllen"
+  },
+  "artifactPanel": {
+    "closePreview": "Vorschau schließen",
+    "documentPreview": "Dokumentvorschau",
+    "download": "Herunterladen",
+    "emptyDocumentHint": "Leeres Dokument – Inhalt wird hier angezeigt, während der Agent schreibt.",
+    "exportFailed": "Export fehlgeschlagen",
+    "markdownFile": "Markdown (.md)",
+    "wordFile": "Word (.docx)",
+    "wordFileExporting": "Word (.docx) – wird exportiert …",
+    "wordFileNotExported": "Word (.docx) – noch nicht exportiert"
+  },
+  "bulkActionBar": {
+    "bulkActions": "Massenaktionen",
+    "clearSelection": "Auswahl aufheben",
+    "selected": "{{count}} {{noun}} ausgewählt"
+  },
+  "chatThread": {
+    "attachImage": "Bild anhängen",
+    "dropImageToAttach": "Bild zum Anhängen ablegen",
+    "extraChars_one": "+{{count}} Zeichen",
+    "extraChars_other": "+{{count}} Zeichen",
+    "hintAbort": "Abbrechen",
+    "hintImage": "Bild",
+    "hintNewline": "Zeilenumbruch",
+    "hintSend": "Senden",
+    "loadingDots": "· Wird geladen ·",
+    "removeAttachment": "{{filename}} entfernen",
+    "send": "↳ Senden",
+    "sendingEllipsis": "· · · Wird gesendet",
+    "toolStatusErr": "Fehler",
+    "toolStatusOk": "OK",
+    "typeAMessage": "Nachricht eingeben …",
+    "uploadFailed": "Upload fehlgeschlagen: {{error}}"
+  },
+  "citationChip": {
+    "citationAriaLabel": "Zitat [{{id}}] – {{docName}}{{locator}}",
+    "citationAriaLabelNotFound": "Zitat [{{id}}] – {{docName}}{{locator}} – Zitat in Quelle nicht gefunden",
+    "quoteNotFoundWarning": "Dieses Zitat wurde im Dokument nicht gefunden. Überprüfen Sie die Quelle, bevor Sie sich darauf verlassen.",
+    "unresolvedCitation": "Nicht aufgelöstes Zitat [{{id}}]"
+  },
+  "columnHeaderEditor": {
+    "addColumn": "Spalte hinzufügen",
+    "autofilledFromPreset": "Prompt + Format automatisch aus Vorlage ausgefüllt.",
+    "couldNotDraftPrompt": "Prompt konnte nicht erstellt werden: {{error}}. Bitte unten manuell eingeben.",
+    "draftFailed": "Entwurf fehlgeschlagen",
+    "draftPromptFromTitle": "Prompt + Format aus Titel entwerfen",
+    "draftPromptWithAi": "Prompt mit KI entwerfen",
+    "draftedPromptAndFormat": "Prompt + Format entworfen.",
+    "draftingPrompt": "Prompt wird entworfen …",
+    "editEitherToOverride": "Zum Überschreiben entweder Prompt oder Format bearbeiten.",
+    "enterTitleFirst": "Bitte zuerst einen Titel eingeben",
+    "format": "Format",
+    "formatBulletList": "Aufzählungsliste",
+    "formatDate": "Datum",
+    "formatMoney": "Währung",
+    "formatShortText": "Kurztext",
+    "formatText": "Text",
+    "formatYesNo": "Ja / Nein",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Welches Recht ist anwendbar?",
+    "promptRequired": "Prompt ist erforderlich",
+    "saveChanges": "Änderungen speichern",
+    "title": "Titel",
+    "titlePlaceholder": "Anwendbares Recht",
+    "titleRequired": "Titel ist erforderlich"
+  },
+  "common": {
+    "all": "Alle",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "continue": "Weiter",
+    "create": "Erstellen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "email": "E-Mail",
+    "empty": "(leer)",
+    "loadingEllipsis": "Wird geladen…",
+    "name": "Name",
+    "next": "Weiter",
+    "password": "Passwort",
+    "previous": "Zurück",
+    "save": "Speichern",
+    "saveFailed": "Speichern fehlgeschlagen",
+    "savingEllipsis": "Wird gespeichert…",
+    "view": "Anzeigen"
+  },
+  "confirmDialog": {
+    "actionFailed": "Aktion fehlgeschlagen",
+    "confirm": "Bestätigen"
+  },
+  "docFindBar": {
+    "closeFind": "Suche schließen",
+    "closeFindTitle": "Schließen (Esc)",
+    "findInDocument": "Im Dokument suchen",
+    "findQuery": "Suchbegriff",
+    "nextMatch": "Nächster Treffer",
+    "nextMatchTitle": "Nächster Treffer (Enter)",
+    "noMatches": "Keine Treffer",
+    "previousMatch": "Vorheriger Treffer",
+    "previousMatchTitle": "Vorheriger Treffer (Umschalt+Enter)"
+  },
+  "emailThreadView": {
+    "cc": "Cc",
+    "hideQuotedText": "Zitierten Text ausblenden",
+    "showQuotedText": "Zitierten Text anzeigen",
+    "to": "An"
+  },
+  "generatingPanel": {
+    "batchOf": "Stapel {{current}} / {{total}}"
+  },
+  "inviteAcceptPage": {
+    "adminInvite": "Admin-Einladung",
+    "atLeast12Characters": "Mindestens 12 Zeichen",
+    "confirmPassword": "Passwort bestätigen",
+    "couldNotJoin": "Beitritt nicht möglich",
+    "couldNotSetPassword": "Passwort konnte nicht festgelegt werden",
+    "failedToLoadInvite": "Einladung konnte nicht geladen werden",
+    "join": "Beitreten",
+    "joinOrganization": "{{organizationName}} beitreten",
+    "joiningEllipsis": "Beitritt erfolgt…",
+    "linkNoLongerUsable": "Dieser Einladungslink {{reason}}. Bitten Sie Ihren Administrator um einen neuen Link.",
+    "newPassword": "Neues Passwort",
+    "passwordSet": "Passwort festgelegt. Melden Sie sich mit Ihrem neuen Passwort an.",
+    "passwordsDontMatch": "Passwörter stimmen nicht überein.",
+    "reasonExpired": "ist abgelaufen",
+    "reasonRevoked": "wurde widerrufen",
+    "reasonUsed": "wurde bereits verwendet",
+    "setNewPassword": "Neues Passwort festlegen",
+    "setPassword": "Passwort festlegen",
+    "settingPasswordEllipsis": "Passwort wird festgelegt…",
+    "userInvite": "Benutzereinladung"
+  },
+  "localModelConfigDialog": {
+    "apiKeyOptional": "API-Schlüssel (optional)",
+    "apiKeyPlaceholder": "leer lassen, wenn Ihr Server keine Authentifizierung erfordert",
+    "baseUrl": "Basis-URL",
+    "baseUrlHint": "Der OpenAI-kompatible Server. Der Endpunkt muss <code>/v1/chat/completions</code> bereitstellen.",
+    "configureTitle": "{{modelName}} konfigurieren",
+    "description": "Verweisen Sie den Chat auf Ihren lokal gehosteten Endpunkt. Der Hostname muss Loopback (localhost, 127.0.0.1), mDNS (*.local) oder eine IP aus dem privaten Bereich sein – öffentliche Hosts werden abgelehnt.",
+    "resetFailed": "Zurücksetzen fehlgeschlagen",
+    "resetToDefault": "Auf Standard zurücksetzen",
+    "resettingEllipsis": "Wird zurückgesetzt…",
+    "saveFailed": "Speichern fehlgeschlagen"
+  },
+  "loginForm": {
+    "fillCredentials": "Anmeldedaten eingeben",
+    "signIn": "Anmelden",
+    "signInFailed": "Anmeldung fehlgeschlagen",
+    "signingIn": "Anmeldung läuft…",
+    "tryTheDemo": "Demo testen"
+  },
+  "longRunning": {
+    "working": "Verarbeitung…"
+  },
+  "manifestDiffView": {
+    "after": "nachher",
+    "before": "vorher"
+  },
+  "manifestHistoryPanel": {
+    "current": "aktuell",
+    "noRevisionsYet": "Noch keine Revisionen.",
+    "pickRevisionToDiff": "Wählen Sie eine Revision, um sie mit dem aktuellen Manifest zu vergleichen.",
+    "revertToThis": "Hierzu zurückkehren"
+  },
+  "markdownView": {
+    "raw": "Rohdaten",
+    "rawTitle": "Markdown-Quelltext",
+    "rendered": "Gerendert",
+    "renderedTitle": "Gerendertes Markdown"
+  },
+  "mermaidBlock": {
+    "failedToRender": "Mermaid-Diagramm konnte nicht gerendert werden"
+  },
+  "modelPicker": {
+    "configureEndpoint": "Endpunkt konfigurieren →",
+    "installInstructions": "Installationsanleitung →",
+    "local": "Lokal",
+    "perMillionTokens": "pro 1 Mio. Token",
+    "resolvedServerUrl": "Aufgelöste Server-URL – in .env festgelegt",
+    "verifyPricing": "Preise prüfen →"
+  },
+  "pageHeroBand": {
+    "clear": "Löschen",
+    "clearChatHistoryTitle": "{{label}} Chatverlauf"
+  },
+  "pagination": {
+    "goToFirstPage": "Zur ersten Seite",
+    "goToLastPage": "Zur letzten Seite",
+    "goToNextPage": "Zur nächsten Seite",
+    "goToPage": "Gehe zu Seite {{page}}",
+    "goToPreviousPage": "Zur vorherigen Seite",
+    "navigation": "Seitennavigation",
+    "pageOf": "Seite {{page}} von {{total}}",
+    "showingEntries": "Zeige {{start}} bis {{end}} von {{total}} Einträgen"
+  },
+  "personaEditor": {
+    "active": "Aktiv",
+    "avatar": "Avatar",
+    "builtIn": "Integriert",
+    "builtInTitle": "{{name}} – integriert",
+    "clickToActivateHint": "Klicken Sie auf eine Persona, um sie zu aktivieren. Erstellen Sie eigene mit benutzerdefinierten System-Prompts und Tool-Teilmengen.",
+    "clickToChange": "Zum Ändern klicken",
+    "createOwnHint": "Erstellen Sie eigene Assistenten-Personas mit benutzerdefinierten System-Prompts und Tool-Teilmengen. Integrierte Personas sind schreibgeschützt.",
+    "custom": "Benutzerdefiniert",
+    "defaultCounsel": "Standard-Assistent",
+    "defaultCounselDescription": "Keine Persona – der Assistent verwendet seinen Basis-System-Prompt und den vollständigen Tool-Satz.",
+    "deletePersonaDescription": "Diese Persona wird entfernt.",
+    "deletePersonaTitle": "\"{{name}}\" löschen?",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Ein Satz – wird in der Auswahl angezeigt",
+    "editPersona": "Persona bearbeiten",
+    "formDescription": "Personas haben ihren eigenen System-Prompt und (optional) einen eingeschränkten Tool-Satz. Sie werden in der Persona-Auswahl neben den integrierten angezeigt.",
+    "namePlaceholder": "z. B. Prozessanwalt",
+    "newPersona": "Neue Persona",
+    "noAvatar": "Kein Avatar",
+    "noPersonasMatch": "Keine Personas entsprechen \"{{query}}\".",
+    "noPersonasToShow": "Keine Personas anzuzeigen.",
+    "none": "Keine",
+    "persona": "Persona",
+    "personas": "Personas",
+    "pickerOpenHint": "Auswahl geöffnet – wählen Sie eine aus oder klicken Sie zum Schließen",
+    "readOnlyDescription": "Schreibgeschützte Ansicht des System-Prompts und der Tool-Whitelist einer integrierten Persona.",
+    "saveChanges": "Änderungen speichern",
+    "searchPersonas": "Personas suchen …",
+    "systemPrompt": "System-Prompt",
+    "systemPromptPlaceholder": "Sie sind Counsel, ein KI-Rechtsassistent mit Fokus auf …",
+    "tools": "Tools",
+    "useAllAvailableTools": "Alle verfügbaren Tools verwenden"
+  },
+  "personaPicker": {
+    "builtIn": "Integriert",
+    "chooseDescription": "Jede Persona hat ihren eigenen System-Prompt und Tool-Satz. Die Auswahl startet einen auf diese Persona abgestimmten Chat.",
+    "chooseTitle": "Persona auswählen",
+    "defaultDescription": "Der allgemeine Assistent – keine persona-spezifische Anpassung.",
+    "defaultLabel": "Standard-Assistent",
+    "loading": "Personas werden geladen …",
+    "yourPersonas": "Ihre Personas"
+  },
+  "pipelineBoard": {
+    "noItems": "Keine Einträge"
+  },
+  "redline": {
+    "documentsIdentical": "Die beiden Dokumente sind identisch (nach Absatzabgleich).",
+    "download": "Herunterladen",
+    "downloadBlackline": "Änderungsansicht herunterladen",
+    "downloadBlacklineTitle": "DOCX mit nachverfolgten Änderungen herunterladen („Alle annehmen“ reproduziert rechts)",
+    "downloadDocx": "DOCX herunterladen",
+    "downloadDocxAcceptAllTitle": "DOCX mit nachverfolgten Änderungen herunterladen, die Word alle annehmen kann",
+    "downloadDocxTitle": "DOCX mit nativen Word-Änderungsnachverfolgungen herunterladen",
+    "failedToLoadPreview": "Vorschau konnte nicht geladen werden",
+    "inlineTrackedChangesHint": "Eingebettete Änderungsnachverfolgung – klicken Sie auf eine Bearbeitung, um ihre Karte zu finden",
+    "loadingRedline": "Änderungsansicht wird geladen …",
+    "noParagraphsInDocument": "Keine Absätze im Dokument.",
+    "paragraphsUnchangedHidden_one": "{{count}} Absatz unverändert (ausgeblendet).",
+    "paragraphsUnchangedHidden_other": "{{count}} Absätze unverändert (ausgeblendet).",
+    "paragraphsUnchanged_one": "{{count}} Absatz unverändert.",
+    "paragraphsUnchanged_other": "{{count}} Absätze unverändert.",
+    "streamFailed": "Stream fehlgeschlagen",
+    "synthesizingTopics": "Themen werden synthetisiert …",
+    "synthesizingTopicsFromCount_one": "Themen werden aus {{count}} inhaltlichen Unterschied synthetisiert …",
+    "synthesizingTopicsFromCount_other": "Themen werden aus {{count}} inhaltlichen Unterschieden synthetisiert …",
+    "topicSynthesisFailed": "Themensynthese fehlgeschlagen – Absatzansicht wird angezeigt",
+    "topicsWillAppearHint": "Themen erscheinen hier, sobald sie erkannt wurden. Dies dauert in der Regel einige Sekunden."
+  },
+  "reviewGrid": {
+    "cell": "Zelle",
+    "citations": "Fundstellen",
+    "column": "Spalte",
+    "docsAsColumns": "Dokumente als Spalten",
+    "docsAsRows": "Dokumente als Zeilen",
+    "editPrompt": "Prompt bearbeiten",
+    "error": "Fehler",
+    "noAnswerYet": "Noch keine Antwort.",
+    "noCitationsSupplied": "Für diese Zelle wurden keine Fundstellen angegeben.",
+    "open": "Öffnen",
+    "openCitationInSourceDocument": "Fundstelle {{id}} im Quelldokument öffnen",
+    "question": "Frage",
+    "regenerate": "Neu generieren",
+    "regenerateColumn": "Spalte neu generieren",
+    "regenerateRow": "Zeile neu generieren",
+    "removeColumn": "{{title}} entfernen",
+    "removeColumnAction": "Spalte entfernen",
+    "removeRow": "{{name}} entfernen",
+    "removeRowAction": "Zeile entfernen",
+    "row": "Zeile",
+    "runCell": "Zelle ausführen",
+    "runColumn": "Spalte ausführen",
+    "runRow": "Zeile ausführen",
+    "runningEllipsis": "Wird ausgeführt …",
+    "showDocumentsAsColumns": "Dokumente als Spalten anzeigen",
+    "showDocumentsAsRows": "Dokumente als Zeilen anzeigen"
+  },
+  "rowActions": {
+    "actions": "Aktionen"
+  },
+  "settingsCards": {
+    "account": "Konto",
+    "chatModel": "Chat-Modell",
+    "emailLabel": "E-Mail:",
+    "pickModelHint": "Änderungen werden mit der nächsten Nachricht wirksam. Die Preise sind ungefähre Angaben; folgen Sie dem Link neben jedem Modell zur Überprüfung.",
+    "pickModelTitle": "Wählen Sie das Modell für den Chat",
+    "roleLabel": "Rolle:",
+    "settings": "Einstellungen",
+    "signOut": "Abmelden"
+  },
+  "sidePanel": {
+    "closeTab": "{{title}} schließen",
+    "focusTab": "{{title}} fokussieren",
+    "hideSidePanel": "Seitenleiste ausblenden",
+    "openTabs": "Tabs der Seitenleiste öffnen",
+    "sidePanel": "Seitenleiste"
+  },
+  "sidebar": {
+    "sidebar": "Seitenleiste",
+    "signOut": "Abmelden"
+  },
+  "statusDot": {
+    "checkingRuntime": "Laufzeitumgebung wird geprüft",
+    "runtimeOffline": "Laufzeitumgebung offline",
+    "runtimeReachable": "Laufzeitumgebung erreichbar"
+  },
+  "tagInput": {
+    "removeTag": "{{tag}} entfernen",
+    "typeAndPressEnter": "Eingeben und Enter drücken"
+  },
+  "themeToggle": {
+    "colorTheme": "Farbdesign",
+    "dark": "Dunkel",
+    "light": "Hell",
+    "system": "System",
+    "themeTitle": "Design: {{label}}"
+  },
+  "toast": {
+    "dismiss": "Schließen",
+    "notifications": "Benachrichtigungen"
+  },
+  "toolCallCard": {
+    "arguments": "Argumente",
+    "done": "Fertig",
+    "error": "Fehler",
+    "failed": "Fehlgeschlagen",
+    "result": "Ergebnis",
+    "running": "Wird ausgeführt …"
+  },
+  "trackedChangesPanel": {
+    "accept": "Übernehmen",
+    "accepted": "Übernommen",
+    "inDocument": "Im Dokument",
+    "proposedEdits_one": "{{count}} vorgeschlagene Änderung · In der App übernehmen oder ablehnen oder in Word öffnen",
+    "proposedEdits_other": "{{count}} vorgeschlagene Änderungen · In der App übernehmen oder ablehnen oder in Word öffnen",
+    "reDownloadHint": "Laden Sie die .docx erneut herunter, um die aktualisierte Datei zu erhalten.",
+    "reject": "Ablehnen",
+    "rejected": "Abgelehnt",
+    "resolveFailed": "Auflösung fehlgeschlagen",
+    "viewRedline": "Änderungsansicht anzeigen"
+  },
+  "workflowPickerDialog": {
+    "badgeChat": "Chat",
+    "badgeReview": "Prüfung",
+    "badgeWordDoc": "Word-Dokument",
+    "createOneToStart": "Erstellen Sie einen Workflow aus der Bibliothek, um zu beginnen.",
+    "description": "Wählen Sie einen Workflow, um die Chat-Eingabe auszufüllen.",
+    "loading": "Workflows werden geladen …",
+    "noWorkflowsInLibrary": "Keine Workflows in Ihrer Bibliothek",
+    "noWorkflowsMatch": "Keine passenden Workflows gefunden",
+    "searchWorkflows": "Workflows suchen",
+    "title": "Workflow ausführen",
+    "tryDifferentSearch": "Versuchen Sie einen anderen Suchbegriff."
   }
 }
