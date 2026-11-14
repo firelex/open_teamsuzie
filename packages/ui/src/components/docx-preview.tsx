@@ -12,6 +12,7 @@ const FIND_CURRENT_BG = "rgba(56, 189, 248, 0.7)" // sky-400/70
 const FIND_HIGHLIGHT_DATA_ATTR = "data-find-highlight"
 const FIND_CURRENT_DATA_ATTR = "data-find-current"
 const PAGE_SELECTOR = "section.docx"
+const WRAPPER_SELECTOR = ".docx-wrapper"
 
 export type DocxJumpTarget = {
   /** Quote text to find and highlight. Optional — without it, only scroll. */
@@ -39,6 +40,11 @@ export type DocxPreviewProps = {
   initialPage?: number
   onLoad?: (info: { numPages: number }) => void
   onError?: (err: Error) => void
+  /**
+   * Shrink the pages to the width of the container (never enlarge them), e.g.
+   * in a side panel narrower than a page. Off by default: pages keep their size.
+   */
+  fitWidth?: boolean
   className?: string
 }
 
@@ -57,7 +63,7 @@ async function resolveSource(
 
 export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>(
   function DocxPreview(
-    { src, initialPage = 1, onLoad, onError, className },
+    { src, initialPage = 1, onLoad, onError, fitWidth = false, className },
     ref,
   ) {
     const containerRef = React.useRef<HTMLDivElement | null>(null)
@@ -253,6 +259,27 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
       [tryApplyPending, findAll, focusFindMatch],
     )
 
+    // Fit the pages to the container: measure the wrapper at its own size, then
+    // zoom it down. Runs after each render and whenever the container resizes.
+    const fit = React.useCallback(() => {
+      const container = containerRef.current
+      const wrapper = container?.querySelector<HTMLElement>(WRAPPER_SELECTOR)
+      if (!container || !wrapper) return
+      wrapper.style.zoom = ""
+      const natural = wrapper.scrollWidth
+      wrapper.style.zoom = String(Math.min(1, container.clientWidth / natural))
+    }, [])
+
+    React.useEffect(() => {
+      const container = containerRef.current
+      if (!fitWidth || !container) return
+      const observer = new ResizeObserver(() => {
+        if (renderedRef.current) fit()
+      })
+      observer.observe(container)
+      return () => observer.disconnect()
+    }, [fitWidth, fit])
+
     React.useEffect(() => {
       let cancelled = false
       const container = containerRef.current
@@ -276,6 +303,8 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
           const sections = container.querySelectorAll(PAGE_SELECTOR)
           numPagesRef.current = sections.length
           renderedRef.current = true
+          alignHangingTabs(container)
+          if (fitWidth) fit()
           onLoad?.({ numPages: sections.length })
           if (initialPage > 1) {
             pendingJumpRef.current = { page: initialPage }
@@ -292,7 +321,7 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
       return () => {
         cancelled = true
       }
-    }, [src, initialPage, onLoad, onError, tryApplyPending])
+    }, [src, initialPage, onLoad, onError, tryApplyPending, fitWidth, fit])
 
     return (
       <div
@@ -303,6 +332,29 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
     )
   },
 )
+
+/**
+ * Word's rule for a tab in the first line of a paragraph with a hanging indent
+ * (e.g. "(a)<tab>text"): the text after it starts at the indent, level with the
+ * paragraph's other lines. docx-preview draws each tab as a fixed-width span, so
+ * labels of different widths leave the text unaligned; widen those tabs to reach
+ * the indent. Measured before any zoom, as widths in the page's own pixels.
+ */
+function alignHangingTabs(container: HTMLElement) {
+  for (const p of Array.from(container.querySelectorAll<HTMLElement>("section.docx p"))) {
+    if (parseFloat(getComputedStyle(p).textIndent) >= 0) continue
+    // docx-preview renders a tab as a span holding one em space.
+    const tab = Array.from(p.querySelectorAll<HTMLElement>("span")).find(
+      (s) => s.childElementCount === 0 && s.textContent === "\u2003",
+    )
+    if (!tab) continue
+    const indent = p.getBoundingClientRect().left + parseFloat(getComputedStyle(p).paddingLeft)
+    const left = tab.getBoundingClientRect().left
+    if (left >= indent) continue
+    tab.style.display = "inline-block"
+    tab.style.width = `${indent - left}px`
+  }
+}
 
 function collectTextNodes(root: HTMLElement): Text[] {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
