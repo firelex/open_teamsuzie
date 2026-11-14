@@ -294,10 +294,10 @@ export function ReviewGrid({
         )}
       >
         {columnsSorted.length === 0 && docsSorted.length === 0
-          ? "Add documents and columns to populate this review."
+          ? t('reviewGrid.emptyNoDocumentsNoColumns')
           : columnsSorted.length === 0
-            ? "Add a column to start extracting answers."
-            : "Add documents to populate the rows."}
+            ? t('reviewGrid.emptyNoColumns')
+            : t('reviewGrid.emptyNoDocuments')}
       </div>
     )
   }
@@ -603,7 +603,7 @@ export function ReviewGrid({
                 scope="col"
                 className="sticky left-0 top-0 z-20 min-w-[200px] max-w-[280px] border-b border-r border-border bg-muted/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
-                {transposed ? "Question" : "Document"}
+                {transposed ? t('reviewGrid.question') : t('reviewGrid.document')}
               </th>
               {transposed
                 ? docsSorted.map((doc) => (
@@ -719,10 +719,10 @@ function CellExpandDialog({
   const showRegenerate = !!onCellRegenerate && !!expanded
   const regenLabel =
     !cell || cell.status === "pending"
-      ? "Run cell"
+      ? t('reviewGrid.runCell')
       : cell.status === "error"
-        ? "Retry"
-        : "Regenerate"
+        ? t('reviewGrid.retry')
+        : t('reviewGrid.regenerate')
   const liveText = isThisCellActive
     ? truncateAtSentinel(runningCell?.partialText ?? "")
     : null

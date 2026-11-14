@@ -381,7 +381,12 @@
     "runningEllipsis": "Wird ausgeführt …",
     "showDocumentsAsColumns": "Dokumente als Spalten anzeigen",
     "showDocumentsAsRows": "Dokumente als Zeilen anzeigen",
-    "retrievalProbeLabel": "HyDE-Abrufsonde"
+    "retrievalProbeLabel": "HyDE-Abrufsonde",
+    "document": "Dokument",
+    "emptyNoDocumentsNoColumns": "Fügen Sie Dokumente und Spalten hinzu, um diese Prüfung zu füllen.",
+    "emptyNoColumns": "Fügen Sie eine Spalte hinzu, um mit der Extraktion von Antworten zu beginnen.",
+    "emptyNoDocuments": "Fügen Sie Dokumente hinzu, um die Zeilen zu füllen.",
+    "retry": "Erneut versuchen"
   },
   "rowActions": {
     "actions": "Aktionen"

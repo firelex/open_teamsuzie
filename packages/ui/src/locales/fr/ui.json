@@ -381,7 +381,12 @@
     "runningEllipsis": "Exécution…",
     "showDocumentsAsColumns": "Afficher les documents en colonnes",
     "showDocumentsAsRows": "Afficher les documents en lignes",
-    "retrievalProbeLabel": "Requête de récupération HyDE"
+    "retrievalProbeLabel": "Requête de récupération HyDE",
+    "document": "Document",
+    "emptyNoDocumentsNoColumns": "Ajoutez des documents et des colonnes pour alimenter cette revue.",
+    "emptyNoColumns": "Ajoutez une colonne pour commencer à extraire des réponses.",
+    "emptyNoDocuments": "Ajoutez des documents pour alimenter les lignes.",
+    "retry": "Réessayer"
   },
   "rowActions": {
     "actions": "Actions"
