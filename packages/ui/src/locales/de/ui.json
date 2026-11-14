@@ -117,7 +117,8 @@
     "toolStatusErr": "Fehler",
     "toolStatusOk": "OK",
     "typeAMessage": "Nachricht eingeben …",
-    "uploadFailed": "Upload fehlgeschlagen: {{error}}"
+    "uploadFailed": "Upload fehlgeschlagen: {{error}}",
+    "pasteKey": "einfügen"
   },
   "citationChip": {
     "citationAriaLabel": "Zitat [{{id}}] – {{docName}}{{locator}}",
@@ -349,7 +350,9 @@
     "synthesizingTopicsFromCount_one": "Themen werden aus {{count}} inhaltlichen Unterschied synthetisiert …",
     "synthesizingTopicsFromCount_other": "Themen werden aus {{count}} inhaltlichen Unterschieden synthetisiert …",
     "topicSynthesisFailed": "Themensynthese fehlgeschlagen – Absatzansicht wird angezeigt",
-    "topicsWillAppearHint": "Themen erscheinen hier, sobald sie erkannt wurden. Dies dauert in der Regel einige Sekunden."
+    "topicsWillAppearHint": "Themen erscheinen hier, sobald sie erkannt wurden. Dies dauert in der Regel einige Sekunden.",
+    "notInLeft": "(nicht links vorhanden)",
+    "removed": "(entfernt)"
   },
   "reviewGrid": {
     "cell": "Zelle",
@@ -377,7 +380,8 @@
     "runRow": "Zeile ausführen",
     "runningEllipsis": "Wird ausgeführt …",
     "showDocumentsAsColumns": "Dokumente als Spalten anzeigen",
-    "showDocumentsAsRows": "Dokumente als Zeilen anzeigen"
+    "showDocumentsAsRows": "Dokumente als Zeilen anzeigen",
+    "retrievalProbeLabel": "HyDE-Abrufsonde"
   },
   "rowActions": {
     "actions": "Aktionen"

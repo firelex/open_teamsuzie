@@ -373,7 +373,11 @@
       "workflowPickerDialog.title": "d30c07286c7dd0e4c3e753c38ea8bbef1af8268ac79848979e6d72bf98d331e9",
       "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb",
       "inviteAcceptPage.atLeastCharacters": "16dc052c4a21a8f9cd72dccd7d8e752d6c8d73cb1656bdf757e1b34b6b89f0df",
-      "confirmDialog.typeToConfirm": "d6bd17ddfcd028b5970c9cdaf8a5ebe214756ead0cb3fe3566896b6d1c055981"
+      "confirmDialog.typeToConfirm": "d6bd17ddfcd028b5970c9cdaf8a5ebe214756ead0cb3fe3566896b6d1c055981",
+      "chatThread.pasteKey": "a2c183d5a12aea35598b2ce8d1f92a9c5dc9b157b9eadbcd6c6c0499e97077c2",
+      "redline.notInLeft": "be1d5ee63c2d41cf0613e28ae77c008e75722e275b8f3c0ae426e90d683fa60a",
+      "redline.removed": "34e561949bd1c67c32de2cf1c6d16827d649d22357cd1f527d2a70fe52b21db9",
+      "reviewGrid.retrievalProbeLabel": "bc68b58635eb9ba7a81468dd4662650abfcee25a7dd2cc355c2c6f221d11a694"
     }
   },
   "fr": {
@@ -750,7 +754,11 @@
       "workflowPickerDialog.title": "d30c07286c7dd0e4c3e753c38ea8bbef1af8268ac79848979e6d72bf98d331e9",
       "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb",
       "inviteAcceptPage.atLeastCharacters": "16dc052c4a21a8f9cd72dccd7d8e752d6c8d73cb1656bdf757e1b34b6b89f0df",
-      "confirmDialog.typeToConfirm": "d6bd17ddfcd028b5970c9cdaf8a5ebe214756ead0cb3fe3566896b6d1c055981"
+      "confirmDialog.typeToConfirm": "d6bd17ddfcd028b5970c9cdaf8a5ebe214756ead0cb3fe3566896b6d1c055981",
+      "chatThread.pasteKey": "a2c183d5a12aea35598b2ce8d1f92a9c5dc9b157b9eadbcd6c6c0499e97077c2",
+      "redline.notInLeft": "be1d5ee63c2d41cf0613e28ae77c008e75722e275b8f3c0ae426e90d683fa60a",
+      "redline.removed": "34e561949bd1c67c32de2cf1c6d16827d649d22357cd1f527d2a70fe52b21db9",
+      "reviewGrid.retrievalProbeLabel": "bc68b58635eb9ba7a81468dd4662650abfcee25a7dd2cc355c2c6f221d11a694"
     }
   }
 }

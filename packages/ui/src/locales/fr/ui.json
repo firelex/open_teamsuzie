@@ -117,7 +117,8 @@
     "toolStatusErr": "err",
     "toolStatusOk": "ok",
     "typeAMessage": "saisissez un message…",
-    "uploadFailed": "Échec du téléchargement : {{error}}"
+    "uploadFailed": "Échec du téléchargement : {{error}}",
+    "pasteKey": "coller"
   },
   "citationChip": {
     "citationAriaLabel": "Citation [{{id}}] — {{docName}}{{locator}}",
@@ -349,7 +350,9 @@
     "synthesizingTopicsFromCount_one": "Synthèse des sujets à partir d’{{count}} différence substantielle…",
     "synthesizingTopicsFromCount_other": "Synthèse des sujets à partir de {{count}} différences substantielles…",
     "topicSynthesisFailed": "échec de la synthèse des sujets — affichage de la vue par paragraphes",
-    "topicsWillAppearHint": "Les sujets apparaîtront ici au fur et à mesure de leur identification. Cela prend généralement quelques secondes."
+    "topicsWillAppearHint": "Les sujets apparaîtront ici au fur et à mesure de leur identification. Cela prend généralement quelques secondes.",
+    "notInLeft": "(absent à gauche)",
+    "removed": "(supprimé)"
   },
   "reviewGrid": {
     "cell": "Cellule",
@@ -377,7 +380,8 @@
     "runRow": "Exécuter la ligne",
     "runningEllipsis": "Exécution…",
     "showDocumentsAsColumns": "Afficher les documents en colonnes",
-    "showDocumentsAsRows": "Afficher les documents en lignes"
+    "showDocumentsAsRows": "Afficher les documents en lignes",
+    "retrievalProbeLabel": "Requête de récupération HyDE"
   },
   "rowActions": {
     "actions": "Actions"

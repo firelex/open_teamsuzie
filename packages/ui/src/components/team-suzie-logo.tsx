@@ -30,7 +30,7 @@ export function TeamSuzieLogo({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="teamsuzie.com"
+      aria-label="teamsuzie.com" // i18n-ignore: the wordmark's domain name, not interface text — same in every locale
       className={cn("h-7 w-auto", className)}
       {...props}
     >

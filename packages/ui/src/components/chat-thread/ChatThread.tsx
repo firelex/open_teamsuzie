@@ -494,6 +494,9 @@ function ensureStyles(): void {
  *  no longer fill the entire chat panel. */
 const TOOL_ARGS_INLINE_LIMIT = 160;
 
+/** The physical Escape key's label, as printed on keyboards in every locale — not interface text to translate. */
+const ESC_KEY_LABEL = 'esc';
+
 function DefaultToolCallCard({ call }: { call: ChatToolCall }) {
   const { t } = useUiT();
   const argsView = (() => {
@@ -933,8 +936,8 @@ export function ChatThread(props: ChatThreadProps) {
         </div>
         <div className="ct-meta">
           <span className="ct-hint">
-            <kbd>↵</kbd> {t('chatThread.hintSend')}  <kbd>⇧↵</kbd> {t('chatThread.hintNewline')}  <kbd>esc</kbd> {t('chatThread.hintAbort')}
-            {uploadAttachment && <> <kbd>paste</kbd> {t('chatThread.hintImage')}</>}
+            <kbd>↵</kbd> {t('chatThread.hintSend')}  <kbd>⇧↵</kbd> {t('chatThread.hintNewline')}  <kbd>{ESC_KEY_LABEL}</kbd> {t('chatThread.hintAbort')}
+            {uploadAttachment && <> <kbd>{t('chatThread.pasteKey')}</kbd> {t('chatThread.hintImage')}</>}
           </span>
           <span style={{ flex: 1 }} />
           {composerExtras}

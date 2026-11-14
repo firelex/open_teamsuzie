@@ -101,7 +101,7 @@ export function LocalModelConfigDialog(props: LocalModelConfigDialogProps) {
               id="local-base-url"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="http://localhost:8801"
+              placeholder="http://localhost:8801" // i18n-ignore: an example URL, not interface text — same in every locale
               autoComplete="off"
               spellCheck={false}
               className="font-mono"

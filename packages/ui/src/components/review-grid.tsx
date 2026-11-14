@@ -842,7 +842,7 @@ function CellExpandDialog({
           {liveRetrievalQuery && (
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
               <div className="mb-0.5 font-medium uppercase tracking-wide text-[10px] text-muted-foreground">
-                HyDE retrieval probe
+                {t('reviewGrid.retrievalProbeLabel')}
               </div>
               <div className="text-foreground italic">{liveRetrievalQuery}</div>
             </div>

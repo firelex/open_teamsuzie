@@ -267,6 +267,7 @@ function TopicRows({ topic }: { topic: CompareTopic }) {
 }
 
 function CompareRow({ event }: { event: ParagraphDiffEvent }) {
+  const { t } = useUiT()
   if (event.kind === "modified") {
     const tag = event.moved ? "modified · moved" : "modified"
     return (
@@ -311,7 +312,7 @@ function CompareRow({ event }: { event: ParagraphDiffEvent }) {
           </p>
         </td>
         <td className="border-l border-border bg-muted/20 px-3 py-2.5 text-xs italic text-muted-foreground">
-          (removed)
+          {t('redline.removed')}
         </td>
       </tr>
     )
@@ -320,7 +321,7 @@ function CompareRow({ event }: { event: ParagraphDiffEvent }) {
   return (
     <tr className="border-b border-border align-top">
       <td className="bg-muted/20 px-3 py-2.5 text-xs italic text-muted-foreground">
-        (not in left)
+        {t('redline.notInLeft')}
       </td>
       <td className="border-l border-border bg-emerald-500/5 px-3 py-2.5 leading-relaxed">
         <div className="mb-1 text-[10.5px] uppercase tracking-wide text-muted-foreground">
