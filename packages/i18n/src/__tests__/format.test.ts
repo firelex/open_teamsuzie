@@ -24,6 +24,9 @@ describe('formatters', () => {
     expect(formatDate(d, 'en')).toBe('Nov 13, 2026');
     expect(formatDate(d, 'de')).toBe('13. Nov. 2026');
     expect(formatDate(d, 'fr')).toBe('13 nov. 2026');
+    expect(formatDate(d, 'es')).toBe('13 nov 2026');
+    expect(formatDate(d, 'it')).toBe('13 nov 2026');
+    expect(formatDate(d, 'pt')).toBe('13 de nov. de 2026');
   });
 
   it('formatCalendarDate renders a date-only value the same everywhere, regardless of the viewer\'s time zone', () => {
@@ -42,6 +45,9 @@ describe('formatters', () => {
     // Normalise whitespace on both sides rather than changing the formatter.
     expect(formatMoney(14900, 'EUR', 'de').replace(/\s/g, ' ')).toBe('149,00 €'.replace(/\s/g, ' '));
     expect(formatMoney(14900, 'EUR', 'en').replace(/\s/g, ' ')).toBe('€149.00'.replace(/\s/g, ' '));
+    expect(formatMoney(14900, 'EUR', 'es').replace(/\s/g, ' ')).toBe('149,00 €'.replace(/\s/g, ' '));
+    expect(formatMoney(14900, 'EUR', 'it').replace(/\s/g, ' ')).toBe('149,00 €'.replace(/\s/g, ' '));
+    expect(formatMoney(14900, 'EUR', 'pt').replace(/\s/g, ' ')).toBe('€ 149,00'.replace(/\s/g, ' '));
   });
   it('uses the currency\'s own minor-unit digits, not a fixed 100', () => {
     // JPY has no minor unit (digits = 0): 1500 minor units is already 1500 yen.

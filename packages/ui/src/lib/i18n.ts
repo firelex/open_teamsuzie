@@ -4,8 +4,11 @@ import { createI18n, I18nContext, type Resources } from '@teamsuzie/i18n';
 import en from '../locales/en/ui.json' with { type: 'json' };
 import de from '../locales/de/ui.json' with { type: 'json' };
 import fr from '../locales/fr/ui.json' with { type: 'json' };
+import es from '../locales/es/ui.json' with { type: 'json' };
+import it from '../locales/it/ui.json' with { type: 'json' };
+import pt from '../locales/pt/ui.json' with { type: 'json' };
 
-export const uiResources: Resources = { en: { ui: en }, de: { ui: de }, fr: { ui: fr } };
+export const uiResources: Resources = { en: { ui: en }, de: { ui: de }, fr: { ui: fr }, es: { ui: es }, it: { ui: it }, pt: { ui: pt } };
 
 // Apps that have not adopted translation mount no I18nProvider; for them the shared
 // components stay English (a documented default, decided 2026-11-13 — see the

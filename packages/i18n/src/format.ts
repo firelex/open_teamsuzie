@@ -1,6 +1,6 @@
 import type { Locale } from './locales.js';
 
-const TAG: Record<Locale, string> = { en: 'en-US', de: 'de-DE', fr: 'fr-FR' };
+const TAG: Record<Locale, string> = { en: 'en-US', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', it: 'it-IT', pt: 'pt-BR' };
 
 /**
  * Formats a timestamp (a `Date`/epoch-ms value where the time of day is meaningful) in the
