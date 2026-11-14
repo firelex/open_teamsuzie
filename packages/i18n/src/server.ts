@@ -3,7 +3,7 @@ import { SUPPORTED_LOCALES, type Locale } from './locales.js';
 
 export type { Resources } from './core.js';
 export { detectLocale, isLocale, SUPPORTED_LOCALES, type Locale } from './locales.js';
-export { formatDate, formatDateTime, formatNumber, formatMoney, currencyMinorDigits } from './format.js';
+export { formatDate, formatCalendarDate, formatDateTime, formatNumber, formatMoney, currencyMinorDigits } from './format.js';
 
 /** Translator for server code: one instance per locale, keys written "<namespace>.<path>". */
 export function createServerI18n(resources: Resources) {

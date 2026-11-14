@@ -2,7 +2,22 @@ import type { Locale } from './locales.js';
 
 const TAG: Record<Locale, string> = { en: 'en-US', de: 'de-DE', fr: 'fr-FR' };
 
+/**
+ * Formats a timestamp (a `Date`/epoch-ms value where the time of day is meaningful) in the
+ * viewer's own local time zone — the browser's or server process's — so the displayed day
+ * matches what the viewer actually experienced, not a UTC day that can be off by one.
+ */
 export function formatDate(d: Date | number, locale: Locale): string {
+  return new Intl.DateTimeFormat(TAG[locale], { year: 'numeric', month: 'short', day: 'numeric' }).format(d);
+}
+
+/**
+ * Formats a date-only value (an ISO "YYYY-MM-DD" calendar date with no meaningful time of day,
+ * e.g. a deadline or filing date) in UTC, so the calendar day shown never shifts with the
+ * viewer's time zone. Never use this for a timestamp that also carries a time of day — use
+ * `formatDate` for that.
+ */
+export function formatCalendarDate(d: Date | number, locale: Locale): string {
   return new Intl.DateTimeFormat(TAG[locale], { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(d);
 }
 export function formatDateTime(d: Date | number, locale: Locale): string {
