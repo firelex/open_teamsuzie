@@ -84,6 +84,7 @@ export type { LucideIcon } from 'lucide-react';
 // Hooks
 export { useSelectedModel } from './hooks/use-selected-model.js';
 export { useAutoResizeTextarea } from './hooks/use-auto-resize-textarea.js';
+export { useStickToBottom } from './hooks/use-stick-to-bottom.js';
 export type { UseAutoResizeTextareaOptions } from './hooks/use-auto-resize-textarea.js';
 export { useEscapeKey } from './hooks/use-escape-key.js';
 export { useScrollToHash } from './hooks/use-scroll-to-hash.js';
