@@ -506,10 +506,18 @@ export class TimeStore {
         return this.get(id)!;
     }
 
-    /** Put unbilled billable entries on an invoice. All or none: throws if any is not unbilled. */
-    markBilled(ids: string[], invoiceId: string): void {
+    /**
+     * Put unbilled billable entries on an invoice. All or none: throws if any is not unbilled, or, when `seen` gives
+     * the `updatedAt` each had when the invoice was drafted, if any has changed since.
+     */
+    markBilled(ids: string[], invoiceId: string, seen?: Record<string, number>): void {
         this.db.transaction(() => {
             for (const id of ids) {
+                if (seen) {
+                    if (!(id in seen)) throw new TimeInputError(`Time entry ${id} was not among the entries the invoice was drafted from.`);
+                    const current = this.get(id);
+                    if (current && current.updatedAt !== seen[id]) throw new TimeInputError(`Time entry ${id} has changed since the invoice was drafted.`);
+                }
                 const changed = prepareCached(
                     this.db,
                     `UPDATE time_entries SET status = 'billed', invoice_id = ?, updated_at = ? WHERE id = ? AND status = 'unbilled' AND billable = 1`,

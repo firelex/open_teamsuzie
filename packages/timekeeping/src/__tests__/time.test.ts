@@ -76,6 +76,20 @@ describe('entries', () => {
         expect(store.get(a.id)!.status).toBe('unbilled');
     });
 
+    it('refuses to bill an entry that changed since the invoice saw it', () => {
+        const { store, advance } = setup();
+        store.setRate({ level: 'person', levelId: 'jane@firm.test', hourlyMinor: 30000, setBy: 'admin' });
+        const a = store.record(entry());
+        const b = store.record(entry());
+        const seen = { [a.id]: a.updatedAt, [b.id]: b.updatedAt };
+        advance(1000);
+        store.update(b.id, { narrative: 'Reviewing side letter and drafting comments' });
+        expect(() => store.markBilled([a.id, b.id], 'inv1', seen)).toThrow(/changed since/);
+        expect(store.get(a.id)!.status).toBe('unbilled'); // all or none
+        store.markBilled([a.id], 'inv1', { [a.id]: a.updatedAt });
+        expect(store.get(a.id)!.status).toBe('billed');
+    });
+
     it('validates input', () => {
         const { store } = setup();
         expect(() => store.record(entry({ billable: false, date: '2026-13-01' }))).toThrow(/YYYY-MM-DD/);
