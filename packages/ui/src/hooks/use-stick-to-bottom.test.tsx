@@ -56,12 +56,29 @@ describe("useStickToBottom", () => {
     rerender(<Chat items={["a", "b", "c", "d", "e", "f"]} />)
     expect(box.scrollTop).toBe(200)
 
+    // A small step up (a trackpad), still near the end, stops the following too.
+    box.scrollTop = 185
+    fireEvent.scroll(box)
+    scrolled.mockReset()
+    rerender(<Chat items={["a", "b", "c", "d", "e", "f", "f2"]} />)
+    expect(scrolled).not.toHaveBeenCalled()
+    // Scrolling back down to the end starts it again.
+    box.scrollTop = 250
+    fireEvent.scroll(box)
+    rerender(<Chat items={["a", "b", "c", "d", "e", "f", "f2", "f3"]} />)
+    expect(box.scrollTop).toBe(300)
+    // A wheel gesture upward stops it before the view moves.
+    fireEvent.wheel(box, { deltaY: -40 })
+    scrolled.mockReset()
+    rerender(<Chat items={["a", "b", "c", "d", "e", "f", "f2", "f3", "f4"]} />)
+    expect(scrolled).not.toHaveBeenCalled()
+
     // Up again, then stick() (the reader sends a message): to the end, and following again.
     box.scrollTop = 10
     fireEvent.scroll(box)
     act(() => stickRef!())
-    expect(box.scrollTop).toBe(200)
-    rerender(<Chat items={["a", "b", "c", "d", "e", "f", "g"]} />)
-    expect(box.scrollTop).toBe(250)
+    expect(box.scrollTop).toBe(350)
+    rerender(<Chat items={["a", "b", "c", "d", "e", "f", "f2", "f3", "f4", "g"]} />)
+    expect(box.scrollTop).toBe(400)
   })
 })
