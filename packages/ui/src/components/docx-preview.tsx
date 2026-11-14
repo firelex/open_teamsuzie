@@ -342,7 +342,7 @@ export const DocxPreview = React.forwardRef<DocxPreviewHandle, DocxPreviewProps>
  */
 function alignHangingTabs(container: HTMLElement) {
   for (const p of Array.from(container.querySelectorAll<HTMLElement>("section.docx p"))) {
-    if (parseFloat(getComputedStyle(p).textIndent) >= 0) continue
+    if (parseFloat(getComputedStyle(p).textIndent) >= 0) continue // i18n-ignore — lint false positive (a >= comparison after a generic)
     // docx-preview renders a tab as a span holding one em space.
     const tab = Array.from(p.querySelectorAll<HTMLElement>("span")).find(
       (s) => s.childElementCount === 0 && s.textContent === "\u2003",
