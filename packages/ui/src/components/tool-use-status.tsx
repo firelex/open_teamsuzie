@@ -20,6 +20,10 @@ export interface ToolEvent {
  *
  * Pass an optional `verb` to lock the verb (handy for tests); otherwise one
  * is picked at random on first render and held via a ref.
+ *
+ * A step that runs longer than a few seconds (a slow search, say) shows how
+ * long it has been running, ticking every second, so a slow step is visibly
+ * not a stuck one.
  */
 export function ToolUseStatus({
   events,
@@ -36,7 +40,18 @@ export function ToolUseStatus({
   }
   const running = events.find((e) => e.status === "running")
   const current = running ?? events[events.length - 1]
+  // When each running step was first seen, for its timer; ticks once a second while a step runs.
+  const startedRef = React.useRef(new Map<string, number>())
+  if (running && !startedRef.current.has(running.id)) startedRef.current.set(running.id, Date.now())
+  const [now, setNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    if (!running) return
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [running?.id])
   if (!current) return null
+  const startedAt = running ? startedRef.current.get(running.id) : undefined
+  const seconds = startedAt !== undefined ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0
   const summary = summarizeArgs(current.args)
 
   return (
@@ -50,6 +65,7 @@ export function ToolUseStatus({
             · {summary}
           </span>
         )}
+        {running && seconds >= 3 && <span className="shrink-0 tabular-nums text-muted-foreground">· {seconds} s</span>}
       </div>
     </div>
   )
