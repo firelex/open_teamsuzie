@@ -21,6 +21,10 @@ import { cn } from "../lib/utils"
  * talks to a same-origin parent. `author` signs comments and tracked
  * changes made in the app.
  *
+ * `fonts` are font files (TTF/OTF URLs on this origin) given to the app with its `font.add` command before
+ * the document opens: the web builds draw text with the fonts they carry, so a document's own fonts
+ * (Times New Roman, Arial, …) show only when they, or metric-compatible equivalents, are added first.
+ *
  * `onApi` receives the app's page command API (`window.<app>`, the
  * `craft-web-api` contract) once the app is ready, so the host can run the
  * app's commands on the open document, e.g. `execute("document.text")`.
@@ -52,6 +56,11 @@ export interface CraftAppFrameProps {
    * UiState, e.g. `{ showDiscord: false }` hides the community button).
    */
   prefs?: Record<string, unknown>
+  /**
+   * Font files (TTF/OTF/TTC URLs on this origin) added with the app's `font.add` command before the document
+   * opens. A font that cannot be fetched or added is reported through `onFailed`, and the document is not opened.
+   */
+  fonts?: string[]
   /** Accessible name of the frame. */
   title: string
   className?: string
@@ -62,7 +71,7 @@ interface CraftMessage {
   [key: string]: unknown
 }
 
-export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFailed, onApi, prefs, title, className }: CraftAppFrameProps) {
+export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFailed, onApi, prefs, fonts, title, className }: CraftAppFrameProps) {
   // Before the iframe exists, so the app reads them at start-up.
   React.useState(() => {
     if (prefs) mergePrefs(`${app}.ui`, prefs)
@@ -70,6 +79,9 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
   })
   const frameRef = React.useRef<HTMLIFrameElement | null>(null)
   const [ready, setReady] = React.useState(false)
+  // True once `fonts` are in the app (at once when there are none).
+  const [fontsAdded, setFontsAdded] = React.useState(!fonts?.length)
+  const fontsRef = React.useRef(fonts)
   const [dirty, setDirty] = React.useState(false)
   const sentRef = React.useRef<ArrayBuffer | null>(null)
   // The latest callbacks, without re-subscribing the listener on every render.
@@ -91,6 +103,18 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
       if (kind === "ready") {
         post({ type: `${app}:host`, version: "1" })
         setReady(true)
+        const toAdd = fontsRef.current
+        if (toAdd?.length) {
+          const api = (frameRef.current?.contentWindow as unknown as Record<string, { execute?: CraftAppApi["execute"] }> | null)?.[app]
+          if (!api?.execute) {
+            handlers.current.onFailed?.(`${app} is ready but has no command API (window.${app}.execute) to add fonts with`)
+          } else {
+            void addFonts(api.execute, toAdd).then(
+              () => setFontsAdded(true),
+              (err: unknown) => handlers.current.onFailed?.(err instanceof Error ? err.message : String(err)),
+            )
+          }
+        }
         if (handlers.current.onApi) {
           const api = (frameRef.current?.contentWindow as unknown as Record<string, { execute?: CraftAppApi["execute"] }> | null)?.[app]
           if (!api?.execute) {
@@ -127,14 +151,14 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
     }
   }, [app, post])
 
-  // Send the document once the app is ready (and again if a different one is given).
+  // Send the document once the app is ready and has its fonts (and again if a different one is given).
   React.useEffect(() => {
-    if (!ready || !file || sentRef.current === file.bytes) return
+    if (!ready || !fontsAdded || !file || sentRef.current === file.bytes) return
     sentRef.current = file.bytes
     // Transfer a copy: the caller keeps its own bytes.
     const copy = file.bytes.slice(0)
     post({ type: `${app}:open`, name: file.name, bytes: copy }, [copy])
-  }, [ready, file, app, post])
+  }, [ready, fontsAdded, file, app, post])
 
   // The host guards leaving the page while the app has unsaved changes.
   React.useEffect(() => {
@@ -148,6 +172,26 @@ export function CraftAppFrame({ app, src, file, author, onSave, onDirty, onFaile
 
   const url = `${src}?host=parent${author ? `&author=${encodeURIComponent(author)}` : ""}`
   return <iframe ref={frameRef} src={url} title={title} className={cn("h-full w-full border-0", className)} />
+}
+
+/** Fetch each font file and add it to the app; throws naming the first font that could not be fetched or added. */
+async function addFonts(execute: CraftAppApi["execute"], urls: string[]): Promise<void> {
+  const files = await Promise.all(
+    urls.map(async (url) => {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Could not fetch the font ${url} (${res.status})`)
+      return { url, bytes: new Uint8Array(await res.arrayBuffer()) }
+    }),
+  )
+  for (const { url, bytes } of files) {
+    let binary = ""
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    try {
+      await execute("font.add", { data: btoa(binary) })
+    } catch (err) {
+      throw new Error(`The editor did not take the font ${url}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 }
 
 /**

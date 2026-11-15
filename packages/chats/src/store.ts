@@ -199,7 +199,7 @@ export class ChatsStore {
     listMessages(chatId: string): ChatMessage[] {
         return prepareCached<[string], MessageRow>(
             this.db,
-            `SELECT * FROM chat_messages WHERE chat_id = ? ORDER BY created_at, id`,
+            `SELECT * FROM chat_messages WHERE chat_id = ? ORDER BY created_at, rowid`,
         )
             .all(chatId)
             .map(rowToMessage);
