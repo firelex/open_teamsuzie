@@ -16,7 +16,8 @@ interface HistoryRecord {
     labelsRemoved?: Array<{ message: { id: string; threadId: string; labelIds?: string[] }; labelIds: string[] }>;
 }
 
-class GmailHttpError extends Error {
+/** Gmail answered a call with an error (other than a rate limit, which is EmailRateLimitError); `status` is its HTTP status. */
+export class GmailHttpError extends Error {
     constructor(readonly status: number, message: string) { super(message); }
 }
 
@@ -191,6 +192,27 @@ export class GmailClient implements EmailClient {
     async getMessage(id: string): Promise<EmailMessage> {
         const m = await this.call<GmailApiMessage>('GET', `/messages/${encodeURIComponent(id)}`, { query: { format: 'full' } });
         return parseGmailMessage(m, await this.labelName(m.labelIds ?? []));
+    }
+
+    /**
+     * Messages matching a Gmail search (the words and operators of Gmail's search box, e.g. "in:sent after:1763251200"),
+     * newest first, at most `limit` (default 50), each read in full. Unsent drafts are left out, as everywhere here.
+     */
+    async findMessages(input: { query: string; limit?: number }): Promise<EmailMessage[]> {
+        const limit = input.limit ?? 50;
+        if (!Number.isInteger(limit) || limit < 1) throw new Error(`findMessages needs a positive whole limit, not ${limit}`);
+        const ids: string[] = [];
+        let pageToken: string | undefined;
+        do {
+            const page = await this.call<{ messages?: Array<{ id: string }>; nextPageToken?: string }>('GET', '/messages', {
+                query: { q: `${input.query} -in:drafts`, maxResults: String(Math.min(limit - ids.length, 500)), pageToken },
+            });
+            ids.push(...(page.messages ?? []).map((m) => m.id));
+            pageToken = page.nextPageToken;
+        } while (pageToken && ids.length < limit);
+        const out: EmailMessage[] = [];
+        for (const id of ids.slice(0, limit)) out.push(await this.getMessage(id));
+        return out;
     }
 
     async setRead(messageIds: string[], read: boolean): Promise<void> {

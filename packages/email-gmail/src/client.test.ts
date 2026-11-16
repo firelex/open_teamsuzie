@@ -179,6 +179,36 @@ const original: GmailApiMessage = {
     ] },
 };
 
+describe('GmailClient finding messages', () => {
+    it('searches with Gmail\'s own query, leaving drafts out, and reads each message newest first up to the limit', async () => {
+        const g = fakeGmail({
+            'GET /labels': () => ({ json: labels }),
+            'GET /messages': (url) => url.searchParams.get('pageToken')
+                ? { json: { messages: [{ id: 'm3', threadId: 't3' }] } }
+                : { json: { messages: [{ id: 'm1', threadId: 't1' }, { id: 'm2', threadId: 't2' }], nextPageToken: 'p2' } },
+            'GET /messages/m[0-9]': (url) => { const id = url.pathname.split('/').pop()!; return { json: msg(id, `t${id.slice(1)}`, ['INBOX'], `Subject ${id}`) }; },
+        });
+        const found = await client(g.f).findMessages({ query: 'in:sent after:1762905600 before:1762992000', limit: 3 });
+        expect(found.map((m) => [m.id, m.subject])).toEqual([['m1', 'Subject m1'], ['m2', 'Subject m2'], ['m3', 'Subject m3']]);
+        const lists = g.calls.filter((c) => c.path === '/messages');
+        expect(lists.map((c) => [c.url.searchParams.get('q'), c.url.searchParams.get('maxResults')])).toEqual([
+            ['in:sent after:1762905600 before:1762992000 -in:drafts', '3'],
+            ['in:sent after:1762905600 before:1762992000 -in:drafts', '1'],
+        ]);
+    });
+
+    it('stops at the limit without reading further pages, and refuses a limit that is not a positive whole number', async () => {
+        const g = fakeGmail({
+            'GET /labels': () => ({ json: labels }),
+            'GET /messages': () => ({ json: { messages: [{ id: 'm1', threadId: 't1' }], nextPageToken: 'p2' } }),
+            'GET /messages/m1': () => ({ json: msg('m1', 't1', ['INBOX']) }),
+        });
+        expect((await client(g.f).findMessages({ query: 'in:inbox', limit: 1 })).map((m) => m.id)).toEqual(['m1']);
+        expect(g.calls.filter((c) => c.path === '/messages')).toHaveLength(1);
+        await expect(client(g.f).findMessages({ query: 'x', limit: 0 })).rejects.toThrow(/positive whole limit/);
+    });
+});
+
 describe('GmailClient writing', () => {
     const routes = (sent: unknown[]) => ({
         'GET /labels': () => ({ json: labels }),

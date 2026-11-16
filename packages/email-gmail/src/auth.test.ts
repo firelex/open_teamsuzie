@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { EmailAuthError } from '@teamsuzie/email';
-import { authorizationUrl, createPkce, exchangeCode, GMAIL_SCOPES, readOAuthClient, refreshAccessToken, revokeToken } from './auth.js';
+import { authorizationUrl, createPkce, exchangeCode, GMAIL_SCOPES, GOOGLE_CALENDAR_READONLY_SCOPE, readOAuthClient, refreshAccessToken, revokeToken } from './auth.js';
 
 const client = { clientId: 'cid.apps.googleusercontent.com', clientSecret: 'secret' };
 const idToken = (claims: object) => `x.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.y`;
@@ -39,6 +39,13 @@ describe('Google sign-in', () => {
             code_challenge: 'c1', code_challenge_method: 'S256', login_hint: 'me@firm.test',
         });
         expect(GMAIL_SCOPES).toEqual(['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send', 'openid', 'email']);
+    });
+
+    it('asks for the scopes it is given instead, and refuses none', () => {
+        const scopes = [...GMAIL_SCOPES, GOOGLE_CALENDAR_READONLY_SCOPE];
+        const url = new URL(authorizationUrl({ client, redirectUri: 'http://localhost/cb', state: 's', codeChallenge: 'c', scopes }));
+        expect(url.searchParams.get('scope')).toBe(`${GMAIL_SCOPES.join(' ')} https://www.googleapis.com/auth/calendar.readonly`);
+        expect(() => authorizationUrl({ client, redirectUri: 'http://localhost/cb', state: 's', codeChallenge: 'c', scopes: [] })).toThrow(/at least one scope/);
     });
 
     it('exchanges a code for a grant with the address Google confirms', async () => {
@@ -90,5 +97,8 @@ describe('granted permissions', () => {
         expect(missingScopes(real)).toEqual([]);
         expect(missingScopes(real.filter((s) => !s.endsWith('gmail.send')))).toEqual(['https://www.googleapis.com/auth/gmail.send']);
         expect(missingScopes(['openid'])).toContain('email');
+        const calendar = 'https://www.googleapis.com/auth/calendar.readonly';
+        expect(missingScopes(real, [...GMAIL_SCOPES, calendar])).toEqual([calendar]);
+        expect(missingScopes([...real, calendar], [...GMAIL_SCOPES, calendar])).toEqual([]);
     });
 });

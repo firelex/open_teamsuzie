@@ -11,12 +11,15 @@ export const GMAIL_SCOPES: readonly string[] = [
     'email',
 ];
 
+/** Read the user's calendars and events, nothing more (GoogleCalendar). */
+export const GOOGLE_CALENDAR_READONLY_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+
 /** Google reports some scopes under other names in its token response ("email" as its userinfo URL). */
 const GRANTED_AS: Record<string, string[]> = { email: ['email', 'https://www.googleapis.com/auth/userinfo.email'] };
 
-/** The scopes in GMAIL_SCOPES that a grant's scope list does not include, reading Google's own names. */
-export function missingScopes(granted: string[]): string[] {
-    return GMAIL_SCOPES.filter((s) => !(GRANTED_AS[s] ?? [s]).some((name) => granted.includes(name)));
+/** The scopes asked for (GMAIL_SCOPES unless given) that a grant's scope list does not include, reading Google's own names. */
+export function missingScopes(granted: string[], wanted: readonly string[] = GMAIL_SCOPES): string[] {
+    return wanted.filter((s) => !(GRANTED_AS[s] ?? [s]).some((name) => granted.includes(name)));
 }
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -36,13 +39,18 @@ export function createPkce(): { verifier: string; challenge: string } {
     return { verifier, challenge: createHash('sha256').update(verifier).digest('base64url') };
 }
 
-/** Where to send the user to sign in. `prompt=consent` makes Google return a refresh token every time. */
-export function authorizationUrl(opts: { client: GoogleOAuthClient; redirectUri: string; state: string; codeChallenge: string; loginHint?: string }): string {
+/**
+ * Where to send the user to sign in. `prompt=consent` makes Google return a refresh token every time.
+ * `scopes` are the permissions asked for: GMAIL_SCOPES unless given (add GOOGLE_CALENDAR_READONLY_SCOPE to read the calendar too).
+ */
+export function authorizationUrl(opts: { client: GoogleOAuthClient; redirectUri: string; state: string; codeChallenge: string; loginHint?: string; scopes?: readonly string[] }): string {
+    const scopes = opts.scopes ?? GMAIL_SCOPES;
+    if (scopes.length === 0) throw new Error('A Google sign-in must ask for at least one scope');
     const p = new URLSearchParams({
         client_id: opts.client.clientId,
         redirect_uri: opts.redirectUri,
         response_type: 'code',
-        scope: GMAIL_SCOPES.join(' '),
+        scope: scopes.join(' '),
         access_type: 'offline',
         prompt: 'consent',
         state: opts.state,
