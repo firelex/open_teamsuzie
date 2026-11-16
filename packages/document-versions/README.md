@@ -1,6 +1,6 @@
 # @teamsuzie/document-versions
 
-SQLite-backed store for immutable document version chains. Each version points at its parent and carries a `source` tag (`upload`, `proposal`, `accept`, `reject`, `generated`); a per-document head pointer makes "restore an old version" a single `setHead` call without rewriting history. Use it whenever an app needs to track how a document evolved (uploads, LLM-proposed redlines, accept/reject resolutions) and let users roll back.
+SQLite-backed store for immutable document version chains. Each version points at its parent and carries a `source` tag (`upload`, `proposal`, `accept`, `reject`, `generated`, `restore`, `edit`, and `onedrive` / `google_drive` for a file brought in from those services, its address there in `notes`); a per-document head pointer makes "restore an old version" a single `setHead` call without rewriting history. Use it whenever an app needs to track how a document evolved (uploads, LLM-proposed redlines, accept/reject resolutions) and let users roll back.
 
 ```ts
 import { openDb } from '@teamsuzie/db-sqlite';

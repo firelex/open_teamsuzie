@@ -12,7 +12,11 @@ export type VersionSource =
     | 'reject'
     | 'generated'
     | 'restore'
-    | 'edit';
+    | 'edit'
+    /** Brought in from OneDrive or SharePoint; `notes` is the file's address there. */
+    | 'onedrive'
+    /** Brought in from Google Drive; `notes` is the file's address there. */
+    | 'google_drive';
 
 export const VERSION_SOURCES: readonly VersionSource[] = [
     'upload',
@@ -22,6 +26,8 @@ export const VERSION_SOURCES: readonly VersionSource[] = [
     'generated',
     'restore',
     'edit',
+    'onedrive',
+    'google_drive',
 ] as const;
 
 export interface DocumentVersion {

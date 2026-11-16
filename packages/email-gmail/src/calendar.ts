@@ -42,12 +42,16 @@ interface ApiEvent {
     attendees?: ApiAttendee[];
 }
 
-/** Google Calendar answered with an error; `status` is its HTTP status and `reasons` Google's own reason codes. */
+/** A Google API (Calendar, Drive) answered with an error; `status` is its HTTP status and `reasons` Google's own reason codes. */
 export class GoogleApiError extends Error {
     constructor(readonly status: number, readonly reasons: string[], message: string) { super(message); }
     /** Google's "slow down" answers: 429, and 403 with a rate-limit reason. */
     get rateLimited(): boolean {
         return this.status === 429 || (this.status === 403 && this.reasons.some((r) => r === 'rateLimitExceeded' || r === 'userRateLimitExceeded'));
+    }
+    /** The access token lacks a scope the call needs (a connection made before the scope was asked for): 403 insufficientPermissions. */
+    get insufficientScope(): boolean {
+        return this.status === 403 && this.reasons.includes('insufficientPermissions');
     }
 }
 

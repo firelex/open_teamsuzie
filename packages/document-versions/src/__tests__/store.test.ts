@@ -413,3 +413,23 @@ describe('restore-source migration on existing data', () => {
         db2.close();
     });
 });
+
+describe('import-sources migration on existing data', () => {
+    it('keeps existing versions and then accepts files brought in from OneDrive and Google Drive', () => {
+        const before = DOCUMENT_VERSIONS_MIGRATIONS.filter((m) => m.name !== '20261116_document_versions_add_import_sources');
+        const path = `${tmpdir()}/dv-mig-import-${Date.now()}.db`;
+        const db1 = openDb({ path, migrations: before });
+        const s1 = new DocumentVersionsStore({ db: db1 });
+        const up = s1.addVersion({ externalDocId: 'doc', source: 'upload', storageId: 'f1' });
+        s1.addVersion({ externalDocId: 'doc', parentId: up.id, source: 'edit', storageId: 'f2' });
+        expect(() => db1.prepare(`INSERT INTO document_versions (id, external_doc_id, source, storage_id, created_at) VALUES ('x', 'd', 'onedrive', 's', 1)`).run()).toThrow(/CHECK/);
+        db1.close();
+        const db2 = openDb({ path, migrations: DOCUMENT_VERSIONS_MIGRATIONS });
+        const s2 = new DocumentVersionsStore({ db: db2 });
+        expect(s2.listVersions('doc').map((v) => v.source)).toEqual(['upload', 'edit']);
+        const od = s2.addVersion({ externalDocId: 'od', source: 'onedrive', storageId: 'f3', notes: 'https://firm.sharepoint.com/x.docx' });
+        expect(s2.getHead('od')).toMatchObject({ id: od.id, source: 'onedrive', notes: 'https://firm.sharepoint.com/x.docx' });
+        s2.addVersion({ externalDocId: 'gd', source: 'google_drive', storageId: 'f4' });
+        db2.close();
+    });
+});

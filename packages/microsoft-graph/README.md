@@ -15,3 +15,8 @@ user's Microsoft Entra tenant. Ported from Jeff Desk (`jeff_desk/microsoft.py`, 
   Sends go out at once: hosts put them behind their approvals.
 - **`OutlookCalendar.events(start, end)`** and **`TeamsChats`** (`chats`, `messages`, the user's own messages marked):
   read only.
+- **`OneDriveFiles`**, read only (needs `MICROSOFT_FILE_SCOPES`): the user's OneDrive, a drive's folders, files
+  shared with them, followed and found SharePoint sites and their document libraries, OneDrive search, and a file's
+  bytes (`GraphSession.download`, stopped at a size limit with `too_large`). `GraphSession.grantedScopes()` lists
+  the permissions the current token carries; `missingFileScopes` tells which file scopes a connection made before
+  they were asked for lacks.

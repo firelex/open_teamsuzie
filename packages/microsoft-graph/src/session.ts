@@ -37,6 +37,7 @@ export type GraphErrorCode =
     | 'invalid_request'
     | 'not_found'
     | 'unreachable'
+    | 'too_large'
     | 'internal_error';
 
 /** A Microsoft 365 failure, with Graph's own message. Nothing is retried silently. */
@@ -172,7 +173,7 @@ export interface GraphSessionOptions {
 
 /** Access tokens (refreshed when needed) and Graph requests, for one signed-in user. */
 export class GraphSession {
-    private access: { token: string; expiresAt: number } | null = null;
+    private access: { token: string; expiresAt: number; scopes: string[] | null } | null = null;
     private refreshing: Promise<string> | null = null;
     private readonly f: typeof fetch;
     private readonly now: () => number;
@@ -202,19 +203,25 @@ export class GraphSession {
         }
         const grant = grantFrom(body, this.now());
         if (grant.refreshToken && grant.refreshToken !== refreshToken) await this.opts.saveRefreshToken(grant.refreshToken);
-        this.access = { token: grant.accessToken, expiresAt: grant.expiresAt };
+        // Microsoft's token answer lists the permissions the access token carries (`scope`).
+        this.access = { token: grant.accessToken, expiresAt: grant.expiresAt, scopes: typeof body.scope === 'string' ? body.scope.split(' ').filter(Boolean) : null };
         return grant.accessToken;
     }
 
     /**
-     * One Graph call; its JSON answer, or a GraphError with Graph's message.
-     * `path` is relative to v1.0 or a full @odata.nextLink.
+     * The permissions the current access token carries, as Microsoft listed
+     * them in its token answer (e.g. a token from a sign-in made before a
+     * scope was added lacks it). Fails when Microsoft listed none.
      */
-    async request<T = Record<string, unknown>>(
-        method: string,
-        path: string,
-        opts: { query?: Record<string, string | number>; body?: unknown; headers?: Record<string, string> } = {},
-    ): Promise<T> {
+    async grantedScopes(): Promise<string[]> {
+        await this.token();
+        const scopes = this.access?.scopes;
+        if (!scopes) throw new GraphError('internal_error', 'Microsoft\'s token answer did not say which permissions the access token carries');
+        return scopes;
+    }
+
+    /** Sends one Graph call and returns the answer when it succeeded; a failure is a GraphError with Graph's message. */
+    private async send(method: string, path: string, opts: { query?: Record<string, string | number>; body?: unknown; headers?: Record<string, string> }): Promise<Response> {
         let url = path.startsWith('https://') ? path : GRAPH + path;
         if (opts.query) {
             const q = Object.entries(opts.query)
@@ -233,24 +240,74 @@ export class GraphSession {
             if (err instanceof GraphError) throw err;
             throw new GraphError('unreachable', `Microsoft could not be reached (${err instanceof Error ? err.message : String(err)})`);
         }
+        if (res.status < 400) return res;
         const text = await res.text();
-        let body: unknown = null;
-        if (text) {
-            try {
-                body = JSON.parse(text);
-            } catch {
-                body = { error: { message: text.slice(0, 300) } };
-            }
+        let message = text.slice(0, 300);
+        try {
+            message = ((JSON.parse(text) as { error?: { message?: string } } | null)?.error?.message ?? '').trim();
+        } catch {
+            // Not JSON: the start of the text is Graph's message.
         }
         const where = `${method} ${path.split('?')[0]}`;
-        const message = ((body as { error?: { message?: string } } | null)?.error?.message ?? '').trim();
         if (res.status === 429) throw new GraphError('throttled', 'Microsoft Graph is limiting requests for now (HTTP 429); try again in a minute', 429);
         if (res.status === 401 || res.status === 403) throw new GraphError('refused', `Microsoft Graph refused ${where} (HTTP ${res.status}): ${message}`, res.status);
         if (res.status === 404) throw new GraphError('not_found', `Microsoft Graph found nothing at ${where}: ${message}`, 404);
-        if (res.status >= 400) {
-            throw new GraphError(res.status === 400 ? 'invalid_request' : 'internal_error', `Microsoft Graph ${where} failed (HTTP ${res.status}): ${message}`, res.status);
+        throw new GraphError(res.status === 400 ? 'invalid_request' : 'internal_error', `Microsoft Graph ${where} failed (HTTP ${res.status}): ${message}`, res.status);
+    }
+
+    /**
+     * One Graph call; its JSON answer, or a GraphError with Graph's message.
+     * `path` is relative to v1.0 or a full @odata.nextLink.
+     */
+    async request<T = Record<string, unknown>>(
+        method: string,
+        path: string,
+        opts: { query?: Record<string, string | number>; body?: unknown; headers?: Record<string, string> } = {},
+    ): Promise<T> {
+        const res = await this.send(method, path, opts);
+        const text = await res.text();
+        if (!text) return {} as T;
+        try {
+            return JSON.parse(text) as T;
+        } catch {
+            throw new GraphError('internal_error', `Microsoft Graph ${method} ${path.split('?')[0]} answered with something that is not JSON: ${text.slice(0, 300)}`, res.status);
         }
-        return (body ?? {}) as T;
+    }
+
+    /**
+     * The bytes Graph answers a GET with (a file's content; Graph redirects to
+     * a short-lived download address, which fetch follows). More than
+     * `maxBytes` is a GraphError too_large, stopped as soon as it is passed.
+     */
+    async download(path: string, opts: { maxBytes: number }): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+        const res = await this.send('GET', path, {});
+        const declared = Number(res.headers.get('content-length') ?? NaN);
+        if (declared > opts.maxBytes) {
+            await res.body?.cancel();
+            throw new GraphError('too_large', `${path.split('?')[0]} is ${declared} bytes; at most ${opts.maxBytes} are taken`);
+        }
+        const chunks: Uint8Array[] = [];
+        let total = 0;
+        if (res.body) {
+            const reader = res.body.getReader();
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                total += value.byteLength;
+                if (total > opts.maxBytes) {
+                    await reader.cancel();
+                    throw new GraphError('too_large', `${path.split('?')[0]} is more than ${opts.maxBytes} bytes`);
+                }
+                chunks.push(value);
+            }
+        }
+        const bytes = new Uint8Array(total);
+        let at = 0;
+        for (const c of chunks) {
+            bytes.set(c, at);
+            at += c.byteLength;
+        }
+        return { bytes, contentType: res.headers.get('content-type') };
     }
 
     /** Every item of a list, following @odata.nextLink, up to `limit`. */

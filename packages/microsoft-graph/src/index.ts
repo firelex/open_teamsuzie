@@ -13,3 +13,5 @@ export { OutlookMailClient, peopleOf, toEmailMessage } from './mail.js';
 export type { EmailPerson, GraphMessage } from './mail.js';
 export { OutlookCalendar, TeamsChats } from './calendar-teams.js';
 export type { CalendarEvent, TeamsChat, TeamsMessage } from './calendar-teams.js';
+export { OneDriveFiles, missingFileScopes } from './files.js';
+export type { DocumentLibrary, DriveEntry, SharePointSite } from './files.js';
