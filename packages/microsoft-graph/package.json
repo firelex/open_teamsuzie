@@ -1,7 +1,7 @@
 {
   "name": "@teamsuzie/microsoft-graph",
   "version": "0.1.0",
-  "description": "Microsoft 365 through Microsoft Graph as the signed-in user: sign-in (PKCE, public client), Outlook mail as an @teamsuzie/email client, calendar and Teams chats (read). Ported from Jeff Desk.",
+  "description": "Microsoft 365 through Microsoft Graph as the signed-in user: sign-in (PKCE, public client), Outlook mail as an @teamsuzie/email client, calendar, Teams chats (read) and posting in a Teams chat. Ported from Jeff Desk.",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",

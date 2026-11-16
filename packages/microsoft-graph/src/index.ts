@@ -2,11 +2,13 @@ export {
     GRAPH,
     GraphError,
     GraphSession,
+    MICROSOFT_CHAT_SEND_SCOPES,
     MICROSOFT_FILE_SCOPES,
     MICROSOFT_SCOPES,
     authorizationUrl,
     createPkce,
     exchangeCode,
+    missingScopes,
 } from './session.js';
 export type { GraphErrorCode, GraphSessionOptions, MicrosoftApp, MicrosoftGrant } from './session.js';
 export { OutlookMailClient, peopleOf, toEmailMessage } from './mail.js';
@@ -15,3 +17,4 @@ export { OutlookCalendar, TeamsChats } from './calendar-teams.js';
 export type { CalendarEvent, TeamsChat, TeamsMessage } from './calendar-teams.js';
 export { OneDriveFiles, missingFileScopes } from './files.js';
 export type { DocumentLibrary, DriveEntry, SharePointSite } from './files.js';
+export { missingChatSendScopes, sendChatMessage, teamsHtml } from './teams-send.js';

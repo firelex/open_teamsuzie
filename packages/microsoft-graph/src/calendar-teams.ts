@@ -5,8 +5,8 @@ import type { GraphSession } from './session.js';
  * Outlook calendar and Teams chats through Microsoft Graph, read only.
  * Ported from Jeff Desk (jeff_desk/tools/outlook_calendar.py,
  * jeff_desk/tools/teams.py and TeamsChannel in jeff_desk/chat_alerts.py).
- * Changing a calendar or posting in Teams is left to hosts, behind their
- * approvals.
+ * Changing a calendar is left to hosts, behind their approvals; posting in
+ * a Teams chat is sendChatMessage (teams-send.ts), apart from these readers.
  */
 
 export interface CalendarEvent {
@@ -104,6 +104,10 @@ export interface TeamsMessage {
     senderName: string | null;
     fromMe: boolean;
     text: string;
+    /** The Graph ids of the users the message @mentions. */
+    mentions: string[];
+    /** The message's address in Teams when Graph gives one. */
+    webUrl: string | null;
 }
 
 interface GraphChat {
@@ -121,6 +125,8 @@ interface GraphChatMessage {
     from?: { user?: { id?: string; displayName?: string }; application?: { displayName?: string } };
     body?: { contentType?: string; content?: string };
     attachments?: Array<{ name?: string }>;
+    mentions?: Array<{ mentioned?: { user?: { id?: string } } }>;
+    webUrl?: string | null;
 }
 
 export class TeamsChats {
@@ -152,13 +158,17 @@ export class TeamsChats {
     /**
      * A chat's messages, oldest first, at most `limit` (newest ones). System
      * messages are left out; a message with only a file shows the file name.
+     * With `modifiedSince` (ISO), only messages written or changed after it
+     * (Graph filters on lastModifiedDateTime, newest first).
      */
-    async messages(chatId: string, limit = 50): Promise<TeamsMessage[]> {
+    async messages(chatId: string, limit = 50, opts: { modifiedSince?: string } = {}): Promise<TeamsMessage[]> {
         const me = await this.me();
-        const found = await this.session.all<GraphChatMessage>(`/me/chats/${encodeURIComponent(chatId)}/messages`, {
-            query: { $top: Math.min(limit, 50) },
-            limit,
-        });
+        const query: Record<string, string | number> = { $top: Math.min(limit, 50) };
+        if (opts.modifiedSince) {
+            query.$orderby = 'lastModifiedDateTime desc';
+            query.$filter = `lastModifiedDateTime gt ${opts.modifiedSince}`;
+        }
+        const found = await this.session.all<GraphChatMessage>(`/me/chats/${encodeURIComponent(chatId)}/messages`, { query, limit });
         return found
             .filter((m) => (m.messageType ?? 'message') === 'message' && m.createdDateTime)
             .map((m) => {
@@ -175,6 +185,8 @@ export class TeamsChats {
                     senderName: m.from?.user?.displayName ?? m.from?.application?.displayName ?? null,
                     fromMe: senderId !== null && senderId === me,
                     text,
+                    mentions: (m.mentions ?? []).map((x) => x.mentioned?.user?.id).filter((x): x is string => !!x),
+                    webUrl: m.webUrl ?? null,
                 };
             })
             .sort((a, b) => a.at.localeCompare(b.at));

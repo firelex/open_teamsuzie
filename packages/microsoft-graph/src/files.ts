@@ -1,4 +1,4 @@
-import { GraphError, MICROSOFT_FILE_SCOPES, type GraphSession } from './session.js';
+import { GraphError, MICROSOFT_FILE_SCOPES, missingScopes, type GraphSession } from './session.js';
 
 /**
  * OneDrive and SharePoint files through Microsoft Graph, read only: the
@@ -91,8 +91,7 @@ const seg = (id: string) => encodeURIComponent(id);
 
 /** The file scopes (MICROSOFT_FILE_SCOPES) a list of granted scopes lacks; Microsoft may list them with Graph's address in front. */
 export function missingFileScopes(granted: readonly string[]): string[] {
-    const have = new Set(granted.map((s) => s.replace(/^https:\/\/graph\.microsoft\.com\//i, '').toLowerCase()));
-    return MICROSOFT_FILE_SCOPES.filter((s) => !have.has(s.toLowerCase()));
+    return missingScopes(granted, MICROSOFT_FILE_SCOPES);
 }
 
 export class OneDriveFiles {

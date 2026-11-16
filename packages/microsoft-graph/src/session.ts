@@ -27,6 +27,17 @@ export const MICROSOFT_SCOPES: readonly string[] = [
 ];
 /** Add to read SharePoint and OneDrive files. */
 export const MICROSOFT_FILE_SCOPES: readonly string[] = ['Files.Read.All', 'Sites.Read.All'];
+/** Add to post in the user's Teams chats (sendChatMessage). */
+export const MICROSOFT_CHAT_SEND_SCOPES: readonly string[] = ['ChatMessage.Send'];
+
+/**
+ * Which of `wanted` the granted permissions (as GraphSession.grantedScopes
+ * lists them, with or without Graph's address in front) lack.
+ */
+export function missingScopes(granted: readonly string[], wanted: readonly string[]): string[] {
+    const have = new Set(granted.map((s) => s.replace(/^https:\/\/graph\.microsoft\.com\//i, '').toLowerCase()));
+    return wanted.filter((s) => !have.has(s.toLowerCase()));
+}
 
 export type GraphErrorCode =
     | 'not_configured'

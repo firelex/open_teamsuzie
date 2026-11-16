@@ -6,15 +6,22 @@ user's Microsoft Entra tenant. Ported from Jeff Desk (`jeff_desk/microsoft.py`, 
 
 - **Sign-in:** `authorizationUrl` + `exchangeCode` (authorization code with PKCE, public client, no secret). The app
   registration needs the platform "Mobile and desktop applications" with the host's redirect URI. Scopes:
-  `MICROSOFT_SCOPES` (mail, calendar, Teams chats), plus `MICROSOFT_FILE_SCOPES` for SharePoint and OneDrive.
+  `MICROSOFT_SCOPES` (mail, calendar, Teams chats), plus `MICROSOFT_FILE_SCOPES` for SharePoint and OneDrive and
+  `MICROSOFT_CHAT_SEND_SCOPES` to post in Teams chats; `missingScopes(granted, wanted)` compares a token's granted
+  permissions with those wanted.
 - **`GraphSession`:** access tokens refreshed on demand (one refresh at a time); Microsoft may rotate the refresh
   token, which is handed to the host's `saveRefreshToken`. Errors are `GraphError` with Graph's own message
   (`needs_login`, `throttled`, `refused`, `not_found`, ...); nothing is retried silently.
 - **`OutlookMailClient`:** an `@teamsuzie/email` `EmailClient` (list, read, thread, send, reply, forward), plus
   `between(folder, from, to)` with each email's people. Errors map to the email package's (`EmailAuthError`, ...).
   Sends go out at once: hosts put them behind their approvals.
-- **`OutlookCalendar.events(start, end)`** and **`TeamsChats`** (`chats`, `messages`, the user's own messages marked):
-  read only.
+- **`OutlookCalendar.events(start, end)`** and **`TeamsChats`** (`chats`, `messages`, the user's own messages marked,
+  with the users each message @mentions and its address in Teams; `messages(chat, limit, { modifiedSince })` asks
+  only for what was written or changed since then): read only.
+- **`sendChatMessage(session, chatId, text)`**: posts plain text (as `teamsHtml`, with its paragraphs, lists and line
+  breaks) in one of the user's chats, as the user. Needs `MICROSOFT_CHAT_SEND_SCOPES` (`ChatMessage.Send`);
+  `missingChatSendScopes` tells a connection made before it was asked for. The package's only Teams write: hosts
+  decide when a message goes out.
 - **`OneDriveFiles`**, read only (needs `MICROSOFT_FILE_SCOPES`): the user's OneDrive, a drive's folders, files
   shared with them, followed and found SharePoint sites and their document libraries, OneDrive search, and a file's
   bytes (`GraphSession.download`, stopped at a size limit with `too_large`). `GraphSession.grantedScopes()` lists
