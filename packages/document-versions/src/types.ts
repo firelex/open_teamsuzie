@@ -16,7 +16,9 @@ export type VersionSource =
     /** Brought in from OneDrive or SharePoint; `notes` is the file's address there. */
     | 'onedrive'
     /** Brought in from Google Drive; `notes` is the file's address there. */
-    | 'google_drive';
+    | 'google_drive'
+    /** Brought in from Box; `notes` is the file's address there. */
+    | 'box';
 
 export const VERSION_SOURCES: readonly VersionSource[] = [
     'upload',
@@ -28,6 +30,7 @@ export const VERSION_SOURCES: readonly VersionSource[] = [
     'edit',
     'onedrive',
     'google_drive',
+    'box',
 ] as const;
 
 export interface DocumentVersion {

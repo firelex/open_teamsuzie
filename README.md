@@ -497,6 +497,7 @@ The reusable core lives in `packages/*` — ~50 workspaces that downstream apps 
 | `@teamsuzie/chats` · `@teamsuzie/user-memory` · `@teamsuzie/personas` | Persisted chats, per-user long-lived memory, persona registry |
 | `@teamsuzie/db-sqlite` · `@teamsuzie/jobs` · `@teamsuzie/email` | SQLite plumbing, async job queue, provider-agnostic email contracts |
 | `@teamsuzie/email-gmail` · `@teamsuzie/email-sync` · `@teamsuzie/email-insights` · `@teamsuzie/email-fixture` | Gmail sign-in and client, a synced local mailbox copy, checked model-written thread summaries, and an in-memory test mailbox |
+| `@teamsuzie/box` | A user's Box sign-in (OAuth 2.0) and read-only folders, search and downloads |
 | `@teamsuzie/skills` | Headless skill runtime — discovery, template rendering, pluggable target |
 | `@teamsuzie/ui` · `@teamsuzie/theme` | Shared React component library and the CSS-only design tokens (Tailwind 4) |
 
