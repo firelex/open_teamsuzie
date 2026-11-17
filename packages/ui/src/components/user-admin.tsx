@@ -1,10 +1,11 @@
 import * as React from "react"
-import { KeyRound, Loader2, ShieldCheck, ShieldOff, Trash2, UserCheck, UserX } from "lucide-react"
+import { KeyRound, Loader2, Pencil, ShieldCheck, ShieldOff, Trash2, UserCheck, UserX } from "lucide-react"
 
 import { Badge } from "./badge.js"
 import { Button } from "./button.js"
 import { useConfirm } from "./confirm-dialog.js"
 import { DataTable, formatDateTime, type Column } from "./data-table.js"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./dialog.js"
 import { Input } from "./input.js"
 import { Label } from "./label.js"
 import {
@@ -78,6 +79,9 @@ function activeActionId(userId: string): string {
 function resetActionId(userId: string): string {
   return `reset:${userId}`
 }
+function renameActionId(userId: string): string {
+  return `rename:${userId}`
+}
 function removeActionId(userId: string): string {
   return `remove:${userId}`
 }
@@ -101,6 +105,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
   const [busy, setBusy] = React.useState(false)
   const [pending, setPending] = React.useState<PendingAction | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [renaming, setRenaming] = React.useState<AdminUserRow | null>(null)
   const confirm = useConfirm()
 
   const load = React.useCallback(async () => {
@@ -241,6 +246,14 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
     )
   }
 
+  async function rename(user: AdminUserRow, name: string) {
+    setRenaming(null)
+    await runAction(
+      () => send("PATCH", `/users/${user.id}`, { name }),
+      { id: renameActionId(user.id), label: t('userAdmin.savingEllipsis') },
+    )
+  }
+
   async function removeUser(user: AdminUserRow) {
     await confirmThenRun(
       {
@@ -269,7 +282,7 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
 
   function rowPendingLabel(id: string): string | null {
     if (!pending) return null
-    const ids = [roleActionId(id), activeActionId(id), resetActionId(id), removeActionId(id)]
+    const ids = [roleActionId(id), renameActionId(id), activeActionId(id), resetActionId(id), removeActionId(id)]
     return ids.includes(pending.id) ? pending.label : null
   }
 
@@ -403,6 +416,13 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
                       onSelect: () => changeRole(user),
                     },
                     {
+                      id: "rename",
+                      label: t('userAdmin.changeName'),
+                      icon: Pencil,
+                      disabled: busy,
+                      onSelect: () => setRenaming(user),
+                    },
+                    {
                       id: "reset",
                       label: t('userAdmin.resetPassword'),
                       icon: KeyRound,
@@ -434,6 +454,8 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
         />
       </section>
 
+      {renaming && <RenameDialog user={renaming} onCancel={() => setRenaming(null)} onSave={(name) => void rename(renaming, name)} />}
+
       <section className="space-y-3">
         <h3 className="text-sm font-medium">{t('userAdmin.pendingInvitesTitle')}</h3>
         <DataTable<InviteRow>
@@ -459,6 +481,44 @@ export function UserAdmin({ apiBase, currentUserEmail, linkBase }: UserAdminProp
         />
       </section>
     </div>
+  )
+}
+
+/** Asks for a person's new name; Save is off until the name is not empty and differs. */
+function RenameDialog({ user, onCancel, onSave }: { user: AdminUserRow; onCancel: () => void; onSave: (name: string) => void }) {
+  const { t } = useUiT()
+  const [name, setName] = React.useState(user.name)
+  const trimmed = name.trim()
+  const canSave = trimmed.length > 0 && trimmed !== user.name
+  return (
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-md">
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (canSave) onSave(trimmed)
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{t('userAdmin.changeNameTitle', { email: user.email })}</DialogTitle>
+            <DialogDescription>{t('userAdmin.changeNameDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="user-admin-rename">{t('userAdmin.nameHeader')}</Label>
+            <Input id="user-admin-rename" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" disabled={!canSave}>
+              {t('userAdmin.save')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 

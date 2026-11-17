@@ -65,11 +65,11 @@ export { ServiceError, handleControllerError } from './errors/index.js';
 
 // Controllers
 export { default as AuthController } from './controllers/auth.js';
-export { UserAdminController, hashToken, workThenSignOut, type UserAdminEvent, type UserAdminOptions } from './controllers/user-admin.js';
+export { UserAdminController, hashToken, workThenSignOut, checkName, type UserAdminEvent, type UserAdminOptions } from './controllers/user-admin.js';
 
 // Routes
 export { createAuthRouter } from './routes/auth.js';
-export { createUserAdminRouter, createUserAdminPublicRouter } from './routes/user-admin.js';
+export { createUserAdminRouter, createUserAdminPublicRouter, createOwnProfileRouter } from './routes/user-admin.js';
 
 // Registration policy
 export {

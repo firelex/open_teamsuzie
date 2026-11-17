@@ -15,6 +15,14 @@ export function createUserAdminRouter(opts: UserAdminOptions): Router {
     return router;
 }
 
+/** For any signed-in person: `PATCH /name` with `{ name }` changes their own name. */
+export function createOwnProfileRouter(opts: UserAdminOptions): Router {
+    const c = new UserAdminController(opts);
+    const router = Router();
+    router.patch('/name', c.updateOwnName);
+    return router;
+}
+
 /** Routes a person without an account (or a password) uses with a link an admin gave them. */
 export function createUserAdminPublicRouter(opts: UserAdminOptions): Router {
     const c = new UserAdminController(opts);

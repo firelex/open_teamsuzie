@@ -69,7 +69,11 @@
     "statusHeader": "Status",
     "unknownError": "unbekannter Fehler",
     "user": "Benutzer",
-    "you": "(Sie)"
+    "you": "(Sie)",
+    "changeName": "Namen ändern",
+    "changeNameTitle": "Namen von {{email}} ändern",
+    "changeNameDescription": "Der Name, der in der App und in den E-Mails dieser Person angezeigt wird. Die Person bleibt angemeldet.",
+    "save": "Speichern"
   },
   "actionsMenu": {
     "delete": "Löschen",

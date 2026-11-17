@@ -450,7 +450,11 @@
     "statusHeader": "Status",
     "unknownError": "unknown error",
     "user": "User",
-    "you": "(you)"
+    "you": "(you)",
+    "changeName": "Change name",
+    "changeNameTitle": "Change the name of {{email}}",
+    "changeNameDescription": "The name shown in the app and on the mail this person sends. They stay signed in.",
+    "save": "Save"
   },
   "workflowPickerDialog": {
     "badgeChat": "Chat",

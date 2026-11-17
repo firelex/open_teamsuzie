@@ -450,7 +450,11 @@
     "statusHeader": "Status",
     "unknownError": "erro desconhecido",
     "user": "Usuário",
-    "you": "(você)"
+    "you": "(você)",
+    "changeName": "Alterar nome",
+    "changeNameTitle": "Alterar o nome de {{email}}",
+    "changeNameDescription": "O nome apresentado na aplicação e nos e-mails que esta pessoa envia. Continua com a sessão iniciada.",
+    "save": "Guardar"
   },
   "workflowPickerDialog": {
     "badgeChat": "Chat",

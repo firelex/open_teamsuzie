@@ -51,6 +51,8 @@ export interface UserAdminStore {
      * would leave no active admin.
      */
     updateUser(id: string, patch: { role?: AppRole; is_active?: boolean }, by: string): Promise<AdminUserRow>;
+    /** Sets the person's name (as the caller checked it). Throws `{ code: 404 }` when there is no such person. */
+    setName(id: string, name: string, by: string): Promise<AdminUserRow>;
     revokeAccessTokens(userId: string): Promise<void>;
     createResetToken(input: { userId: string; tokenHash: string; expiresAt: Date; createdBy: string }): Promise<void>;
     useResetToken(tokenHash: string, password: string, now: Date): Promise<AdminUserRow | 'invalid'>;
@@ -168,6 +170,12 @@ export class SequelizeUserAdminStore implements UserAdminStore {
             if (patch.role) await setFirmMembership(u.id, patch.role, { transaction });
             return row(u);
         });
+    }
+    async setName(id: string, name: string, by: string) {
+        const u = await User.findByPk(id);
+        if (!u) throw Object.assign(new Error('No such user'), { code: 404 });
+        await u.update({ name, updated_by: by });
+        return row(u);
     }
     async revokeAccessTokens(userId: string) {
         await UserAccessToken.update({ revoked_at: new Date() }, { where: { user_id: userId, revoked_at: null } });

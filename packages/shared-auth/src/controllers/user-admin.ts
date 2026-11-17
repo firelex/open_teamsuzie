@@ -8,6 +8,7 @@ export type UserAdminEvent =
     | { kind: 'invite_revoked'; actor: AdminUserRow; inviteId: string }
     | { kind: 'joined'; target: AdminUserRow }
     | { kind: 'role_changed'; actor: AdminUserRow; target: AdminUserRow; from: AppRole; to: AppRole }
+    | { kind: 'renamed'; actor: AdminUserRow; target: AdminUserRow; from: string; to: string }
     | { kind: 'deactivated' | 'reactivated' | 'password_reset_issued' | 'removed'; actor: AdminUserRow; target: AdminUserRow }
     | { kind: 'password_reset_used'; target: AdminUserRow };
 
@@ -47,6 +48,17 @@ function answerError(res: Response, e: unknown): void {
     const status = typeof err.code === 'number' && err.code >= 400 && err.code < 600 ? err.code : 500;
     const label = typeof err.error === 'string' ? err.error : (status === 500 ? 'internal' : 'refused');
     fail(res, status, label, err.message ?? String(e));
+}
+
+const MAX_NAME = 100;
+
+/** The name as it is kept (trimmed), or why it cannot be one: empty, too long, or with a control character. */
+export function checkName(value: unknown): { name: string } | { problem: string } {
+    const name = typeof value === 'string' ? value.trim() : '';
+    if (!name) return { problem: 'Enter a name' };
+    if (name.length > MAX_NAME) return { problem: `A name is at most ${MAX_NAME} characters` };
+    if (/[\u0000-\u001f\u007f]/.test(name)) return { problem: 'A name cannot contain line breaks or control characters' };
+    return { name };
 }
 
 function passwordProblem(password: unknown, min: number): string | null {
@@ -176,7 +188,18 @@ export class UserAdminController {
             const isActive = body?.is_active as boolean | undefined;
             if (role !== undefined && !ROLES.includes(role)) return fail(res, 400, 'invalid', 'role must be admin or user');
             if (isActive !== undefined && typeof isActive !== 'boolean') return fail(res, 400, 'invalid', 'is_active must be true or false');
-            if (role === undefined && isActive === undefined) return fail(res, 400, 'invalid', 'Nothing to change');
+            const named = body?.name === undefined ? null : checkName(body.name);
+            if (named && 'problem' in named) return fail(res, 400, 'invalid', named.problem);
+            if (role === undefined && isActive === undefined && !named) return fail(res, 400, 'invalid', 'Nothing to change');
+            // A new name changes nobody's access: it is written on its own, with no sign-out.
+            if (named && named.name !== target.name) {
+                const previousName = target.name;
+                const renamed = await this.opts.store.setName(target.id, named.name, me.id);
+                await this.opts.onChange({ kind: 'renamed', actor: me, target: renamed, from: previousName, to: renamed.name });
+                if (role === undefined && isActive === undefined) return void res.status(200).json({ user: renamed });
+            } else if (role === undefined && isActive === undefined) {
+                return void res.status(200).json({ user: target });
+            }
             // Snapshot the prior role/active state before the store call: the store may mutate and return
             // the same object `findUser` gave us, so reading `target` again afterwards would see the new
             // values. The last-admin rule itself is enforced atomically inside the store's own transaction
@@ -206,6 +229,23 @@ export class UserAdminController {
                 });
             }
             res.status(200).json({ user: updated });
+        } catch (e) { answerError(res, e); }
+    };
+
+    /** A signed-in person changes their own name; their session shows it at once. */
+    updateOwnName = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const userId = (req.session as unknown as { userId?: string } | undefined)?.userId;
+            if (!userId) return fail(res, 401, 'unauthorized', 'Not signed in');
+            const me = await this.opts.store.findUser(userId);
+            if (!me || !me.is_active) return fail(res, 401, 'unauthorized', 'Not signed in');
+            const named = checkName((req.body as Record<string, unknown> | undefined)?.name);
+            if ('problem' in named) return fail(res, 400, 'invalid', named.problem);
+            if (named.name === me.name) return void res.status(200).json({ user: me });
+            const renamed = await this.opts.store.setName(me.id, named.name, me.id);
+            (req.session as unknown as Record<string, unknown>).userName = renamed.name;
+            await this.opts.onChange({ kind: 'renamed', actor: me, target: renamed, from: me.name, to: renamed.name });
+            res.status(200).json({ user: renamed });
         } catch (e) { answerError(res, e); }
     };
 

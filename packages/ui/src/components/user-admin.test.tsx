@@ -28,6 +28,29 @@ async function chooseRowAction(person: string, item: string) {
 }
 
 describe('UserAdmin', () => {
+    it('changes a person’s name from their row, sending only the new name', async () => {
+        const patched: unknown[] = [];
+        let shown = users;
+        vi.stubGlobal('fetch', mockFetch({
+            'GET /api/p/users': () => ({ status: 200, body: { users: shown } }),
+            'GET /api/p/invites': () => ({ status: 200, body: { invites: [] } }),
+            'PATCH /api/p/users/bob': (init) => {
+                patched.push(JSON.parse(String(init?.body)));
+                shown = users.map((u) => (u.id === 'bob' ? { ...u, name: 'Bob Baker' } : u));
+                return { status: 200, body: { user: shown[1] } };
+            },
+        }));
+        render(<ConfirmDialogProvider><UserAdmin apiBase="/api/p" currentUserEmail="ann@firm.test" linkBase="https://firm.example/allinone" /></ConfirmDialogProvider>);
+        await screen.findByText('Bob');
+        await chooseRowAction('Bob', 'Change name');
+        const field = await screen.findByLabelText('Name');
+        expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.change(field, { target: { value: '  Bob Baker ' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(screen.getByText('Bob Baker')).toBeTruthy());
+        expect(patched).toEqual([{ name: 'Bob Baker' }]);
+    });
+
     it('lists people and shows the server’s message when a change is refused', async () => {
         vi.stubGlobal('fetch', mockFetch({
             'GET /api/p/users': () => ({ status: 200, body: { users } }),

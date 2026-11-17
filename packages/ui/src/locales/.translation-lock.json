@@ -382,7 +382,11 @@
       "reviewGrid.emptyNoDocumentsNoColumns": "a3f33c151a11cc0dbefc3d700fd1e95ef223e6a7c4e0cd73500a23d2508b28a0",
       "reviewGrid.emptyNoColumns": "63ab54c31e53852995cfbb1d33be5f3a0376c8790c1ce6d5cb932d6f09d24a66",
       "reviewGrid.emptyNoDocuments": "a08ddc24bc337da917e5617ab1d1e837d96dd101199d31ae7058d77743b1b77c",
-      "reviewGrid.retry": "942087cc2d41e01304b7195558d093d10c72af8e838c7556d6a02d471ee71852"
+      "reviewGrid.retry": "942087cc2d41e01304b7195558d093d10c72af8e838c7556d6a02d471ee71852",
+      "userAdmin.changeName": "e17a848467985e268244f93fab14ab3f63a4a4e61ab1faf14a1a6dc118717f9c",
+      "userAdmin.changeNameTitle": "69457df0c837f619bb40059fe21d3172da0c5b0b0b772e7939af6e078952bb3d",
+      "userAdmin.changeNameDescription": "37858543971f7e5760f07f731405405ba093919e4df798d63afcbea69a464fe7",
+      "userAdmin.save": "1509f561f2416598629b886ad7d3c05a7e221e4e0675c84bbff4ee6d9e03913d"
     }
   },
   "fr": {
@@ -768,7 +772,11 @@
       "reviewGrid.emptyNoDocumentsNoColumns": "a3f33c151a11cc0dbefc3d700fd1e95ef223e6a7c4e0cd73500a23d2508b28a0",
       "reviewGrid.emptyNoColumns": "63ab54c31e53852995cfbb1d33be5f3a0376c8790c1ce6d5cb932d6f09d24a66",
       "reviewGrid.emptyNoDocuments": "a08ddc24bc337da917e5617ab1d1e837d96dd101199d31ae7058d77743b1b77c",
-      "reviewGrid.retry": "942087cc2d41e01304b7195558d093d10c72af8e838c7556d6a02d471ee71852"
+      "reviewGrid.retry": "942087cc2d41e01304b7195558d093d10c72af8e838c7556d6a02d471ee71852",
+      "userAdmin.changeName": "e17a848467985e268244f93fab14ab3f63a4a4e61ab1faf14a1a6dc118717f9c",
+      "userAdmin.changeNameTitle": "69457df0c837f619bb40059fe21d3172da0c5b0b0b772e7939af6e078952bb3d",
+      "userAdmin.changeNameDescription": "37858543971f7e5760f07f731405405ba093919e4df798d63afcbea69a464fe7",
+      "userAdmin.save": "1509f561f2416598629b886ad7d3c05a7e221e4e0675c84bbff4ee6d9e03913d"
     }
   },
   "es": {
@@ -1154,7 +1162,11 @@
       "workflowPickerDialog.noWorkflowsMatch": "532bfd48882b0e845de7ca09f3d1c531a3b31c6a16a0a8f4aa19bfe9b9a0ff6c",
       "workflowPickerDialog.searchWorkflows": "e827cf3e519feac78d303facad9524fcd3da3ecdcb7846266301ab26eb85a087",
       "workflowPickerDialog.title": "d30c07286c7dd0e4c3e753c38ea8bbef1af8268ac79848979e6d72bf98d331e9",
-      "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb"
+      "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb",
+      "userAdmin.changeName": "e17a848467985e268244f93fab14ab3f63a4a4e61ab1faf14a1a6dc118717f9c",
+      "userAdmin.changeNameTitle": "69457df0c837f619bb40059fe21d3172da0c5b0b0b772e7939af6e078952bb3d",
+      "userAdmin.changeNameDescription": "37858543971f7e5760f07f731405405ba093919e4df798d63afcbea69a464fe7",
+      "userAdmin.save": "1509f561f2416598629b886ad7d3c05a7e221e4e0675c84bbff4ee6d9e03913d"
     }
   },
   "it": {
@@ -1540,7 +1552,11 @@
       "workflowPickerDialog.noWorkflowsMatch": "532bfd48882b0e845de7ca09f3d1c531a3b31c6a16a0a8f4aa19bfe9b9a0ff6c",
       "workflowPickerDialog.searchWorkflows": "e827cf3e519feac78d303facad9524fcd3da3ecdcb7846266301ab26eb85a087",
       "workflowPickerDialog.title": "d30c07286c7dd0e4c3e753c38ea8bbef1af8268ac79848979e6d72bf98d331e9",
-      "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb"
+      "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb",
+      "userAdmin.changeName": "e17a848467985e268244f93fab14ab3f63a4a4e61ab1faf14a1a6dc118717f9c",
+      "userAdmin.changeNameTitle": "69457df0c837f619bb40059fe21d3172da0c5b0b0b772e7939af6e078952bb3d",
+      "userAdmin.changeNameDescription": "37858543971f7e5760f07f731405405ba093919e4df798d63afcbea69a464fe7",
+      "userAdmin.save": "1509f561f2416598629b886ad7d3c05a7e221e4e0675c84bbff4ee6d9e03913d"
     }
   },
   "pt": {
@@ -1926,7 +1942,11 @@
       "workflowPickerDialog.noWorkflowsMatch": "532bfd48882b0e845de7ca09f3d1c531a3b31c6a16a0a8f4aa19bfe9b9a0ff6c",
       "workflowPickerDialog.searchWorkflows": "e827cf3e519feac78d303facad9524fcd3da3ecdcb7846266301ab26eb85a087",
       "workflowPickerDialog.title": "d30c07286c7dd0e4c3e753c38ea8bbef1af8268ac79848979e6d72bf98d331e9",
-      "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb"
+      "workflowPickerDialog.tryDifferentSearch": "36b89662c2f6a001e56246c98931a2e3e2b0de4bbeab90629e233a577d6a92cb",
+      "userAdmin.changeName": "e17a848467985e268244f93fab14ab3f63a4a4e61ab1faf14a1a6dc118717f9c",
+      "userAdmin.changeNameTitle": "69457df0c837f619bb40059fe21d3172da0c5b0b0b772e7939af6e078952bb3d",
+      "userAdmin.changeNameDescription": "37858543971f7e5760f07f731405405ba093919e4df798d63afcbea69a464fe7",
+      "userAdmin.save": "1509f561f2416598629b886ad7d3c05a7e221e4e0675c84bbff4ee6d9e03913d"
     }
   }
 }

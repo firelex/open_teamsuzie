@@ -69,7 +69,11 @@
     "statusHeader": "Statut",
     "unknownError": "erreur inconnue",
     "user": "Utilisateur",
-    "you": "(vous)"
+    "you": "(vous)",
+    "changeName": "Modifier le nom",
+    "changeNameTitle": "Modifier le nom de {{email}}",
+    "changeNameDescription": "Le nom affiché dans l’application et sur les e-mails envoyés par cette personne. Elle reste connectée.",
+    "save": "Enregistrer"
   },
   "actionsMenu": {
     "delete": "Supprimer",

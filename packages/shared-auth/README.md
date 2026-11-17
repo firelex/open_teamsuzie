@@ -17,8 +17,11 @@ Multi-tenant auth models, session service, and middleware for Team Suzie.
 For a single-firm app that manages its own people (invite, change role, deactivate, reset password, remove),
 rather than self-service registration:
 
-- `createUserAdminRouter(opts: UserAdminOptions)` — admin-only routes: list/patch/delete a user, issue a password
-  reset, list/create/revoke invites. Mount it behind the app's own `requireAuth`.
+- `createUserAdminRouter(opts: UserAdminOptions)` — admin-only routes: list/patch/delete a user (a patch may change
+  their role, whether they are active, and their name; a new name alone signs nobody out), issue a password reset,
+  list/create/revoke invites. Mount it behind the app's own `requireAuth`.
+- `createOwnProfileRouter(opts: UserAdminOptions)` — for any signed-in person: `PATCH /name` with `{ name }` changes
+  their own name, and their session shows it at once. Every rename is an `onChange` event of kind `renamed`.
 - `createUserAdminPublicRouter(opts: UserAdminOptions)` — the public routes a person without an account (or
   password) uses from a link an admin gave them: look up an invite, accept an invite, use a password-reset token.
 - `UserAdminOptions` ties both routers to the host app: a `UserAdminStore` (the Sequelize-backed

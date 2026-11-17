@@ -57,6 +57,12 @@ function fakeStore(users: AdminUserRow[]) {
             Object.assign(u, patch);
             return u;
         },
+        setName: async (id, name) => {
+            const u = users.find((x) => x.id === id);
+            if (!u) throw Object.assign(new Error('No such user'), { code: 404 });
+            u.name = name;
+            return u;
+        },
         revokeAccessTokens: vi.fn(async () => {}),
         createResetToken: vi.fn(async () => {}),
         useResetToken: vi.fn(async () => 'invalid' as const),
@@ -307,5 +313,42 @@ describe('password reset links', () => {
         expect((await call(ten.usePasswordReset, req(undefined, { params: { token: 'tok' }, body: { password: 'ten-chars!' } }))).status).toBe(200);
         expect((await call(ten.usePasswordReset, req(undefined, { params: { token: 'tok' }, body: { password: 'nine-char' } }))).status).toBe(400);
         expect(() => new UserAdminController({ store, sessions: {} as SessionTracker, onChange: () => {}, beforeDelete: () => {}, minPasswordLength: 6 })).toThrow(/at least 8/);
+    });
+});
+
+describe('names', () => {
+    it('an admin renames someone without signing them out; a bad name is refused', async () => {
+        const { c, store, ended, events } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        const out = await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { name: '  Bob Baker ' } }));
+        expect(out.status).toBe(200);
+        expect(out.body.user.name).toBe('Bob Baker');
+        expect(ended).toEqual([]);
+        expect(store.revokeAccessTokens).not.toHaveBeenCalled();
+        expect(events).toEqual([expect.objectContaining({ kind: 'renamed', from: 'bob', to: 'Bob Baker' })]);
+        expect((await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { name: 'Bob\nBaker' } }))).status).toBe(400);
+        expect((await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { name: '  ' } }))).status).toBe(400);
+        expect((await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { name: 'x'.repeat(101) } }))).status).toBe(400);
+        expect((await call(c.updateUser, req('bob', { params: { id: 'bob' }, body: { name: 'Robert' } }))).status).toBe(403);
+    });
+
+    it('a rename together with a role change does both, and only the role change signs them out', async () => {
+        const { c, ended, events } = setup([person('ann', 'admin'), person('bob', 'user')]);
+        const out = await call(c.updateUser, req('ann', { params: { id: 'bob' }, body: { name: 'Bob Baker', role: 'admin' } }));
+        expect(out.status).toBe(200);
+        expect(out.body.user).toMatchObject({ name: 'Bob Baker', role: 'admin' });
+        expect(ended).toEqual(['bob']);
+        expect(events.map((e) => e.kind)).toEqual(['renamed', 'role_changed']);
+    });
+
+    it('anyone signed in renames themselves, and their session shows the new name at once', async () => {
+        const { c, events } = setup([person('ann', 'admin'), person('bob', 'user'), person('cat', 'user', false)]);
+        const q = req('bob', { body: { name: 'Bob Baker' } });
+        const out = await call(c.updateOwnName, q);
+        expect(out.status).toBe(200);
+        expect((q.session as unknown as Record<string, unknown>).userName).toBe('Bob Baker');
+        expect(events).toEqual([expect.objectContaining({ kind: 'renamed', to: 'Bob Baker' })]);
+        expect((await call(c.updateOwnName, req(undefined, { body: { name: 'X' } }))).status).toBe(401);
+        expect((await call(c.updateOwnName, req('cat', { body: { name: 'X' } }))).status).toBe(401);
+        expect((await call(c.updateOwnName, req('bob', { body: { name: '' } }))).status).toBe(400);
     });
 });
