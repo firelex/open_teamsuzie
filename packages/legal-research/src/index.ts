@@ -9,6 +9,7 @@ import { auFederalRegister } from './providers/au-federalregister.js';
 import { beJustel } from './providers/be-justel.js';
 import { brPlanalto } from './providers/br-planalto.js';
 import { caJustice } from './providers/ca-justice.js';
+import { chEntscheidsuche } from './providers/ch-entscheidsuche.js';
 import { chFedlex } from './providers/ch-fedlex.js';
 import { coeHudoc } from './providers/coe-hudoc.js';
 import { deGesetzeImInternet } from './providers/de-gesetze.js';
@@ -24,7 +25,9 @@ import { nlRechtspraak } from './providers/nl-rechtspraak.js';
 import { nlWetten } from './providers/nl-wetten.js';
 import { ukFindCaseLaw } from './providers/uk-findcaselaw.js';
 import { ukLegislation } from './providers/uk-legislation.js';
+import { usDeCode } from './providers/us-de-code.js';
 import { usCfr } from './providers/us-ecfr.js';
+import { usUSCode } from './providers/us-uscode.js';
 
 // Factory-based providers (API key / credentials required).
 // buildUsCourtListener uses { token?, baseUrl? } — token is the Bearer token.
@@ -52,9 +55,9 @@ export interface LegalResearchConfig {
 export function legalResearchExtension(config: LegalResearchConfig = {}): Extension {
   const providers = [
     arInfoleg, atRis, auFederalRegister, beJustel, brPlanalto, caJustice,
-    chFedlex, coeHudoc, deGesetzeImInternet, deOpenLegalData, esBoe,
+    chEntscheidsuche, chFedlex, coeHudoc, deGesetzeImInternet, deOpenLegalData, esBoe,
     euCuria, euEurLex, ieStatuteBook, itNormattiva, jpEGov, mxDof,
-    nlRechtspraak, nlWetten, ukFindCaseLaw, ukLegislation, usCfr,
+    nlRechtspraak, nlWetten, ukFindCaseLaw, ukLegislation, usCfr, usUSCode, usDeCode,
   ];
 
   if (config.courtListenerToken) {
