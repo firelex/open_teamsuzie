@@ -17,7 +17,7 @@
   "dependencies": { "i18next": "^27.1.1", "react-i18next": "^18.0.1" },
   "devDependencies": {
     "@types/react": "^19.1.8", "react": "^19.1.0", "react-dom": "^19.1.0",
-    "@testing-library/react": "^16.1.0", "jsdom": "^25.0.1",
-    "typescript": "^5.7.3", "vitest": "^4.0.18"
+    "@testing-library/react": "^16.3.3", "jsdom": "^31.0.1",
+    "typescript": "^7.0.2", "vitest": "^5.1.0"
   }
 }
