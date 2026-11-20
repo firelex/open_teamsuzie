@@ -120,7 +120,10 @@ export function fillDocxTemplate(spec: GenerateDocxSpec, template: Buffer | Uint
             counters[idx] += 1;
             for (let i = idx + 1; i < counters.length; i++) counters[i] = 0;
             const prefix = counters.slice(0, idx + 1).join('.');
-            const text = level === 1 ? section.heading.text.toUpperCase() : section.heading.text;
+            // The heading is numbered here, so a number the writer already put in front ("1.", "2.3", "IV.") is dropped,
+            // as is Markdown heading and bold marking.
+            const plain = stripHeadingMarks(section.heading.text);
+            const text = level === 1 ? plain.toUpperCase() : plain;
             xml.push(paragraph(style(headingStyleNames[idx]!, 'paragraph'), `${prefix}. ${text}`));
         }
         if (section.table) {
@@ -130,6 +133,12 @@ export function fillDocxTemplate(spec: GenerateDocxSpec, template: Buffer | Uint
         for (const raw of section.paragraphs ?? []) {
             const trimmed = raw.trim();
             if (!trimmed) continue;
+            // A Markdown heading line ("## Next steps") inside the paragraphs becomes a bold body line, unnumbered.
+            const mdHeading = trimmed.match(/^#{1,6}\s+(.+)$/);
+            if (mdHeading) {
+                xml.push(paragraph(style(TEMPLATE_STYLE_NAMES.body, 'paragraph'), stripHeadingMarks(mdHeading[1]!), true));
+                continue;
+            }
             const bullet = trimmed.match(BULLET_PREFIX);
             xml.push(
                 bullet
@@ -256,19 +265,50 @@ function escapeText(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** Runs for one paragraph's text: line breaks become <w:br/>, tabs <w:tab/>. */
+/** A heading's text without a leading number ("1.", "1.2", "2.3.", "IV.") or Markdown marks ("#", "**"). */
+export function stripHeadingMarks(text: string): string {
+    return text
+        .replace(/^#+\s*/, '')
+        .replace(/\*\*/g, '')
+        .replace(/^\s*(?:\d+\.(?:\d+\.?)*|[IVXLC]+\.)\s+/, '')
+        .trim();
+}
+
+/**
+ * Splits a paragraph's text into pieces by its Markdown emphasis: **bold** and *italic* (a writer's Markdown is
+ * turned into Word formatting rather than shown as asterisks).
+ */
+export function emphasisPieces(text: string): Array<{ text: string; bold: boolean; italic: boolean }> {
+    const out: Array<{ text: string; bold: boolean; italic: boolean }> = [];
+    const re = /\*\*([^*]+?)\*\*|(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![*\w])/g;
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+        if (m.index! > last) out.push({ text: text.slice(last, m.index), bold: false, italic: false });
+        out.push(m[1] !== undefined ? { text: m[1], bold: true, italic: false } : { text: m[2]!, bold: false, italic: true });
+        last = m.index! + m[0].length;
+    }
+    if (last < text.length) out.push({ text: text.slice(last), bold: false, italic: false });
+    return out;
+}
+
+/** Runs for one paragraph's text: **bold** and *italic* become formatting, line breaks <w:br/>, tabs <w:tab/>. */
 function runs(text: string, bold = false): string {
     if (!text) return '';
-    const rPr = bold ? '<w:rPr><w:b/><w:bCs/></w:rPr>' : '';
-    const parts: string[] = [];
-    text.replace(/\r\n?/g, '\n').split('\n').forEach((line, i) => {
-        if (i > 0) parts.push('<w:br/>');
-        line.split('\t').forEach((piece, j) => {
-            if (j > 0) parts.push('<w:tab/>');
-            if (piece) parts.push(`<w:t xml:space="preserve">${escapeText(piece)}</w:t>`);
-        });
-    });
-    return `<w:r>${rPr}${parts.join('')}</w:r>`;
+    return emphasisPieces(text.replace(/\r\n?/g, '\n'))
+        .map((piece) => {
+            const b = bold || piece.bold;
+            const rPr = b || piece.italic ? `<w:rPr>${b ? '<w:b/><w:bCs/>' : ''}${piece.italic ? '<w:i/><w:iCs/>' : ''}</w:rPr>` : '';
+            const parts: string[] = [];
+            piece.text.split('\n').forEach((line, i) => {
+                if (i > 0) parts.push('<w:br/>');
+                line.split('\t').forEach((chunk, j) => {
+                    if (j > 0) parts.push('<w:tab/>');
+                    if (chunk) parts.push(`<w:t xml:space="preserve">${escapeText(chunk)}</w:t>`);
+                });
+            });
+            return parts.length ? `<w:r>${rPr}${parts.join('')}</w:r>` : '';
+        })
+        .join('');
 }
 
 function paragraph(styleId: string, text: string, bold = false): string {

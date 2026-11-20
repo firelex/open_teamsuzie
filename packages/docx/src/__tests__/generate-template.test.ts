@@ -167,4 +167,18 @@ describe('generateDocx with a template', () => {
         expect(xml).toContain('x &lt; y &amp; z');
         expect(xml).toMatch(/x &lt; y &amp; z<\/w:t><w:br\/?>(<\/w:br>)?<w:t xml:space="preserve">second line<\/w:t><w:tab\/?>(<\/w:tab>)?<w:t/);
     });
+
+    it('drops a number the writer put before a heading, and turns Markdown bold and italic into formatting', async () => {
+        const { stripHeadingMarks, emphasisPieces } = await import('../template-fill.js');
+        expect(stripHeadingMarks('1. Summary of our advice')).toBe('Summary of our advice');
+        expect(stripHeadingMarks('## 2.3 **Risks**')).toBe('Risks');
+        expect(stripHeadingMarks('IV. Costs')).toBe('Costs');
+        expect(stripHeadingMarks('2026 outlook')).toBe('2026 outlook');
+        expect(emphasisPieces('**Step 1 – Check.** We *first* check 2 * 3.')).toEqual([
+            { text: 'Step 1 – Check.', bold: true, italic: false },
+            { text: ' We ', bold: false, italic: false },
+            { text: 'first', bold: false, italic: true },
+            { text: ' check 2 * 3.', bold: false, italic: false },
+        ]);
+    });
 });
