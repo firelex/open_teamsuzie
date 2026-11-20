@@ -14,6 +14,7 @@ import {
     WidthType,
     type IParagraphOptions,
 } from 'docx';
+import { fillDocxTemplate } from './template-fill.js';
 
 /**
  * Emit a fresh `.docx` from a structured spec — used by workflows that
@@ -30,8 +31,20 @@ import {
 export interface GenerateDocxSpec {
     /** Document title — rendered centered + bold + uppercase at the top. */
     title: string;
-    /** Page orientation. Default `'portrait'`. */
+    /** Page orientation. Default `'portrait'`. With a `template`, the
+     *  template's page size is kept and only turned (width and height
+     *  swapped) when this asks for the other orientation. */
     orientation?: 'portrait' | 'landscape';
+    /** Optional Word template (the bytes of a `.docx`). When given, the
+     *  output keeps the template's styles, numbering, theme, fonts, settings,
+     *  page size, margins, headers and footers, and any anchored drawings in
+     *  its body (such as a letterhead text box); the body's content is the
+     *  generated content, set in the template's own styles ("Title",
+     *  "heading 1"-"heading 3", "Body Text", "List Bullet", "Table Grid").
+     *  A style the content needs but the template lacks is an error
+     *  (`DocxTemplateError`), never replaced by another style. See
+     *  `fillDocxTemplate`. */
+    template?: Buffer | Uint8Array;
     /** Sections render top-to-bottom; an empty array still produces a valid
      *  doc with just the title. */
     sections: GenerateDocxSection[];
@@ -87,6 +100,8 @@ type DocChild = Paragraph | Table;
  * suitable for piping into the file store / HTTP response.
  */
 export async function generateDocx(spec: GenerateDocxSpec): Promise<Buffer> {
+    if (spec.template !== undefined) return fillDocxTemplate(spec, spec.template);
+
     const children: DocChild[] = [];
 
     children.push(

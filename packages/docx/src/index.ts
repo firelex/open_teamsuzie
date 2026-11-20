@@ -23,6 +23,7 @@ export {
 } from './revisions.js';
 export { applyContentKeyedEdits, planContentKeyedEdits } from './content-keyed-edits.js';
 export { generateDocx } from './generate.js';
+export { DocxTemplateError, TEMPLATE_STYLE_NAMES, fillDocxTemplate } from './template-fill.js';
 export type {
     GenerateDocxSpec,
     GenerateDocxSection,
