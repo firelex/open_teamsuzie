@@ -75,11 +75,17 @@ export function useStickToBottom(deps: readonly unknown[], behavior: ScrollBehav
     [onScroll, onWheel],
   )
 
-  /** Scroll to the end, and note where that left the view, so the reader's next scroll up is seen as one. */
+  /**
+   * Scroll to the end, and note where that left the view, so the reader's next scroll up is seen as one. A
+   * scrolling element is scrolled itself: scrollIntoView would move every scrolling ancestor too, the page
+   * included when it has grown taller than the window.
+   */
   const toEnd = () => {
+    const c = container.current
+    if (c && !(c instanceof Window)) c.scrollTo({ top: c.scrollHeight, behavior })
     // Braces: newer browsers return a promise from scrollIntoView, which React would take for a clean-up.
-    void endRef.current?.scrollIntoView({ block: "end", behavior })
-    if (container.current) lastTop.current = metrics(container.current).top
+    else void endRef.current?.scrollIntoView({ block: "end", behavior })
+    if (c) lastTop.current = metrics(c).top
   }
 
   useEffect(() => {

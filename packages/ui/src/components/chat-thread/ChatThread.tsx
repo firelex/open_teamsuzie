@@ -4,6 +4,7 @@ import type { ChatAttachment, ChatThreadProps, ChatToolCall } from './types.js';
 import { useChatThreadStream } from './use-chat-thread-stream.js';
 import { MarkdownMessage } from '../markdown-message.js';
 import { useUiT } from '../../lib/i18n.js';
+import { useStickToBottom } from '../../hooks/use-stick-to-bottom.js';
 
 /* ── Editorial-terminal aesthetic, tuned to the host palette ──────────────
  *
@@ -610,8 +611,6 @@ export function ChatThread(props: ChatThreadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingRef = useRef<PendingAttachment[]>([]);
   pendingRef.current = pending;
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => { ensureStyles(); }, []);
@@ -639,19 +638,9 @@ export function ChatThread(props: ChatThreadProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
-  useEffect(() => {
-    // Scroll the chat container directly to its bottom instead of
-    // bottomRef.scrollIntoView. scrollIntoView walks every ancestor
-    // scrollable container — including document.scrollingElement when the
-    // host page has accidentally grown taller than the viewport — and
-    // smooth-scrolls the entire page, leaving a strip of blank space at
-    // the bottom that the user reads as a layout bug. Targeting
-    // scrollRef directly keeps the side-effect scoped to .ct-scroll.
-    if (!stream.inFlight) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [stream.messages, stream.inFlight]);
+  // Follow a streaming reply only while the reader is at the bottom: scrolling up to read stops it, scrolling back
+  // down to the end starts it again, and sending a message brings the reader to the end.
+  const { endRef: bottomRef, stick } = useStickToBottom([stream.messages, stream.inFlight], 'smooth');
 
   // Auto-grow the textarea up to a cap.
   useEffect(() => {
@@ -697,6 +686,7 @@ export function ChatThread(props: ChatThreadProps) {
     if (!loadedHistory) return;
     hasAutoSentRef.current = true;
     setInput('');
+    stick();
     void stream.send(defaultInput, { chatId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendDefaultInput, defaultInput, loadedHistory]);
@@ -787,6 +777,7 @@ export function ChatThread(props: ChatThreadProps) {
     for (const it of pending) URL.revokeObjectURL(it.previewUrl);
     setPending([]);
     setInput('');
+    stick();
     await stream.send(text, { chatId, attachments: readyAttachments });
   }
 
@@ -796,7 +787,7 @@ export function ChatThread(props: ChatThreadProps) {
     <div className={rootClass}>
       {header && <div className="ct-header">{header}</div>}
 
-      <div className="ct-scroll" ref={scrollRef}>
+      <div className="ct-scroll">
         {!loadedHistory && (
           <div className="ct-empty">{t('chatThread.loadingDots')}</div>
         )}

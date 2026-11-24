@@ -17,7 +17,7 @@ function Chat({ items }: { items: string[] }) {
   )
 }
 
-/** jsdom lays nothing out: the box is 100 px tall and each item 50 px; scrollIntoView goes to the end. */
+/** jsdom lays nothing out: the box is 100 px tall and each item 50 px; scrolling to the end sets scrollTop. */
 function fakeLayout(box: HTMLElement) {
   Object.defineProperty(box, "clientHeight", { configurable: true, get: () => 100 })
   Object.defineProperty(box, "scrollHeight", { configurable: true, get: () => box.querySelectorAll("p").length * 50 })
@@ -26,11 +26,10 @@ function fakeLayout(box: HTMLElement) {
 const scrolled = vi.fn()
 beforeEach(() => {
   scrolled.mockReset()
-  Element.prototype.scrollIntoView = function (this: Element) {
-    const box = this.parentElement as HTMLElement
+  Element.prototype.scrollTo = function (this: Element) {
     scrolled()
-    box.scrollTop = box.scrollHeight - box.clientHeight
-  }
+    this.scrollTop = this.scrollHeight - this.clientHeight
+  } as Element["scrollTo"]
 })
 afterEach(() => cleanup())
 
