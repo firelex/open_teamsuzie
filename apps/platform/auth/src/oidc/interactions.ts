@@ -19,7 +19,7 @@ const EXPIRED_HTML = `
 <body>
   <main>
     <h1>Sign-in expired</h1>
-    <p>Please start sign-in again from Suzie.</p>
+    <p>Go back to the app you were signing in to and sign in again.</p>
   </main>
 </body>
 </html>
@@ -32,6 +32,21 @@ export interface InteractionsOptions {
   registration?: RegistrationMode;
   /** Counts sign-in attempts per client address and per email; a successful sign-in is given back. */
   limiter?: AttemptLimiter;
+  /**
+   * The origins of the registered clients' redirect URIs. A sign-in form submitted after its interaction expired is sent
+   * back to the app it came from (its origin, which starts a fresh sign-in) when that app is one of these, instead of
+   * a dead-end page.
+   */
+  returnOrigins?: string[];
+}
+
+/** The origin of a URL, or '' when it isn't one. */
+export function originOf(url: unknown): string {
+  try {
+    return typeof url === 'string' && url ? new URL(url).origin : '';
+  } catch {
+    return '';
+  }
 }
 
 const CLOSED_NOTE = 'Accounts are created by an administrator. Ask yours if you need one.';
@@ -43,17 +58,29 @@ export function buildInteractionsRouter(
 ): Router {
   const r = Router();
   const note = (options.registration ?? 'closed') === 'closed' ? CLOSED_NOTE : '';
-  const renderLogin = (uid: string, error = '') => LOGIN_HTML
+  const known = new Set((options.returnOrigins ?? []).filter(Boolean));
+  /** The app a form came from, when it is a registered one; '' otherwise. */
+  const returnTo = (value: unknown) => {
+    const origin = originOf(value);
+    return origin && known.has(origin) ? origin : '';
+  };
+  const renderLogin = (uid: string, error = '', back = '') => LOGIN_HTML
     .replaceAll('{{uid}}', escapeHtml(uid))
     .replace('{{error}}', escapeHtml(error))
+    .replace('{{return_to}}', escapeHtml(back))
     .replace('{{note}}', escapeHtml(note));
+  const expired = (res: Response, back: string) => {
+    if (res.headersSent) return;
+    if (back) res.redirect(303, `${back}/`);
+    else renderExpiredInteraction(res);
+  };
 
   r.get('/oauth/interaction/:uid', async (req: Request, res: Response) => {
     const details = await getInteractionDetails(provider, req, res);
     if (!details) return;
     const { prompt } = details;
     if (prompt.name === 'login') {
-      res.type('html').send(renderLogin(details.uid));
+      res.type('html').send(renderLogin(details.uid, '', returnTo(details.params.redirect_uri)));
       return;
     }
     if (prompt.name === 'consent') {
@@ -87,19 +114,21 @@ export function buildInteractionsRouter(
 
   r.post('/oauth/interaction/:uid/login', async (req: Request, res: Response) => {
     const { email, password } = req.body ?? {};
+    const back = returnTo(req.body?.return_to);
     const attempt = options.limiter?.attempt(clientAddress(req), typeof email === 'string' ? email : undefined);
     if (attempt && !attempt.allowed) {
       res.setHeader('Retry-After', String(attempt.retryAfterSeconds));
       res.status(429).type('html').send(renderLogin(
         String(req.params.uid),
         `Too many sign-in attempts. Try again in ${attempt.retryAfterSeconds} seconds.`,
+        back,
       ));
       return;
     }
     const account = await verifyPassword(String(email ?? ''), String(password ?? ''));
     if (account && attempt?.allowed) attempt.release();
     if (!account) {
-      res.status(401).type('html').send(renderLogin(String(req.params.uid), 'Invalid email or password'));
+      res.status(401).type('html').send(renderLogin(String(req.params.uid), 'Invalid email or password', back));
       return;
     }
     await provider.interactionFinished(
@@ -108,7 +137,7 @@ export function buildInteractionsRouter(
       { mergeWithLastSubmission: false },
     ).catch((err) => {
       if (isSessionNotFound(err)) {
-        renderExpiredInteraction(res);
+        expired(res, back);
         return;
       }
       throw err;

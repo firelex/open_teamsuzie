@@ -15,7 +15,7 @@ import {
 } from '@teamsuzie/shared-auth';
 import type { ModelCtor } from 'sequelize-typescript';
 import { buildOidcProvider } from './oidc/Provider.js';
-import { buildInteractionsRouter } from './oidc/interactions.js';
+import { buildInteractionsRouter, originOf } from './oidc/interactions.js';
 import { loadClientRegistry } from './oidc/clients.js';
 import { AttemptLimiter, limitAttempts } from './security/attempt-limiter.js';
 
@@ -95,6 +95,7 @@ const registerLimiter = new AttemptLimiter(limiterOptions);
 app.use(buildInteractionsRouter(provider, verifyUserPassword, {
     registration: config.registration.mode,
     limiter: signInLimiter,
+    returnOrigins: loadClientRegistry(process.env).flatMap((c) => c.redirect_uris.map(originOf)),
 }));
 
 const csrfMiddleware = new CsrfMiddleware(sharedAuthConfig);

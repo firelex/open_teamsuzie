@@ -88,7 +88,8 @@ export async function buildOidcProvider(opts: BuildProviderOptions): Promise<Pro
       RefreshToken: 30 * 24 * 60 * 60,
       AuthorizationCode: 60,
       IdToken: 10 * 60,
-      Interaction: 10 * 60,
+      // Long enough to fetch a password from a message before submitting the form.
+      Interaction: 60 * 60,
       Session: 14 * 24 * 60 * 60,
       Grant: 14 * 24 * 60 * 60,
     },

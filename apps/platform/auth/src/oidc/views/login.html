@@ -133,6 +133,7 @@
         <p class="lead">Sign in to your workspace.</p>
         <form method="post" action="/oauth/interaction/{{uid}}/login" novalidate>
           <div class="err">{{error}}</div>
+          <input type="hidden" name="return_to" value="{{return_to}}">
           <div class="field">
             <label for="email">Email</label>
             <input id="email" name="email" type="email" autocomplete="username" placeholder="you@example.com" required>

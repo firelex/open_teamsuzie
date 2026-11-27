@@ -115,3 +115,48 @@ describe('sign-in attempt limit', () => {
     }
   });
 });
+
+describe('a sign-in that expired while the form was open', () => {
+  const JEFF = 'https://jeff.example.com';
+  async function startExpiring() {
+    const app = await start(verifyAlice, { returnOrigins: [JEFF] });
+    app.provider.interactionDetails.mockImplementation(async (req: express.Request) => ({
+      uid: String(req.params.uid ?? 'abc'),
+      prompt: { name: 'login' },
+      params: { redirect_uri: `${JEFF}/auth/callback` },
+      session: {},
+    }));
+    app.provider.interactionFinished.mockImplementation(async () => {
+      throw Object.assign(new Error('interaction session not found'), { name: 'SessionNotFound' });
+    });
+    return app;
+  }
+  const post = (base: string, returnTo: string) =>
+    fetch(`${base}/oauth/interaction/abc/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ email: 'alice@example.com', password: 'correct-password', return_to: returnTo }).toString(),
+      redirect: 'manual',
+    });
+
+  it('puts the app the sign-in came from in the form, when it is a registered one', async () => {
+    const { base } = await startExpiring();
+    expect(await (await fetch(`${base}/oauth/interaction/abc`)).text()).toContain(`name="return_to" value="${JEFF}"`);
+  });
+
+  it('sends the person back to that app to start again', async () => {
+    const { base } = await startExpiring();
+    const res = await post(base, JEFF);
+    expect(res.status).toBe(303);
+    expect(res.headers.get('location')).toBe(`${JEFF}/`);
+  });
+
+  it('never sends anyone to an app that is not registered, and the page names no product', async () => {
+    const { base } = await startExpiring();
+    const res = await post(base, 'https://evil.example.com');
+    expect(res.status).toBe(400);
+    const html = await res.text();
+    expect(html).toContain('Sign-in expired');
+    expect(html).not.toContain('Suzie');
+  });
+});
